@@ -1,0 +1,5 @@
+# allow crawling everything by default
+User-agent: *
+Disallow: /new
+Disallow: /p/
+Disallow: /admin/
