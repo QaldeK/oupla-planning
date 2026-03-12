@@ -1,4 +1,5 @@
 node_modules
+bun.lock
 
 # Output
 .output
@@ -29,8 +30,17 @@ agent/
 .claude
 CLAUDE.md
 .mcp.json
-.vs-code
+.vscode
 
 # pocketbase
 **/pb_data
 **/pb_migrations
+
+# Config files
+.npmrc
+.prettierignore
+.prettierrc
+eslint.config.js
+
+# Tauri
+src-tauri/target
