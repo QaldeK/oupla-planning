@@ -29,6 +29,7 @@ agent/
 .claude
 CLAUDE.md
 .mcp.json
+.vs-code
 
 # pocketbase
 **/pb_data
