@@ -27,6 +27,8 @@ vite.config.ts.timestamp-*
 
 agent/
 .claude
+CLAUDE.md
+.mcp.json
 
 # pocketbase
 **/pb_data
