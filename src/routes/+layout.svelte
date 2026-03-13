@@ -4,7 +4,7 @@
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
 	import { onMount } from 'svelte';
 	import { Toaster } from 'svelte-sonner';
-	import { Menu, Calendar, Sun, Moon } from 'lucide-svelte';
+	import { Menu, Calendar, Sun, Moon, CalendarPlus, Github } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
@@ -52,7 +52,7 @@
 	}
 </script>
 
-<div class="drawer lg:drawer-open">
+<div class="drawer lg:drawer-open min-h-screen">
 	<input id="main-drawer" type="checkbox" class="drawer-toggle" bind:checked={drawerOpen} />
 	<div class="drawer-content flex flex-col">
 		<!-- Navbar -->
@@ -71,6 +71,28 @@
 		<main class="bg-base-200 flex-1 p-2 md:p-4 lg:p-8">
 			{@render children()}
 		</main>
+
+		<!-- Footer -->
+		<footer class="border-base-300 mt-auto border-t py-4">
+			<div class="text-base-content/60 flex items-center justify-center gap-2">
+				<a
+					href="https://github.com/yourusername/yourrepo"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="hover:text-primary flex items-center gap-2 transition"
+				>
+					<Github size={20} />
+				</a>
+				<a
+					href="https://www.gnu.org/licenses/agpl-3.0.html"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="hover:text-primary transition"
+				>
+					Open Source - AGPL v3
+				</a>
+			</div>
+		</footer>
 	</div>
 
 	<!-- Sidebar -->
@@ -79,14 +101,14 @@
 		<aside class="bg-base-300 flex min-h-full w-80 flex-col p-4">
 			<!-- Logo/Titre -->
 			<div class="mb-6 flex items-center justify-between">
-				<a href="/" class="flex items-center gap-2 text-2xl font-bold">
-					<Calendar size={28} />
-					Planning
+				<a href="/" class="flex items-center gap-2">
+					<img src="/favicon.svg" alt="Oupla planning" class="size-8" />
+					<h1 class="text-lg font-bold sm:text-xl">Oupla Planning</h1>
 				</a>
 				<label class="swap swap-rotate btn btn-ghost btn-circle btn-sm">
 					<input type="checkbox" checked={theme === 'nord-dark'} onchange={toggleTheme} />
-					<Sun class="swap-on" size={20} />
-					<Moon class="swap-off" size={20} />
+					<Sun class="swap-off" size={20} />
+					<Moon class="swap-on" size={20} />
 				</label>
 			</div>
 
@@ -99,7 +121,7 @@
 					</a>
 				{/if}
 				<a href="/new" class="btn btn-primary w-full justify-start">
-					<Calendar size={18} />
+					<CalendarPlus size={18} />
 					Nouveau planning
 				</a>
 

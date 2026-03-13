@@ -90,11 +90,11 @@
 	{:else}
 		<div class="flex min-h-[60vh] flex-col items-center justify-center space-y-8 text-center">
 			<div class="space-y-4">
-				<Calendar size={80} class="text-primary/20 mx-auto" />
-				<h1 class="text-4xl font-black">Organisez vos événements</h1>
+				<img src="/logo.svg" class="mx-auto size-48 sm:size-54" alt="Oupla planning" />
+				<h1 class="text-6xl font-black">Oupla planning</h1>
+				<h2 class="text-3xl font-medium">Organisez vos événements</h2>
 				<p class="text-base-content/70 max-w-md text-lg">
-					La solution simple et sans compte pour gérer les présences et les tâches de vos activités
-					récurrentes.
+					Gérez les présences et les tâches de vos activités récurrentes.
 				</p>
 			</div>
 

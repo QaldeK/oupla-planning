@@ -571,8 +571,8 @@
 							class="checkbox checkbox-primary mt-1"
 						/>
 						<div class="min-w-0 flex-1">
-							<span class="label-text text-base">Confirmer les événements</span>
-							<p class="text-sm text-wrap opacity-60">
+							<span class="text-base">Confirmer les événements</span>
+							<p class="text-sm text-wrap opacity-80">
 								Les administrateurs devront confirmer la tenue de l'événement. Si non coché, les
 								événements seront toujours considérés comme ayant lieu.
 							</p>
@@ -948,7 +948,7 @@
 						/>
 						<div class="min-w-0 flex-1">
 							<span class="label-text text-base">Activer le formulaire de présence</span>
-							<p class="text-sm text-wrap opacity-60">
+							<p class="text-sm text-wrap opacity-80">
 								Permet aux participants de confirmer leur présence. Si décoché, vous devez créer des
 								tâches ou sélectionner des réponses possibles.
 							</p>
@@ -1057,7 +1057,7 @@
 						<div class="flex-1">
 							<div class="font-bold">{task.name}</div>
 							{#if task.description}
-								<div class="text-sm opacity-60">{task.description}</div>
+								<div class="text-sm opacity-70">{task.description}</div>
 							{/if}
 						</div>
 						<div class="badge badge-outline">{task.requiredVolunteers} pers.</div>
@@ -1174,19 +1174,18 @@
 		</div>
 	</section>
 
-	<div class="h-24 md:hidden"></div>
 	<div
-		class="bg-base-300/95 border-base-200 fixed bottom-0 left-0 z-10 flex w-full justify-center gap-4 border-t p-3 shadow-xl backdrop-blur md:sticky md:bottom-2 md:justify-end md:rounded-2xl md:border md:p-4"
+		class="fixed bottom-0 left-0 z-10 flex w-full justify-center gap-4 border-t border-slate-400 p-2 shadow-xl backdrop-blur md:sticky md:bottom-2 md:justify-end md:rounded-2xl md:border md:p-4"
 	>
 		<button
 			type="button"
-			class="btn btn-ghost"
+			class="btn btn-ghost btn-sm"
 			onclick={() => history.back()}
 			disabled={isSubmitting}
 		>
 			Annuler
 		</button>
-		<button type="submit" class="btn btn-primary px-8" disabled={isSubmitting}>
+		<button type="submit" class="btn btn-sm btn-primary px-8" disabled={isSubmitting}>
 			{#if isSubmitting}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}

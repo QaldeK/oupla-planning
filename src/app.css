@@ -1,5 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
 @plugin 'daisyui';
+
+/* Google Fonts imports */
 
 @plugin 'daisyui/theme' {
 	name: 'my';
@@ -74,6 +77,24 @@
 		margin: 0;
 		padding: 0;
 	}
+
+	body {
+		font-family: var(--font-sans);
+	}
+
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		font-family: var(--font-display);
+	}
+}
+
+@theme {
+	--font-sans: 'Nunito', sans-serif;
+	--font-display: 'Fredoka', sans-serif;
 }
 
 @media (max-width: 768px) {

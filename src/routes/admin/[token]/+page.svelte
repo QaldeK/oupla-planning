@@ -101,15 +101,13 @@
 					Modifiez les paramètres du planning. Les changements seront propagés aux occurrences.
 				</p>
 			</div>
-			<div class="bg-base-200/30 rounded-3xl p-1">
-				<PlanningForm
-					{master}
-					onSubmit={handleUpdatePlanning}
-					bind:isSubmitting
-					{datesWithData}
-					{datesWithSpecificTasks}
-				/>
-			</div>
+			<PlanningForm
+				{master}
+				onSubmit={handleUpdatePlanning}
+				bind:isSubmitting
+				{datesWithData}
+				{datesWithSpecificTasks}
+			/>
 		</div>
 	</div>
 {:else}

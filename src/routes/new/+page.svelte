@@ -87,14 +87,14 @@
 </svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-8">
-	<div class="mb-12 text-center">
-		<div class="bg-primary/10 mb-6 inline-flex rounded-full p-4">
-			<Calendar size={48} class="text-primary" />
+	<div class="mb-12 flex items-center gap-4">
+		<div class="bg-primary/10 inline-flex rounded-full p-4">
+			<Calendar size={28} class="text-primary" />
 		</div>
-		<h1 class="mb-3 text-4xl font-black">Créer un nouveau planning</h1>
-		<p class="text-base-content/60 mx-auto max-w-xl text-lg">
-			Configurez vos disponibilités récurrentes et facilitez l'organisation de vos événements
-		</p>
+		<h1 class=" text-lg font-bold sm:text-2xl">Création d'un planning</h1>
+		<!-- <p class="text-base-content/60 mx-auto max-w-xl text-lg">
+			Configurez la récurrentes, définissez des tâches,
+		</p> -->
 	</div>
 
 	<div class="bg-base-200/30 rounded-3xl p-1">
