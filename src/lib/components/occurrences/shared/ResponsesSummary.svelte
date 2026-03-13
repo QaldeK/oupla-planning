@@ -104,9 +104,6 @@
 					{getParticipantName(response)}
 				</div>
 			{/each}
-			{#if typeResponses.length === 0}
-				<div class="my-2 text-xs italic opacity-40">...</div>
-			{/if}
 		</div>
 		{#if currentUserResponseType !== type}
 			<div class="ms-auto flex items-center p-1.5">

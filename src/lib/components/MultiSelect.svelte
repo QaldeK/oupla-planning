@@ -62,8 +62,15 @@
 	<div
 		class="input input-bordered flex min-h-12 cursor-pointer flex-wrap gap-2"
 		onclick={toggleDropdown}
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				toggleDropdown();
+			}
+		}}
 		role="combobox"
 		aria-expanded={isOpen}
+		aria-controls="dropdown-options"
 		tabindex="0"
 	>
 		{#if selectedValues.length > 0}
@@ -90,7 +97,10 @@
 
 	<!-- Dropdown des options -->
 	{#if isOpen}
-		<div class="border-base-300 bg-base-100 absolute z-10 mt-1 w-full rounded-lg border shadow-xl">
+		<div
+			id="dropdown-options"
+			class="border-base-300 bg-base-100 absolute z-10 mt-1 w-full rounded-lg border shadow-xl"
+		>
 			{#each options as option (option.value)}
 				<label
 					class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2"

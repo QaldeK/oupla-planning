@@ -48,26 +48,46 @@
 	}: Props = $props();
 
 	// Formulaire (initialisé avec le master si présent)
-	let title = $state(master?.title || '');
-	let description = $state(master?.description || '');
-	let place = $state(master?.place || '');
-	let defaultStartTime = $state(master?.defaultStartTime || '19:00');
-	let defaultEndTime = $state(master?.defaultEndTime || '21:00');
-	let minPresentRequired = $state(master?.minPresentRequired ?? 1);
-	let allowResponses = $state(master?.allowResponses ?? true);
-	let toConfirm = $state(master?.toConfirm ?? false);
+	const m = (() => master)() || {};
+	const {
+		title: initTitle = '',
+		description: initDesc = '',
+		place: initPlace = '',
+		defaultStartTime: initStartTime = '19:00',
+		defaultEndTime: initEndTime = '21:00',
+		minPresentRequired: initMinPresent = 1,
+		allowResponses: initAllowResponses = true,
+		toConfirm: initToConfirm = false,
+		recurrence = {},
+		tasks: initTasks = []
+	} = m as any;
+
+	const {
+		type: initRecType = 'WEEKLY',
+		firstDate: initFirstDate = '',
+		lastDate: initLastDate = '',
+		monthlyByDayOccurrences: initMonthlyByDay = [],
+		recurrenceDates: initRecDates = []
+	} = recurrence || {};
+
+	let title = $state(initTitle || '');
+	let description = $state(initDesc || '');
+	let place = $state(initPlace || '');
+	let defaultStartTime = $state(initStartTime || '19:00');
+	let defaultEndTime = $state(initEndTime || '21:00');
+	let minPresentRequired = $state(initMinPresent ?? 1);
+	let allowResponses = $state(initAllowResponses ?? true);
+	let toConfirm = $state(initToConfirm ?? false);
 
 	// Récurrence
-	let recurrenceType = $state(master?.recurrence?.type || 'WEEKLY');
-	let firstDate = $state(master?.recurrence?.firstDate || '');
-	let lastDate = $state(master?.recurrence?.lastDate || '');
-	let monthlyByDayOccurrences = $state<number[]>(master?.recurrence?.monthlyByDayOccurrences || []);
-	let recurrenceDates = $state<string[]>(master?.recurrence?.recurrenceDates || []);
+	let recurrenceType = $state(initRecType || 'WEEKLY');
+	let firstDate = $state(initFirstDate || '');
+	let lastDate = $state(initLastDate || '');
+	let monthlyByDayOccurrences = $state<number[]>(initMonthlyByDay || []);
+	let recurrenceDates = $state<string[]>(initRecDates || []);
 
 	// === Mode CUSTOM et dates arbitraires ===
-	let customDates = $state<string[]>(
-		master?.recurrence?.type === 'CUSTOM' ? master.recurrence.recurrenceDates || [] : []
-	); // Dates pour le mode CUSTOM
+	let customDates = $state<string[]>(initRecType === 'CUSTOM' ? initRecDates || [] : []); // Dates pour le mode CUSTOM
 	let showArbitraryDatePicker = $state(false); // Afficher le picker inline pour dates arbitraires
 
 	// Calculer les dates arbitraires (dates ajoutées manuellement hors du cycle généré)
@@ -86,7 +106,7 @@
 	});
 
 	// Tâches
-	let tasks = $state<Task[]>(master?.tasks || []);
+	let tasks = $state<Task[]>(initTasks || []);
 	let newTaskName = $state('');
 	let newTaskDescription = $state('');
 	let newTaskVolunteers = $state(1);
@@ -142,11 +162,11 @@
 	let hasAttemptedSubmit = $state(false);
 
 	let isMounted = $state(false);
-	let lastRecurrenceType = $state(master?.recurrence?.type || 'WEEKLY');
+	let lastRecurrenceType = $state(initRecType);
 	let prevAllGeneratedDates = $state<string[]>([]);
 	// Note: En création, l'utilisateur peut modifier manuellement lastDate, mais elle sera réinitialisée
 	// automatiquement si firstDate ou recurrenceType change. Comportement acceptable pour KISS.
-	let lastDateWasManuallySet = $state(!!master);
+	let lastDateWasManuallySet = $state(!!(() => master)());
 
 	$effect(() => {
 		isMounted = true;
@@ -838,8 +858,9 @@
 								{/if}
 								{format(parse(date, 'yyyy-MM-dd', new Date()), 'EEE d MMM', { locale: fr })}
 								{#if isArbitrary}
+									<!-- svelte-ignore a11y_click_events_have_key_events -->
+									<!-- svelte-ignore a11y_no_static_element_interactions -->
 									<div
-										role="button"
 										class="btn btn-circle btn-xs btn-error ml-1"
 										onclick={(e) => {
 											e.stopPropagation();

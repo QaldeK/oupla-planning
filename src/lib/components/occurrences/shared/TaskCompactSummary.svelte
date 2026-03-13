@@ -177,7 +177,9 @@
 			<div class="m-2 text-xs italic opacity-40">...</div>
 		{/if}
 		<div class="ms-auto flex items-center gap-2 p-1.5">
-			<div class="badge badge-sm font-black {isComplete ? 'badge-success' : 'badge-warning'} px-1">
+			<div
+				class="badge badge-sm font-semibold {isComplete ? 'badge-success' : 'badge-warning'} px-1"
+			>
 				{volunteers}/{task.requiredVolunteers}
 			</div>
 			{#if !readOnly && !isPastDate}

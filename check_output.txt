@@ -1,0 +1,346 @@
+$ svelte-kit sync && svelte-check --tsconfig ./tsconfig.json
+Loading svelte-check in workspace: /home/geo/Developpement/oupla-event-manager/planing
+Getting Svelte diagnostics...
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/services/planningActions.ts:175:24
+Error: Type 'Task[] | null' is not assignable to type 'Task[] | undefined'.
+  Type 'null' is not assignable to type 'Task[] | undefined'. 
+	const updateData = { ...updates, lastModifiedBy: userStore.globalProfile?.id };
+	if (updateData.tasks) updateData.tasks = sortTasks(updateData.tasks);
+	return await pb.collection('planning_masters').update<PlanningMaster>(masterId, updateData, {
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:53:25
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	// États du formulaire (initialisés avec les valeurs de l'occurrence ou héritées du master)
+	let startTime = $state(occurrence.startTime);
+	let endTime = $state(occurrence.endTime);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:54:23
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let startTime = $state(occurrence.startTime);
+	let endTime = $state(occurrence.endTime);
+	let place = $state(occurrence.place ?? '');
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:55:21
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let endTime = $state(occurrence.endTime);
+	let place = $state(occurrence.place ?? '');
+	let description = $state(occurrence.description ?? '');
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:56:27
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let place = $state(occurrence.place ?? '');
+	let description = $state(occurrence.description ?? '');
+	let isConfirmed = $state(occurrence.isConfirmed);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:57:27
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let description = $state(occurrence.description ?? '');
+	let isConfirmed = $state(occurrence.isConfirmed);
+	let isCanceled = $state(occurrence.isCanceled);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:58:26
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let isConfirmed = $state(occurrence.isConfirmed);
+	let isCanceled = $state(occurrence.isCanceled);
+	let minPresentRequired = $state(
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:60:3
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let minPresentRequired = $state(
+		occurrence.minPresentRequired && occurrence.minPresentRequired > 0
+			? occurrence.minPresentRequired
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:60:36
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let minPresentRequired = $state(
+		occurrence.minPresentRequired && occurrence.minPresentRequired > 0
+			? occurrence.minPresentRequired
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:61:6
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+		occurrence.minPresentRequired && occurrence.minPresentRequired > 0
+			? occurrence.minPresentRequired
+			: master.minPresentRequired
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:62:6
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+			? occurrence.minPresentRequired
+			: master.minPresentRequired
+	);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:67:3
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let isTasksModified = $state(
+		occurrence.tasks !== null && occurrence.tasks !== undefined && occurrence.tasks.length > 0
+	);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:67:32
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let isTasksModified = $state(
+		occurrence.tasks !== null && occurrence.tasks !== undefined && occurrence.tasks.length > 0
+	);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:67:66
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let isTasksModified = $state(
+		occurrence.tasks !== null && occurrence.tasks !== undefined && occurrence.tasks.length > 0
+	);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:70:3
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let tasks = $state<Task[]>(
+		occurrence.tasks && occurrence.tasks.length > 0
+			? [...occurrence.tasks]
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:70:23
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let tasks = $state<Task[]>(
+		occurrence.tasks && occurrence.tasks.length > 0
+			? [...occurrence.tasks]
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:71:10
+Warn: This reference only captures the initial value of `occurrence`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+		occurrence.tasks && occurrence.tasks.length > 0
+			? [...occurrence.tasks]
+			: [...(master.tasks || [])]
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/occurrences/OccurrenceEditModal.svelte:72:11
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+			? [...occurrence.tasks]
+			: [...(master.tasks || [])]
+	);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/MultiSelect.svelte:65:3
+Warn: Elements with the ARIA role "combobox" must have the following attributes defined: "aria-controls" and "aria-expanded"
+https://svelte.dev/e/a11y_role_has_required_aria_props (svelte)
+		onclick={toggleDropdown}
+		role="combobox"
+		aria-expanded={isOpen}
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/MultiSelect.svelte:62:2
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+	<!-- Zone d'affichage des sélections -->
+	<div
+		class="input input-bordered flex min-h-12 cursor-pointer flex-wrap gap-2"
+		onclick={toggleDropdown}
+		role="combobox"
+		aria-expanded={isOpen}
+		tabindex="0"
+	>
+		{#if selectedValues.length > 0}
+			{#each selectedValues as value (value)}
+				<span class="badge badge-primary gap-1">
+					{getLabelForValue(value)}
+					<button
+						type="button"
+						class="btn btn-circle btn-ghost btn-xs hover:btn-error"
+						onclick={(e) => {
+							e.stopPropagation();
+							removeOption(value);
+						}}
+						aria-label="Supprimer {getLabelForValue(value)}"
+					>
+						×
+					</button>
+				</span>
+			{/each}
+		{:else}
+			<span class="text-base-content/50">{placeholder}</span>
+		{/if}
+	</div>
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:51:21
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	// Formulaire (initialisé avec le master si présent)
+	let title = $state(master?.title || '');
+	let description = $state(master?.description || '');
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:52:27
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let title = $state(master?.title || '');
+	let description = $state(master?.description || '');
+	let place = $state(master?.place || '');
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:53:21
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let description = $state(master?.description || '');
+	let place = $state(master?.place || '');
+	let defaultStartTime = $state(master?.defaultStartTime || '19:00');
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:54:32
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let place = $state(master?.place || '');
+	let defaultStartTime = $state(master?.defaultStartTime || '19:00');
+	let defaultEndTime = $state(master?.defaultEndTime || '21:00');
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:55:30
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let defaultStartTime = $state(master?.defaultStartTime || '19:00');
+	let defaultEndTime = $state(master?.defaultEndTime || '21:00');
+	let minPresentRequired = $state(master?.minPresentRequired ?? 1);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:56:34
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let defaultEndTime = $state(master?.defaultEndTime || '21:00');
+	let minPresentRequired = $state(master?.minPresentRequired ?? 1);
+	let allowResponses = $state(master?.allowResponses ?? true);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:57:30
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let minPresentRequired = $state(master?.minPresentRequired ?? 1);
+	let allowResponses = $state(master?.allowResponses ?? true);
+	let toConfirm = $state(master?.toConfirm ?? false);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:58:25
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let allowResponses = $state(master?.allowResponses ?? true);
+	let toConfirm = $state(master?.toConfirm ?? false);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:61:30
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	// Récurrence
+	let recurrenceType = $state(master?.recurrence?.type || 'WEEKLY');
+	let firstDate = $state(master?.recurrence?.firstDate || '');
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:62:25
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let recurrenceType = $state(master?.recurrence?.type || 'WEEKLY');
+	let firstDate = $state(master?.recurrence?.firstDate || '');
+	let lastDate = $state(master?.recurrence?.lastDate || '');
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:63:24
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let firstDate = $state(master?.recurrence?.firstDate || '');
+	let lastDate = $state(master?.recurrence?.lastDate || '');
+	let monthlyByDayOccurrences = $state<number[]>(master?.recurrence?.monthlyByDayOccurrences || []);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:64:49
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let lastDate = $state(master?.recurrence?.lastDate || '');
+	let monthlyByDayOccurrences = $state<number[]>(master?.recurrence?.monthlyByDayOccurrences || []);
+	let recurrenceDates = $state<string[]>(master?.recurrence?.recurrenceDates || []);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:65:41
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let monthlyByDayOccurrences = $state<number[]>(master?.recurrence?.monthlyByDayOccurrences || []);
+	let recurrenceDates = $state<string[]>(master?.recurrence?.recurrenceDates || []);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:69:3
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let customDates = $state<string[]>(
+		master?.recurrence?.type === 'CUSTOM' ? master.recurrence.recurrenceDates || [] : []
+	); // Dates pour le mode CUSTOM
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:69:43
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let customDates = $state<string[]>(
+		master?.recurrence?.type === 'CUSTOM' ? master.recurrence.recurrenceDates || [] : []
+	); // Dates pour le mode CUSTOM
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:89:29
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	// Tâches
+	let tasks = $state<Task[]>(master?.tasks || []);
+	let newTaskName = $state('');
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:145:34
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	let isMounted = $state(false);
+	let lastRecurrenceType = $state(master?.recurrence?.type || 'WEEKLY');
+	let prevAllGeneratedDates = $state<string[]>([]);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:149:40
+Warn: This reference only captures the initial value of `master`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+	// automatiquement si firstDate ou recurrenceType change. Comportement acceptable pour KISS.
+	let lastDateWasManuallySet = $state(!!master);
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:841:10
+Warn: Elements with the 'button' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus (svelte)
+								{#if isArbitrary}
+									<div
+										role="button"
+										class="btn btn-circle btn-xs btn-error ml-1"
+										onclick={(e) => {
+											e.stopPropagation();
+											removeArbitraryDate(date);
+										}}
+										title="Supprimer cette date"
+									>
+										<X size={14} />
+									</div>
+								{/if}
+
+/home/geo/Developpement/oupla-event-manager/planing/src/lib/components/PlanningForm.svelte:841:10
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+								{#if isArbitrary}
+									<div
+										role="button"
+										class="btn btn-circle btn-xs btn-error ml-1"
+										onclick={(e) => {
+											e.stopPropagation();
+											removeArbitraryDate(date);
+										}}
+										title="Supprimer cette date"
+									>
+										<X size={14} />
+									</div>
+								{/if}
+
+/home/geo/Developpement/oupla-event-manager/planing/src/routes/p/[token]/+page.svelte:296:30
+Error: Argument of type 'string | undefined' is not assignable to parameter of type 'string | Date'.
+  Type 'undefined' is not assignable to type 'string | Date'. (ts)
+								<div class="text-base-content/70 text-sm">
+									Du {formatDateShort(master.recurrence.recurrenceDates?.[0])}
+									au {formatDateShort(
+
+/home/geo/Developpement/oupla-event-manager/planing/src/routes/p/[token]/+page.svelte:298:11
+Error: Argument of type 'string | undefined' is not assignable to parameter of type 'string | Date'.
+  Type 'undefined' is not assignable to type 'string | Date'. (ts)
+									au {formatDateShort(
+										master.recurrence.recurrenceDates?.[
+											master.recurrence.recurrenceDates?.length - 1
+										]
+									)}
+
+====================================
+svelte-check found 3 errors and 39 warnings in 5 files
+error: script "check" exited with code 1

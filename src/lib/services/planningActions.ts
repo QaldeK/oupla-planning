@@ -172,7 +172,10 @@ export async function updatePlanning(
 	token: string
 ): Promise<PlanningMaster> {
 	const updateData = { ...updates, lastModifiedBy: userStore.globalProfile?.id };
-	if (updateData.tasks) updateData.tasks = sortTasks(updateData.tasks);
+	if (updateData.tasks) {
+		const sorted = sortTasks(updateData.tasks);
+		if (sorted) updateData.tasks = sorted;
+	}
 	return await pb.collection('planning_masters').update<PlanningMaster>(masterId, updateData, {
 		query: { _token: token }
 	});

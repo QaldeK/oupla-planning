@@ -293,11 +293,11 @@
 								</div>
 							{:else}
 								<div class="text-base-content/70 text-sm">
-									Du {formatDateShort(master.recurrence.recurrenceDates?.[0])}
+									Du {formatDateShort(master.recurrence.recurrenceDates?.[0] || '')}
 									au {formatDateShort(
 										master.recurrence.recurrenceDates?.[
-											master.recurrence.recurrenceDates?.length - 1
-										]
+											(master.recurrence.recurrenceDates?.length || 1) - 1
+										] || ''
 									)}
 								</div>
 							{/if}

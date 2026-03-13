@@ -12,7 +12,7 @@
 </script>
 
 <span
-	class="badge {size === 'sm' ? 'badge-sm' : 'badge-md'} {isComplete
+	class="badge font-semibold {size === 'sm' ? 'badge-sm' : 'badge-md'} {isComplete
 		? 'badge-success'
 		: 'badge-warning'}"
 >

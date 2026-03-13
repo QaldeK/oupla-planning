@@ -49,27 +49,41 @@
 
 	let isSubmitting = $state(false);
 
+	const {
+		startTime: initialStartTime,
+		endTime: initialEndTime,
+		place: initialPlace = '',
+		description: initialDescription = '',
+		isConfirmed: initialIsConfirmed,
+		isCanceled: initialIsCanceled,
+		minPresentRequired: occMinPresentRequired,
+		tasks: occTasks
+	} = (() => occurrence)();
+
+	const {
+		minPresentRequired: masterMinPresentRequired,
+		tasks: masterTasks = []
+	} = (() => master)();
+
 	// États du formulaire (initialisés avec les valeurs de l'occurrence ou héritées du master)
-	let startTime = $state(occurrence.startTime);
-	let endTime = $state(occurrence.endTime);
-	let place = $state(occurrence.place ?? '');
-	let description = $state(occurrence.description ?? '');
-	let isConfirmed = $state(occurrence.isConfirmed);
-	let isCanceled = $state(occurrence.isCanceled);
+	let startTime = $state(initialStartTime);
+	let endTime = $state(initialEndTime);
+	let place = $state(initialPlace);
+	let description = $state(initialDescription);
+	let isConfirmed = $state(initialIsConfirmed);
+	let isCanceled = $state(initialIsCanceled);
 	let minPresentRequired = $state(
-		occurrence.minPresentRequired && occurrence.minPresentRequired > 0
-			? occurrence.minPresentRequired
-			: master.minPresentRequired
+		occMinPresentRequired && occMinPresentRequired > 0
+			? occMinPresentRequired
+			: masterMinPresentRequired
 	);
 
 	// Tâches
 	let isTasksModified = $state(
-		occurrence.tasks !== null && occurrence.tasks !== undefined && occurrence.tasks.length > 0
+		occTasks !== null && occTasks !== undefined && occTasks.length > 0
 	);
 	let tasks = $state<Task[]>(
-		occurrence.tasks && occurrence.tasks.length > 0
-			? [...occurrence.tasks]
-			: [...(master.tasks || [])]
+		occTasks && occTasks.length > 0 ? [...occTasks] : [...(masterTasks || [])]
 	);
 	let newTaskName = $state('');
 	let newTaskDescription = $state('');
