@@ -48,26 +48,26 @@
 	}: Props = $props();
 
 	// Formulaire (initialisé avec le master si présent)
-	let title = $state(untrack(() => master?.title || ''));
-	let description = $state(untrack(() => master?.description || ''));
-	let place = $state(untrack(() => master?.place || ''));
-	let defaultStartTime = $state(untrack(() => master?.defaultStartTime || '19:00'));
-	let defaultEndTime = $state(untrack(() => master?.defaultEndTime || '21:00'));
-	let minPresentRequired = $state(untrack(() => master?.minPresentRequired ?? 1));
-	let allowResponses = $state(untrack(() => master?.allowResponses ?? true));
-	let toConfirm = $state(untrack(() => master?.toConfirm ?? false));
+	let title = $state(master?.title || '');
+	let description = $state(master?.description || '');
+	let place = $state(master?.place || '');
+	let defaultStartTime = $state(master?.defaultStartTime || '19:00');
+	let defaultEndTime = $state(master?.defaultEndTime || '21:00');
+	let minPresentRequired = $state(master?.minPresentRequired ?? 1);
+	let allowResponses = $state(master?.allowResponses ?? true);
+	let toConfirm = $state(master?.toConfirm ?? false);
 
 	// Récurrence
-	let recurrenceType = $state(untrack(() => master?.recurrence?.type || 'WEEKLY'));
-	let firstDate = $state(untrack(() => master?.recurrence?.firstDate || ''));
-	let lastDate = $state(untrack(() => master?.recurrence?.lastDate || ''));
-	let monthlyByDayOccurrences = $state<number[]>(
-		untrack(() => master?.recurrence?.monthlyByDayOccurrences || [])
-	);
-	let recurrenceDates = $state<string[]>(untrack(() => master?.recurrence?.recurrenceDates || []));
+	let recurrenceType = $state(master?.recurrence?.type || 'WEEKLY');
+	let firstDate = $state(master?.recurrence?.firstDate || '');
+	let lastDate = $state(master?.recurrence?.lastDate || '');
+	let monthlyByDayOccurrences = $state<number[]>(master?.recurrence?.monthlyByDayOccurrences || []);
+	let recurrenceDates = $state<string[]>(master?.recurrence?.recurrenceDates || []);
 
 	// === Mode CUSTOM et dates arbitraires ===
-	let customDates = $state<string[]>([]); // Dates pour le mode CUSTOM
+	let customDates = $state<string[]>(
+		master?.recurrence?.type === 'CUSTOM' ? master.recurrence.recurrenceDates || [] : []
+	); // Dates pour le mode CUSTOM
 	let showArbitraryDatePicker = $state(false); // Afficher le picker inline pour dates arbitraires
 
 	// Calculer les dates arbitraires (dates ajoutées manuellement hors du cycle généré)
@@ -187,6 +187,14 @@
 
 		untrack(() => {
 			if (!isMounted) return;
+
+			// FIX: Premier run en mode édition - on initialise seulement prevAllGeneratedDates
+			// sans toucher à recurrenceDates (qui contient déjà la sélection sauvegardée)
+			if (master && prevAllGeneratedDates.length === 0) {
+				prevAllGeneratedDates = [...gen];
+				lastRecurrenceType = type;
+				return;
+			}
 
 			const currentSelected = new Set(recurrenceDates);
 
@@ -1179,13 +1187,13 @@
 	>
 		<button
 			type="button"
-			class="btn btn-ghost btn-sm"
+			class="btn btn-ghost max-sm:btn-sm"
 			onclick={() => history.back()}
 			disabled={isSubmitting}
 		>
 			Annuler
 		</button>
-		<button type="submit" class="btn btn-sm btn-primary px-8" disabled={isSubmitting}>
+		<button type="submit" class="btn max-sm:btn-sm btn-primary px-8" disabled={isSubmitting}>
 			{#if isSubmitting}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}
