@@ -12,9 +12,12 @@
 	import { formatDateShort } from '$lib/utils/date';
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import {
+		ArrowRightFromLine,
+		ArrowRightSquare,
 		Calendar,
 		Clock,
 		Info,
+		InfoIcon,
 		ListFilter,
 		MapPin,
 		Settings,
@@ -256,31 +259,31 @@
 				</div>
 			</div>
 
-			<div class="grid gap-6 md:grid-cols-2">
-				<!-- Card description -->
-				{#if master.description}
-					<div class="card max-sm:card-sm bg-base-200 border-base-content/5 border shadow-sm">
-						<div class="card-body flex-row items-center gap-5">
-							<div class="bg-base-300 text-primary rounded-2xl p-3">
-								<Calendar size={24} />
-							</div>
-							<div>
-								<div class="text-xs font-bold tracking-wider uppercase opacity-50">Description</div>
-								<div class="text-lg font-bold">{master.description}</div>
-							</div>
+			<!-- Card description -->
+			{#if master.description}
+				<div class="card card-sm bg-base-200 border-base-content/5 mb-4 border shadow-sm">
+					<div class="card-body flex-row items-center gap-5">
+						<div class="bg-base-300 text-primary rounded-2xl p-3">
+							<InfoIcon size={24} />
+						</div>
+						<div>
+							<div class="text-xs font-bold tracking-wider uppercase opacity-50">Description</div>
+							<div class="text-base-content text-base">{master.description}</div>
 						</div>
 					</div>
-				{/if}
+				</div>
+			{/if}
+			<div class="grid gap-6 md:grid-cols-2">
 				<!-- Card Récurrence -->
-				<div class="card max-sm:card-sm bg-base-200 border-base-content/5 border shadow-sm">
+				<div class="card card-sm bg-base-200 border-base-content/5 border shadow-sm">
 					<div class="card-body flex-row items-center gap-5">
 						<div class="bg-base-300 text-primary rounded-2xl p-3">
 							<Calendar size={24} />
 						</div>
 						<div>
-							<div class="text-lg font-bold">{getRecurrenceLabel(master.recurrence)}</div>
+							<div class="text-base font-bold">{getRecurrenceLabel(master.recurrence)}</div>
 							{#if master.recurrence.firstDate || master.recurrence.lastDate}
-								<div class="text-base-content/60 text-sm">
+								<div class="text-base-content/70 text-sm">
 									{#if master.recurrence.firstDate}
 										Du {formatDateShort(master.recurrence.firstDate)}
 									{/if}
@@ -288,45 +291,50 @@
 										au {formatDateShort(master.recurrence.lastDate)}
 									{/if}
 								</div>
+							{:else}
+								<div class="text-base-content/70 text-sm">
+									Du {formatDateShort(master.recurrence.recurrenceDates?.[0])}
+									au {formatDateShort(
+										master.recurrence.recurrenceDates?.[
+											master.recurrence.recurrenceDates?.length - 1
+										]
+									)}
+								</div>
 							{/if}
-							<div class="flex items-center gap-2">
-								<Clock size={16} class="text-primary" />
-								<span>{master.defaultStartTime} — {master.defaultEndTime}</span>
-							</div>
+						</div>
+						<div class="flex items-center gap-2">
+							<Clock size={16} class="text-primary" />
+							<span>{master.defaultStartTime} — {master.defaultEndTime}</span>
 						</div>
 					</div>
 				</div>
 
 				<!-- Card Participants -->
-				<div class="card max-sm:card-sm bg-base-200 border-base-content/5 border shadow-sm">
-					<div class="card-body gap-4">
-						<div class="flex flex-wrap items-center gap-5">
+				<div class="card card-sm bg-base-200 border-base-content/5 border shadow-sm">
+					<div class="card-body flex-row flex-wrap items-center gap-4">
+						<div class="flex items-center gap-2">
 							<div class="bg-base-300 text-primary rounded-2xl p-3">
 								<Users size={24} />
 							</div>
-							<div>
-								<div class="text-xs font-bold tracking-wider uppercase opacity-50">
-									Participants
-								</div>
-								<div class="text-lg font-bold">{master.participants.length} inscrits</div>
+							<div class="text-xs font-bold tracking-wider uppercase opacity-70">
+								{master.participants.length} Participants
 							</div>
-							{#if master.participants.length > 0}
-								<div class="ms-auto flex flex-wrap gap-1.5">
-									{#each master.participants as p (p.id)}
-										<span class="badge badge-sm badge-outline opacity-70">{p.name}</span>
-									{/each}
-								</div>
-							{/if}
 						</div>
+						{#if master.participants.length > 0}
+							<div class="ms-auto flex flex-wrap justify-end gap-1.5">
+								{#each master.participants as p (p.id)}
+									<span class="badge badge-sm badge-outline opacity-70">{p.name}</span>
+								{/each}
+							</div>
+						{/if}
 					</div>
 				</div>
 			</div>
-
 			<!-- Zone de partage -->
 			{#if !mediaQuery.isMobile}
-				<div class="card max-sm:card-sm bg-base-300 border-primary/10 my-8 border-2 shadow-md">
+				<div class="card card-sm bg-base-300 border-primary/10 my-8 border-2 shadow-md">
 					<div class="card-body">
-						<h3 class="mb-6 flex items-center gap-2 text-xl font-semibold">
+						<h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
 							<Share2 size={22} class="text-primary" />
 							Partager ce planning
 						</h3>
@@ -364,7 +372,7 @@
 					</div>
 				</div>
 			{:else}
-				<div class="card max-sm:card-sm bg-base-200 border-base-content/5 mt-6 border shadow-sm">
+				<div class="card card-sm bg-base-200 border-base-content/5 mt-6 border shadow-sm">
 					<div class="card-body items-center justify-between sm:flex-row">
 						<div class="flex items-center gap-3">
 							<div class="bg-base-300 text-primary rounded-2xl p-3">
@@ -411,9 +419,9 @@
 		<!-- Liste des occurrences -->
 		<div class="space-y-4">
 			<div class="flex justify-end">
-				<a href="/p/{token}/archive" class="btn btn-ghost btn-sm bg-base-200 gap-2">
-					<ListFilter size={18} />
-					Archives
+				<a href="/p/{token}/archive" class="btn btn-soft gap-2">
+					Voir les événements passés
+					<ArrowRightFromLine size={18} />
 				</a>
 			</div>
 			<!-- Header avec tabs -->

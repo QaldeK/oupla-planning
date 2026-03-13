@@ -1,6 +1,7 @@
 import { pb } from '$lib/pocketbase/pb';
 import { generateRecurrenceDates } from '$lib/utils/recurrence';
 import { userStore } from '$lib/stores/userStore.svelte';
+import { format } from 'date-fns';
 import type {
 	PlanningMaster,
 	PlanningOccurrence,
@@ -90,6 +91,62 @@ export async function createPlanning(
 	});
 }
 
+/**
+ * Crée un planning master et ses occurrences de manière atomique (batch)
+ */
+export async function createPlanningWithOccurrences(
+	data: CreatePlanningData,
+	adminToken?: string,
+	participantToken?: string
+): Promise<PlanningMaster> {
+	const finalAdminToken = adminToken || generateAdminToken();
+	const finalParticipantToken = participantToken || generateParticipantToken();
+
+	// 1. Créer le planning master d'abord (pour avoir son ID)
+	const master = await pb.collection('planning_masters').create<PlanningMaster>({
+		title: data.title,
+		description: data.description,
+		place: data.place,
+		defaultStartTime: data.defaultStartTime,
+		defaultEndTime: data.defaultEndTime,
+		recurrence: data.recurrence,
+		tasks: sortTasks(data.tasks),
+		minPresentRequired: data.minPresentRequired,
+		allowResponses: data.allowResponses,
+		toConfirm: data.toConfirm,
+		availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes),
+		adminToken: finalAdminToken,
+		participantToken: finalParticipantToken,
+		participants: data.participants || [],
+		lastModifiedBy: userStore.globalProfile?.id
+	});
+
+	// 2. Générer les dates de récurrence
+	const dates = data.recurrence.recurrenceDates || generateRecurrenceDates(data.recurrence);
+
+	// 3. Créer toutes les occurrences dans un batch
+	const batch = pb.createBatch();
+	for (const date of dates) {
+		batch.collection('planning_occurrences').create({
+			master: master.id,
+			date,
+			startTime: data.defaultStartTime,
+			endTime: data.defaultEndTime,
+			responses: [],
+			comments: [],
+			isConfirmed: false,
+			isCanceled: false,
+			adminToken: finalAdminToken,
+			participantToken: finalParticipantToken,
+			lastModifiedBy: userStore.globalProfile?.id
+		});
+	}
+
+	await batch.send();
+
+	return master;
+}
+
 export async function getPlanningByToken(token: string): Promise<{
 	master: PlanningMaster;
 	isAdmin: boolean;
@@ -155,17 +212,30 @@ export async function updatePlanningWithOccurrences(
 		});
 
 	const normalizeDate = (d: string) => d.split(' ')[0].split('T')[0];
-	const targetDates = generateRecurrenceDates(data.recurrence);
-	const existingDatesMap = new Map(existingOccurrences.map((o) => [normalizeDate(o.date), o]));
 
-	for (const occ of existingOccurrences) {
+	// Séparer les dates passées et futures : ne gérer que les futures dans le batch
+	const today = format(new Date(), 'yyyy-MM-dd');
+
+	// Filtrer les occurrences existantes : garder seulement les futures pour le batch
+	const futureOccurrences = existingOccurrences.filter((occ) => normalizeDate(occ.date) >= today);
+
+	// Filtrer les dates cibles pour ne garder que les dates futures
+	const allTargetDates =
+		data.recurrence.recurrenceDates || generateRecurrenceDates(data.recurrence);
+	const targetDates = allTargetDates.filter((date) => date >= today);
+
+	const existingFutureDatesMap = new Map(futureOccurrences.map((o) => [normalizeDate(o.date), o]));
+
+	// Supprimer uniquement les occurrences futures qui ne sont plus dans les dates cibles
+	for (const occ of futureOccurrences) {
 		if (!targetDates.includes(normalizeDate(occ.date))) {
 			batch.collection('planning_occurrences').delete(occ.id);
 		}
 	}
 
+	// Créer ou mettre à jour uniquement les occurrences futures
 	for (const date of targetDates) {
-		const existing = existingDatesMap.get(date);
+		const existing = existingFutureDatesMap.get(date);
 		if (existing) {
 			const updateData: any = {
 				startTime: data.defaultStartTime,

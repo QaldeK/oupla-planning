@@ -104,9 +104,11 @@
 			// Désélectionner
 			newDates = selectedDates.filter((_, i) => i !== index);
 		} else {
-			// Vérifier la limite maxSelection
-			if (selectedDates.length >= maxSelection) {
-				return; // Ne pas ajouter si la limite est atteinte
+			// Vérifier la limite maxSelection (seulement les dates futures)
+			const today = format(new Date(), 'yyyy-MM-dd');
+			const futureDatesCount = selectedDates.filter((d) => d >= today).length;
+			if (futureDatesCount >= maxSelection && dateString >= today) {
+				return; // Ne pas ajouter si la limite de dates futures est atteinte
 			}
 			// Sélectionner
 			newDates = [...selectedDates, dateString].sort();

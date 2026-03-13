@@ -144,6 +144,8 @@
 	let isMounted = $state(false);
 	let lastRecurrenceType = $state(master?.recurrence?.type || 'WEEKLY');
 	let prevAllGeneratedDates = $state<string[]>([]);
+	// Note: En création, l'utilisateur peut modifier manuellement lastDate, mais elle sera réinitialisée
+	// automatiquement si firstDate ou recurrenceType change. Comportement acceptable pour KISS.
 	let lastDateWasManuallySet = $state(!!master);
 
 	$effect(() => {
@@ -187,6 +189,10 @@
 
 		untrack(() => {
 			if (!isMounted) return;
+
+			// En mode CUSTOM, ne pas exécuter la logique de synchronisation automatique
+			// car allGeneratedDates retourne [] et cela supprimerait toutes les dates
+			if (type === 'CUSTOM') return;
 
 			// FIX: Premier run en mode édition - on initialise seulement prevAllGeneratedDates
 			// sans toucher à recurrenceDates (qui contient déjà la sélection sauvegardée)
@@ -244,9 +250,15 @@
 	$effect(() => {
 		if (!allowResponses) {
 			availableResponseTypes = [];
-		} else if (availableResponseTypes.length === 0 && !master) {
-			// En création seulement : recocher tous par défaut si on réactive
-			availableResponseTypes = [...AVAILABLE_RESPONSE_TYPES];
+		} else if (availableResponseTypes.length === 0) {
+			// Réactiver les types de réponse
+			if (!master) {
+				// En création : recocher tous par défaut
+				availableResponseTypes = [...AVAILABLE_RESPONSE_TYPES];
+			} else {
+				// En édition : restaurer les types originaux sauvegardés
+				availableResponseTypes = master.availableResponseTypes || [...AVAILABLE_RESPONSE_TYPES];
+			}
 		}
 	});
 
@@ -358,6 +370,15 @@
 		if (isSelected) {
 			recurrenceDates = recurrenceDates.filter((d) => d !== dateToToggle);
 		} else {
+			// Vérifier la limite de 100 dates futures avant d'ajouter
+			const today = format(new Date(), 'yyyy-MM-dd');
+			const futureDatesCount = recurrenceDates.filter((d) => d >= today).length;
+
+			if (futureDatesCount >= 100 && dateToToggle >= today) {
+				// Limite atteinte, ne pas ajouter la date
+				return;
+			}
+
 			const newDates = [...recurrenceDates, dateToToggle];
 			newDates.sort((a, b) =>
 				compareAsc(parse(a, 'yyyy-MM-dd', new Date()), parse(b, 'yyyy-MM-dd', new Date()))
@@ -378,11 +399,13 @@
 		// Reset des erreurs
 		validationErrors = {};
 
-		// Validation : nombre de dates max 100
+		// Validation : nombre de dates futures max 100
 		const datesToValidate = recurrenceType === 'CUSTOM' ? customDates : recurrenceDates;
-		if (datesToValidate.length > 100) {
-			toast.error('Nombre de dates trop élevé', {
-				description: `Vous avez sélectionné ${datesToValidate.length} dates. La limite est de 100 dates.`
+		const today = format(new Date(), 'yyyy-MM-dd');
+		const futureDatesCount = datesToValidate.filter((d) => d >= today).length;
+		if (futureDatesCount > 100) {
+			toast.error('Nombre de dates futures trop élevé', {
+				description: `Vous avez sélectionné ${futureDatesCount} dates futures. La limite est de 100 dates futures.`
 			});
 			return;
 		}
@@ -514,13 +537,18 @@
 	const allGeneratedDates = $derived.by(() => {
 		if (recurrenceType === 'CUSTOM') return []; // Pas de génération automatique en mode CUSTOM
 		if (!firstDate || !lastDate || !recurrenceType) return [];
-		return generateRecurrenceDates({
+
+		const generated = generateRecurrenceDates({
 			type: recurrenceType,
 			firstDate,
 			lastDate,
 			monthlyByDayOccurrences:
 				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined
 		});
+
+		// Limiter à 100 dates futures maximum
+		const today = format(new Date(), 'yyyy-MM-dd');
+		return generated.filter((d) => d >= today).slice(0, 100);
 	});
 
 	const recurrenceLabel = $derived.by(() => {
@@ -826,9 +854,9 @@
 						{/each}
 					</div>
 
-					{#if allGeneratedDates.length > 100}
-						<div class="alert alert-error rounded-xl py-2 text-sm shadow-sm">
-							<span>Limite dépassée : {allGeneratedDates.length} dates (max 100).</span>
+					{#if allGeneratedDates.length === 100}
+						<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
+							<span>Limite atteinte : 100 dates futures (maximum autorisé).</span>
 						</div>
 					{/if}
 
@@ -925,10 +953,15 @@
 						</div>
 					{/if}
 
-					{#if customDates.length > 100}
-						<div class="alert alert-error rounded-xl py-2 text-sm shadow-sm">
-							<span>Limite dépassée : {customDates.length} dates (max 100).</span>
-						</div>
+					{#if customDates.length > 0}
+						{@const futureDatesCount = customDates.filter(
+							(d) => d >= format(new Date(), 'yyyy-MM-dd')
+						).length}
+						{#if futureDatesCount === 100}
+							<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
+								<span>Limite atteinte : 100 dates futures (maximum autorisé).</span>
+							</div>
+						{/if}
 					{/if}
 				</div>
 			{/if}

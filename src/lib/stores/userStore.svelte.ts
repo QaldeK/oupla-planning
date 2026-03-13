@@ -24,7 +24,7 @@ class UserStore {
 	globalProfile = $state<GlobalUserProfile | null>(null);
 	savedPlannings = $state<SavedPlanning[]>([]); // Liste unifiée
 	authModal = $state<AuthModalState>({ open: false, mode: 'homepage' });
-	preferredOccurrenceView = $state<ViewType>('card');
+	preferredOccurrenceView = $state<ViewType>('compact');
 	isReady = $state(false);
 
 	async init() {

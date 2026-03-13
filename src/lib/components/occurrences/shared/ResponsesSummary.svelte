@@ -98,14 +98,16 @@
 			<Icon size={16} />
 			<span>{config.label}</span>
 		</div>
-		{#each typeResponses as response (response.participantId)}
-			<div class="badge m-1.5 font-semibold {config.bgClass}">
-				{getParticipantName(response)}
-			</div>
-		{/each}
-		{#if typeResponses.length === 0}
-			<div class="m-2 px-6 text-xs italic opacity-40">...</div>
-		{/if}
+		<div class="min-w-24">
+			{#each typeResponses as response (response.participantId)}
+				<div class="badge m-1.5 font-semibold {config.bgClass}">
+					{getParticipantName(response)}
+				</div>
+			{/each}
+			{#if typeResponses.length === 0}
+				<div class="my-2 text-xs italic opacity-40">...</div>
+			{/if}
+		</div>
 		{#if currentUserResponseType !== type}
 			<div class="ms-auto flex items-center p-1.5">
 				<div class="btn btn-circle btn-xs {config.btnClass}">

@@ -71,8 +71,28 @@
 }
 
 @layer base {
+	/* Écrans haute densité (Retina, 4K compact, petits écrans HD) */
+	@media (min-resolution: 130dpi) {
+		html {
+			font-size: clamp(13px, 0.85vw, 16px);
+		}
+	}
+
+	/* Écrans densité standard (1080p sur laptops) */
+	@media (min-resolution: 110dpi) and (max-resolution: 129dpi) {
+		html {
+			font-size: clamp(14px, 1vw, 18px);
+		}
+	}
+
+	/* Écrans basse densité (grands écrans 1080p/1440p) */
+	@media (max-resolution: 109dpi) {
+		html {
+			font-size: clamp(15px, 1.2vw, 20px);
+		}
+	}
+
 	html {
-		font-size: clamp(14px, 1.1vw, 17px);
 		height: 100%;
 		margin: 0;
 		padding: 0;

@@ -1,12 +1,10 @@
 <script lang="ts">
 	import PlanningForm, { type PlanningFormData } from '$lib/components/PlanningForm.svelte';
 	import {
-		createPlanning,
-		createOccurrence,
+		createPlanningWithOccurrences,
 		generateAdminToken,
 		generateParticipantToken
 	} from '$lib/services/planningActions';
-	import { generateRecurrenceDates } from '$lib/utils/recurrence';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { toast } from 'svelte-sonner';
 	import { Calendar } from 'lucide-svelte';
@@ -36,8 +34,12 @@
 				];
 			}
 
-			// Créer le planning master avec les tokens générés et les participants
-			const master = await createPlanning({ ...data, participants }, adminToken, participantToken);
+			// Créer le planning master et toutes les occurrences en une seule opération batch
+			const master = await createPlanningWithOccurrences(
+				{ ...data, participants },
+				adminToken,
+				participantToken
+			);
 
 			// Sauvegarder dans le localStorage
 			await userStore.savePlanning({
@@ -50,28 +52,6 @@
 			});
 
 			toast.success('Planning créé avec succès !');
-
-			// Générer les dates de récurrence (utiliser les dates sélectionnées si présentes)
-			const dates = data.recurrence.recurrenceDates || generateRecurrenceDates(data.recurrence);
-
-			// Créer les occurrences de manière asynchrone
-			const occurrencePromises = dates.map((date) =>
-				createOccurrence(
-					{
-						masterId: master.id,
-						date,
-						startTime: data.defaultStartTime,
-						endTime: data.defaultEndTime
-					},
-					adminToken,
-					participantToken
-				).catch((err) => {
-					console.error(`Erreur création occurrence pour ${date}:`, err);
-				})
-			);
-
-			// Attendre toutes les créations
-			await Promise.all(occurrencePromises);
 
 			// Rediriger vers la vue participant
 			goto(`/p/${participantToken}`);
