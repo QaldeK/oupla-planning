@@ -326,7 +326,7 @@
 					<div class="mb-2 flex flex-wrap items-center gap-4">
 						<!-- date time -->
 						<div class="flex min-w-60 flex-wrap items-center gap-2">
-							<span class="text-lg font-bold"
+							<span class="text-lg font-medium"
 								><Calendar size={18} class="inline " />
 								{formatDateWithDay(occurrence.date)}</span
 							>
@@ -368,7 +368,7 @@
 										style="width: {ratio}%"
 									></div>
 								</div>
-								<span class="text-xs font-bold tabular-nums">
+								<span class="text-xs font-medium tabular-nums">
 									{occState.stats.present}/{occState.inherited.minPresentRequired} présences
 								</span>
 							</div>

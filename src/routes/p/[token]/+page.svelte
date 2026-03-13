@@ -218,7 +218,7 @@
 					</div>
 					<div class="flex-1 space-y-1 sm:space-y-3">
 						<div>
-							<h1 class="text-2xl font-black tracking-tight sm:text-4xl">{master.title}</h1>
+							<h1 class="text-2xl font-semibold tracking-tight sm:text-4xl">{master.title}</h1>
 						</div>
 
 						<div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium opacity-80">
@@ -326,7 +326,7 @@
 			{#if !mediaQuery.isMobile}
 				<div class="card max-sm:card-sm bg-base-300 border-primary/10 my-8 border-2 shadow-md">
 					<div class="card-body">
-						<h3 class="mb-6 flex items-center gap-2 text-xl font-black">
+						<h3 class="mb-6 flex items-center gap-2 text-xl font-semibold">
 							<Share2 size={22} class="text-primary" />
 							Partager ce planning
 						</h3>

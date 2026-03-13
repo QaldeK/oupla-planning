@@ -185,7 +185,7 @@
 						p-0 text-sm
 						transition-all duration-200
 						{currentMonthDay ? 'text-base-content' : 'text-base-content/30'}
-						{selected ? 'bg-primary/50 font-bold' : 'hover:bg-base-200'}
+						{selected ? 'bg-primary/50 font-semibold' : 'hover:bg-base-200'}
 						{today && !selected ? 'ring-primary ring-offset-base-100 ring-2 ring-offset-2' : ''}
 						{disabled ? 'cursor-not-allowed opacity-30' : ''}
 					"

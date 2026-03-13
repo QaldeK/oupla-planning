@@ -94,7 +94,7 @@
 		<!-- Contenu principal (Formulaire uniquement) -->
 		<div class="mx-auto max-w-4xl">
 			<div class="mb-8">
-				<h3 class="mb-2 text-center text-xl font-black">
+				<h3 class="mb-2 text-center text-2xl sm:font-semibold">
 					Configuration {'de ' + master?.title || 'du Planning'}
 				</h3>
 				<p class="text-base-content/50 text-center text-sm">
@@ -118,7 +118,7 @@
 			>
 				<Calendar size={40} />
 			</div>
-			<h2 class="mb-3 text-3xl font-black">Introuvable</h2>
+			<h2 class="mb-3 text-3xl font-semibold">Introuvable</h2>
 			<p class="text-base-content/60 mb-8">
 				Le lien admin est invalide ou le planning a été supprimé.
 			</p>

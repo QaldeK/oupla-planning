@@ -835,7 +835,7 @@
 					{#if showArbitraryDatePicker}
 						<div class="border-base-300 mt-4 space-y-3 border-t pt-4">
 							<div class="flex items-center justify-between">
-								<h4 class="text-sm font-bold">Ajouter des dates arbitraires</h4>
+								<h4 class="text-sm font-medium">Ajouter des dates arbitraires</h4>
 								<button
 									type="button"
 									class="btn btn-ghost btn-sm"
@@ -876,7 +876,7 @@
 						: ''}"
 				>
 					<div class="flex items-end justify-between">
-						<div class="font-bold">Dates libres ({customDates.length} / 100)</div>
+						<div class="font-medium">Dates libres ({customDates.length} / 100)</div>
 						<div class="flex items-center">
 							<Calendar size={16} />
 							<span>{customDates.length} date(s)</span>
@@ -959,7 +959,7 @@
 				<!-- Sélection des ResponseType -->
 				{#if allowResponses}
 					<fieldset class="fieldset">
-						<legend class="fieldset-legend font-bold">Présences minimum souhaitées</legend>
+						<legend class="fieldset-legend font-medium">Présences minimum souhaitées</legend>
 						<div class="flex items-center gap-4">
 							<input
 								type="range"
@@ -978,7 +978,7 @@
 						</p>
 					</fieldset>
 					<fieldset class="fieldset">
-						<legend class="fieldset-legend font-bold">Réponses possibles</legend>
+						<legend class="fieldset-legend font-medium">Réponses possibles</legend>
 						<p class="text-base-content/50 mb-3 text-sm">
 							Sélectionnez les options que les participants peuvent choisir.
 						</p>
@@ -1026,7 +1026,7 @@
 					<div class="alert alert-info max-sm:alert-vertical rounded-2xl shadow-sm">
 						<AlignLeft size={20} />
 						<div class="flex-1">
-							<h4 class="font-bold">Tâches personnalisées détectées</h4>
+							<h4 class="font-semibold">Tâches personnalisées détectées</h4>
 							<p class="text-sm opacity-70">
 								{datesWithSpecificTasks.length} occurrence(s) possèdent des listes de tâches spécifiques
 								qui diffèrent de la configuration du planning. Cochez "tout remplacer" si vous souhaitez

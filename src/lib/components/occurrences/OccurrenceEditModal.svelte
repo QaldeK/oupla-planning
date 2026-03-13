@@ -416,7 +416,7 @@
 	>
 		<!-- Statut et Actions Rapides -->
 		<div class="flex flex-col gap-3">
-			<h4 class="text-sm font-bold opacity-60">Statut de l'événement</h4>
+			<h4 class="text-sm font-medium opacity-60">Statut de l'événement</h4>
 			<div class="flex flex-wrap gap-2">
 				{#if isCanceled}
 					<button
@@ -463,7 +463,7 @@
 		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 			<!-- Horaires -->
 			<div class="space-y-4">
-				<h4 class="flex items-center gap-2 font-bold">
+				<h4 class="flex items-center gap-2 font-medium">
 					<Clock size={18} class="text-primary" />
 					Horaires
 				</h4>
@@ -481,7 +481,7 @@
 
 			<!-- Lieu -->
 			<div class="space-y-4">
-				<h4 class="flex items-center gap-2 font-bold">
+				<h4 class="flex items-center gap-2 font-medium">
 					<MapPin size={18} class="text-primary" />
 					Lieu
 				</h4>
@@ -499,7 +499,7 @@
 
 		<!-- Description -->
 		<div class="space-y-2">
-			<h4 class="flex items-center gap-2 font-bold">
+			<h4 class="flex items-center gap-2 font-medium">
 				<AlignLeft size={18} class="text-primary" />
 				Description
 			</h4>
@@ -514,7 +514,7 @@
 
 		<!-- Paramètres de réponse -->
 		<div class="space-y-4">
-			<h4 class="flex items-center gap-2 font-bold">
+			<h4 class="flex items-center gap-2 font-medium">
 				<Users size={18} class="text-primary" />
 				Présences
 			</h4>
@@ -540,7 +540,7 @@
 
 		<!-- Gestion des réponses des participants -->
 		<div class="space-y-4">
-			<h4 class="flex items-center gap-2 font-bold">
+			<h4 class="flex items-center gap-2 font-medium">
 				<UserPlus size={18} class="text-primary" />
 				Gérer les réponses des participants
 			</h4>
@@ -614,7 +614,7 @@
 		<!-- Tâches -->
 		<div class="space-y-4">
 			<div class="flex flex-wrap items-center justify-between gap-3">
-				<h4 class="flex items-center gap-2 font-bold">
+				<h4 class="flex items-center gap-2 font-medium">
 					<ClipboardCheck size={18} class="text-primary" />
 					Liste des tâches
 				</h4>
@@ -648,7 +648,7 @@
 					>
 						<div class="flex items-center gap-3">
 							<div class="flex flex-1 flex-wrap items-center gap-3">
-								<div class="text-sm font-bold">{task.name}</div>
+								<div class="text-sm font-medium">{task.name}</div>
 								<div class="text-sm opacity-60">
 									{task.requiredVolunteers} pers. • {task.type === 'beforeEvent'
 										? 'Avant'

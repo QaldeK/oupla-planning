@@ -64,10 +64,10 @@
 						>
 							<ArrowLeft size={20} />
 						</button>
-						<h3 class="flex-1 text-base font-bold md:text-lg">{title}</h3>
+						<h3 class="flex-1 text-base font-semibold md:text-lg">{title}</h3>
 						<!-- <button class="btn btn-circle btn-primary btn-sm" onclick={}><Save class="p-1" /></button> -->
 					{:else}
-						<h3 class="text-lg font-bold">{title}</h3>
+						<h3 class="text-lg font-semibold">{title}</h3>
 						<button class="btn btn-circle btn-ghost btn-sm" onclick={onClose} aria-label="Fermer">
 							<X size={20} />
 						</button>

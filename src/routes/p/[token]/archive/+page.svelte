@@ -52,7 +52,9 @@
 						<div class="bg-primary/10 text-primary rounded-xl p-3">
 							<History size={32} />
 						</div>
-						<h1 class="text-3xl font-black tracking-tight">{master?.title || 'Chargement...'}</h1>
+						<h1 class="text-3xl font-semibold tracking-tight">
+							{master?.title || 'Chargement...'}
+						</h1>
 					</div>
 					<p class="text-base-content/60 font-medium">
 						Archives et historique des événements passés
