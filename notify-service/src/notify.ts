@@ -1,5 +1,26 @@
 import webPush from 'web-push';
 
+// 🔍 DEBUG: Logger toutes les variables d'environnement AVANT toute vérification
+console.log('🔍 [DEBUG] Démarrage du service...');
+console.log("🔍 [DEBUG] Variables d'environnement:");
+console.log(
+	'  - VAPID_PUBLIC_KEY:',
+	process.env.VAPID_PUBLIC_KEY
+		? `${process.env.VAPID_PUBLIC_KEY.substring(0, 20)}...`
+		: '❌ NON DÉFINIE'
+);
+console.log(
+	'  - VAPID_PRIVATE_KEY:',
+	process.env.VAPID_PRIVATE_KEY
+		? 'Définie (longueur: ' + process.env.VAPID_PRIVATE_KEY.length + ')'
+		: '❌ NON DÉFINIE'
+);
+console.log('  - VAPID_SUBJECT:', process.env.VAPID_SUBJECT || '❌ NON DÉFINIE');
+console.log('  - PORT:', process.env.PORT || '3001 (défaut)');
+console.log('🔍 [DEBUG] Node version:', process.version);
+console.log('🔍 [DEBUG] Platform:', process.platform);
+console.log('🔍 [DEBUG] CWD:', process.cwd());
+
 // Configuration VAPID
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
@@ -7,6 +28,8 @@ const port = parseInt(process.env.PORT || '3001');
 
 if (!vapidPublicKey || !vapidPrivateKey) {
 	console.error('❌ ERREUR: VAPID_PUBLIC_KEY et VAPID_PRIVATE_KEY doivent être définis');
+	console.error('❌ [DEBUG] VAPID_PUBLIC_KEY existe:', !!vapidPublicKey);
+	console.error('❌ [DEBUG] VAPID_PRIVATE_KEY existe:', !!vapidPrivateKey);
 	process.exit(1);
 }
 
