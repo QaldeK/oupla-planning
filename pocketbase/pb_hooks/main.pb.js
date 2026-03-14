@@ -264,8 +264,6 @@ onRecordUpdateRequest((e) => {
 	// Lire le token depuis les query params
 	const url = e.httpContext?.request()?.url;
 	const token = url?.searchParams?.get('_token') || '';
-	console.log('🔍 Update request - URL:', url?.href);
-	console.log('🔍 Update request - Token:', token ? token.substring(0, 8) + '...' : 'MISSING');
 
 	if (!token) {
 		throw new ApiError(401, 'Missing token');
