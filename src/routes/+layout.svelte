@@ -164,6 +164,15 @@
 					</button>
 				{/if}
 
+				{#if userStore.isLoggedIn}
+					<button
+						class="btn btn-outline btn-block btn-sm mb-2"
+						onclick={() => userStore.logout()}
+					>
+						Se déconnecter
+					</button>
+				{/if}
+
 				{#if userStore.globalProfile}
 					<button
 						class="btn btn-block btn-accent"

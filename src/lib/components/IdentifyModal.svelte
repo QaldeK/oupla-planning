@@ -4,7 +4,9 @@
 	import { isTauri } from '$lib/utils/storage';
 	import Modal from './ui/Modal.svelte';
 	import ConfirmModal from './ui/ConfirmModal.svelte';
-	import { CircleAlert, CircleHelp, User, ArrowRight, CircleCheck, Trash2 } from 'lucide-svelte';
+	import AuthForm from './auth/AuthForm.svelte';
+	import { pb } from '$lib/pocketbase/pb';
+	import { CircleAlert, CircleHelp, User, ArrowRight, CircleCheck, Trash2, ShieldCheck, ArrowLeft } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	interface Props {
@@ -33,6 +35,9 @@
 	let isSubmitting = $state(false);
 	let showConfirmClear = $state(false);
 	let inputRef = $state<HTMLInputElement | null>(null);
+	
+	let requireLoginFor = $state<Participant | null>(null);
+	let inlineAuthMode = $state<'register' | 'login'>('register');
 
 	// Focus auto à l'ouverture
 	$effect(() => {
@@ -44,6 +49,7 @@
 	// Initialiser les champs à l'ouverture
 	$effect(() => {
 		if (open) {
+			requireLoginFor = null;
 			const planningId = userStore.authModal.masterId;
 			const specificIdentity = planningId ? userStore.getPlanningIdentity(planningId) : null;
 
@@ -93,7 +99,6 @@
 			}
 
 			await onPlanningIdentify?.(identity, false);
-			// toast.success(`Ravi de vous revoir, ${identity.name} !`);
 			onClose();
 		} catch (error) {
 			toast.error("Erreur lors de l'identification");
@@ -102,8 +107,22 @@
 		}
 	}
 
+	async function attemptIdentifyAs(participant: Participant) {
+		// Vérification compte PB existant
+		isSubmitting = true;
+		try {
+			await pb.collection('users').getOne(participant.id, { requestKey: null });
+			// Le compte existe -> exiger la connexion
+			requireLoginFor = participant;
+			isSubmitting = false;
+		} catch (err) {
+			// Pas de compte -> on passe direct
+			await identifyAs(participant);
+		}
+	}
+
 	async function handleManualIdentify() {
-		if (!name.trim() || hasConflict) return;
+		if ((!name.trim() || hasConflict) && !requireLoginFor) return;
 
 		// Cas Homepage / Edit Global
 		if (mode === 'homepage') {
@@ -126,6 +145,17 @@
 			// Si déjà identifié sur ce planning, c'est une mise à jour
 			const isUpdate = !!currentIdentity;
 			const globalId = currentIdentity?.id || userStore.globalProfile?.id || crypto.randomUUID();
+
+			// Ensure global profile exists with the entered name if created now
+			if (!userStore.globalProfile) {
+				await userStore.createGlobalProfile(name.trim(), email.trim() || undefined, rememberMe);
+				await userStore.updateGlobalProfile({ id: globalId });
+			} else {
+				// Mettre à jour le nom par défaut du profil global si c'est la première fois qu'on le fixe
+				if (userStore.globalProfile.defaultName !== name.trim()) {
+					await userStore.updateGlobalProfile({ defaultName: name.trim() });
+				}
+			}
 
 			const identity: PlanningIdentity = {
 				id: globalId,
@@ -156,134 +186,190 @@
 <Modal
 	{open}
 	{onClose}
-	title={mode === 'edit-global' ? 'Mon Profil' : 'Identification pour ce planning'}
+	title={requireLoginFor ? 'Connexion requise' : (mode === 'edit-global' ? 'Mon Profil' : 'Identification')}
 	size="md"
 >
 	<div class="space-y-6">
-		<form
-			onsubmit={(e) => {
-				e.preventDefault();
-				handleManualIdentify();
-			}}
-			class="space-y-5"
-		>
-			<fieldset>
-				<label class="input w-full" class:input-error={hasConflict}>
-					<span class="label">
-						<User size={18} class="opacity-40" />
-						Nom *
-					</span>
-					<input
-						bind:this={inputRef}
-						id="name"
-						type="text"
-						bind:value={name}
-						class="grow"
-						placeholder="Votre nom ou pseudo"
-						required
-						disabled={isSubmitting}
-					/>
-				</label>
-				<div class="fieldset-label p-1 text-xs">
-					C'est le nom qui apparaîtra pour les autres participants. {#if mode === 'edit-global'}
-						Il sera utilisé par défaut dans les planning que vous rejoindrez. Vous pourrez cependant
-						spécifier un nom spécifique pour chaque planning.
-					{:else if mode === 'planning'}
-						Ce nom sera spécifique à ce planning.
-					{/if}
-				</div>
-			</fieldset>
-
-			{#if hasConflict && matchedParticipant}
-				<div class="animate-in fade-in slide-in-from-top-2 space-y-4 duration-300">
-					<div class="alert alert-warning alert-soft max-sm:alert-vertical text-base-content">
-						<CircleAlert size={20} class="text-warning shrink-0" />
-						<div class="text-sm">
-							Ce nom est déjà utilisé par un·e participant·e sur ce planning.
-						</div>
-
-						<div class="flex flex-col gap-2">
-							<button
-								type="button"
-								class="btn btn-sm btn-warning"
-								onclick={() => identifyAs(matchedParticipant!)}
-								disabled={isSubmitting}
-							>
-								C'est moi !
-							</button>
-						</div>
-						<p class="px-2 text-center text-[10px] leading-tight opacity-50">
-							Choisissez "C'est moi !" si vous avez déjà participé à ce planning sur un autre
-							appareil ou si vous avez effacé vos données. <strong
-								>Sinon, choississez un autre nom</strong
-							>
-						</p>
+		{#if requireLoginFor}
+			<div class="animate-in fade-in slide-in-from-right-4 duration-300 space-y-5">
+				<div class="alert alert-warning alert-soft text-sm">
+					<ShieldCheck size={20} class="shrink-0 text-warning" />
+					<div class="leading-tight">
+						L'identité de <strong>{requireLoginFor.name}</strong> est protégée par un compte.
 					</div>
 				</div>
-			{:else if !hasConflict && matchedParticipant}
-				<!-- Cas où le nom match l'ID global (déjà reconnu mais modal ouvert par erreur ou switch manuel) -->
-				<div class="alert alert-success alert-soft max-sm:alert-vertical">
-					<CircleCheck size={20} class="shrink-0" />
-					<div class="text-sm font-medium">Votre profil est enregistré sur cet appareil</div>
-					<button
-						type="button"
-						class="btn btn-warning btn-block btn-sm h-auto gap-2"
-						onclick={() => (showConfirmClear = true)}
-					>
-						<Trash2 size={16} class="shrink-0" />
-						Effacer mon profil sur cet appareil
+				<AuthForm 
+					mode="login" 
+					onSuccess={() => identifyAs(requireLoginFor!)} 
+				/>
+				<div class="text-center">
+					<button type="button" class="btn btn-ghost btn-sm text-base-content/60" onclick={() => { requireLoginFor = null; name = ''; setTimeout(() => inputRef?.focus(), 50); }}>
+						<ArrowLeft size={16} /> Retour
 					</button>
 				</div>
-			{/if}
-			{#if !isTauri && !matchedParticipant && (mode === 'planning' || mode === 'homepage')}
-				<label class="label cursor-pointer justify-start gap-3 py-2">
-					<input
-						type="checkbox"
-						bind:checked={rememberMe}
-						class="checkbox checkbox-primary checkbox-sm"
-						disabled={isSubmitting}
-					/>
-					<span class="label-text font-medium">Mémoriser sur cet appareil</span>
-				</label>
-			{/if}
+			</div>
+		{:else}
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					handleManualIdentify();
+				}}
+				class="space-y-5"
+			>
+				<fieldset>
+					<label class="input w-full" class:input-error={hasConflict}>
+						<span class="label">
+							<User size={18} class="opacity-40" />
+							Nom *
+						</span>
+						<input
+							bind:this={inputRef}
+							id="name"
+							type="text"
+							bind:value={name}
+							class="grow"
+							placeholder="Votre nom ou pseudo"
+							required
+							disabled={isSubmitting}
+						/>
+					</label>
+					<div class="fieldset-label p-1 text-xs">
+						C'est le nom qui apparaîtra pour les autres participants. {#if mode === 'edit-global'}
+							Il sera utilisé par défaut dans les plannings que vous rejoindrez.
+						{:else if mode === 'planning'}
+							Ce nom sera spécifique à ce planning.
+						{/if}
+					</div>
+				</fieldset>
 
-			<div class="modal-action mt-8">
-				<button
-					type="submit"
-					class="btn btn-primary btn-block gap-2"
-					disabled={isSubmitting || !name.trim() || hasConflict}
-				>
-					{#if isSubmitting}
-						<span class="loading loading-spinner loading-xs"></span>
-						Traitement...
-					{:else}
-						Continuer
-						<ArrowRight size={18} />
-					{/if}
-				</button>
-			</div>
-		</form>
+				{#if hasConflict && matchedParticipant}
+					<div class="animate-in fade-in slide-in-from-top-2 space-y-4 duration-300">
+						<div class="alert alert-warning alert-soft max-sm:alert-vertical text-base-content">
+							<CircleAlert size={20} class="text-warning shrink-0" />
+							<div class="text-sm">
+								Ce nom est déjà utilisé par un·e participant·e sur ce planning.
+							</div>
 
-		<!-- Liste rapide simplifiée -->
-		{#if !name.trim() && existingParticipants.length > 0 && mode === 'planning'}
-			<div class="divider text-[10px] tracking-widest uppercase opacity-50">
-				Déjà participant·es ?
-			</div>
-			<div class="alert alert-soft alert-info text-base-content/80 text-sm italic">
-				<span>Vous avez déjà participé à ce planning ? Indiquez qui vous êtes : </span>
-			</div>
-			<div class="flex max-h-40 flex-wrap gap-2 overflow-y-auto p-1">
-				{#each existingParticipants as p (p.id)}
+							<div class="flex flex-col gap-2">
+								<button
+									type="button"
+									class="btn btn-sm btn-warning"
+									onclick={() => attemptIdentifyAs(matchedParticipant!)}
+									disabled={isSubmitting}
+								>
+									{#if isSubmitting}
+										<span class="loading loading-spinner loading-xs"></span>
+									{:else}
+										C'est moi !
+									{/if}
+								</button>
+							</div>
+							<p class="px-2 text-center text-[10px] leading-tight opacity-50">
+								Choisissez "C'est moi !" si vous avez déjà participé à ce planning sur un autre
+								appareil ou si vous avez effacé vos données. <strong>Sinon, choississez un autre nom</strong>
+							</p>
+						</div>
+					</div>
+				{:else if !hasConflict && matchedParticipant}
+					<!-- Cas où le nom match l'ID global (déjà reconnu mais modal ouvert par erreur ou switch manuel) -->
+					<div class="alert alert-success alert-soft max-sm:alert-vertical">
+						<CircleCheck size={20} class="shrink-0" />
+						<div class="text-sm font-medium">Votre profil est enregistré sur cet appareil</div>
+						<button
+							type="button"
+							class="btn btn-warning btn-block btn-sm h-auto gap-2"
+							onclick={() => (showConfirmClear = true)}
+						>
+							<Trash2 size={16} class="shrink-0" />
+							Effacer mon profil sur cet appareil
+						</button>
+					</div>
+				{/if}
+				
+				{#if !isTauri && !matchedParticipant && (mode === 'planning' || mode === 'homepage')}
+					<label class="label cursor-pointer justify-start gap-3 py-2">
+						<input
+							type="checkbox"
+							bind:checked={rememberMe}
+							class="checkbox checkbox-primary checkbox-sm"
+							disabled={isSubmitting}
+						/>
+						<span class="label-text font-medium">Mémoriser sur cet appareil</span>
+					</label>
+				{/if}
+
+				<div class="modal-action mt-8">
 					<button
-						type="button"
-						class="btn btn-accent btn-sm"
-						onclick={() => identifyAs(p)}
-						disabled={isSubmitting}
+						type="submit"
+						class="btn btn-primary btn-block gap-2"
+						disabled={isSubmitting || !name.trim() || hasConflict}
 					>
-						{p.name}
+						{#if isSubmitting}
+							<span class="loading loading-spinner loading-xs"></span>
+							Traitement...
+						{:else}
+							Continuer comme {name || "..."}
+							<ArrowRight size={18} />
+						{/if}
 					</button>
-				{/each}
-			</div>
+				</div>
+			</form>
+
+			<!-- Inscription depuis le IdentifyModal -->
+			{#if !pb.authStore.isValid && !isTauri && !hasConflict && (mode === 'planning' || mode === 'homepage' || mode === 'edit-global')}
+				<div class="divider text-[10px] uppercase tracking-widest opacity-50 mt-8">Oupla Notifications</div>
+				<div class="alert alert-info alert-soft p-3 text-sm flex gap-3 mb-4">
+					<CircleHelp size={20} class="shrink-0 text-info" />
+					<div class="leading-tight w-full flex flex-col gap-1">
+						<div>
+							Créez un compte pour recevoir des notifications par email (et push sur mobile).
+							<span class="opacity-75 text-xs block mt-1">Ce compte protégera aussi votre identité.</span>
+						</div>
+						<div class="flex justify-end mt-1">
+							<button 
+								type="button" 
+								class="btn btn-link btn-xs font-bold p-0 h-auto min-h-0 text-info no-underline hover:underline" 
+								onclick={() => inlineAuthMode = inlineAuthMode === 'register' ? 'login' : 'register'}
+							>
+								{inlineAuthMode === 'register' ? "J'ai déjà un compte - se connecter" : "Je n'ai pas de compte - s'inscrire"}
+							</button>
+						</div>
+					</div>
+				</div>
+				<div class="bg-base-200/50 p-4 rounded-xl border border-base-300">
+					<AuthForm 
+						mode={inlineAuthMode}
+						name={name.trim()}
+						compact 
+						onSuccess={() => {
+							if (name.trim()) handleManualIdentify();
+							else onClose();
+						}} 
+					/>
+				</div>
+			{/if}
+
+			<!-- Liste rapide simplifiée -->
+			{#if !name.trim() && existingParticipants.length > 0 && mode === 'planning'}
+				<div class="divider text-[10px] tracking-widest uppercase opacity-50">
+					Déjà participant·es ?
+				</div>
+				<div class="alert alert-soft alert-info text-base-content/80 text-sm italic">
+					<span>Vous avez déjà participé à ce planning ? Indiquez qui vous êtes : </span>
+				</div>
+				<div class="flex max-h-40 flex-wrap gap-2 overflow-y-auto p-1">
+					{#each existingParticipants as p (p.id)}
+						<button
+							type="button"
+							class="btn btn-accent btn-sm"
+							onclick={() => attemptIdentifyAs(p)}
+							disabled={isSubmitting}
+						>
+							{p.name}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		{/if}
 	</div>
 </Modal>

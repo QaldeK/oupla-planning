@@ -7,6 +7,7 @@ import type {
 } from '$lib/types/planning.types';
 import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 import { storage, isTauri } from '$lib/utils/storage';
+import { pb } from '$lib/pocketbase/pb';
 
 const STORAGE_KEY = 'planning_global_profile';
 const PLANNINGS_KEY = 'planning_saved';
@@ -26,8 +27,14 @@ class UserStore {
 	authModal = $state<AuthModalState>({ open: false, mode: 'homepage' });
 	preferredOccurrenceView = $state<ViewType>('compact');
 	isReady = $state(false);
+	isLoggedIn = $state(pb.authStore.isValid);
 
 	async init() {
+		// Synchro authStore
+		this.isLoggedIn = pb.authStore.isValid;
+		pb.authStore.onChange(() => {
+			this.isLoggedIn = pb.authStore.isValid;
+		});
 		// 1. Profil global
 		this.globalProfile = await storage.getItem<GlobalUserProfile>(STORAGE_KEY);
 
@@ -198,11 +205,16 @@ class UserStore {
 		await storage.removeItem(PLANNINGS_KEY);
 	}
 
+	async logout() {
+		pb.authStore.clear();
+	}
+
 	async clearUser() {
 		this.globalProfile = null;
 		this.savedPlannings = [];
 		await storage.removeItem(STORAGE_KEY);
 		await storage.removeItem(PLANNINGS_KEY);
+		this.logout();
 	}
 
 	hasAdminAccess(masterId: string): boolean {

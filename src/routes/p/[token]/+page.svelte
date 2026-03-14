@@ -5,10 +5,11 @@
 	import ViewTabs from '$lib/components/occurrences/ViewTabs.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { addParticipant, updateParticipant } from '$lib/services/planningActions';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import type { PlanningIdentity } from '$lib/types/planning.types';
+	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
+	import { pb } from '$lib/pocketbase/pb';
 	import { formatDateShort } from '$lib/utils/date';
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import {
@@ -34,6 +35,7 @@
 	let isLoading = $derived(planningStore.isLoading);
 	let displayCount = $state(10);
 	let showShareModal = $state(false);
+	let showNotifModal = $state(false);
 
 	// Initialisation via le store
 	$effect(() => {
@@ -329,6 +331,51 @@
 						{/if}
 					</div>
 				</div>
+
+				<!-- Card Notifications -->
+				<div class="card card-sm bg-base-200 border-base-content/5 border shadow-sm">
+					<div class="card-body flex-row items-center gap-5">
+						<div class="bg-base-300 text-info rounded-2xl p-3">
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bell"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+						</div>
+						<div class="flex-1">
+							<div class="text-xs font-bold tracking-wider uppercase opacity-70 mb-1">Notifications</div>
+							{#if pb.authStore.isValid && pb.authStore.model?.notificationsSubscription}
+								{@const sub = pb.authStore.model.notificationsSubscription}
+								<div class="text-sm">
+									<p class="font-medium text-base-content/90">
+										{#if sub.email && sub.push}
+											Email & Push activés
+										{:else if sub.email}
+											Email uniquement
+										{:else if sub.push}
+											Push uniquement
+										{:else}
+											Aucun canal actif
+										{/if}
+									</p>
+									<p class="text-xs opacity-70 leading-tight mt-1">
+										{#if sub.reminderDays > 0} Rappels (J-{sub.reminderDays}) {/if}
+										{#if sub.missingParticipantsDays > 0} Manques (J-{sub.missingParticipantsDays}) {/if}
+									</p>
+								</div>
+							{:else}
+								<p class="text-sm opacity-70 leading-tight">Recevez des alertes (email/mobile) sur ce planning et vos engagements.</p>
+							{/if}
+						</div>
+						<div>
+							<button class="btn btn-sm btn-outline" onclick={() => {
+								if (!pb.authStore.isValid) {
+									userStore.authModal = { open: true, mode: 'homepage' };
+								} else {
+									showNotifModal = true;
+								}
+							}}>
+								Configurer
+							</button>
+						</div>
+					</div>
+				</div>
 			</div>
 			<!-- Zone de partage -->
 			{#if !mediaQuery.isMobile}
@@ -461,3 +508,5 @@
 		</div>
 	</div>
 {/if}
+
+<NotificationModal bind:open={showNotifModal} onClose={() => showNotifModal = false} />
