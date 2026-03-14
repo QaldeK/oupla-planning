@@ -1,0 +1,22 @@
+{
+	"name": "notify-service",
+	"version": "1.0.0",
+	"description": "Web Push notification service for Oupla Planning",
+	"module": "src/notify.ts",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"dev": "bun run --hot src/notify.ts",
+		"start": "bun run src/notify.ts",
+		"test": "bun test"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"web-push": "^3.6.7"
+	}
+}
