@@ -1,4 +1,4 @@
-FROM oven/bun:1
+FROM oven/bun:1.3.10
 
 WORKDIR /app
 
@@ -14,5 +14,5 @@ COPY src/ ./src/
 # Exposer le port
 EXPOSE 3001
 
-# Commande de démarrage - Direct execution sans npm scripts
-CMD ["bun", "src/notify.ts"]
+# Commande de démarrage - avec chemin explicite
+CMD ["bun", "run", "src/notify.ts"]
