@@ -13,6 +13,7 @@ export enum Collections {
 	Superusers = "_superusers",
 	PlanningMasters = "planning_masters",
 	PlanningOccurrences = "planning_occurrences",
+	PlanningParticipants = "planning_participants",
 	Users = "users",
 }
 
@@ -136,14 +137,28 @@ export type PlanningOccurrencesRecord<Tcomments = unknown, Tresponses = unknown,
 	updated: IsoAutoDateString
 }
 
-export type UsersRecord<TnotificationsSubscription = unknown, Tpush_subscription = unknown> = {
+export type PlanningParticipantsRecord = {
+	created: IsoAutoDateString
+	email?: boolean
+	id: string
+	missingParticipantsDays?: number
+	onCancellation?: boolean
+	onTimeChange?: boolean
+	planning?: RecordIdString
+	push?: boolean
+	reminderDays?: number
+	updated: IsoAutoDateString
+	user?: RecordIdString
+}
+
+export type UsersRecord<Tpush_subscription = unknown> = {
 	avatar?: FileNameString
 	created: IsoAutoDateString
 	email: string
 	emailVisibility?: boolean
 	id: string
+	masterId?: RecordIdString[]
 	name?: string
-	notificationsSubscription?: null | TnotificationsSubscription
 	password: string
 	push_subscription?: null | Tpush_subscription
 	tokenKey: string
@@ -159,7 +174,8 @@ export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemF
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
 export type PlanningMastersResponse<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown, Texpand = unknown> = Required<PlanningMastersRecord<TavailableResponseTypes, Tparticipants, Trecurrence, Ttasks>> & BaseSystemFields<Texpand>
 export type PlanningOccurrencesResponse<Tcomments = unknown, Tresponses = unknown, Ttasks = unknown, Texpand = unknown> = Required<PlanningOccurrencesRecord<Tcomments, Tresponses, Ttasks>> & BaseSystemFields<Texpand>
-export type UsersResponse<TnotificationsSubscription = unknown, Tpush_subscription = unknown, Texpand = unknown> = Required<UsersRecord<TnotificationsSubscription, Tpush_subscription>> & AuthSystemFields<Texpand>
+export type PlanningParticipantsResponse<Texpand = unknown> = Required<PlanningParticipantsRecord> & BaseSystemFields<Texpand>
+export type UsersResponse<Tpush_subscription = unknown, Texpand = unknown> = Required<UsersRecord<Tpush_subscription>> & AuthSystemFields<Texpand>
 
 // Types containing all Records and Responses, useful for creating typing helper functions
 
@@ -171,6 +187,7 @@ export type CollectionRecords = {
 	_superusers: SuperusersRecord
 	planning_masters: PlanningMastersRecord
 	planning_occurrences: PlanningOccurrencesRecord
+	planning_participants: PlanningParticipantsRecord
 	users: UsersRecord
 }
 
@@ -182,6 +199,7 @@ export type CollectionResponses = {
 	_superusers: SuperusersResponse
 	planning_masters: PlanningMastersResponse
 	planning_occurrences: PlanningOccurrencesResponse
+	planning_participants: PlanningParticipantsResponse
 	users: UsersResponse
 }
 

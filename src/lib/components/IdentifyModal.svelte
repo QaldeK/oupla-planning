@@ -6,7 +6,16 @@
 	import ConfirmModal from './ui/ConfirmModal.svelte';
 	import AuthForm from './auth/AuthForm.svelte';
 	import { pb } from '$lib/pocketbase/pb';
-	import { CircleAlert, CircleHelp, User, ArrowRight, CircleCheck, Trash2, ShieldCheck, ArrowLeft } from 'lucide-svelte';
+	import {
+		CircleAlert,
+		CircleHelp,
+		User,
+		ArrowRight,
+		CircleCheck,
+		Trash2,
+		ShieldCheck,
+		ArrowLeft
+	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	interface Props {
@@ -35,7 +44,7 @@
 	let isSubmitting = $state(false);
 	let showConfirmClear = $state(false);
 	let inputRef = $state<HTMLInputElement | null>(null);
-	
+
 	let requireLoginFor = $state<Participant | null>(null);
 	let inlineAuthMode = $state<'register' | 'login'>('register');
 
@@ -186,24 +195,37 @@
 <Modal
 	{open}
 	{onClose}
-	title={requireLoginFor ? 'Connexion requise' : (mode === 'edit-global' ? 'Mon Profil' : 'Identification')}
+	title={requireLoginFor
+		? 'Connexion requise'
+		: mode === 'edit-global'
+			? 'Mon Profil'
+			: 'Identification'}
 	size="md"
 >
 	<div class="space-y-6">
 		{#if requireLoginFor}
-			<div class="animate-in fade-in slide-in-from-right-4 duration-300 space-y-5">
+			<div class="animate-in fade-in slide-in-from-right-4 space-y-5 duration-300">
 				<div class="alert alert-warning alert-soft text-sm">
-					<ShieldCheck size={20} class="shrink-0 text-warning" />
+					<ShieldCheck size={20} class="text-warning shrink-0" />
 					<div class="leading-tight">
 						L'identité de <strong>{requireLoginFor.name}</strong> est protégée par un compte.
 					</div>
 				</div>
-				<AuthForm 
-					mode="login" 
-					onSuccess={() => identifyAs(requireLoginFor!)} 
+				<AuthForm
+					mode="login"
+					showNameInput={false}
+					onSuccess={() => identifyAs(requireLoginFor!)}
 				/>
 				<div class="text-center">
-					<button type="button" class="btn btn-ghost btn-sm text-base-content/60" onclick={() => { requireLoginFor = null; name = ''; setTimeout(() => inputRef?.focus(), 50); }}>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm text-base-content/60"
+						onclick={() => {
+							requireLoginFor = null;
+							name = '';
+							setTimeout(() => inputRef?.focus(), 50);
+						}}
+					>
 						<ArrowLeft size={16} /> Retour
 					</button>
 				</div>
@@ -244,7 +266,7 @@
 
 				{#if hasConflict && matchedParticipant}
 					<div class="animate-in fade-in slide-in-from-top-2 space-y-4 duration-300">
-						<div class="alert alert-warning alert-soft max-sm:alert-vertical text-base-content">
+						<div class="alert alert-warning alert-soft alert-vertical text-base-content">
 							<CircleAlert size={20} class="text-warning shrink-0" />
 							<div class="text-sm">
 								Ce nom est déjà utilisé par un·e participant·e sur ce planning.
@@ -266,7 +288,9 @@
 							</div>
 							<p class="px-2 text-center text-[10px] leading-tight opacity-50">
 								Choisissez "C'est moi !" si vous avez déjà participé à ce planning sur un autre
-								appareil ou si vous avez effacé vos données. <strong>Sinon, choississez un autre nom</strong>
+								appareil ou si vous avez effacé vos données. <strong
+									>Sinon, choississez un autre nom</strong
+								>
 							</p>
 						</div>
 					</div>
@@ -285,7 +309,7 @@
 						</button>
 					</div>
 				{/if}
-				
+
 				{#if !isTauri && !matchedParticipant && (mode === 'planning' || mode === 'homepage')}
 					<label class="label cursor-pointer justify-start gap-3 py-2">
 						<input
@@ -308,7 +332,7 @@
 							<span class="loading loading-spinner loading-xs"></span>
 							Traitement...
 						{:else}
-							Continuer comme {name || "..."}
+							Continuer comme {name || '...'}
 							<ArrowRight size={18} />
 						{/if}
 					</button>
@@ -317,34 +341,42 @@
 
 			<!-- Inscription depuis le IdentifyModal -->
 			{#if !pb.authStore.isValid && !isTauri && !hasConflict && (mode === 'planning' || mode === 'homepage' || mode === 'edit-global')}
-				<div class="divider text-[10px] uppercase tracking-widest opacity-50 mt-8">Oupla Notifications</div>
-				<div class="alert alert-info alert-soft p-3 text-sm flex gap-3 mb-4">
-					<CircleHelp size={20} class="shrink-0 text-info" />
-					<div class="leading-tight w-full flex flex-col gap-1">
+				<div class="divider mt-8 text-[10px] tracking-widest uppercase opacity-50">
+					Oupla Notifications
+				</div>
+				<div class="alert alert-info alert-soft mb-4 flex gap-3 p-3 text-sm">
+					<CircleHelp size={20} class="text-info shrink-0" />
+					<div class="flex w-full flex-col gap-1 leading-tight">
 						<div>
 							Créez un compte pour recevoir des notifications par email (et push sur mobile).
-							<span class="opacity-75 text-xs block mt-1">Ce compte protégera aussi votre identité.</span>
-						</div>
-						<div class="flex justify-end mt-1">
-							<button 
-								type="button" 
-								class="btn btn-link btn-xs font-bold p-0 h-auto min-h-0 text-info no-underline hover:underline" 
-								onclick={() => inlineAuthMode = inlineAuthMode === 'register' ? 'login' : 'register'}
+							<span class="mt-1 block text-xs opacity-75"
+								>Ce compte protégera aussi votre identité.</span
 							>
-								{inlineAuthMode === 'register' ? "J'ai déjà un compte - se connecter" : "Je n'ai pas de compte - s'inscrire"}
+						</div>
+						<div class="mt-1 flex justify-end">
+							<button
+								type="button"
+								class="btn btn-link btn-xs text-info h-auto min-h-0 p-0 font-bold no-underline hover:underline"
+								onclick={() =>
+									(inlineAuthMode = inlineAuthMode === 'register' ? 'login' : 'register')}
+							>
+								{inlineAuthMode === 'register'
+									? "J'ai déjà un compte - se connecter"
+									: "Je n'ai pas de compte - s'inscrire"}
 							</button>
 						</div>
 					</div>
 				</div>
-				<div class="bg-base-200/50 p-4 rounded-xl border border-base-300">
-					<AuthForm 
+				<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
+					<AuthForm
 						mode={inlineAuthMode}
 						name={name.trim()}
-						compact 
+						showNameInput={false}
+						compact
 						onSuccess={() => {
 							if (name.trim()) handleManualIdentify();
 							else onClose();
-						}} 
+						}}
 					/>
 				</div>
 			{/if}
