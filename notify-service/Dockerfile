@@ -14,5 +14,5 @@ COPY src/ ./src/
 # Exposer le port
 EXPOSE 3001
 
-# Commande de démarrage
-CMD ["bun", "run", "start"]
+# Commande de démarrage - Direct execution sans npm scripts
+CMD ["bun", "src/notify.ts"]
