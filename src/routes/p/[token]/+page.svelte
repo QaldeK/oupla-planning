@@ -11,15 +11,13 @@
 	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
 	import { pb } from '$lib/pocketbase/pb';
-	import { formatDateShort } from '$lib/utils/date';
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
+	import { formatDateShort } from '$lib/utils/date';
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
 	import {
 		ArrowRightFromLine,
-		ArrowRightSquare,
 		Bell,
 		Calendar,
-		Clock,
 		Info,
 		InfoIcon,
 		ListFilter,
@@ -275,111 +273,116 @@
 				</div>
 			</div>
 
-			<!-- Card description -->
-			{#if master.description}
+			<!-- Card 1: Infos Planning -->
+			{#if master.description || master.recurrence || master.participants.length > 0}
 				<div class="card card-sm bg-base-200 border-base-content/5 mb-4 border shadow-sm">
-					<div class="card-body flex-row items-center gap-5">
-						<div class="bg-base-300 text-primary rounded-2xl p-3">
-							<InfoIcon size={24} />
-						</div>
-						<div>
-							<div class="text-xs font-bold tracking-wider uppercase opacity-50">Description</div>
-							<div class="text-base-content text-base">{master.description}</div>
+					<div class="card-body">
+						<div class="flex flex-wrap items-start gap-4">
+							<!-- Récurrence -->
+							<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
+								<Calendar size={18} class="text-primary/70 mt-0.5 shrink-0" />
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium">
+										{getRecurrenceLabel(master.recurrence)}
+									</p>
+									<p class="text-base-content/60 text-xs">
+										{#if master.recurrence.firstDate || master.recurrence.lastDate}
+											Du {formatDateShort(master.recurrence.firstDate || '')}
+											au {formatDateShort(master.recurrence.lastDate || '')}
+											{' · '}
+										{/if}
+										{master.defaultStartTime} — {master.defaultEndTime}
+									</p>
+								</div>
+							</div>
+
+							<!-- Description (conditionnel) -->
+							{#if master.description}
+								<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
+									<InfoIcon size={18} class="text-primary/70 mt-0.5 shrink-0" />
+									<p class="text-base-content/80 line-clamp-2 text-sm">{master.description}</p>
+								</div>
+							{/if}
+
+							<!-- Participants -->
+							<div
+								class="{master.description
+									? 'min-w-[calc(50%-0.5rem)]'
+									: 'w-full'} flex flex-1 items-start gap-2"
+							>
+								<Users size={18} class="text-primary/70 mt-0.5 shrink-0" />
+								<div class="min-w-0 flex-1">
+									<p class="text-sm font-medium">
+										{master.participants.length} participant
+										{master.participants.length > 1 ? 's' : ''}
+									</p>
+									<div class="mt-1 flex flex-wrap gap-1.5">
+										{#each master.participants as p (p.id)}
+											<span class="badge badge-sm badge-ghost opacity-70">{p.name}</span>
+										{/each}
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
 			{/if}
-			<div class="grid gap-6 md:grid-cols-2">
-				<!-- Card Récurrence -->
-				<div class="card card-sm bg-base-200 border-base-content/5 border shadow-sm">
-					<div class="card-body flex-row items-center gap-5">
-						<div class="bg-base-300 text-primary rounded-2xl p-3">
-							<Calendar size={24} />
-						</div>
-						<div>
-							<div class="text-base font-bold">{getRecurrenceLabel(master.recurrence)}</div>
-							{#if master.recurrence.firstDate || master.recurrence.lastDate}
-								<div class="text-base-content/70 text-sm">
-									{#if master.recurrence.firstDate}
-										Du {formatDateShort(master.recurrence.firstDate)}
-									{/if}
-									{#if master.recurrence.lastDate}
-										au {formatDateShort(master.recurrence.lastDate)}
-									{/if}
-								</div>
-							{:else}
-								<div class="text-base-content/70 text-sm">
-									Du {formatDateShort(master.recurrence.recurrenceDates?.[0] || '')}
-									au {formatDateShort(
-										master.recurrence.recurrenceDates?.[
-											(master.recurrence.recurrenceDates?.length || 1) - 1
-										] || ''
-									)}
-								</div>
-							{/if}
-						</div>
-						<div class="flex items-center gap-2">
-							<Clock size={16} class="text-primary" />
-							<span>{master.defaultStartTime} — {master.defaultEndTime}</span>
-						</div>
-					</div>
-				</div>
 
-				<!-- Card Participants -->
-				<div class="card card-sm bg-base-200 border-base-content/5 border shadow-sm">
-					<div class="card-body flex-row flex-wrap items-center gap-4">
-						<div class="flex items-center gap-2">
-							<div class="bg-base-300 text-primary rounded-2xl p-3">
-								<Users size={24} />
-							</div>
-							<div class="text-xs font-bold tracking-wider uppercase opacity-70">
-								{master.participants.length} Participants
+			<!-- Card 2: Votre Expérience -->
+			<div class="card card-sm bg-base-200 border-base-content/5 border shadow-sm">
+				<div class="card-body">
+					<div class="flex flex-wrap items-start gap-4">
+						<!-- Identification (en premier) -->
+						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
+							<User size={18} class="text-primary/70 mt-0.5 shrink-0" />
+							<div class="min-w-0 flex-1">
+								{#if !currentIdentity}
+									<p class="text-sm font-medium">Non identifié</p>
+									<button
+										class="btn btn-primary btn-xs mt-1"
+										onclick={() => (userStore.authModal.open = true)}
+									>
+										S'identifier
+									</button>
+								{:else}
+									<p class="text-sm font-medium">{currentIdentity.name}</p>
+									<p class="text-base-content/60 text-xs">Identifié sur ce planning</p>
+									<button
+										class="btn btn-ghost btn-xs mt-1"
+										onclick={() => {
+											userStore.authModal = {
+												open: true,
+												mode: 'planning',
+												masterId: master.id,
+												existingParticipants: master.participants,
+												onPlanningIdentify: handlePlanningIdentify
+											};
+										}}
+									>
+										Changer
+									</button>
+								{/if}
 							</div>
 						</div>
-						{#if master.participants.length > 0}
-							<div class="ms-auto flex flex-wrap justify-end gap-1.5">
-								{#each master.participants as p (p.id)}
-									<span class="badge badge-sm badge-outline opacity-70">{p.name}</span>
-								{/each}
-							</div>
-						{/if}
-					</div>
-				</div>
 
-				<!-- Card Notifications -->
-				<div class="card card-sm bg-base-200 border-base-content/5 border shadow-sm">
-					<div class="card-body flex-row items-center gap-5">
-						<div class="bg-base-300 text-info rounded-2xl p-3">
-							<Bell size={24} />
-						</div>
-						<div class="flex-1">
-							<div class="mb-1 text-xs font-bold tracking-wider uppercase opacity-70">
-								Notifications
+						<!-- Notifications (en second) -->
+						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
+							<Bell size={18} class="text-info/70 mt-0.5 shrink-0" />
+							<div class="min-w-0 flex-1">
+								<p class="text-sm font-medium">Notifications</p>
+								<p class="text-base-content/60 mb-2 text-xs">
+									{pb.authStore.isValid
+										? 'Configurez vos préférences'
+										: 'Connectez-vous pour recevoir des alertes'}
+								</p>
+								<button
+									class="btn btn-ghost btn-xs"
+									onclick={() =>
+										pb.authStore.isValid ? (showNotifModal = true) : (showAccountModal = true)}
+								>
+									Configurer
+								</button>
 							</div>
-							{#if pb.authStore.isValid}
-								<p class="text-sm leading-tight opacity-70">
-									Configurez vos préférences de notifications pour ce planning (rappels, alertes,
-									changements).
-								</p>
-							{:else}
-								<p class="text-sm leading-tight opacity-70">
-									Connectez-vous pour recevoir des alertes (email/mobile) sur ce planning.
-								</p>
-							{/if}
-						</div>
-						<div>
-							<button
-								class="btn sm:btn-sm btn-outline"
-								onclick={() => {
-									if (!pb.authStore.isValid) {
-										showAccountModal = true;
-									} else {
-										showNotifModal = true;
-									}
-								}}
-							>
-								Configurer
-							</button>
 						</div>
 					</div>
 				</div>
