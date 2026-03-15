@@ -11,8 +11,14 @@ RUN bun install --frozen-lockfile --production
 # Copier le code source
 COPY src/ ./src/
 
+# 🔍 DEBUG: Vérifier que les fichiers sont bien copiés
+RUN ls -la /app && \
+    ls -la /app/src && \
+    echo "=== Contenu de /app/src/notify.ts (premières lignes) ===" && \
+    head -20 /app/src/notify.ts
+
 # Exposer le port
 EXPOSE 3001
 
-# Commande de démarrage - avec chemin explicite
-CMD ["bun", "run", "src/notify.ts"]
+# Commande de démarrage - exécution directe du fichier TypeScript
+CMD ["sh", "-c", "echo '=== Démarrage du conteneur ===' && ls -la /app/src && bun src/notify.ts"]
