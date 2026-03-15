@@ -23,7 +23,7 @@ module.exports = {
 		return $http
 			.send({
 				method: 'POST',
-				url: 'http://notify-service:3001',
+				url: 'http://services-notifyservice-rbwdvg:3001/notify',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					subscription: sub,
