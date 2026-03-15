@@ -25,18 +25,6 @@
 		if (savedTheme) {
 			theme = savedTheme;
 		}
-
-		// Enregistrer le Service Worker pour les notifications push
-		if ('serviceWorker' in navigator && import.meta.env.PROD) {
-			navigator.serviceWorker
-				.register('/service-worker.js')
-				.then((reg) => {
-					console.log('✅ Service Worker enregistré:', reg.scope);
-				})
-				.catch((err) => {
-					console.error('❌ Erreur enregistrement SW:', err);
-				});
-		}
 	});
 
 	$effect(() => {
