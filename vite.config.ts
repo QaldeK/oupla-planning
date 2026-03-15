@@ -31,7 +31,7 @@ export default defineConfig({
 				]
 			},
 			injectManifest: {
-				globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
+				globPatterns: [] // Désactiver le precaching complexe
 			},
 			devOptions: {
 				enabled: false
