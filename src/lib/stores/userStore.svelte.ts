@@ -72,9 +72,10 @@ class UserStore {
 		this.isReady = true;
 
 		// 4. Ouvrir le modal homepage si PAS de profil global
-		if (!this.globalProfile) {
-			this.authModal = { open: true, mode: 'homepage' };
-		}
+		// DISABLED: Homepage now uses inline AuthSection instead
+		// if (!this.globalProfile) {
+		// 	this.authModal = { open: true, mode: 'homepage' };
+		// }
 	}
 
 	async setOccurrenceView(view: ViewType) {
