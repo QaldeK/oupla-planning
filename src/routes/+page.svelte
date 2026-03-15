@@ -18,6 +18,25 @@
 
 <div class="mx-auto max-w-4xl">
 	{#if !userStore.globalProfile}
+		<!-- Branding -->
+		<div class="mb-8 flex min-h-[30vh] flex-col items-center justify-center space-y-6 text-center">
+			<div class="space-y-4">
+				<img src="/logo.svg" class="mx-auto size-48 sm:size-54" alt="Oupla planning" />
+				<h1 class="text-6xl font-black">Oupla planning</h1>
+				<h2 class="text-3xl font-medium">Organisez vos événements</h2>
+				<p class="text-base-content/70 max-w-md text-lg">
+					Gérez les présences et les tâches de vos activités récurrentes.
+				</p>
+			</div>
+
+			<div class="flex flex-col gap-4 sm:flex-row">
+				<a href="/new" class="btn btn-primary btn-lg gap-3">
+					<Plus size={24} />
+					Créer un nouveau planning
+				</a>
+			</div>
+		</div>
+
 		<!-- PWA Installation Card and Auth Section for non-authenticated users -->
 		<div class="space-y-6">
 			<PwaInstallCard />
