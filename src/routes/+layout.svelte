@@ -25,6 +25,18 @@
 		if (savedTheme) {
 			theme = savedTheme;
 		}
+
+		// Enregistrer le Service Worker pour les notifications push
+		if ('serviceWorker' in navigator && import.meta.env.PROD) {
+			navigator.serviceWorker
+				.register('/service-worker.js')
+				.then((reg) => {
+					console.log('✅ Service Worker enregistré:', reg.scope);
+				})
+				.catch((err) => {
+					console.error('❌ Erreur enregistrement SW:', err);
+				});
+		}
 	});
 
 	$effect(() => {
@@ -35,11 +47,6 @@
 	function toggleTheme() {
 		theme = theme === 'my' ? 'nord-dark' : 'my';
 	}
-
-	onMount(() => {
-		userStore.init();
-		mediaQuery.init();
-	});
 
 	async function handleGlobalProfileCreate(name: string, email?: string, persist = true) {
 		await userStore.createGlobalProfile(name, email, persist);
@@ -165,10 +172,7 @@
 				{/if}
 
 				{#if userStore.isLoggedIn}
-					<button
-						class="btn btn-outline btn-block btn-sm mb-2"
-						onclick={() => userStore.logout()}
-					>
+					<button class="btn btn-outline btn-block btn-sm mb-2" onclick={() => userStore.logout()}>
 						Se déconnecter
 					</button>
 				{/if}
