@@ -60,10 +60,8 @@
 		tasks: occTasks
 	} = (() => occurrence)();
 
-	const {
-		minPresentRequired: masterMinPresentRequired,
-		tasks: masterTasks = []
-	} = (() => master)();
+	const { minPresentRequired: masterMinPresentRequired, tasks: masterTasks = [] } = (() =>
+		master)();
 
 	// États du formulaire (initialisés avec les valeurs de l'occurrence ou héritées du master)
 	let startTime = $state(initialStartTime);
@@ -79,9 +77,7 @@
 	);
 
 	// Tâches
-	let isTasksModified = $state(
-		occTasks !== null && occTasks !== undefined && occTasks.length > 0
-	);
+	let isTasksModified = $state(occTasks !== null && occTasks !== undefined && occTasks.length > 0);
 	let tasks = $state<Task[]>(
 		occTasks && occTasks.length > 0 ? [...occTasks] : [...(masterTasks || [])]
 	);
@@ -435,7 +431,7 @@
 				{#if isCanceled}
 					<button
 						type="button"
-						class="btn btn-error btn-sm grow"
+						class="btn btn-error sm:btn-sm grow"
 						onclick={() => setStatus(toConfirm ? 'pending' : 'confirmed')}
 					>
 						<XCircle size={16} class="mr-2" />
@@ -445,7 +441,7 @@
 					{#if toConfirm}
 						<button
 							type="button"
-							class="btn btn-sm grow {isConfirmed ? 'btn-success' : 'btn-outline'}"
+							class="btn sm:btn-sm grow {isConfirmed ? 'btn-success' : 'btn-outline'}"
 							onclick={() => setStatus('confirmed')}
 						>
 							<CheckCircle size={16} class="mr-2" />
@@ -464,7 +460,7 @@
 
 					<button
 						type="button"
-						class="btn btn-outline btn-error btn-sm {toConfirm ? '' : 'grow'}"
+						class="btn btn-outline btn-error sm:btn-sm {toConfirm ? '' : 'grow'}"
 						onclick={() => setStatus('canceled')}
 					>
 						<XCircle size={16} class="mr-2" />
@@ -639,7 +635,7 @@
 						>
 						<button
 							type="button"
-							class="btn btn-ghost btn-xs text-error"
+							class="btn btn-ghost btn-sm sm:btn-xs text-error"
 							onclick={resetToMasterTasks}
 						>
 							Rétablir les tâches communes à toutes les dates
@@ -674,14 +670,14 @@
 							<div class="flex gap-1">
 								<button
 									type="button"
-									class="btn btn-ghost btn-sm btn-circle"
+									class="btn btn-ghost sm:btn-sm btn-circle"
 									onclick={() => editTask(task)}
 								>
 									<Pencil size={14} />
 								</button>
 								<button
 									type="button"
-									class="btn btn-ghost btn-sm btn-circle text-error"
+									class="btn btn-ghost sm:btn-sm btn-circle text-error"
 									onclick={() => removeTask(task.id)}
 								>
 									<Trash2 size={14} />
@@ -697,7 +693,7 @@
 										{volunteer.name}
 										<button
 											type="button"
-											class="btn btn-error btn-xs btn-soft btn-circle m-1 ml-2 size-4"
+											class="btn btn-error btn-sm sm:btn-xs btn-soft btn-circle m-1 ml-2 size-4"
 											onclick={() =>
 												handleRemoveVolunteerFromTask(task.id, volunteer.participantId)}
 											aria-label="Retirer {volunteer.name} de cette tâche"
@@ -711,7 +707,7 @@
 							<div class="pl-1">
 								<button
 									type="button"
-									class="btn btn-outline btn-xs gap-1"
+									class="btn btn-outline btn-sm sm:btn-xs gap-1"
 									onclick={() => openVolunteerModal(task)}
 								>
 									<Users size={12} />
@@ -739,7 +735,7 @@
 								type="text"
 								bind:value={newTaskName}
 								bind:this={taskNameInput}
-								class="input input-sm w-full"
+								class="input sm:input-sm w-full"
 								onkeydown={(e) => {
 									if (e.key === 'Enter') {
 										e.preventDefault();
@@ -754,13 +750,13 @@
 								<input
 									type="number"
 									bind:value={newTaskVolunteers}
-									class="input input-sm w-full"
+									class="input sm:input-sm w-full"
 									min="1"
 								/>
 							</fieldset>
 							<fieldset class="fieldset">
 								<legend class="fieldset-legend">Moment</legend>
-								<select bind:value={newTaskType} class="select select-sm w-full">
+								<select bind:value={newTaskType} class="select sm:select-sm w-full">
 									<option value="beforeEvent">Avant</option>
 									<option value="onEvent">Pendant</option>
 									<option value="afterEvent">Après</option>
@@ -779,7 +775,7 @@
 					<div class="flex gap-2">
 						<button
 							type="button"
-							class="btn btn-sm btn-primary grow"
+							class="btn sm:btn-sm btn-primary grow"
 							onclick={addTask}
 							disabled={newTaskName.trim().length === 0 ||
 								(editingTaskId !== null && !taskHasChanges)}
@@ -787,7 +783,7 @@
 							{editingTaskId ? 'Modifier la tâche' : 'Ajouter la tâche'}
 						</button>
 						{#if editingTaskId}
-							<button type="button" class="btn btn-sm btn-ghost" onclick={cancelEdit}
+							<button type="button" class="btn sm:btn-sm btn-ghost" onclick={cancelEdit}
 								>Annuler</button
 							>
 						{/if}

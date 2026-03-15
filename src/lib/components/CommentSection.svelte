@@ -77,7 +77,7 @@
 				</div>
 			</div>
 			<button
-				class="btn btn-ghost btn-sm btn-circle"
+				class="btn btn-ghost sm:btn-sm btn-circle"
 				onclick={() => drawerStore.close()}
 				aria-label="Fermer"
 			>
@@ -150,7 +150,7 @@
 				></textarea>
 				<button
 					type="submit"
-					class="btn btn-primary btn-circle btn-sm absolute right-3 bottom-3 shadow-lg"
+					class="btn btn-primary btn-circle sm:btn-sm absolute right-3 bottom-3 shadow-lg"
 					disabled={!newComment.trim() || isSubmitting}
 				>
 					{#if isSubmitting}

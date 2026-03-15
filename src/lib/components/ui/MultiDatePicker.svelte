@@ -137,7 +137,7 @@
 		<div class="mb-4 flex items-center justify-between">
 			<button
 				type="button"
-				class="btn btn-ghost btn-sm btn-circle"
+				class="btn btn-ghost sm:btn-sm btn-circle"
 				onclick={previousMonth}
 				aria-label="Mois précédent"
 			>
@@ -146,7 +146,7 @@
 
 			<button
 				type="button"
-				class="btn btn-ghost btn-sm text-base font-semibold normal-case"
+				class="btn btn-ghost sm:btn-sm text-base font-semibold normal-case"
 				onclick={goToToday}
 			>
 				{monthYear}
@@ -154,7 +154,7 @@
 
 			<button
 				type="button"
-				class="btn btn-ghost btn-sm btn-circle"
+				class="btn btn-ghost sm:btn-sm btn-circle"
 				onclick={nextMonth}
 				aria-label="Mois suivant"
 			>

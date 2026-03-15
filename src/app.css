@@ -72,9 +72,10 @@
 
 @layer base {
 	/* Écrans haute densité (Retina, 4K compact, petits écrans HD) */
+	/* TOFIX ? : ne pas appliqué sur les display mobile: les navigateur ont déjà un zoom intelligent ? */
 	@media (min-resolution: 130dpi) {
 		html {
-			font-size: clamp(13px, 0.85vw, 16px);
+			font-size: clamp(13px, 0.9vw, 16px);
 		}
 	}
 

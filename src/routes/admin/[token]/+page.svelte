@@ -25,7 +25,7 @@
 		if (result && !result.isAdmin) {
 			const adminTokenInStorage = userStore.getAdminToken(result.master.id);
 			if (adminTokenInStorage) {
-				await goto(`/admin/${adminTokenInStorage}`);
+				await goto(`/p/${adminTokenInStorage}`);
 			} else {
 				await goto(`/p/${token}`);
 			}
@@ -86,7 +86,7 @@
 {:else if master}
 	<div class="mx-auto max-w-6xl py-2 md:px-4 md:py-8">
 		<div class="mb-4 flex justify-start">
-			<a href="/p/{master.participantToken}" class="btn btn-ghost btn-sm gap-2">
+			<a href="/p/{master.participantToken}" class="btn btn-ghost sm:btn-sm gap-2">
 				<ArrowLeft size={18} />
 				Retour au planning
 			</a>

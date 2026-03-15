@@ -20,7 +20,9 @@
 		xl: 'max-w-6xl'
 	};
 
-	const isMobileFullscreen = $derived(mediaQuery.isMobile && (size === 'xl' || size === 'lg'));
+	const isMobileFullscreen = $derived(
+		mediaQuery.isMobile && (size === 'xl' || size === 'lg' || size === 'md')
+	);
 
 	function handleBackdropClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) {
@@ -58,7 +60,7 @@
 				>
 					{#if isMobileFullscreen}
 						<button
-							class="btn btn-circle btn-ghost btn-sm mr-2"
+							class="btn btn-circle btn-ghost sm:btn-sm mr-2"
 							onclick={onClose}
 							aria-label="Retour"
 						>
@@ -75,7 +77,7 @@
 				</div>
 			{:else}
 				<button
-					class="btn btn-circle btn-ghost btn-sm absolute top-2 right-2 z-10"
+					class="btn btn-circle btn-ghost sm:btn-sm absolute top-2 right-2 z-10"
 					onclick={onClose}
 					aria-label="Fermer"
 				>

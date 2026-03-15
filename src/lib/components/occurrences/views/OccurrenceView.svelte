@@ -175,7 +175,7 @@
 	<div class="my-1 flex items-center justify-end gap-2">
 		<!-- Comment button -->
 		<button
-			class="btn btn-ghost btn-sm gap-1"
+			class="btn btn-ghost sm:btn-sm gap-1"
 			onclick={openCommentDrawer}
 			aria-label="Voir les commentaires"
 		>
@@ -188,7 +188,7 @@
 			<div class="flex gap-1">
 				{#if showQuickConfirm}
 					<button
-						class="btn btn-ghost btn-sm text-success"
+						class="btn btn-ghost sm:btn-sm text-success"
 						onclick={toggleConfirm}
 						title="Confirmer la tenue"
 					>
@@ -198,7 +198,7 @@
 				{/if}
 				{#if showQuickRestore}
 					<button
-						class="btn btn-ghost btn-sm text-warning"
+						class="btn btn-ghost sm:btn-sm text-warning"
 						onclick={restoreEvent}
 						title="Rétablir l'événement"
 					>
@@ -212,7 +212,7 @@
 		<!-- Admin edit button -->
 		{#if isAdmin}
 			<button
-				class="btn btn-ghost btn-sm btn-circle"
+				class="btn btn-ghost sm:btn-sm btn-circle"
 				aria-label="Modifier"
 				onclick={() => (showEditModal = true)}
 			>
@@ -379,7 +379,7 @@
 					<div class="flex flex-wrap justify-end gap-2">
 						{#if showQuickConfirm}
 							<button
-								class="btn btn-sm text-success"
+								class="btn sm:btn-sm text-success"
 								onclick={toggleConfirm}
 								title="Confirmer la tenue"
 							>
@@ -389,7 +389,7 @@
 						{/if}
 						{#if showQuickRestore}
 							<button
-								class="btn btn-ghost btn-sm text-warning"
+								class="btn btn-ghost sm:btn-sm text-warning"
 								onclick={restoreEvent}
 								title="Rétablir l'événement"
 							>
@@ -399,7 +399,7 @@
 						{/if}
 
 						<button
-							class="btn btn-ghost btn-sm btn-circle"
+							class="btn btn-ghost sm:btn-sm btn-circle"
 							onclick={() => (showEditModal = true)}
 							aria-label="Modifier"
 						>

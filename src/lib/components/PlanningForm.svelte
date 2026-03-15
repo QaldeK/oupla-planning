@@ -840,7 +840,7 @@
 							{@const willBeDeleted = hasData && !isSelected}
 							<button
 								type="button"
-								class="btn btn-sm transition-all {isSelected
+								class="btn sm:btn-sm transition-all {isSelected
 									? 'btn-primary'
 									: 'btn-ghost bg-base-300 opacity-50'} {isArbitrary
 									? 'ring-primary ring-2 ring-offset-2'
@@ -895,7 +895,7 @@
 								<h4 class="text-sm font-medium">Ajouter des dates arbitraires</h4>
 								<button
 									type="button"
-									class="btn btn-ghost btn-sm"
+									class="btn btn-ghost sm:btn-sm"
 									onclick={() => (showArbitraryDatePicker = false)}
 								>
 									Fermer
@@ -957,7 +957,7 @@
 								{@const hasData = datesWithData.includes(date)}
 								<button
 									type="button"
-									class="btn btn-sm btn-primary ring-primary ring-2 ring-offset-2"
+									class="btn sm:btn-sm btn-primary ring-primary ring-2 ring-offset-2"
 									onclick={() => (customDates = customDates.filter((d) => d !== date))}
 									disabled={isSubmitting}
 									title={hasData
@@ -1056,7 +1056,7 @@
 								>
 									<input
 										type="checkbox"
-										class="checkbox checkbox-sm checkbox-primary"
+										class="checkbox sm:checkbox-sm checkbox-primary"
 										checked={availableResponseTypes.includes(responseType)}
 										onchange={(e) => {
 											if (e.currentTarget.checked) {
@@ -1102,7 +1102,7 @@
 							<input
 								type="checkbox"
 								bind:checked={forceTaskRefresh}
-								class="checkbox checkbox-sm checkbox-warning"
+								class="checkbox sm:checkbox-sm checkbox-warning"
 							/>
 							<span class="label-text text-sm font-medium">Tout remplacer</span>
 						</label>
@@ -1166,7 +1166,7 @@
 							type="text"
 							bind:value={newTaskName}
 							bind:this={taskNameInput}
-							class="input input-sm {validationErrors.taskInProgress ? 'input-error' : ''}"
+							class="input sm:input-sm {validationErrors.taskInProgress ? 'input-error' : ''}"
 							placeholder="Nom de la tâche"
 							disabled={isSubmitting}
 							maxlength="50"
@@ -1177,7 +1177,7 @@
 								}
 							}}
 						/>
-						<label class="input input-sm w-44 items-center gap-2">
+						<label class="input sm:input-sm w-44 items-center gap-2">
 							<input
 								type="number"
 								bind:value={newTaskVolunteers}
@@ -1210,7 +1210,7 @@
 						{#if isEditingTask}
 							<button
 								type="button"
-								class="btn btn-sm btn-ghost"
+								class="btn sm:btn-sm btn-ghost"
 								onclick={cancelTaskEdit}
 								disabled={isSubmitting}
 							>
@@ -1219,7 +1219,7 @@
 						{/if}
 						<button
 							type="button"
-							class="btn btn-sm btn-primary flex-1"
+							class="btn sm:btn-sm btn-primary flex-1"
 							onclick={addTask}
 							disabled={isSubmitting ||
 								newTaskName.trim().length === 0 ||
@@ -1241,13 +1241,13 @@
 	>
 		<button
 			type="button"
-			class="btn btn-ghost max-sm:btn-sm"
+			class="btn btn-ghost sm:btn-sm"
 			onclick={() => history.back()}
 			disabled={isSubmitting}
 		>
 			Annuler
 		</button>
-		<button type="submit" class="btn max-sm:btn-sm btn-primary px-8" disabled={isSubmitting}>
+		<button type="submit" class="btn sm:btn-sm btn-primary px-8" disabled={isSubmitting}>
 			{#if isSubmitting}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}

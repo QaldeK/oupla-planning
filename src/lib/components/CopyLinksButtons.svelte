@@ -15,7 +15,7 @@
 	let copiedParticipant = $state(false);
 
 	function getAdminUrl() {
-		return `${window.location.origin}/admin/${adminToken}`;
+		return `${window.location.origin}/p/${adminToken}`;
 	}
 
 	function getParticipantUrl() {
@@ -55,7 +55,7 @@
 			{/if}
 			Lien Admin
 		</button>
-		<button class="btn btn-primary min-w-1/3 gap-2" onclick={() => goto(`/admin/${adminToken}`)}
+		<button class="btn btn-primary min-w-1/3 gap-2" onclick={() => goto(`/p/${adminToken}`)}
 			><Settings size={18} /> Configuration</button
 		>
 	{/if}

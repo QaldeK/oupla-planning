@@ -100,7 +100,7 @@
 					<img src="/favicon.svg" alt="Oupla planning" class="size-8" />
 					<h1 class="text-lg font-bold sm:text-xl">Oupla Planning</h1>
 				</a>
-				<label class="swap swap-rotate btn btn-ghost btn-circle btn-sm">
+				<label class="swap swap-rotate btn btn-ghost btn-circle sm:btn-sm">
 					<input type="checkbox" checked={theme === 'nord-dark'} onchange={toggleTheme} />
 					<Sun class="swap-off" size={20} />
 					<Moon class="swap-on" size={20} />
@@ -160,7 +160,10 @@
 				{/if}
 
 				{#if userStore.isLoggedIn}
-					<button class="btn btn-outline btn-block btn-sm mb-2" onclick={() => userStore.logout()}>
+					<button
+						class="btn btn-outline btn-block sm:btn-sm mb-2"
+						onclick={() => userStore.logout()}
+					>
 						Se déconnecter
 					</button>
 				{/if}
@@ -177,7 +180,7 @@
 					</button>
 				{:else}
 					<button
-						class="btn btn-block btn-outline btn-sm"
+						class="btn btn-block btn-outline sm:btn-sm"
 						onclick={() => (userStore.authModal = { open: true, mode: 'homepage' })}
 					>
 						S'identifier / Créer un profil

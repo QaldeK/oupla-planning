@@ -219,7 +219,7 @@
 				<div class="text-center">
 					<button
 						type="button"
-						class="btn btn-ghost btn-sm text-base-content/60"
+						class="btn btn-ghost sm:btn-sm text-base-content/60"
 						onclick={() => {
 							requireLoginFor = null;
 							name = '';
@@ -275,7 +275,7 @@
 							<div class="flex flex-col gap-2">
 								<button
 									type="button"
-									class="btn btn-sm btn-warning"
+									class="btn sm:btn-sm btn-warning"
 									onclick={() => attemptIdentifyAs(matchedParticipant!)}
 									disabled={isSubmitting}
 								>
@@ -301,7 +301,7 @@
 						<div class="text-sm font-medium">Votre profil est enregistré sur cet appareil</div>
 						<button
 							type="button"
-							class="btn btn-warning btn-block btn-sm h-auto gap-2"
+							class="btn btn-warning btn-block sm:btn-sm h-auto gap-2"
 							onclick={() => (showConfirmClear = true)}
 						>
 							<Trash2 size={16} class="shrink-0" />
@@ -315,7 +315,7 @@
 						<input
 							type="checkbox"
 							bind:checked={rememberMe}
-							class="checkbox checkbox-primary checkbox-sm"
+							class="checkbox checkbox-primary sm:checkbox-sm"
 							disabled={isSubmitting}
 						/>
 						<span class="label-text font-medium">Mémoriser sur cet appareil</span>
@@ -393,7 +393,7 @@
 					{#each existingParticipants as p (p.id)}
 						<button
 							type="button"
-							class="btn btn-accent btn-sm"
+							class="btn btn-accent sm:btn-sm"
 							onclick={() => attemptIdentifyAs(p)}
 							disabled={isSubmitting}
 						>

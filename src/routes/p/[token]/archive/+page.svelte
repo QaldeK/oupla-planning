@@ -41,7 +41,7 @@
 	<div class="mx-auto max-w-4xl">
 		<!-- Header -->
 		<div class="mb-8">
-			<a href="/p/{token}" class="btn btn-ghost btn-sm mb-4 gap-2">
+			<a href="/p/{token}" class="btn btn-ghost sm:btn-sm mb-4 gap-2">
 				<ArrowLeft size={18} />
 				Retour au planning
 			</a>

@@ -369,7 +369,7 @@
 						</div>
 						<div>
 							<button
-								class="btn btn-sm btn-outline"
+								class="btn sm:btn-sm btn-outline"
 								onclick={() => {
 									if (!pb.authStore.isValid) {
 										showAccountModal = true;
@@ -443,7 +443,7 @@
 						<div class="flex items-center gap-2 max-sm:w-full">
 							{#if mediaQuery.isMobile}
 								<button
-									class="btn btn-primary btn-sm flex-1"
+									class="btn btn-primary sm:btn-sm flex-1"
 									onclick={() => (showShareModal = true)}
 								>
 									<Share2 size={18} />
@@ -451,7 +451,7 @@
 								</button>
 							{/if}
 							<button
-								class="btn btn-soft btn-sm ms-auto max-sm:flex-1"
+								class="btn btn-soft sm:btn-sm ms-auto max-sm:flex-1"
 								onclick={() => {
 									userStore.authModal = {
 										open: true,

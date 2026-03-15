@@ -64,7 +64,7 @@
 			<Icon size={16} />
 			<span>{config.label}</span>
 			{#if currentUserResponseType !== type}
-				<div class="btn btn-circle btn-xs ms-auto opacity-60 {config.btnClass}">
+				<div class="btn btn-circle btn-xs ms-auto opacity-80 {config.btnClass}">
 					<Plus class="size-4 transition-all group-hover:size-5 group-hover:stroke-2" />
 				</div>
 			{/if}

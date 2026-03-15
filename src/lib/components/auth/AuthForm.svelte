@@ -67,6 +67,22 @@
 			} else {
 				// Mode Login
 				await pb.collection('users').authWithPassword(email, password);
+
+				// Récupérer le nom depuis PocketBase et l'assigner au localStorage si pas déjà présent
+				const pbUserName = pb.authStore.record?.name;
+				if (pbUserName) {
+					const globalProfile = userStore.globalProfile;
+					if (!globalProfile) {
+						// Créer un profil global avec le nom PocketBase
+						await userStore.createGlobalProfile(pbUserName, email, true);
+						// Force l'ID pour correspondre à PocketBase
+						await userStore.updateGlobalProfile({ id: pb.authStore.record!.id });
+					} else if (!globalProfile.defaultName || globalProfile.defaultName.trim() === '') {
+						// Mettre à jour le nom si pas déjà défini
+						await userStore.updateGlobalProfile({ defaultName: pbUserName });
+					}
+				}
+
 				toast.success('Connexion réussie !');
 			}
 
