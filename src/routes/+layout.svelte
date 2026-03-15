@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
+	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { onMount } from 'svelte';
 	import { Toaster } from 'svelte-sonner';
 	import { Menu, Calendar, Sun, Moon, CalendarPlus, Github } from 'lucide-svelte';
@@ -20,6 +21,7 @@
 	onMount(() => {
 		userStore.init();
 		mediaQuery.init();
+		pwaStore.init();
 
 		const savedTheme = localStorage.getItem('theme');
 		if (savedTheme) {
