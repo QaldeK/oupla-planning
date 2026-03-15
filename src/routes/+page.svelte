@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
+	import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
 
 	import { goto } from '$app/navigation';
 	import { Calendar, Plus } from 'lucide-svelte';
@@ -15,7 +16,12 @@
 </svelte:head>
 
 <div class="mx-auto max-w-4xl">
-	{#if userStore.savedPlannings.length > 0}
+	{#if !userStore.globalProfile}
+		<!-- PWA Installation Card for non-authenticated users. AuthSection will be added in Task 8. -->
+		<div class="space-y-6">
+			<PwaInstallCard />
+		</div>
+	{:else if userStore.savedPlannings.length > 0}
 		<div class="mb-8">
 			<h1 class="mb-2 text-3xl font-bold">Mes Plannings</h1>
 			<p class="text-base-content/70">
