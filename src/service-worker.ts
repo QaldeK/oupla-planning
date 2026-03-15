@@ -1,6 +1,11 @@
 /// <reference lib="webworker" />
 
-declare const self: ServiceWorkerGlobalScope;
+declare const self: ServiceWorkerGlobalScope & {
+	__WB_MANIFEST: Array<{ url: string; revision: string | null }>;
+};
+
+// Injection du manifest Workbox (obligatoire pour injectManifest, même vide)
+self.__WB_MANIFEST = [];
 
 // Installation du Service Worker
 self.addEventListener('install', (event) => {
