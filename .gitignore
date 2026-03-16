@@ -26,6 +26,7 @@ vite.config.ts.timestamp-*
 /worker-configuration.d.ts
 
 agent/
+docs/
 .claude
 CLAUDE.md
 .mcp.json
