@@ -45,3 +45,6 @@ eslint.config.js
 # Tauri
 src-tauri/target
 src-tauri/gen/schemas
+
+# Git Worktrees
+.worktrees/
