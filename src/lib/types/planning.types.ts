@@ -121,7 +121,6 @@ export interface PlanningIdentity {
 	id: string; // participantId sur CE planning
 	name: string; // Nom utilisé sur CE planning
 	email?: string;
-	rememberMe?: boolean;
 }
 
 export interface SavedPlanning {
@@ -131,5 +130,4 @@ export interface SavedPlanning {
 	participantToken: string;
 	lastAccessed: string;
 	currentUser?: PlanningIdentity; // Identité de l'user sur CE planning
-	persist: boolean; // Si true, sauvegardé dans localStorage, sinon sessionStorage
 }

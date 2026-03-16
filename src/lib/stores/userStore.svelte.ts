@@ -46,32 +46,17 @@ class UserStore {
 
 			// Si l'utilisateur vient de s'authentifier, synchroniser depuis PocketBase
 			if (!wasLoggedIn && this.isLoggedIn) {
+				this.syncProfileFromPocketBase();
 				this.syncPlanningsFromPocketBase();
 			}
 		});
 		// 1. Profil global
 		this.globalProfile = await storage.getItem<GlobalUserProfile>(STORAGE_KEY);
 
-		// 2. Plannings
-		if (isTauri) {
-			// Sous Tauri, une seule source
-			this.savedPlannings = (await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY)) || [];
-		} else {
-			// Sur le Web, on fusionne Local et Session
-			const local =
-				(await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: true })) || [];
-			const session =
-				(await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: false })) || [];
-
-			// Union par masterId (priorité au local en cas de doublon bizarre)
-			const merged = [...local];
-			session.forEach((sp) => {
-				if (!merged.find((p) => p.masterId === sp.masterId)) {
-					merged.push(sp);
-				}
-			});
-			this.savedPlannings = merged;
-		}
+		// 2. Plannings - Une seule source selon la préférence globale
+		const persist = this.globalProfile?.persist ?? true;
+		this.savedPlannings =
+			(await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist })) || [];
 
 		// 3. Préférence de vue
 		if (mediaQuery.isMobile) {
@@ -87,14 +72,9 @@ class UserStore {
 
 		// 4. Synchroniser depuis PocketBase si déjà authentifié au démarrage
 		if (this.isLoggedIn) {
+			await this.syncProfileFromPocketBase();
 			await this.syncPlanningsFromPocketBase();
 		}
-
-		// 5. Ouvrir le modal homepage si PAS de profil global
-		// DISABLED: Homepage now uses inline AuthSection instead
-		// if (!this.globalProfile) {
-		// 	this.authModal = { open: true, mode: 'homepage' };
-		// }
 	}
 
 	async setOccurrenceView(view: ViewType) {
@@ -142,7 +122,48 @@ class UserStore {
 	}
 
 	/**
-	 * Synchronise le profil utilisateur depuis PocketBase vers le localStorage.
+	 * Récupère le profil utilisateur depuis PocketBase et met à jour le localStorage.
+	 * Cette méthode récupère les dernières données depuis PocketBase (modifiées sur un autre appareil).
+	 * Appelé automatiquement lors de l'authentification et au démarrage si déjà connecté.
+	 */
+	private async syncProfileFromPocketBase() {
+		if (!pb.authStore.isValid || !pb.authStore.record) return;
+		if (!this.globalProfile) return;
+
+		try {
+			// Récupérer les données fraîches depuis PocketBase
+			const user = await pb.collection('users').getOne(pb.authStore.record.id);
+			const pbUserName = user.name;
+			const pbUserEmail = user.email;
+
+			// Détecter les changements
+			const updates: Partial<Pick<GlobalUserProfile, 'defaultName' | 'defaultEmail'>> = {};
+			let hasChanges = false;
+
+			// Synchroniser le nom depuis PocketBase
+			if (pbUserName && pbUserName !== this.globalProfile.defaultName) {
+				updates.defaultName = pbUserName;
+				hasChanges = true;
+			}
+
+			// Synchroniser l'email depuis PocketBase
+			if (pbUserEmail && pbUserEmail !== this.globalProfile.defaultEmail) {
+				updates.defaultEmail = pbUserEmail;
+				hasChanges = true;
+			}
+
+			// Appliquer les mises à jour si nécessaire
+			if (hasChanges) {
+				await this.updateGlobalProfile(updates);
+				console.log('Profil synchronisé depuis PocketBase:', updates);
+			}
+		} catch (error) {
+			console.error('Erreur lors de la synchronisation du profil depuis PocketBase:', error);
+		}
+	}
+
+	/**
+	 * Synchronise le profil utilisateur vers PocketBase.
 	 * Cette méthode est appelée après l'authentification (login ou register).
 	 */
 	async syncProfileWithPocketBase() {
@@ -202,10 +223,6 @@ class UserStore {
 		const idx = this.savedPlannings.findIndex((p) => p.masterId === masterId);
 		if (idx >= 0) {
 			this.savedPlannings[idx].currentUser = identity;
-			// Toujours persister sous Tauri
-			this.savedPlannings[idx].persist = isTauri
-				? true
-				: (identity.rememberMe ?? this.savedPlannings[idx].persist);
 			await this.savePlanningsLocal();
 		}
 	}
@@ -242,8 +259,7 @@ class UserStore {
 						title: planning.title,
 						participantToken: planning.participantToken,
 						adminToken: planning.adminToken, // Admin si disponible
-						lastAccessed: new Date().toISOString(),
-						persist: true
+						lastAccessed: new Date().toISOString()
 					};
 					await this.savePlanning(savedPlanning);
 					console.log(`Planning synchronisé: ${planning.title}`);
@@ -305,43 +321,32 @@ class UserStore {
 		await this.syncPlanningsToPocketBase();
 	}
 
-	async savePlanning(planning: SavedPlanning, persist?: boolean) {
-		const shouldPersist = isTauri ? true : persist !== undefined ? persist : planning.persist;
+	async savePlanning(planning: SavedPlanning) {
+		const idx = this.savedPlannings.findIndex((p) => p.masterId === planning.masterId);
+		const isNewPlanning = idx < 0;
 
-		const finalPlanning = { ...planning, persist: shouldPersist };
-		if (finalPlanning.currentUser) {
-			finalPlanning.currentUser.rememberMe = shouldPersist;
-		}
-
-		const idx = this.savedPlannings.findIndex((p) => p.masterId === finalPlanning.masterId);
 		if (idx >= 0) {
 			this.savedPlannings[idx] = {
 				...this.savedPlannings[idx],
-				...finalPlanning,
-				adminToken: finalPlanning.adminToken || this.savedPlannings[idx].adminToken,
-				participantToken:
-					finalPlanning.participantToken || this.savedPlannings[idx].participantToken,
-				currentUser: finalPlanning.currentUser || this.savedPlannings[idx].currentUser
+				...planning,
+				adminToken: planning.adminToken || this.savedPlannings[idx].adminToken,
+				participantToken: planning.participantToken || this.savedPlannings[idx].participantToken,
+				currentUser: planning.currentUser || this.savedPlannings[idx].currentUser // TOCHECK: que représente currentUser ?
 			};
 		} else {
-			this.savedPlannings.push(finalPlanning);
+			this.savedPlannings.push(planning);
 		}
 		await this.savePlanningsLocal();
+
+		// Si l'utilisateur est connecté et que c'est un nouveau planning, synchroniser avec PocketBase
+		if (this.isLoggedIn && isNewPlanning) {
+			await this.syncPlanningsToPocketBase();
+		}
 	}
 
-	private async savePlanningsLocal() {
-		if (isTauri) {
-			// Sous Tauri, on sauve tout d'un coup
-			await storage.setItem(PLANNINGS_KEY, this.savedPlannings);
-			return;
-		}
-
-		// Sur le Web, on ventile
-		const persistent = this.savedPlannings.filter((p) => p.persist);
-		const session = this.savedPlannings.filter((p) => !p.persist);
-
-		await storage.setItem(PLANNINGS_KEY, persistent, { persist: true });
-		await storage.setItem(PLANNINGS_KEY, session, { persist: false });
+	async savePlanningsLocal() {
+		const persist = this.globalProfile?.persist ?? true;
+		await storage.setItem(PLANNINGS_KEY, this.savedPlannings, { persist });
 	}
 
 	async removePlanning(masterId: string) {

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
+	import type { Participant, PlanningIdentity, SavedPlanning } from '$lib/types/planning.types';
 	import { userStore } from '$lib/stores/userStore.svelte';
-	import { isTauri } from '$lib/utils/storage';
+	import { isTauri, storage } from '$lib/utils/storage';
 	import Modal from './ui/Modal.svelte';
 	import ConfirmModal from './ui/ConfirmModal.svelte';
 	import AuthForm from './auth/AuthForm.svelte';
@@ -17,6 +17,8 @@
 		ArrowLeft
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
+
+	const PLANNINGS_KEY = 'planning_saved';
 
 	interface Props {
 		open: boolean;
@@ -40,7 +42,8 @@
 
 	let name = $state('');
 	let email = $state('');
-	let rememberMe = $state(true);
+	// État global lié au profil (plus de state local rememberMe)
+	let globalPersist = $state(userStore.globalProfile?.persist ?? true);
 	let isSubmitting = $state(false);
 	let showConfirmClear = $state(false);
 	let inputRef = $state<HTMLInputElement | null>(null);
@@ -54,6 +57,75 @@
 			setTimeout(() => inputRef?.focus(), 50);
 		}
 	});
+
+	// Réagir aux changements du toggle avec migration des données
+	$effect(() => {
+		if (!userStore.globalProfile) return;
+
+		const oldPersist = userStore.globalProfile.persist;
+		const newPersist = globalPersist;
+
+		if (oldPersist !== newPersist) {
+			handlePersistChange(newPersist);
+		}
+	});
+
+	async function handlePersistChange(newPersist: boolean) {
+		if (newPersist) {
+			// false → true : Transférer sessionStorage → localStorage
+			await migrateSessionToLocalStorage();
+		} else {
+			// true → false : Transférer localStorage → sessionStorage
+			await migrateLocalStorageToSessionStorage();
+		}
+
+		// Mettre à jour le profil global
+		await userStore.updateGlobalProfile({ persist: newPersist });
+	}
+
+	async function migrateSessionToLocalStorage() {
+		const session =
+			(await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: false })) || [];
+		if (session.length === 0) return;
+
+		// Récupérer aussi les localStorage existants
+		const local = (await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: true })) || [];
+
+		// Fusionner (plus besoin de setter persist, c'est déduit de globalProfile)
+		const merged = [...local];
+		for (const planning of session) {
+			if (!merged.find((p) => p.masterId === planning.masterId)) {
+				merged.push(planning);
+			}
+		}
+
+		userStore.savedPlannings = merged;
+		await userStore.savePlanningsLocal();
+
+		toast.info(`${session.length} planning(s) transféré(s) vers le stockage permanent.`);
+	}
+
+	async function migrateLocalStorageToSessionStorage() {
+		const local = (await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: true })) || [];
+		if (local.length === 0) return;
+
+		// Récupérer aussi les sessionStorage existants
+		const session =
+			(await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: false })) || [];
+
+		// Fusionner (plus besoin de setter persist)
+		const merged = [...session];
+		for (const planning of local) {
+			if (!merged.find((p) => p.masterId === planning.masterId)) {
+				merged.push(planning);
+			}
+		}
+
+		userStore.savedPlannings = merged;
+		await userStore.savePlanningsLocal();
+
+		toast.info(`${local.length} planning(s) transféré(s) vers le stockage temporaire.`);
+	}
 
 	// Initialiser les champs à l'ouverture
 	$effect(() => {
@@ -91,8 +163,7 @@
 		const identity: PlanningIdentity = {
 			id: participant.id,
 			name: participant.name,
-			email: participant.email,
-			rememberMe
+			email: participant.email
 		};
 
 		isSubmitting = true;
@@ -134,13 +205,13 @@
 
 		// Cas Homepage / Edit Global
 		if (mode === 'homepage') {
-			onGlobalProfileCreate?.(name.trim(), email.trim() || undefined, rememberMe);
+			onGlobalProfileCreate?.(name.trim(), email.trim() || undefined, globalPersist);
 			onClose();
 			return;
 		}
 
 		if (mode === 'edit-global') {
-			onGlobalProfileUpdate?.(name.trim(), email.trim() || undefined, rememberMe);
+			onGlobalProfileUpdate?.(name.trim(), email.trim() || undefined, globalPersist);
 			onClose();
 			return;
 		}
@@ -159,7 +230,7 @@
 				await userStore.createGlobalProfile(
 					name.trim(),
 					email.trim() || undefined,
-					rememberMe,
+					globalPersist,
 					globalId
 				);
 			} else {
@@ -172,8 +243,7 @@
 			const identity: PlanningIdentity = {
 				id: globalId,
 				name: name.trim(),
-				email: email.trim() || undefined,
-				rememberMe
+				email: email.trim() || undefined
 			};
 
 			await onPlanningIdentify?.(identity, !isUpdate);
@@ -312,16 +382,65 @@
 					</div>
 				{/if}
 
-				{#if !isTauri && !matchedParticipant && (mode === 'planning' || mode === 'homepage')}
-					<label class="label cursor-pointer justify-start gap-3 py-2">
-						<input
-							type="checkbox"
-							bind:checked={rememberMe}
-							class="checkbox checkbox-primary sm:checkbox-sm"
-							disabled={isSubmitting}
-						/>
-						<span class="label-text font-medium">Mémoriser sur cet appareil</span>
-					</label>
+				{#if !isTauri && !matchedParticipant && !userStore.isLoggedIn && (mode === 'planning' || mode === 'homepage')}
+					<!-- Toggle "Mémoriser sur cet appareil" -->
+					<div class="space-y-2">
+						<label class="label cursor-pointer justify-start gap-3">
+							<span class="label-text font-medium">Mémoriser sur cet appareil</span>
+							<input
+								type="checkbox"
+								class="toggle toggle-primary"
+								bind:checked={globalPersist}
+								disabled={isSubmitting}
+							/>
+						</label>
+
+						{#if globalPersist}
+							<div class="text-xs opacity-75">
+								<div class="alert alert-info alert-sm py-2">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										class="h-4 w-4 shrink-0 stroke-current"
+										><path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+										></path></svg
+									>
+									<span>Vos plannings seront sauvegardés sur cet appareil.</span>
+								</div>
+								<p class="mt-1 px-2 text-[10px] opacity-70">
+									⚠️ Ne fonctionne pas en navigation privée. Peut être perdu lors du nettoyage du
+									cache. Gardez les URLs des plannings ou créez un compte ci-dessous pour plus de
+									sécurité.
+								</p>
+							</div>
+						{:else}
+							<div class="text-xs opacity-75">
+								<div class="alert alert-warning alert-sm py-2">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										class="h-4 w-4 shrink-0 stroke-current"
+										><path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+										></path></svg
+									>
+									<span>Votre navigateur oubliera vos plannings après sa fermeture.</span>
+								</div>
+								<p class="mt-1 px-2 text-[10px] opacity-70">
+									💡 Recommandé sur les appareils partagés ou publics.
+								</p>
+							</div>
+						{/if}
+					</div>
 				{/if}
 
 				<div class="modal-action mt-8">

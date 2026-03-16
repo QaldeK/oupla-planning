@@ -45,8 +45,7 @@
 				title: master.title,
 				adminToken: adminToken,
 				participantToken: participantToken,
-				lastAccessed: new Date().toISOString(),
-				persist: true
+				lastAccessed: new Date().toISOString()
 			});
 
 			toast.success('Planning créé avec succès !');

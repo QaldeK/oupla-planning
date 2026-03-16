@@ -134,27 +134,25 @@
 				}
 			}
 
+			// Créer le profil global AVANT de sauvegarder les plannings (pour avoir la bonne préférence de storage)
+			if (!userStore.globalProfile) {
+				await userStore.createGlobalProfile(identity.name, identity.email);
+			}
+
 			// Mettre à jour l'identité locale
 			await userStore.setPlanningIdentity(master.id, identity);
 
 			// Créer ou mettre à jour le SavedPlanning avec les métadonnées complètes
 			const hasAdmin = userStore.hasAdminAccess(master.id);
-			// localStorage si rememberMe OU si connecté, sessionStorage sinon
-			const shouldPersist = identity.rememberMe || userStore.isLoggedIn;
 			const savedPlanning = {
 				masterId: master.id,
 				title: master.title,
 				participantToken: token,
 				adminToken: hasAdmin ? userStore.getAdminToken(master.id) : undefined,
 				lastAccessed: new Date().toISOString(),
-				currentUser: identity,
-				persist: shouldPersist
+				currentUser: identity
 			};
 			await userStore.savePlanning(savedPlanning);
-
-			if (!userStore.globalProfile) {
-				await userStore.createGlobalProfile(identity.name, identity.email);
-			}
 
 			userStore.authModal = { ...userStore.authModal, open: false };
 		} catch (error) {

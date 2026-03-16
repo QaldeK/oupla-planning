@@ -146,6 +146,7 @@
 
 				// Pas de collision : sync normale
 				await userStore.syncProfileWithPocketBase();
+				await userStore.syncPlanningsWithPocketBase();
 
 				toast.success('Compte créé avec succès !');
 			} else {
@@ -166,6 +167,7 @@
 
 				// Pas de collision : sync normale
 				await userStore.syncProfileWithPocketBase();
+				await userStore.syncPlanningsWithPocketBase();
 
 				toast.success('Connexion réussie !');
 			}

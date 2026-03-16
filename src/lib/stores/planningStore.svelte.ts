@@ -52,8 +52,6 @@ class PlanningStore {
 
 			// Sauvegarde
 			const identity = userStore.getPlanningIdentity(result.master.id);
-			// localStorage si rememberMe OU si connecté, sessionStorage sinon
-			const shouldPersist = identity?.rememberMe === true || userStore.isLoggedIn;
 
 			await userStore.savePlanning({
 				masterId: result.master.id,
@@ -61,21 +59,19 @@ class PlanningStore {
 				adminToken: result.isAdmin ? token : undefined,
 				participantToken: (result.isAdmin ? result.master.participantToken : token) || '',
 				lastAccessed: new Date().toISOString(),
-				currentUser: identity || undefined,
-				persist: shouldPersist
+				currentUser: identity || undefined
 			});
 
 			await realtimeService.subscribeToMaster(result.master.id, token, {
 				onMasterChange: (_, updatedMaster) => {
 					this.#master = updatedMaster;
-					// Sauvegarder les métadonnées mises à jour dans le localStorage
+					// Sauvegarder les métadonnées mises à jour
 					userStore.savePlanning({
 						masterId: updatedMaster.id,
 						title: updatedMaster.title,
 						participantToken: (result.isAdmin ? result.master.participantToken : token) || '',
 						adminToken: result.isAdmin ? token : undefined,
-						lastAccessed: new Date().toISOString(),
-						persist: shouldPersist
+						lastAccessed: new Date().toISOString()
 					});
 				},
 				onOccurrenceChange: (action, updatedOccurrence) => {
