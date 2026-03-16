@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/userStore.svelte';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
 	import AuthSection from '$lib/components/homepage/AuthSection.svelte';
-	import { pb } from '$lib/pocketbase/pb';
 
 	import { goto } from '$app/navigation';
-	import { Calendar, Plus } from 'lucide-svelte';
+	import { Plus } from 'lucide-svelte';
 
 	function navigateToPlanning(participantToken: string) {
 		goto(`/p/${participantToken}`);
@@ -17,79 +15,38 @@
 	<title>Mes Plannings</title>
 </svelte:head>
 
-<div class="mx-auto max-w-4xl">
+<div class="mx-auto max-w-4xl pb-10">
 	<!-- Branding (always visible) -->
 	<div class="mb-8 flex min-h-[30vh] flex-col items-center justify-center space-y-6 text-center">
 		<div class="space-y-4">
 			<img src="/logo.svg" class="mx-auto size-48 sm:size-54" alt="Oupla planning" />
 			<h1 class="text-6xl font-black">Oupla planning</h1>
-			<h2 class="text-3xl font-medium">Organisez vos événements</h2>
 			<p class="text-base-content/70 max-w-md text-lg">
 				Gérez les présences et les tâches de vos activités récurrentes.
 			</p>
 		</div>
+	</div>
 
-		<div class="flex flex-col gap-4 sm:flex-row">
-			<a href="/new" class="btn btn-primary btn-lg gap-3">
-				<Plus size={24} />
-				Créer un nouveau planning
-			</a>
-		</div>
+	<!-- Actions rapides -->
+	<div class="mb-8 flex justify-center">
+		<button onclick={() => goto('/new')} class="btn btn-primary btn-lg gap-3">
+			<Plus size={24} />
+			Créer un nouveau planning
+		</button>
 	</div>
 
 	<!-- PWA Installation Card (always visible, handles own display logic) -->
 	<PwaInstallCard />
 
 	<!-- Auth Section (only if not authenticated on PocketBase) -->
-	{#if !pb.authStore.isValid}
+	{#if !userStore.isLoggedIn}
 		<AuthSection />
 	{/if}
 
 	<!-- Saved Plannings List (if any) -->
 	{#if userStore.savedPlannings.length > 0}
-		<div class="mb-8">
-			<h1 class="mb-2 text-3xl font-bold">Mes Plannings</h1>
-			<p class="text-base-content/70">
-				Gérez vos plannings de présence récurrents et partagez-les avec vos participants
-			</p>
-		</div>
-
-		<!-- Actions rapides -->
-		<div class="mb-8 grid gap-4 md:grid-cols-2">
-			<a
-				href="/new"
-				class="card bg-primary text-primary-content shadow-md transition hover:shadow-lg"
-			>
-				<div class="card-body">
-					<div class="flex items-center gap-3">
-						<Plus size={32} />
-						<div>
-							<h2 class="card-title">Créer un planning</h2>
-							<p class="text-sm opacity-90">Nouveau planning de présence récurrent</p>
-						</div>
-					</div>
-				</div>
-			</a>
-
-			<div class="card bg-base-200 shadow-md">
-				<div class="card-body">
-					<div class="flex items-center gap-3">
-						<Calendar size={32} />
-						<div>
-							<h2 class="card-title">Plannings sauvegardés</h2>
-							<p class="text-base-content/70 text-sm">
-								{userStore.savedPlannings.length} planning{userStore.savedPlannings.length > 1
-									? 's'
-									: ''}
-							</p>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-
 		<!-- Liste des plannings sauvegardés -->
-		<div>
+		<div class="mt-8">
 			<h2 class="mb-4 text-xl font-semibold">Vos plannings</h2>
 			<div class="space-y-3">
 				{#each userStore.savedPlannings as planning (planning.masterId)}

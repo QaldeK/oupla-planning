@@ -289,7 +289,6 @@
 										{#if master.recurrence.firstDate || master.recurrence.lastDate}
 											Du {formatDateShort(master.recurrence.firstDate || '')}
 											au {formatDateShort(master.recurrence.lastDate || '')}
-											{' · '}
 										{/if}
 										{master.defaultStartTime} — {master.defaultEndTime}
 									</p>

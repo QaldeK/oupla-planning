@@ -5,7 +5,7 @@
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { onMount } from 'svelte';
 	import { Toaster } from 'svelte-sonner';
-	import { Menu, Calendar, Sun, Moon, CalendarPlus, Github } from 'lucide-svelte';
+	import { Menu, Calendar, Sun, Moon, CalendarPlus, Github, User } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
@@ -139,29 +139,30 @@
 							</button>
 						{/each}
 					</div>
+
+					<!-- Bouton oublier (uniquement si non connecté PocketBase) -->
+					{#if !userStore.isLoggedIn}
+						<button
+							class="btn btn-ghost btn-xs btn-block mt-6 opacity-50 hover:opacity-100"
+							onclick={() => {
+								if (
+									confirm(
+										'Voulez-vous vraiment oublier tous les plannings sauvegardés sur cet appareil ?'
+									)
+								) {
+									userStore.clearSavedPlannings();
+								}
+							}}
+						>
+							Oublier les plannings sauvegardés
+						</button>
+					{/if}
 				{/if}
 			</nav>
 
 			<!-- Footer -->
 			<div class="mt-auto space-y-4 pt-4">
-				{#if userStore.savedPlannings.length > 0}
-					<button
-						class="btn btn-ghost btn-xs btn-block opacity-50 hover:opacity-100"
-						onclick={() => {
-							if (
-								confirm(
-									'Voulez-vous vraiment oublier tous les plannings sauvegardés sur cet appareil ?'
-								)
-							) {
-								userStore.clearSavedPlannings();
-							}
-						}}
-					>
-						Oublier les plannings sauvegardés
-					</button>
-				{/if}
-
-				{#if userStore.isLoggedIn}
+				{#if userStore.isLoggedIn && !pwaStore.isInstalled}
 					<button
 						class="btn btn-outline btn-block sm:btn-sm mb-2"
 						onclick={() => userStore.logout()}
@@ -172,13 +173,18 @@
 
 				{#if userStore.globalProfile}
 					<button
-						class="btn btn-block btn-accent"
+						class="btn btn-block btn-accent flex h-auto items-center justify-start gap-2 text-left"
 						onclick={() => (userStore.authModal = { open: true, mode: 'edit-global' })}
 					>
-						<p class="text-sm font-medium">{userStore.globalProfile.defaultName}</p>
-						{#if userStore.globalProfile.defaultEmail}
-							<p class="text-base-content/60 text-xs">{userStore.globalProfile.defaultEmail}</p>
-						{/if}
+						<User class="size-5 opacity-70" />
+						<div class="flex flex-col items-start py-0.5 text-left">
+							<div class="text-sm font-medium">{userStore.globalProfile.defaultName}</div>
+							{#if userStore.globalProfile.defaultEmail}
+								<div class="text-base-content/60 text-xs">
+									{userStore.globalProfile.defaultEmail}
+								</div>
+							{/if}
+						</div>
 					</button>
 				{:else}
 					<button
