@@ -27,11 +27,73 @@
 	let isSubmitting = $state(false);
 	let errorMsg = $state('');
 
+	// États de validation
+	let emailError = $state('');
+	let passwordError = $state('');
+	let passwordConfirmError = $state('');
+
+	// Validation en temps réel
+	$effect(() => {
+		// Reset erreurs quand l'utilisateur tape
+		if (emailError && email) emailError = '';
+		if (passwordError && password) passwordError = '';
+		if (passwordConfirmError && passwordConfirm) passwordConfirmError = '';
+	});
+
+	// Valider automatiquement la confirmation en register
+	$effect(() => {
+		if (mode === 'register' && passwordConfirm && password) {
+			if (passwordConfirmError && password === passwordConfirm) {
+				passwordConfirmError = '';
+			}
+		}
+	});
+
+	function validateEmail(): boolean {
+		if (!email) {
+			emailError = 'Email requis';
+			return false;
+		}
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(email)) {
+			emailError = 'Email invalide';
+			return false;
+		}
+		emailError = '';
+		return true;
+	}
+
+	function validatePassword(): boolean {
+		if (!password) {
+			passwordError = 'Mot de passe requis';
+			return false;
+		}
+		if (password.length < 8) {
+			passwordError = 'Minimum 8 caractères';
+			return false;
+		}
+		passwordError = '';
+		return true;
+	}
+
+	function validatePasswordConfirm(): boolean {
+		if (mode === 'register' && password !== passwordConfirm) {
+			passwordConfirmError = 'Les mots de passe ne correspondent pas';
+			return false;
+		}
+		passwordConfirmError = '';
+		return true;
+	}
+
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		if (!email || !password) return;
-		if (mode === 'register' && password !== passwordConfirm) {
-			errorMsg = 'Les mots de passe ne correspondent pas.';
+
+		// Valider tous les champs
+		const isEmailValid = validateEmail();
+		const isPasswordValid = validatePassword();
+		const isPasswordConfirmValid = mode === 'register' ? validatePasswordConfirm() : true;
+
+		if (!isEmailValid || !isPasswordValid || !isPasswordConfirmValid) {
 			return;
 		}
 
@@ -63,25 +125,16 @@
 				// Authentification auto
 				await pb.collection('users').authWithPassword(email, password);
 
+				// Synchroniser le profil depuis PocketBase vers le localStorage
+				await userStore.syncProfileWithPocketBase();
+
 				toast.success('Compte créé avec succès !');
 			} else {
 				// Mode Login
 				await pb.collection('users').authWithPassword(email, password);
 
-				// Récupérer le nom depuis PocketBase et l'assigner au localStorage si pas déjà présent
-				const pbUserName = pb.authStore.record?.name;
-				if (pbUserName) {
-					const globalProfile = userStore.globalProfile;
-					if (!globalProfile) {
-						// Créer un profil global avec le nom PocketBase
-						await userStore.createGlobalProfile(pbUserName, email, true);
-						// Force l'ID pour correspondre à PocketBase
-						await userStore.updateGlobalProfile({ id: pb.authStore.record!.id });
-					} else if (!globalProfile.defaultName || globalProfile.defaultName.trim() === '') {
-						// Mettre à jour le nom si pas déjà défini
-						await userStore.updateGlobalProfile({ defaultName: pbUserName });
-					}
-				}
+				// Synchroniser le profil depuis PocketBase vers le localStorage
+				await userStore.syncProfileWithPocketBase();
 
 				toast.success('Connexion réussie !');
 			}
@@ -103,9 +156,9 @@
 		</div>
 	{/if}
 
-	{#if showNameInput}
+	{#if showNameInput && mode === 'register'}
 		<fieldset>
-			<label class="input w-full" class:input-sm={compact}>
+			<label class="input w-full">
 				<span class="label">
 					<User size={compact ? 16 : 18} class="opacity-40" />
 					Nom
@@ -124,7 +177,7 @@
 	{/if}
 
 	<fieldset>
-		<label class="input w-full" class:input-sm={compact}>
+		<label class="input w-full {emailError ? 'input-error' : ''}">
 			<span class="label">
 				<Mail size={compact ? 16 : 18} class="opacity-40" />
 				Email
@@ -137,12 +190,16 @@
 				required
 				autocomplete="email"
 				disabled={isSubmitting}
+				onblur={validateEmail}
 			/>
 		</label>
+		{#if emailError}
+			<p class="text-error mt-1 text-xs">{emailError}</p>
+		{/if}
 	</fieldset>
 
 	<fieldset>
-		<label class="input w-full" class:input-sm={compact}>
+		<label class="input w-full {passwordError ? 'input-error' : ''}">
 			<span class="label">
 				<KeyRound size={compact ? 16 : 18} class="opacity-40" />
 				Mot de passe
@@ -156,13 +213,17 @@
 				minlength="8"
 				autocomplete={mode === 'register' ? 'new-password' : 'current-password'}
 				disabled={isSubmitting}
+				onblur={validatePassword}
 			/>
 		</label>
+		{#if passwordError}
+			<p class="text-error mt-1 text-xs">{passwordError}</p>
+		{/if}
 	</fieldset>
 
 	{#if mode === 'register'}
 		<fieldset>
-			<label class="input w-full" class:input-sm={compact}>
+			<label class="input w-full {passwordConfirmError ? 'input-error' : ''}">
 				<span class="label">
 					<KeyRound size={compact ? 16 : 18} class="opacity-40" />
 					Confirmer
@@ -176,20 +237,16 @@
 					minlength="8"
 					autocomplete="new-password"
 					disabled={isSubmitting}
+					onblur={validatePasswordConfirm}
 				/>
 			</label>
+			{#if passwordConfirmError}
+				<p class="text-error mt-1 text-xs">{passwordConfirmError}</p>
+			{/if}
 		</fieldset>
 	{/if}
 
-	<button
-		type="submit"
-		class="btn btn-primary btn-block"
-		class:btn-sm={compact}
-		disabled={isSubmitting ||
-			!email ||
-			!password ||
-			(mode === 'register' && password !== passwordConfirm)}
-	>
+	<button type="submit" class="btn btn-primary btn-block" disabled={isSubmitting}>
 		{#if isSubmitting}
 			<LoaderCircle class="animate-spin" size={compact ? 16 : 18} />
 			Validation...
