@@ -170,6 +170,7 @@ export type UsersRecord<Tpush_subscription = unknown> = {
 	name?: string;
 	password: string;
 	push_subscription?: null | Tpush_subscription;
+	pwa_installed?: boolean;
 	tokenKey: string;
 	updated: IsoAutoDateString;
 	verified?: boolean;

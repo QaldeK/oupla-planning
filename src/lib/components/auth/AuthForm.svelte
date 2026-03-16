@@ -3,6 +3,7 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { toast } from 'svelte-sonner';
 	import { Mail, KeyRound, LoaderCircle, User } from 'lucide-svelte';
+	import CollisionModal from './CollisionModal.svelte';
 
 	interface Props {
 		mode?: 'register' | 'login';
@@ -26,6 +27,14 @@
 
 	let isSubmitting = $state(false);
 	let errorMsg = $state('');
+
+	// Collision modal state
+	let collisionModal = $state({
+		open: false,
+		localName: '',
+		remoteName: '',
+		isProcessing: false
+	});
 
 	// États de validation
 	let emailError = $state('');
@@ -108,9 +117,7 @@
 				if (!globalProfile) {
 					// Utilisation du nom fourni ou à défaut le prefix de l'email
 					const defaultName = name || email.split('@')[0];
-					await userStore.createGlobalProfile(defaultName, email, true);
-					// Force the ID
-					await userStore.updateGlobalProfile({ id: userId });
+					await userStore.createGlobalProfile(defaultName, email, true, userId);
 				}
 
 				// Créer l'utilisateur PocketBase (l'ID est l'uuid du client)
@@ -125,7 +132,19 @@
 				// Authentification auto
 				await pb.collection('users').authWithPassword(email, password);
 
-				// Synchroniser le profil depuis PocketBase vers le localStorage
+				// ⚠️ DÉTECTION DE COLLISION ICI
+				const collision = userStore.detectCollision();
+
+				if (collision === 'collision') {
+					// Ouvrir le modal de collision
+					collisionModal.localName = userStore.globalProfile!.defaultName;
+					collisionModal.remoteName = pb.authStore.record?.name || email;
+					collisionModal.open = true;
+					isSubmitting = false;
+					return; // Ne pas continuer pour l'instant
+				}
+
+				// Pas de collision : sync normale
 				await userStore.syncProfileWithPocketBase();
 
 				toast.success('Compte créé avec succès !');
@@ -133,7 +152,19 @@
 				// Mode Login
 				await pb.collection('users').authWithPassword(email, password);
 
-				// Synchroniser le profil depuis PocketBase vers le localStorage
+				// ⚠️ DÉTECTION DE COLLISION ICI
+				const collision = userStore.detectCollision();
+
+				if (collision === 'collision') {
+					// Ouvrir le modal de collision
+					collisionModal.localName = userStore.globalProfile!.defaultName;
+					collisionModal.remoteName = pb.authStore.record?.name || email;
+					collisionModal.open = true;
+					isSubmitting = false;
+					return; // Ne pas continuer pour l'instant
+				}
+
+				// Pas de collision : sync normale
 				await userStore.syncProfileWithPocketBase();
 
 				toast.success('Connexion réussie !');
@@ -146,6 +177,45 @@
 		} finally {
 			isSubmitting = false;
 		}
+	}
+
+	// Handlers pour le modal de collision
+	async function handleBackupAndReplace() {
+		collisionModal.isProcessing = true;
+		try {
+			await userStore.backupLocalProfile();
+			await userStore.syncProfileWithPocketBase();
+			await userStore.syncPlanningsWithPocketBase();
+			collisionModal.open = false;
+			toast.success('Connexion réussie (données précédentes sauvegardées)');
+			if (onSuccess) onSuccess();
+		} catch (error: any) {
+			console.error('Backup and replace error', error);
+			errorMsg = error.response?.message || "Une erreur s'est produite lors de la sauvegarde.";
+		} finally {
+			collisionModal.isProcessing = false;
+		}
+	}
+
+	async function handleReplaceOnly() {
+		collisionModal.isProcessing = true;
+		try {
+			await userStore.syncProfileWithPocketBase();
+			await userStore.syncPlanningsWithPocketBase();
+			collisionModal.open = false;
+			toast.success('Connexion réussie');
+			if (onSuccess) onSuccess();
+		} catch (error: any) {
+			console.error('Replace only error', error);
+			errorMsg = error.response?.message || "Une erreur s'est produite lors de la connexion.";
+		} finally {
+			collisionModal.isProcessing = false;
+		}
+	}
+
+	function handleCancelCollision() {
+		collisionModal.open = false;
+		pb.authStore.clear();
 	}
 </script>
 
@@ -255,3 +325,14 @@
 		{/if}
 	</button>
 </form>
+
+<!-- Modal de collision -->
+<CollisionModal
+	open={collisionModal.open}
+	localName={collisionModal.localName}
+	remoteName={collisionModal.remoteName}
+	onBackupAndReplace={handleBackupAndReplace}
+	onReplaceOnly={handleReplaceOnly}
+	onCancel={handleCancelCollision}
+	isSubmitting={collisionModal.isProcessing}
+/>

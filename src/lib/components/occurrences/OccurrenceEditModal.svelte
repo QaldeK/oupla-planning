@@ -192,8 +192,7 @@
 			master.id,
 			{
 				name,
-				isAdmin: false,
-				notifyOnMissingParticipants: false
+				isAdmin: false
 			},
 			token
 		);

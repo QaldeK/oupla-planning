@@ -15,7 +15,6 @@ class PwaStore {
 		// 1. Détection client (display-mode, navigator.standalone)
 		this.isInstalled =
 			window.matchMedia('(display-mode: standalone)').matches ||
-			window.matchMedia('(display-mode: fullscreen)').matches ||
 			(window.navigator as any).standalone === true;
 
 		// 2. Vérifier PocketBase si authentifié

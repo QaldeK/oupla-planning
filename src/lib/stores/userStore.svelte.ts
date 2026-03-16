@@ -5,6 +5,7 @@ import type {
 	Participant,
 	ViewType
 } from '$lib/types/planning.types';
+import type { PlanningMastersRecord } from '$lib/types/pocketbase-types';
 import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 import { storage, isTauri } from '$lib/utils/storage';
 import { pb } from '$lib/pocketbase/pb';
@@ -12,6 +13,7 @@ import { pb } from '$lib/pocketbase/pb';
 const STORAGE_KEY = 'planning_global_profile';
 const PLANNINGS_KEY = 'planning_saved';
 const VIEW_PREF_KEY = 'occurrence_view_pref';
+export const BACKUP_KEY = 'backupUser-single';
 
 interface AuthModalState {
 	open: boolean;
@@ -19,6 +21,12 @@ interface AuthModalState {
 	masterId?: string;
 	existingParticipants?: Participant[];
 	onPlanningIdentify?: (identity: PlanningIdentity, isNewParticipant: boolean) => Promise<void>;
+}
+
+export interface BackupProfile {
+	globalProfile: GlobalUserProfile;
+	savedPlannings: SavedPlanning[];
+	timestamp: string;
 }
 
 class UserStore {
@@ -33,7 +41,13 @@ class UserStore {
 		// Synchro authStore
 		this.isLoggedIn = pb.authStore.isValid;
 		pb.authStore.onChange(() => {
+			const wasLoggedIn = this.isLoggedIn;
 			this.isLoggedIn = pb.authStore.isValid;
+
+			// Si l'utilisateur vient de s'authentifier, synchroniser depuis PocketBase
+			if (!wasLoggedIn && this.isLoggedIn) {
+				this.syncPlanningsFromPocketBase();
+			}
 		});
 		// 1. Profil global
 		this.globalProfile = await storage.getItem<GlobalUserProfile>(STORAGE_KEY);
@@ -71,7 +85,12 @@ class UserStore {
 
 		this.isReady = true;
 
-		// 4. Ouvrir le modal homepage si PAS de profil global
+		// 4. Synchroniser depuis PocketBase si déjà authentifié au démarrage
+		if (this.isLoggedIn) {
+			await this.syncPlanningsFromPocketBase();
+		}
+
+		// 5. Ouvrir le modal homepage si PAS de profil global
 		// DISABLED: Homepage now uses inline AuthSection instead
 		// if (!this.globalProfile) {
 		// 	this.authModal = { open: true, mode: 'homepage' };
@@ -85,9 +104,9 @@ class UserStore {
 
 	// === Gestion du profil global ===
 
-	async createGlobalProfile(name: string, email?: string, persist = true) {
+	async createGlobalProfile(name: string, email?: string, persist = true, id?: string) {
 		this.globalProfile = {
-			id: crypto.randomUUID(),
+			id: id || crypto.randomUUID(), // Utiliser l'ID fourni ou en générer un nouveau
 			defaultName: name,
 			defaultEmail: email,
 			persist: isTauri ? true : persist // Toujours persister sous Tauri
@@ -122,6 +141,43 @@ class UserStore {
 		});
 	}
 
+	/**
+	 * Synchronise le profil utilisateur depuis PocketBase vers le localStorage.
+	 * Cette méthode est appelée après l'authentification (login ou register).
+	 */
+	async syncProfileWithPocketBase() {
+		if (!pb.authStore.isValid || !pb.authStore.record) return;
+
+		const pbUserName = pb.authStore.record.name;
+		const pbUserEmail = pb.authStore.record.email;
+		const pbUserId = pb.authStore.record.id;
+
+		if (!this.globalProfile) {
+			// Créer un nouveau profil avec les données PocketBase et l'ID PocketBase
+			await this.createGlobalProfile(pbUserName, pbUserEmail, true, pbUserId);
+		} else {
+			// Mettre à jour le profil existant
+			const updates: Partial<Pick<GlobalUserProfile, 'id' | 'defaultName' | 'defaultEmail'>> = {
+				id: pbUserId
+			};
+
+			// Synchroniser le nom si différent ou non défini
+			if (
+				pbUserName &&
+				(!this.globalProfile.defaultName || this.globalProfile.defaultName.trim() === '')
+			) {
+				updates.defaultName = pbUserName;
+			}
+
+			// Synchroniser l'email si différent ou non défini
+			if (pbUserEmail && !this.globalProfile.defaultEmail) {
+				updates.defaultEmail = pbUserEmail;
+			}
+
+			await this.updateGlobalProfile(updates);
+		}
+	}
+
 	// === Gestion de l'identité par planning ===
 
 	getPlanningIdentity(masterId: string): PlanningIdentity | null {
@@ -136,8 +192,7 @@ class UserStore {
 			return {
 				id: this.globalProfile.id,
 				name: this.globalProfile.defaultName,
-				email: this.globalProfile.defaultEmail,
-				notifyOnMissingParticipants: false
+				email: this.globalProfile.defaultEmail
 			};
 		}
 		return null;
@@ -151,11 +206,104 @@ class UserStore {
 			this.savedPlannings[idx].persist = isTauri
 				? true
 				: (identity.rememberMe ?? this.savedPlannings[idx].persist);
-			await this.savePlannings();
+			await this.savePlanningsLocal();
 		}
 	}
 
 	// === Gestion des Plannings ===
+
+	/**
+	 * Synchronise les plannings depuis PocketBase vers le localStorage.
+	 * Appelé automatiquement lors de l'authentification.
+	 */
+	private async syncPlanningsFromPocketBase() {
+		if (!pb.authStore.isValid || !pb.authStore.record) return;
+
+		try {
+			// Récupérer l'utilisateur avec expand sur masterId pour avoir les plannings en une seule requête
+			const user = await pb.collection('users').getOne(pb.authStore.record.id, {
+				expand: 'masterId'
+			});
+
+			// Les plannings sont dans expand.masterId
+			const plannings = (user as any).expand?.masterId || [];
+
+			if (plannings.length === 0) {
+				console.log('Aucun planning à synchroniser depuis PocketBase');
+				return;
+			}
+
+			// Ajouter les plannings manquants au localStorage
+			for (const planning of plannings) {
+				const exists = this.savedPlannings.find((p) => p.masterId === planning.id);
+				if (!exists) {
+					const savedPlanning: SavedPlanning = {
+						masterId: planning.id,
+						title: planning.title,
+						participantToken: planning.participantToken,
+						adminToken: planning.adminToken, // Admin si disponible
+						lastAccessed: new Date().toISOString(),
+						persist: true
+					};
+					await this.savePlanning(savedPlanning);
+					console.log(`Planning synchronisé: ${planning.title}`);
+				}
+			}
+
+			console.log(`Synchronisation PocketBase terminée: ${plannings.length} plannings traités`);
+		} catch (error) {
+			console.error('Erreur lors de la synchronisation PocketBase:', error);
+		}
+	}
+
+	/**
+	 * Synchronise les plannings locaux vers PocketBase.
+	 * Ajoute les masterId des plannings localStorage au champ users.masterId dans PocketBase.
+	 */
+	private async syncPlanningsToPocketBase() {
+		if (!pb.authStore.isValid || !pb.authStore.record) return;
+		if (!this.globalProfile) return;
+
+		// ⚠️ IMPORTANT : Cette vérification est maintenant faite AVANT dans AuthForm
+		// Donc ici on est sûr que les IDs correspondent
+		if (this.globalProfile.id !== pb.authStore.record.id) {
+			console.log('Sync PocketBase ignorée : IDs différents (ne devrait pas arriver)');
+			return;
+		}
+
+		const userRecord = pb.authStore.record as { id: string; masterId?: string[] };
+		const pbMasterIds = new Set(userRecord.masterId || []);
+		const localMasterIds = this.savedPlannings.map((p) => p.masterId);
+
+		// Trouver les plannings locaux non présents dans PocketBase
+		const missingIds = localMasterIds.filter((id) => !pbMasterIds.has(id));
+
+		if (missingIds.length === 0) {
+			console.log('Tous les plannings sont déjà synchronisés');
+			return;
+		}
+
+		// Ajouter les IDs manquants
+		const updatedMasterIds = [...pbMasterIds, ...missingIds];
+		await pb.collection('users').update(pb.authStore.record.id, {
+			masterId: updatedMasterIds
+		});
+
+		console.log(`Sync PocketBase: ${missingIds.length} plannings ajoutés`);
+	}
+
+	/**
+	 * Orchestre la synchronisation complète des plannings avec PocketBase.
+	 * 1. Récupère les plannings depuis PocketBase vers le localStorage
+	 * 2. Envoie les plannings locaux vers PocketBase
+	 */
+	async syncPlanningsWithPocketBase() {
+		// Phase 1: Récupérer depuis PocketBase
+		await this.syncPlanningsFromPocketBase();
+
+		// Phase 2: Envoyer vers PocketBase
+		await this.syncPlanningsToPocketBase();
+	}
 
 	async savePlanning(planning: SavedPlanning, persist?: boolean) {
 		const shouldPersist = isTauri ? true : persist !== undefined ? persist : planning.persist;
@@ -178,10 +326,10 @@ class UserStore {
 		} else {
 			this.savedPlannings.push(finalPlanning);
 		}
-		await this.savePlannings();
+		await this.savePlanningsLocal();
 	}
 
-	private async savePlannings() {
+	private async savePlanningsLocal() {
 		if (isTauri) {
 			// Sous Tauri, on sauve tout d'un coup
 			await storage.setItem(PLANNINGS_KEY, this.savedPlannings);
@@ -198,7 +346,7 @@ class UserStore {
 
 	async removePlanning(masterId: string) {
 		this.savedPlannings = this.savedPlannings.filter((p) => p.masterId !== masterId);
-		await this.savePlannings();
+		await this.savePlanningsLocal();
 	}
 
 	async clearSavedPlannings() {
@@ -207,15 +355,16 @@ class UserStore {
 	}
 
 	async logout() {
-		pb.authStore.clear();
-	}
-
-	async clearUser() {
 		this.globalProfile = null;
 		this.savedPlannings = [];
 		await storage.removeItem(STORAGE_KEY);
 		await storage.removeItem(PLANNINGS_KEY);
-		this.logout();
+		pb.authStore.clear();
+	}
+
+	async clearUser() {
+		// Alias pour compatibilité - même comportement que logout()
+		await this.logout();
 	}
 
 	hasAdminAccess(masterId: string): boolean {
@@ -229,6 +378,63 @@ class UserStore {
 
 	getSavedPlanning(masterId: string): SavedPlanning | undefined {
 		return this.savedPlannings.find((p) => p.masterId === masterId);
+	}
+
+	// === Gestion des backups pour collisions de profils ===
+
+	/**
+	 * Vérifie si le profil local correspond au compte PocketBase connecté
+	 */
+	detectCollision(): 'none' | 'collision' {
+		if (!this.globalProfile || !pb.authStore.isValid || !pb.authStore.record) return 'none';
+		return this.globalProfile.id === pb.authStore.record.id ? 'none' : 'collision';
+	}
+
+	/**
+	 * Sauvegarde le profil local dans un backup unique
+	 */
+	async backupLocalProfile(): Promise<void> {
+		if (!this.globalProfile) return;
+
+		const backup: BackupProfile = {
+			globalProfile: this.globalProfile,
+			savedPlannings: this.savedPlannings,
+			timestamp: new Date().toISOString()
+		};
+
+		await storage.setItem(BACKUP_KEY, backup, { persist: true });
+		console.log(`Backup créé pour ${this.globalProfile.defaultName}`);
+	}
+
+	/**
+	 * Vérifie si un backup existe
+	 */
+	async hasBackup(): Promise<boolean> {
+		const backup = await storage.getItem<BackupProfile>(BACKUP_KEY);
+		return backup !== null;
+	}
+
+	/**
+	 * Restaure le backup unique
+	 */
+	async restoreBackup(): Promise<void> {
+		const backup = await storage.getItem<BackupProfile>(BACKUP_KEY);
+		if (!backup) return;
+
+		this.globalProfile = backup.globalProfile;
+		this.savedPlannings = backup.savedPlannings;
+
+		await this.saveGlobalProfile();
+		await this.savePlanningsLocal();
+
+		console.log(`Backup restauré pour ${backup.globalProfile.defaultName}`);
+	}
+
+	/**
+	 * Supprime le backup
+	 */
+	async deleteBackup(): Promise<void> {
+		await storage.removeItem(BACKUP_KEY);
 	}
 }
 

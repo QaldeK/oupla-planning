@@ -92,7 +92,6 @@
 			id: participant.id,
 			name: participant.name,
 			email: participant.email,
-			notifyOnMissingParticipants: participant.notifyOnMissingParticipants,
 			rememberMe
 		};
 
@@ -157,8 +156,12 @@
 
 			// Ensure global profile exists with the entered name if created now
 			if (!userStore.globalProfile) {
-				await userStore.createGlobalProfile(name.trim(), email.trim() || undefined, rememberMe);
-				await userStore.updateGlobalProfile({ id: globalId });
+				await userStore.createGlobalProfile(
+					name.trim(),
+					email.trim() || undefined,
+					rememberMe,
+					globalId
+				);
 			} else {
 				// Mettre à jour le nom par défaut du profil global si c'est la première fois qu'on le fixe
 				if (userStore.globalProfile.defaultName !== name.trim()) {
@@ -170,7 +173,6 @@
 				id: globalId,
 				name: name.trim(),
 				email: email.trim() || undefined,
-				notifyOnMissingParticipants: false,
 				rememberMe
 			};
 

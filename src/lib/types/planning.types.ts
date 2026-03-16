@@ -7,7 +7,6 @@ export interface Participant {
 	name: string;
 	email?: string;
 	isAdmin: boolean;
-	notifyOnMissingParticipants: boolean;
 	createdAt: string;
 }
 
@@ -122,7 +121,6 @@ export interface PlanningIdentity {
 	id: string; // participantId sur CE planning
 	name: string; // Nom utilisé sur CE planning
 	email?: string;
-	notifyOnMissingParticipants: boolean;
 	rememberMe?: boolean;
 }
 

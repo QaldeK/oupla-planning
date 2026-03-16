@@ -26,9 +26,7 @@
 					{
 						id: userStore.globalProfile.id,
 						name: userStore.globalProfile.defaultName,
-						email: userStore.globalProfile.defaultEmail,
 						isAdmin: true, // Le créateur est admin
-						notifyOnMissingParticipants: false,
 						createdAt: new Date().toISOString()
 					}
 				];

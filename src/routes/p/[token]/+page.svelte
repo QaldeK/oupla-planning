@@ -68,8 +68,7 @@
 				{
 					id: existingParticipant.id,
 					name: existingParticipant.name,
-					email: existingParticipant.email,
-					notifyOnMissingParticipants: existingParticipant.notifyOnMissingParticipants
+					email: existingParticipant.email
 				},
 				false // Pas un nouveau participant
 			);
@@ -108,20 +107,18 @@
 					{
 						id: identity.id,
 						name: identity.name,
-						email: identity.email,
-						isAdmin: false,
-						notifyOnMissingParticipants: identity.notifyOnMissingParticipants
+						isAdmin: false
 					},
 					token
 				);
 				planningStore.setMaster(updated);
 			} else {
 				// MISE À JOUR : Mettre à jour si le participant existe déjà (ou si c'est une update explicite)
-				if (existing && (existing.name !== identity.name || existing.email !== identity.email)) {
+				if (existing && existing.name !== identity.name) {
 					const updated = await updateParticipant(
 						master.id,
 						identity.id,
-						{ name: identity.name, email: identity.email },
+						{ name: identity.name },
 						token
 					);
 					planningStore.setMaster(updated);
@@ -140,13 +137,20 @@
 			// Mettre à jour l'identité locale
 			await userStore.setPlanningIdentity(master.id, identity);
 
-			// Si l'utilisateur veut mémoriser le planning, déclencher la persistance
-			if (identity.rememberMe) {
-				const current = userStore.getSavedPlanning(master.id);
-				if (current) {
-					await userStore.savePlanning(current, true);
-				}
-			}
+			// Créer ou mettre à jour le SavedPlanning avec les métadonnées complètes
+			const hasAdmin = userStore.hasAdminAccess(master.id);
+			// localStorage si rememberMe OU si connecté, sessionStorage sinon
+			const shouldPersist = identity.rememberMe || userStore.isLoggedIn;
+			const savedPlanning = {
+				masterId: master.id,
+				title: master.title,
+				participantToken: token,
+				adminToken: hasAdmin ? userStore.getAdminToken(master.id) : undefined,
+				lastAccessed: new Date().toISOString(),
+				currentUser: identity,
+				persist: shouldPersist
+			};
+			await userStore.savePlanning(savedPlanning);
 
 			if (!userStore.globalProfile) {
 				await userStore.createGlobalProfile(identity.name, identity.email);
