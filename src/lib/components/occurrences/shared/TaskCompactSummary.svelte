@@ -21,6 +21,7 @@
 		isCompact?: boolean;
 		getParticipantName: (response: ParticipantResponse) => string;
 		onToggle: (taskId: string) => void;
+		disabled?: boolean;
 	}
 
 	let {
@@ -32,7 +33,8 @@
 		isPastDate,
 		isCompact = false,
 		getParticipantName,
-		onToggle
+		onToggle,
+		disabled = false
 	}: Props = $props();
 
 	const isCompactDisplay = $derived(mediaQuery.isMobile || isCompact);
@@ -190,7 +192,7 @@
 {/snippet}
 
 {#if tasks && tasks.length > 0}
-	<div class="flex w-full flex-wrap gap-3">
+	<div class="flex w-full flex-wrap gap-3 {disabled && 'opacity-70 grayscale-50'}">
 		{#each tasks as task (task.id)}
 			{@const config = TASK_TYPE_CONFIG[task.type]}
 			{@const Icon = config.icon}

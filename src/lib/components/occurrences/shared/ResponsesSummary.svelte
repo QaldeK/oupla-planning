@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ResponseType, ParticipantResponse } from '$lib/types/planning.types';
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from '$lib/constants';
-	import { Plus } from 'lucide-svelte';
+	import { Plus, UserMinus, UserPlus } from 'lucide-svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { slide } from 'svelte/transition';
 
@@ -12,6 +12,7 @@
 		onResponseSelect: (type: ResponseType) => void;
 		isCompact?: boolean;
 		currentUserId?: string;
+		disabled?: boolean;
 	}
 
 	let {
@@ -20,7 +21,8 @@
 		availableTypes,
 		onResponseSelect,
 		isCompact = false,
-		currentUserId
+		currentUserId,
+		disabled = false
 	}: Props = $props();
 
 	const types = $derived(availableTypes || AVAILABLE_RESPONSE_TYPES);
@@ -96,19 +98,27 @@
 			class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium opacity-80 {config.bgClass}"
 		>
 			<Icon size={16} />
-			<span>{config.label}</span>
+			<span class={typeResponses.some((r) => r.participantId === currentUserId) ? 'font-bold' : ''}
+				>{config.label}</span
+			>
 		</div>
 		<div class="min-w-24">
 			{#each typeResponses as response (response.participantId)}
-				<div class="badge m-1.5 font-semibold {config.bgClass}">
+				<div
+					class="badge m-1.5 {config.bgClass} {response.participantId === currentUserId
+						? `border-2 ${config.borderClass} font-bold`
+						: 'font-medium'}"
+				>
 					{getParticipantName(response)}
 				</div>
 			{/each}
 		</div>
 		{#if currentUserResponseType !== type}
 			<div class="ms-auto flex items-center p-1.5">
-				<div class="btn btn-circle btn-xs {config.btnClass}">
-					<Plus class="size-4 opacity-70 transition-all group-hover:size-5 group-hover:stroke-2" />
+				<div
+					class="badge opacity-70 group-hover:scale-110 {config.badgeClass} {config.borderClass}"
+				>
+					<UserPlus class="size-5 stroke-2   " />
 				</div>
 			</div>
 		{/if}
@@ -116,7 +126,7 @@
 {/snippet}
 
 {#if types.length > 0}
-	<div class="flex w-full flex-wrap gap-3">
+	<div class="flex w-full flex-wrap gap-3 {disabled && 'opacity-70 grayscale-50'}">
 		{#each types as type (type)}
 			{@const config = RESPONSE_TYPE_CONFIG[type]}
 			{@const typeResponses = responsesByType[type]}

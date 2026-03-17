@@ -8,6 +8,8 @@
 	} from '$lib/types/planning.types';
 	import MultiSelect from './MultiSelect.svelte';
 	import MultiDatePicker from './ui/MultiDatePicker.svelte';
+	import { networkStore } from '$lib/stores/networkStore.svelte';
+	import { classifyError } from '$lib/utils/errorHandler';
 	import { Plus, Trash2, Calendar, Clock, MapPin, AlignLeft, Pencil, X } from 'lucide-svelte';
 	import { generateRecurrenceDates, getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from '$lib/constants';
@@ -15,6 +17,7 @@
 	import { format, parse, compareAsc, addWeeks, addMonths } from 'date-fns';
 	import { fr } from 'date-fns/locale';
 	import { untrack } from 'svelte';
+	import NetworkAlert from './NetworkAlert.svelte';
 
 	interface Props {
 		master?: PlanningMaster; // Si présent, on est en mode édition
@@ -160,6 +163,10 @@
 	}>({});
 
 	let hasAttemptedSubmit = $state(false);
+
+	const isNetworkUnavailable = $derived(
+		!networkStore.online || !networkStore.pocketbaseReachable || !networkStore.realtimeConnected
+	);
 
 	let isMounted = $state(false);
 	let lastRecurrenceType = $state(initRecType);
@@ -548,7 +555,9 @@
 		try {
 			await onSubmit(data);
 		} catch (error) {
-			console.error('Submit error:', error);
+			const { message } = classifyError(error);
+			toast.error(message);
+			console.error(error);
 		} finally {
 			isSubmitting = false;
 		}
@@ -608,8 +617,13 @@
 	}}
 	class="space-y-8"
 >
+	<NetworkAlert message="Le formulaire est désactivé - Serveur indisponible" />
+
 	<!-- Informations principales -->
-	<section class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm">
+	<fieldset
+		class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
+		disabled={isSubmitting || isNetworkUnavailable}
+	>
 		<div class="card-body gap-6">
 			<h3 class="card-title flex items-center gap-2 text-xl">
 				<AlignLeft class="text-primary" />
@@ -747,10 +761,13 @@
 				</div>
 			</div>
 		</div>
-	</section>
+	</fieldset>
 
 	<!-- Récurrence -->
-	<section class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm">
+	<fieldset
+		class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
+		disabled={isSubmitting || isNetworkUnavailable}
+	>
 		<div class="card-body gap-6">
 			<h3 class="card-title flex items-center gap-2 text-xl">
 				<Calendar class="text-primary" />
@@ -987,10 +1004,13 @@
 				</div>
 			{/if}
 		</div>
-	</section>
+	</fieldset>
 
 	<!-- Tâches -->
-	<section class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm">
+	<fieldset
+		class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
+		disabled={isSubmitting || isNetworkUnavailable}
+	>
 		<div class="card-body gap-6">
 			<h3 class="card-title flex items-center gap-2 text-xl">
 				<Plus class="text-primary" />
@@ -1234,7 +1254,7 @@
 				</div>
 			</div>
 		</div>
-	</section>
+	</fieldset>
 
 	<div
 		class="fixed bottom-0 left-0 z-10 flex w-full justify-center gap-4 border-t border-slate-400 p-2 shadow-xl backdrop-blur md:sticky md:bottom-2 md:justify-end md:rounded-2xl md:border md:p-4"

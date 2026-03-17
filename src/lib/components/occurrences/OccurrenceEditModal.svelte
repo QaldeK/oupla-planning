@@ -7,6 +7,8 @@
 		updateOccurrence
 	} from '$lib/services/planningActions';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
+	import { networkStore } from '$lib/stores/networkStore.svelte';
+	import { classifyError } from '$lib/utils/errorHandler';
 	import type {
 		Participant,
 		ParticipantResponse,
@@ -34,6 +36,7 @@
 		XCircle
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
+	import NetworkAlert from '../NetworkAlert.svelte';
 	import ConfirmModal from '../ui/ConfirmModal.svelte';
 	import Modal from '../ui/Modal.svelte';
 
@@ -48,6 +51,10 @@
 	let { open = $bindable(false), onClose, occurrence, master, token }: Props = $props();
 
 	let isSubmitting = $state(false);
+
+	const isNetworkUnavailable = $derived(
+		!networkStore.online || !networkStore.pocketbaseReachable || !networkStore.realtimeConnected
+	);
 
 	const {
 		startTime: initialStartTime,
@@ -182,8 +189,9 @@
 			occurrence = updated;
 			planningStore.updateOccurrence(occurrence);
 		} catch (error) {
-			console.error('Error removing volunteer from task:', error);
-			toast.error('Erreur lors de la suppression');
+			const { message } = classifyError(error);
+			toast.error(message);
+			console.error(error);
 		}
 	}
 
@@ -213,8 +221,9 @@
 			newParticipantName = '';
 			// toast.success('Participant ajouté');
 		} catch (error) {
-			console.error('Error creating participant:', error);
-			toast.error('Erreur lors de la création');
+			const { message } = classifyError(error);
+			toast.error(message);
+			console.error(error);
 		} finally {
 			isCreatingParticipant = false;
 		}
@@ -242,8 +251,9 @@
 			occurrence = updated;
 			planningStore.updateOccurrence(occurrence);
 		} catch (error) {
-			console.error('Error updating response:', error);
-			toast.error('Erreur lors de la mise à jour');
+			const { message } = classifyError(error);
+			toast.error(message);
+			console.error(error);
 		}
 	}
 
@@ -263,8 +273,9 @@
 			newVolunteerName = '';
 			// toast.success('Participant·e ajoutée');
 		} catch (error) {
-			console.error('Error creating volunteer:', error);
-			toast.error('Erreur lors de la création');
+			const { message } = classifyError(error);
+			toast.error(message);
+			console.error(error);
 		} finally {
 			isCreatingVolunteer = false;
 		}
@@ -307,8 +318,9 @@
 			occurrence = updated;
 			planningStore.updateOccurrence(occurrence);
 		} catch (error) {
-			console.error('Error toggling volunteer:', error);
-			toast.error('Erreur lors de la modification');
+			const { message } = classifyError(error);
+			toast.error(message);
+			console.error(error);
 		}
 	}
 
@@ -352,8 +364,9 @@
 			toast.success('Occurrence mise à jour');
 			onClose();
 		} catch (error) {
-			console.error('Update occurrence error:', error);
-			toast.error('Erreur lors de la mise à jour');
+			const { message } = classifyError(error);
+			toast.error(message);
+			console.error(error);
 		} finally {
 			isSubmitting = false;
 		}
@@ -415,7 +428,8 @@
 	}
 </script>
 
-<Modal {open} {onClose} title="Modifier l'occurrence" size="lg">
+<Modal {open} {onClose} title=" Modifier l'occurrence" size="lg">
+	<NetworkAlert message="Modifications impossibles - Serveur indisponible" />
 	<form
 		onsubmit={(e) => {
 			e.preventDefault();
@@ -423,347 +437,350 @@
 		}}
 		class="space-y-6"
 	>
-		<!-- Statut et Actions Rapides -->
-		<div class="flex flex-col gap-3">
-			<h4 class="text-sm font-medium opacity-60">Statut de l'événement</h4>
-			<div class="flex flex-wrap gap-2">
-				{#if isCanceled}
-					<button
-						type="button"
-						class="btn btn-error sm:btn-sm grow"
-						onclick={() => setStatus(toConfirm ? 'pending' : 'confirmed')}
-					>
-						<XCircle size={16} class="mr-2" />
-						Événement annulé (cliquer pour rétablir)
-					</button>
-				{:else}
-					{#if toConfirm}
+		<fieldset disabled={isNetworkUnavailable}>
+			<!-- Statut et Actions Rapides -->
+			<div class="flex flex-col gap-3">
+				<h4 class="text-sm font-medium opacity-60">Statut de l'événement</h4>
+				<div class="flex flex-wrap gap-2">
+					{#if isCanceled}
 						<button
 							type="button"
-							class="btn sm:btn-sm grow {isConfirmed ? 'btn-success' : 'btn-outline'}"
-							onclick={() => setStatus('confirmed')}
+							class="btn btn-error sm:btn-sm grow"
+							onclick={() => setStatus(toConfirm ? 'pending' : 'confirmed')}
 						>
-							<CheckCircle size={16} class="mr-2" />
-							{isConfirmed ? 'Confirmé' : 'Confirmer la tenue'}
+							<XCircle size={16} class="mr-2" />
+							Événement annulé (cliquer pour rétablir)
 						</button>
-						{#if isConfirmed}
+					{:else}
+						{#if toConfirm}
 							<button
 								type="button"
-								class="btn btn-outline btn-sm"
-								onclick={() => setStatus('pending')}
+								class="btn sm:btn-sm grow {isConfirmed ? 'btn-success' : 'btn-outline'}"
+								onclick={() => setStatus('confirmed')}
 							>
-								Remettre en attente
+								<CheckCircle size={16} class="mr-2" />
+								{isConfirmed ? 'Confirmé' : 'Confirmer la tenue'}
 							</button>
+							{#if isConfirmed}
+								<button
+									type="button"
+									class="btn btn-outline btn-sm"
+									onclick={() => setStatus('pending')}
+								>
+									Remettre en attente
+								</button>
+							{/if}
 						{/if}
-					{/if}
 
-					<button
-						type="button"
-						class="btn btn-outline btn-error sm:btn-sm {toConfirm ? '' : 'grow'}"
-						onclick={() => setStatus('canceled')}
-					>
-						<XCircle size={16} class="mr-2" />
-						Annuler l'événement
-					</button>
-				{/if}
-			</div>
-		</div>
-
-		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-			<!-- Horaires -->
-			<div class="space-y-4">
-				<h4 class="flex items-center gap-2 font-medium">
-					<Clock size={18} class="text-primary" />
-					Horaires
-				</h4>
-				<div class="grid grid-cols-2 gap-4">
-					<fieldset class="fieldset">
-						<legend class="fieldset-legend">Début</legend>
-						<input type="time" bind:value={startTime} class="input w-full" required />
-					</fieldset>
-					<fieldset class="fieldset">
-						<legend class="fieldset-legend">Fin</legend>
-						<input type="time" bind:value={endTime} class="input w-full" required />
-					</fieldset>
-				</div>
-			</div>
-
-			<!-- Lieu -->
-			<div class="space-y-4">
-				<h4 class="flex items-center gap-2 font-medium">
-					<MapPin size={18} class="text-primary" />
-					Lieu
-				</h4>
-				<fieldset class="fieldset">
-					<legend class="fieldset-legend">Lieu spécifique</legend>
-					<input
-						type="text"
-						bind:value={place}
-						class="input w-full"
-						placeholder={master.place || 'Lieu par défaut'}
-					/>
-				</fieldset>
-			</div>
-		</div>
-
-		<!-- Description -->
-		<div class="space-y-2">
-			<h4 class="flex items-center gap-2 font-medium">
-				<AlignLeft size={18} class="text-primary" />
-				Description
-			</h4>
-			<textarea
-				bind:value={description}
-				class="textarea h-24 w-full"
-				placeholder="Notes spécifiques pour cette occurrence..."
-			></textarea>
-		</div>
-
-		<div class="divider"></div>
-
-		<!-- Paramètres de réponse -->
-		<div class="space-y-4">
-			<h4 class="flex items-center gap-2 font-medium">
-				<Users size={18} class="text-primary" />
-				Présences
-			</h4>
-
-			<div class="space-y-2 md:max-w-1/2">
-				<label class="label-text font-medium"
-					>Présences minimum souhaitées
-					<div class="flex items-center gap-4">
-						<input
-							type="range"
-							min="1"
-							max="20"
-							bind:value={minPresentRequired}
-							class="range range-primary range-sm"
-						/>
-						<span class="badge badge-primary tabular-nums">{minPresentRequired}</span>
-					</div>
-				</label>
-			</div>
-		</div>
-
-		<div class="divider"></div>
-
-		<!-- Gestion des réponses des participants -->
-		<div class="space-y-4">
-			<h4 class="flex items-center gap-2 font-medium">
-				<UserPlus size={18} class="text-primary" />
-				Gérer les réponses des participants
-			</h4>
-
-			<div class="space-y-2">
-				{#each master.participants as participant (participant.id)}
-					{#key participant.id}
-						{@const response = occurrence.responses.find((r) => r.participantId === participant.id)}
-						<div class="bg-base-200 rounded-box px-4 py-1">
-							<div class="flex items-center justify-between gap-4 max-sm:flex-col">
-								<div class="self-start font-medium">
-									<User class="me-1 inline size-4 opacity-70" />
-									{participant.name}
-								</div>
-
-								<div class=" flex flex-wrap gap-x-4 gap-y-2">
-									{#each AVAILABLE_RESPONSE_TYPES as type (type)}
-										{@const config = RESPONSE_TYPE_CONFIG[type]}
-										<label
-											class="btn-xs btn flex gap-1 {config.btnClass} {config.borderClass} {response?.response !==
-												type && 'btn-soft text-base-content/80 '}"
-										>
-											<input
-												type="radio"
-												class="check check-sm"
-												name="response-{participant.id}"
-												checked={response?.response === type}
-												onchange={() => handleResponseChange(participant.id, type)}
-											/>
-											{config.label}
-										</label>
-									{/each}
-								</div>
-							</div>
-						</div>
-					{/key}
-				{/each}
-			</div>
-
-			<!-- Ajouter un nouveau participant -->
-			<div class="join mt-2">
-				<input
-					type="text"
-					bind:value={newParticipantName}
-					class="input join-item grow"
-					placeholder="Nouveau participant..."
-					onkeydown={(e) => {
-						if (e.key === 'Enter') {
-							e.preventDefault();
-							handleAddParticipant();
-						}
-					}}
-				/>
-				<button
-					type="button"
-					class="btn btn-primary join-item"
-					onclick={handleAddParticipant}
-					disabled={isCreatingParticipant || !newParticipantName.trim()}
-				>
-					{#if isCreatingParticipant}
-						<span class="loading loading-spinner loading-sm"></span>
-					{:else}
-						<Plus size={14} />
-					{/if}
-				</button>
-			</div>
-		</div>
-
-		<div class="divider"></div>
-
-		<!-- Tâches -->
-		<div class="space-y-4">
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<h4 class="flex items-center gap-2 font-medium">
-					<ClipboardCheck size={18} class="text-primary" />
-					Liste des tâches
-				</h4>
-				<div class="flex items-center gap-2">
-					{#if isTasksModified}
-						<span class="badge badge-warning badge-soft font-medium"
-							><CircleAlert class="size-4" /> Tâches spécifiques à cette date</span
-						>
 						<button
 							type="button"
-							class="btn btn-ghost btn-sm sm:btn-xs text-error"
-							onclick={resetToMasterTasks}
+							class="btn btn-outline btn-error sm:btn-sm {toConfirm ? '' : 'grow'}"
+							onclick={() => setStatus('canceled')}
 						>
-							Rétablir les tâches communes à toutes les dates
+							<XCircle size={16} class="mr-2" />
+							Annuler l'événement
 						</button>
-					{:else}
-						<span class="badge badge-info badge-soft h-auto font-medium"
-							><CircleAlert class="size-4" /> Tâches communes à toutes les dates</span
-						>
 					{/if}
 				</div>
 			</div>
 
-			<div class="space-y-2">
-				{#each tasks as task (task.id)}
-					{@const taskVolunteers = getTaskVolunteers(task.id)}
-					<div
-						class="bg-base-200 flex flex-col gap-2 rounded-lg p-3 {editingTaskId === task.id
-							? 'ring-primary ring-2 ring-offset-2'
-							: ''}"
-					>
-						<div class="flex items-center gap-3">
-							<div class="flex flex-1 flex-wrap items-center gap-3">
-								<div class="text-sm font-medium">{task.name}</div>
-								<div class="text-sm opacity-60">
-									{task.requiredVolunteers} pers. • {task.type === 'beforeEvent'
-										? 'Avant'
-										: task.type === 'onEvent'
-											? 'Pendant'
-											: 'Après'}
-								</div>
-							</div>
-							<div class="flex gap-1">
-								<button
-									type="button"
-									class="btn btn-ghost sm:btn-sm btn-circle"
-									onclick={() => editTask(task)}
-								>
-									<Pencil size={14} />
-								</button>
-								<button
-									type="button"
-									class="btn btn-ghost sm:btn-sm btn-circle text-error"
-									onclick={() => removeTask(task.id)}
-								>
-									<Trash2 size={14} />
-								</button>
-							</div>
-						</div>
-
-						<!-- Badges des participants inscrits -->
-						<div class="flex flex-wrap items-center gap-2 pl-1">
-							{#if taskVolunteers.length > 0}
-								{#each taskVolunteers as volunteer (volunteer.participantId)}
-									<div class="badge md:badge-lg bg-accent flex items-center gap-1 pe-0.5">
-										{volunteer.name}
-										<button
-											type="button"
-											class="btn btn-error btn-sm sm:btn-xs btn-soft btn-circle m-1 ml-2 size-4"
-											onclick={() =>
-												handleRemoveVolunteerFromTask(task.id, volunteer.participantId)}
-											aria-label="Retirer {volunteer.name} de cette tâche"
-										>
-											<X class="size-4" />
-										</button>
-									</div>
-								{/each}
-							{/if}
-							<!-- Bouton pour ajouter/gérer des participants -->
-							<div class="pl-1">
-								<button
-									type="button"
-									class="btn btn-outline btn-sm sm:btn-xs gap-1"
-									onclick={() => openVolunteerModal(task)}
-								>
-									<Users size={12} />
-									{taskVolunteers.length > 0 ? 'Gérer les inscrits' : 'Ajouter'}
-								</button>
-							</div>
-						</div>
+			<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+				<!-- Horaires -->
+				<div class="space-y-4">
+					<h4 class="flex items-center gap-2 font-medium">
+						<Clock size={18} class="text-primary" />
+						Horaires
+					</h4>
+					<div class="grid grid-cols-2 gap-4">
+						<fieldset class="fieldset">
+							<legend class="fieldset-legend">Début</legend>
+							<input type="time" bind:value={startTime} class="input w-full" required />
+						</fieldset>
+						<fieldset class="fieldset">
+							<legend class="fieldset-legend">Fin</legend>
+							<input type="time" bind:value={endTime} class="input w-full" required />
+						</fieldset>
 					</div>
-				{/each}
+				</div>
+
+				<!-- Lieu -->
+				<div class="space-y-4">
+					<h4 class="flex items-center gap-2 font-medium">
+						<MapPin size={18} class="text-primary" />
+						Lieu
+					</h4>
+					<fieldset class="fieldset">
+						<legend class="fieldset-legend">Lieu spécifique</legend>
+						<input
+							type="text"
+							bind:value={place}
+							class="input w-full"
+							placeholder={master.place || 'Lieu par défaut'}
+						/>
+					</fieldset>
+				</div>
 			</div>
 
-			<div class="space-y-3">
-				{#if editingTaskId}
-					<div class="alert alert-info rounded-lg py-2 text-sm">
-						<Pencil size={16} />
-						<span>Modification de la tâche en cours</span>
-					</div>
-				{/if}
+			<!-- Description -->
+			<div class="space-y-2">
+				<h4 class="flex items-center gap-2 font-medium">
+					<AlignLeft size={18} class="text-primary" />
+					Description
+				</h4>
+				<textarea
+					bind:value={description}
+					class="textarea h-24 w-full"
+					placeholder="Notes spécifiques pour cette occurrence..."
+				></textarea>
+			</div>
 
-				<div class="bg-base-200/50 space-y-3 rounded-xl p-4">
-					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-						<fieldset class="fieldset">
-							<legend class="fieldset-legend">Nom de la tâche</legend>
+			<div class="divider"></div>
+
+			<!-- Paramètres de réponse -->
+			<div class="space-y-4">
+				<h4 class="flex items-center gap-2 font-medium">
+					<Users size={18} class="text-primary" />
+					Présences
+				</h4>
+
+				<div class="space-y-2 md:max-w-1/2">
+					<label class="label-text font-medium"
+						>Présences minimum souhaitées
+						<div class="flex items-center gap-4">
 							<input
-								type="text"
-								bind:value={newTaskName}
-								bind:this={taskNameInput}
-								class="input sm:input-sm w-full"
-								onkeydown={(e) => {
-									if (e.key === 'Enter') {
-										e.preventDefault();
-										addTask();
-									}
-								}}
+								type="range"
+								min="1"
+								max="20"
+								bind:value={minPresentRequired}
+								class="range range-primary range-sm"
 							/>
-						</fieldset>
-						<div class="grid grid-cols-2 gap-3">
+							<span class="badge badge-primary tabular-nums">{minPresentRequired}</span>
+						</div>
+					</label>
+				</div>
+			</div>
+
+			<div class="divider"></div>
+
+			<!-- Gestion des réponses des participants -->
+			<div class="space-y-4">
+				<h4 class="flex items-center gap-2 font-medium">
+					<UserPlus size={18} class="text-primary" />
+					Gérer les réponses des participants
+				</h4>
+
+				<div class="space-y-2">
+					{#each master.participants as participant (participant.id)}
+						{#key participant.id}
+							{@const response = occurrence.responses.find(
+								(r) => r.participantId === participant.id
+							)}
+							<div class="bg-base-200 rounded-box px-4 py-1">
+								<div class="flex items-center justify-between gap-4 max-sm:flex-col">
+									<div class="self-start font-medium">
+										<User class="me-1 inline size-4 opacity-70" />
+										{participant.name}
+									</div>
+
+									<div class=" flex flex-wrap gap-x-4 gap-y-2">
+										{#each AVAILABLE_RESPONSE_TYPES as type (type)}
+											{@const config = RESPONSE_TYPE_CONFIG[type]}
+											<label
+												class="btn-xs btn flex gap-1 {config.btnClass} {config.borderClass} {response?.response !==
+													type && 'btn-soft text-base-content/80 '}"
+											>
+												<input
+													type="radio"
+													class="check check-sm"
+													name="response-{participant.id}"
+													checked={response?.response === type}
+													onchange={() => handleResponseChange(participant.id, type)}
+												/>
+												{config.label}
+											</label>
+										{/each}
+									</div>
+								</div>
+							</div>
+						{/key}
+					{/each}
+				</div>
+
+				<!-- Ajouter un nouveau participant -->
+				<div class="join mt-2">
+					<input
+						type="text"
+						bind:value={newParticipantName}
+						class="input join-item grow"
+						placeholder="Nouveau participant..."
+						onkeydown={(e) => {
+							if (e.key === 'Enter') {
+								e.preventDefault();
+								handleAddParticipant();
+							}
+						}}
+					/>
+					<button
+						type="button"
+						class="btn btn-primary join-item"
+						onclick={handleAddParticipant}
+						disabled={isCreatingParticipant || !newParticipantName.trim()}
+					>
+						{#if isCreatingParticipant}
+							<span class="loading loading-spinner loading-sm"></span>
+						{:else}
+							<Plus size={14} />
+						{/if}
+					</button>
+				</div>
+			</div>
+
+			<div class="divider"></div>
+
+			<!-- Tâches -->
+			<div class="space-y-4">
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<h4 class="flex items-center gap-2 font-medium">
+						<ClipboardCheck size={18} class="text-primary" />
+						Liste des tâches
+					</h4>
+					<div class="flex items-center gap-2">
+						{#if isTasksModified}
+							<span class="badge badge-warning badge-soft font-medium"
+								><CircleAlert class="size-4" /> Tâches spécifiques à cette date</span
+							>
+							<button
+								type="button"
+								class="btn btn-ghost btn-sm sm:btn-xs text-error"
+								onclick={resetToMasterTasks}
+							>
+								Rétablir les tâches communes à toutes les dates
+							</button>
+						{:else}
+							<span class="badge badge-info badge-soft h-auto font-medium"
+								><CircleAlert class="size-4" /> Tâches communes à toutes les dates</span
+							>
+						{/if}
+					</div>
+				</div>
+
+				<div class="space-y-2">
+					{#each tasks as task (task.id)}
+						{@const taskVolunteers = getTaskVolunteers(task.id)}
+						<div
+							class="bg-base-200 flex flex-col gap-2 rounded-lg p-3 {editingTaskId === task.id
+								? 'ring-primary ring-2 ring-offset-2'
+								: ''}"
+						>
+							<div class="flex items-center gap-3">
+								<div class="flex flex-1 flex-wrap items-center gap-3">
+									<div class="text-sm font-medium">{task.name}</div>
+									<div class="text-sm opacity-60">
+										{task.requiredVolunteers} pers. • {task.type === 'beforeEvent'
+											? 'Avant'
+											: task.type === 'onEvent'
+												? 'Pendant'
+												: 'Après'}
+									</div>
+								</div>
+								<div class="flex gap-1">
+									<button
+										type="button"
+										class="btn btn-ghost sm:btn-sm btn-circle"
+										onclick={() => editTask(task)}
+									>
+										<Pencil size={14} />
+									</button>
+									<button
+										type="button"
+										class="btn btn-ghost sm:btn-sm btn-circle text-error"
+										onclick={() => removeTask(task.id)}
+									>
+										<Trash2 size={14} />
+									</button>
+								</div>
+							</div>
+
+							<!-- Badges des participants inscrits -->
+							<div class="flex flex-wrap items-center gap-2 pl-1">
+								{#if taskVolunteers.length > 0}
+									{#each taskVolunteers as volunteer (volunteer.participantId)}
+										<div class="badge md:badge-lg bg-accent flex items-center gap-1 pe-0.5">
+											{volunteer.name}
+											<button
+												type="button"
+												class="btn btn-error btn-sm sm:btn-xs btn-soft btn-circle m-1 ml-2 size-4"
+												onclick={() =>
+													handleRemoveVolunteerFromTask(task.id, volunteer.participantId)}
+												aria-label="Retirer {volunteer.name} de cette tâche"
+											>
+												<X class="size-4" />
+											</button>
+										</div>
+									{/each}
+								{/if}
+								<!-- Bouton pour ajouter/gérer des participants -->
+								<div class="pl-1">
+									<button
+										type="button"
+										class="btn btn-outline btn-sm sm:btn-xs gap-1"
+										onclick={() => openVolunteerModal(task)}
+									>
+										<Users size={12} />
+										{taskVolunteers.length > 0 ? 'Gérer les inscrits' : 'Ajouter'}
+									</button>
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+
+				<div class="space-y-3">
+					{#if editingTaskId}
+						<div class="alert alert-info rounded-lg py-2 text-sm">
+							<Pencil size={16} />
+							<span>Modification de la tâche en cours</span>
+						</div>
+					{/if}
+
+					<div class="bg-base-200/50 space-y-3 rounded-xl p-4">
+						<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 							<fieldset class="fieldset">
-								<legend class="fieldset-legend">Pariticpant·es</legend>
+								<legend class="fieldset-legend">Nom de la tâche</legend>
 								<input
-									type="number"
-									bind:value={newTaskVolunteers}
+									type="text"
+									bind:value={newTaskName}
+									bind:this={taskNameInput}
 									class="input sm:input-sm w-full"
-									min="1"
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											e.preventDefault();
+											addTask();
+										}
+									}}
 								/>
 							</fieldset>
-							<fieldset class="fieldset">
-								<legend class="fieldset-legend">Moment</legend>
-								<select bind:value={newTaskType} class="select sm:select-sm w-full">
-									<option value="beforeEvent">Avant</option>
-									<option value="onEvent">Pendant</option>
-									<option value="afterEvent">Après</option>
-								</select>
-							</fieldset>
+							<div class="grid grid-cols-2 gap-3">
+								<fieldset class="fieldset">
+									<legend class="fieldset-legend">Pariticpant·es</legend>
+									<input
+										type="number"
+										bind:value={newTaskVolunteers}
+										class="input sm:input-sm w-full"
+										min="1"
+									/>
+								</fieldset>
+								<fieldset class="fieldset">
+									<legend class="fieldset-legend">Moment</legend>
+									<select bind:value={newTaskType} class="select sm:select-sm w-full">
+										<option value="beforeEvent">Avant</option>
+										<option value="onEvent">Pendant</option>
+										<option value="afterEvent">Après</option>
+									</select>
+								</fieldset>
+							</div>
 						</div>
-					</div>
-					<!-- <fieldset class="fieldset">
+						<!-- <fieldset class="fieldset">
 						<legend class="fieldset-legend">Description (optionnel)</legend>
 						<textarea
 							bind:value={newTaskDescription}
@@ -771,35 +788,36 @@
 							placeholder="Instructions pour les bénévoles..."
 						></textarea>
 					</fieldset> -->
-					<div class="flex gap-2">
-						<button
-							type="button"
-							class="btn sm:btn-sm btn-primary grow"
-							onclick={addTask}
-							disabled={newTaskName.trim().length === 0 ||
-								(editingTaskId !== null && !taskHasChanges)}
-						>
-							{editingTaskId ? 'Modifier la tâche' : 'Ajouter la tâche'}
-						</button>
-						{#if editingTaskId}
-							<button type="button" class="btn sm:btn-sm btn-ghost" onclick={cancelEdit}
-								>Annuler</button
+						<div class="flex gap-2">
+							<button
+								type="button"
+								class="btn sm:btn-sm btn-primary grow"
+								onclick={addTask}
+								disabled={newTaskName.trim().length === 0 ||
+									(editingTaskId !== null && !taskHasChanges)}
 							>
-						{/if}
+								{editingTaskId ? 'Modifier la tâche' : 'Ajouter la tâche'}
+							</button>
+							{#if editingTaskId}
+								<button type="button" class="btn sm:btn-sm btn-ghost" onclick={cancelEdit}
+									>Annuler</button
+								>
+							{/if}
+						</div>
 					</div>
 				</div>
-			</div>
 
-			<div class="modal-action">
-				<button type="button" class="btn" onclick={onClose}>Annuler</button>
-				<button type="submit" class="btn btn-primary px-8" disabled={isSubmitting}>
-					{#if isSubmitting}
-						<span class="loading loading-spinner loading-sm"></span>
-					{/if}
-					Enregistrer <span class="hidden md:flex">les changements</span>
-				</button>
+				<div class="modal-action">
+					<button type="button" class="btn" onclick={onClose}>Annuler</button>
+					<button type="submit" class="btn btn-primary px-8" disabled={isSubmitting}>
+						{#if isSubmitting}
+							<span class="loading loading-spinner loading-sm"></span>
+						{/if}
+						Enregistrer <span class="hidden md:flex">les changements</span>
+					</button>
+				</div>
 			</div>
-		</div>
+		</fieldset>
 	</form>
 </Modal>
 

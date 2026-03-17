@@ -190,6 +190,7 @@
 					<button
 						class="btn btn-ghost sm:btn-sm text-success"
 						onclick={toggleConfirm}
+						disabled={occState.isNetworkUnavailable}
 						title="Confirmer la tenue"
 					>
 						<CheckCircle size={18} />
@@ -201,6 +202,7 @@
 						class="btn btn-ghost sm:btn-sm text-warning"
 						onclick={restoreEvent}
 						title="Rétablir l'événement"
+						disabled={occState.isNetworkUnavailable}
 					>
 						<Calendar size={18} />
 						Rétablir
@@ -215,6 +217,7 @@
 				class="btn btn-ghost sm:btn-sm btn-circle"
 				aria-label="Modifier"
 				onclick={() => (showEditModal = true)}
+				disabled={occState.isNetworkUnavailable}
 			>
 				<Pencil size={16} />
 			</button>
@@ -279,37 +282,37 @@
 		</div>
 
 		<!-- Line 2: Actions -->
-		{#if !occurrence.isCanceled}
-			{#if canRespond || occState.inherited.tasks.length > 0 || occurrence.comments.length > 0}
-				<div class="mt-2 flex flex-col gap-3">
-					<!-- Response buttons -->
-					{#if canRespond}
-						<ResponsesSummary
-							responses={occurrence.responses}
-							getParticipantName={occState.getParticipantName}
-							availableTypes={occState.masterConfig.availableResponseTypes}
-							onResponseSelect={occState.setResponse}
-							isCompact={true}
-							{currentUserId}
-						/>
-					{/if}
+		{#if canRespond || occState.inherited.tasks.length > 0 || occurrence.comments.length > 0}
+			<div class="mt-2 flex flex-col gap-3">
+				<!-- Response buttons -->
+				{#if canRespond}
+					<ResponsesSummary
+						responses={occurrence.responses}
+						getParticipantName={occState.getParticipantName}
+						availableTypes={occState.masterConfig.availableResponseTypes}
+						onResponseSelect={occState.setResponse}
+						isCompact={true}
+						disabled={occState.isNetworkUnavailable || occurrence.isCanceled}
+						{currentUserId}
+					/>
+				{/if}
 
-					<!-- Task summary -->
-					{#if occState.inherited.tasks.length > 0}
-						<TaskCompactSummary
-							tasks={occState.inherited.tasks}
-							responses={occurrence.responses}
-							{currentUserId}
-							isSubmitting={occState.isSubmitting}
-							{readOnly}
-							isPastDate={isPast(occurrence.date)}
-							getParticipantName={occState.getParticipantName}
-							onToggle={occState.toggleTask}
-							isCompact={true}
-						/>
-					{/if}
-				</div>
-			{/if}
+				<!-- Task summary -->
+				{#if occState.inherited.tasks.length > 0}
+					<TaskCompactSummary
+						tasks={occState.inherited.tasks}
+						responses={occurrence.responses}
+						{currentUserId}
+						isSubmitting={occState.isSubmitting}
+						{readOnly}
+						isPastDate={isPast(occurrence.date)}
+						getParticipantName={occState.getParticipantName}
+						onToggle={occState.toggleTask}
+						isCompact={true}
+						disabled={occState.isNetworkUnavailable || occurrence.isCanceled}
+					/>
+				{/if}
+			</div>
 		{/if}
 		<div class="pt-4 sm:hidden">
 			{@render actionCompact()}
@@ -318,7 +321,7 @@
 {/snippet}
 
 {#snippet cardLayout()}
-	<div class="card card-sm bg-base-100 shadow-md {occurrence.isCanceled ? 'opacity-60' : ''} mb-8">
+	<div class="card card-sm bg-base-100 mb-8 shadow-md">
 		<div class="card-body">
 			<!-- En-tête -->
 			<div class="flex items-center justify-between">
@@ -409,36 +412,36 @@
 				{/if}
 			</div>
 
-			{#if !occurrence.isCanceled}
-				{#if occState.masterConfig.allowResponses && currentUserId}
-					<div class="mt-3 flex flex-wrap items-center justify-between gap-8">
-						<div class="flex flex-1">
-							<ResponsesSummary
-								responses={occurrence.responses}
-								getParticipantName={occState.getParticipantName}
-								availableTypes={occState.masterConfig.availableResponseTypes}
-								onResponseSelect={occState.setResponse}
-								{currentUserId}
-							/>
-						</div>
+			{#if occState.masterConfig.allowResponses && currentUserId}
+				<div class="mt-3 flex flex-wrap items-center justify-between gap-8">
+					<div class="flex flex-1">
+						<ResponsesSummary
+							responses={occurrence.responses}
+							getParticipantName={occState.getParticipantName}
+							availableTypes={occState.masterConfig.availableResponseTypes}
+							onResponseSelect={occState.setResponse}
+							{currentUserId}
+							disabled={occState.isNetworkUnavailable || occurrence.isCanceled}
+						/>
 					</div>
-				{/if}
+				</div>
+			{/if}
 
-				<div class="divider {hasResponsesAndTasks && 'hidden'}"></div>
+			<div class="divider {hasResponsesAndTasks && 'hidden'}"></div>
 
-				<!-- Task summary -->
-				{#if occState.inherited.tasks.length > 0}
-					<TaskCompactSummary
-						tasks={occState.inherited.tasks}
-						responses={occurrence.responses}
-						{currentUserId}
-						isSubmitting={occState.isSubmitting}
-						{readOnly}
-						isPastDate={isPast(occurrence.date)}
-						getParticipantName={occState.getParticipantName}
-						onToggle={occState.toggleTask}
-					/>
-				{/if}
+			<!-- Task summary -->
+			{#if occState.inherited.tasks.length > 0}
+				<TaskCompactSummary
+					tasks={occState.inherited.tasks}
+					responses={occurrence.responses}
+					{currentUserId}
+					isSubmitting={occState.isSubmitting}
+					{readOnly}
+					isPastDate={isPast(occurrence.date)}
+					getParticipantName={occState.getParticipantName}
+					onToggle={occState.toggleTask}
+					disabled={occState.isNetworkUnavailable}
+				/>
 			{/if}
 
 			<!-- Commentaires -->

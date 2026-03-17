@@ -3,8 +3,11 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { addComment, deleteComment } from '$lib/services/planningActions';
 	import { formatDate } from '$lib/utils/date';
+	import { networkStore } from '$lib/stores/networkStore.svelte';
+	import { classifyError } from '$lib/utils/errorHandler';
 	import { MessageSquare, Trash2, Send, X } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
+	import NetworkAlert from './NetworkAlert.svelte';
 
 	const occurrence = $derived(drawerStore.data?.occurrence);
 	const master = $derived(drawerStore.data?.master);
@@ -15,6 +18,10 @@
 	let newComment = $state('');
 	let isSubmitting = $state(false);
 	let scrollContainer: HTMLDivElement | undefined = $state();
+
+	const isNetworkUnavailable = $derived(
+		!networkStore.online || !networkStore.pocketbaseReachable || !networkStore.realtimeConnected
+	);
 
 	function getParticipantName(id: string) {
 		if (!master) return id;
@@ -42,8 +49,9 @@
 			await addComment(occurrence.id, currentUserId, newComment.trim(), token, occurrence);
 			newComment = '';
 		} catch (error) {
-			console.error('Error adding comment:', error);
-			toast.error("Erreur lors de l'ajout du commentaire");
+			const { message } = classifyError(error);
+			toast.error(message);
+			console.error(error);
 		} finally {
 			isSubmitting = false;
 		}
@@ -55,8 +63,9 @@
 			await deleteComment(occurrence.id, commentId, token, occurrence);
 			toast.success('Commentaire supprimé');
 		} catch (error) {
-			console.error('Error deleting comment:', error);
-			toast.error('Erreur lors de la suppression');
+			const { message } = classifyError(error);
+			toast.error(message);
+			console.error(error);
 		}
 	}
 </script>
@@ -83,6 +92,10 @@
 			>
 				<X size={20} />
 			</button>
+		</div>
+
+		<div class="p-4">
+			<NetworkAlert message="Serveur indisponible" />
 		</div>
 
 		<div bind:this={scrollContainer} class="flex-1 overflow-y-auto p-4">
@@ -127,7 +140,7 @@
 		</div>
 
 		<!-- Input Area -->
-		<div class="bg-base-200/50 border-base-300 border-t p-4">
+		<fieldset class="bg-base-200/50 border-base-300 border-t p-4" disabled={isNetworkUnavailable}>
 			<form
 				onsubmit={(e) => {
 					e.preventDefault();
@@ -140,7 +153,6 @@
 					class="textarea textarea-bordered focus:textarea-primary w-full resize-none py-3 pr-12 pl-4 text-sm transition-all"
 					placeholder="Votre message..."
 					rows="2"
-					disabled={isSubmitting}
 					onkeydown={(e) => {
 						if (e.key === 'Enter' && !e.shiftKey) {
 							e.preventDefault();
@@ -151,7 +163,6 @@
 				<button
 					type="submit"
 					class="btn btn-primary btn-circle sm:btn-sm absolute right-3 bottom-3 shadow-lg"
-					disabled={!newComment.trim() || isSubmitting}
 				>
 					{#if isSubmitting}
 						<span class="loading loading-spinner loading-xs"></span>
@@ -160,7 +171,7 @@
 					{/if}
 				</button>
 			</form>
-		</div>
+		</fieldset>
 	{:else}
 		<div class="flex h-full flex-col items-center justify-center gap-3">
 			<span class="loading loading-ring loading-lg text-primary"></span>

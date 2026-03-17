@@ -1,5 +1,7 @@
 import { toast } from 'svelte-sonner';
 import { submitResponse } from '$lib/services/planningActions';
+import { classifyError } from '$lib/utils/errorHandler';
+import { networkStore } from '$lib/stores/networkStore.svelte';
 import type {
 	PlanningOccurrence,
 	PlanningMaster,
@@ -18,6 +20,7 @@ interface OccurrenceState {
 	selectedResponse: ResponseType | undefined;
 	selectedTasks: string[];
 	isSubmitting: boolean;
+	isNetworkUnavailable: boolean;
 	stats: { present: number; ifNeeded: number; maybe: number; absent: number; noResponse: number };
 	inherited: {
 		place: string | undefined;
@@ -76,6 +79,10 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		]
 	}));
 
+	const isNetworkUnavailable = $derived(
+		!networkStore.online || !networkStore.pocketbaseReachable || !networkStore.realtimeConnected
+	);
+
 	$effect(() => {
 		if (currentResponse) {
 			selectedResponse = currentResponse.response;
@@ -109,7 +116,8 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 				options.occurrence
 			);
 		} catch (error) {
-			toast.error("Erreur lors de l'enregistrement");
+			const { message } = classifyError(error);
+			toast.error(message);
 			console.error(error);
 		} finally {
 			isSubmitting = false;
@@ -163,6 +171,9 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		},
 		get isSubmitting() {
 			return isSubmitting;
+		},
+		get isNetworkUnavailable() {
+			return isNetworkUnavailable;
 		},
 		get stats() {
 			return stats;
