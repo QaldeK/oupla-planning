@@ -376,6 +376,12 @@ class UserStore {
 	 * Supprime TOUTES les données locales de l'application.
 	 * Contrairement à logout/clearUser, cette méthode nettoie également
 	 * les préférences de vue et recharge la page pour un nettoyage complet.
+	 *
+	 * ⚠️ IMPORTANT : Si l'utilisateur est connecté à PocketBase, les données
+	 * seront synchronisées à nouveau depuis le serveur au prochain rechargement.
+	 * C'est un comportement normal pour la synchronisation multi-appareils.
+	 *
+	 * Pour une suppression complète incluant PocketBase, utiliser logout() à la place.
 	 */
 	async clearAllLocalData() {
 		// Sauvegarder l'état de connexion PocketBase
