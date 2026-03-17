@@ -134,6 +134,8 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		const task = inherited.tasks.find((t) => t.id === taskId);
 		if (!task) return;
 
+		// Pour les tâches "pendant" (onEvent), l'utilisateur doit être présent
+		// Auto-inscription "présent" uniquement pour ces tâches
 		if (task.type === 'onEvent' && masterConfig.allowResponses) {
 			if (selectedResponse && selectedResponse !== 'present') {
 				toast.error('Vous devez être présent pour vous inscrire à une tâche');
@@ -141,6 +143,8 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			}
 			if (!selectedResponse) selectedResponse = 'present';
 		}
+		// Pour les tâches "avant" (beforeEvent) et "après" (afterEvent):
+		// Pas d'auto-inscription - l'utilisateur peut s'inscrire quel que soit son response
 
 		if (selectedTasks.includes(taskId)) {
 			selectedTasks = selectedTasks.filter((id) => id !== taskId);
