@@ -193,12 +193,15 @@
 									</div>
 								{:else if !userStore.isLoggedIn && userStore.globalProfile.persist}
 									<!-- Remplacer l'email par lien d'effacement -->
-									<button
-										class="btn-link text-warning h-auto min-h-0 p-0 text-xs no-underline"
+									<span
+										role="button"
+										tabindex="0"
+										class="btn-link text-warning h-auto min-h-0 cursor-pointer p-0 text-xs no-underline"
 										onclick={() => (showClearDataConfirm = true)}
+										onkeydown={(e) => e.key === 'Enter' && (showClearDataConfirm = true)}
 									>
 										Effacer mes données sur ce navigateur
-									</button>
+									</span>
 								{/if}
 							</div>
 						</button>

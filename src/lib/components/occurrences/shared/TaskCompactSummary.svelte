@@ -79,7 +79,9 @@
 			? 'badge-error border-error'
 			: 'badge-primary border-primary'}"
 		onclick={() => onToggle(taskId)}
+		onkeydown={(e) => e.key === 'Enter' && onToggle(taskId)}
 		role="button"
+		tabindex="0"
 	>
 		{#if isInTask}
 			<UserMinus class="size-5 stroke-2" />
