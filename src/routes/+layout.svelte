@@ -12,6 +12,7 @@
 	import { Drawer, DrawerOverlay, DrawerContent, DrawerHandle } from '@abhivarde/svelte-drawer';
 	import CommentSection from '$lib/components/CommentSection.svelte';
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
+	import NetworkIndicator from '$lib/components/NetworkIndicator.svelte';
 
 	let { children } = $props();
 
@@ -216,15 +217,17 @@
 
 <Toaster position="bottom-right" />
 
+<NetworkIndicator />
+
 <!-- Drawer Global pour les Commentaires -->
 <Drawer bind:open={drawerStore.open} portal={true} direction="right">
 	<DrawerOverlay />
 	<DrawerContent
-		class="bg-base-100 fixed top-0 right-0 bottom-0 z-50 w-120 max-w-[85vw] shadow-2xl"
+		class="bg-base-100 fixed top-0 right-0 bottom-0 z-50 h-dvh w-120 max-w-[85vw] shadow-2xl"
 	>
 		<DrawerHandle class="my-4 ml-4" />
 		{#if drawerStore.open}
-			<CommentSection />
+			<div class="h-full pb-6"><CommentSection /></div>
 		{/if}
 	</DrawerContent>
 </Drawer>

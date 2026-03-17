@@ -11,7 +11,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		icon: Check,
 		badgeClass: 'badge-success',
 		bgClass: 'bg-success/20',
-		btnClass: 'btn-success',
+		btnClass: 'bg-success/20',
 		ringClass: 'ring-success',
 		borderClass: 'border border-success'
 	},
@@ -20,7 +20,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		icon: Info,
 		badgeClass: 'badge-warning',
 		bgClass: 'bg-warning/20',
-		btnClass: 'btn-warning',
+		btnClass: 'btn-warning btn-soft',
 		ringClass: 'ring-warning',
 		borderClass: 'border border-warning'
 	},
@@ -29,7 +29,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		icon: HelpCircle,
 		badgeClass: 'badge-warning',
 		bgClass: 'bg-warning/20',
-		btnClass: 'btn-warning',
+		btnClass: 'btn-warning btn-soft',
 		ringClass: 'ring-warning',
 		borderClass: 'border border-warning'
 	},
@@ -38,7 +38,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		icon: X,
 		badgeClass: 'badge-error',
 		bgClass: 'bg-error/20',
-		btnClass: 'btn-error',
+		btnClass: 'btn-error btn-soft',
 		ringClass: 'ring-error',
 		borderClass: 'border border-error'
 	}
