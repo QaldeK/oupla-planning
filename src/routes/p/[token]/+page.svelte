@@ -30,6 +30,7 @@
 	import { onDestroy } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
+	import { goto } from '$app/navigation';
 
 	let token = $derived($page.params.token as string);
 	let master = $derived(planningStore.master);
@@ -43,6 +44,28 @@
 	// Initialisation via le store
 	$effect(() => {
 		planningStore.init(token);
+	});
+
+	// Sécurité : Rediriger adminToken vers participantToken
+	$effect(() => {
+		if (!master) return;
+
+		// Détecter si le token est un adminToken (64 chars vs 32 chars)
+		const isAdminToken = token.length === 64;
+
+		if (isAdminToken) {
+			// Vérifier si l'utilisateur a déjà les droits admin pour ce planning
+			const storedAdminToken = userStore.getAdminToken(master.id);
+
+			if (storedAdminToken === token) {
+				// Récupérer le participantToken correspondant
+				const participantToken = master.participantToken;
+
+				// Rediriger vers /p/[participantToken]
+				goto(`/p/${participantToken}`);
+				toast.success('Droits admin enregistrés. Redirection...');
+			}
+		}
 	});
 
 	// Logique d'ouverture du modal d'identification
