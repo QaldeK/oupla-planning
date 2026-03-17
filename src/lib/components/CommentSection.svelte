@@ -14,6 +14,7 @@
 	const currentUserId = $derived(drawerStore.data?.currentUserId);
 	const isAdmin = $derived(drawerStore.data?.isAdmin ?? false);
 	const token = $derived(master?.participantToken || master?.adminToken);
+	const eventTitle = $derived(master?.title);
 
 	let newComment = $state('');
 	let isSubmitting = $state(false);
@@ -70,7 +71,7 @@
 	}
 </script>
 
-<div class="bg-base-100 flex h-full flex-col">
+<div class="flex h-full flex-col">
 	{#if occurrence}
 		<!-- Header -->
 		<div class="border-base-300 flex items-center justify-between border-b px-4 py-3">
@@ -79,7 +80,7 @@
 					<MessageSquare size={18} class="text-primary" />
 				</div>
 				<div>
-					<h4 class="text-sm leading-none font-bold">Commentaires</h4>
+					<h4 class=" leading-none font-medium">{eventTitle}</h4>
 					<p class="text-base-content/50 mt-1 text-xs">
 						{occurrence.comments.length} message{occurrence.comments.length > 1 ? 's' : ''}
 					</p>
