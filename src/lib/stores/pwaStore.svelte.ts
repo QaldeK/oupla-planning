@@ -12,46 +12,27 @@ class PwaStore {
 		if (this.#initialized) return;
 		this.#initialized = true;
 
-		// 1. Détection client (display-mode, navigator.standalone)
+		// 1. Détection client uniquement (display-mode, navigator.standalone)
 		this.isInstalled =
 			window.matchMedia('(display-mode: standalone)').matches ||
 			(window.navigator as any).standalone === true;
 
-		// 2. Vérifier PocketBase si authentifié
-		if (pb.authStore.isValid) {
-			try {
-				const user = await pb.collection('users').getOne(pb.authStore.record!.id, {
-					requestKey: null
-				});
-				this.isInstalled = this.isInstalled || (user.pwa_installed ?? false);
-			} catch {
-				// Ignore errors (user might not exist or field missing)
-			}
-		}
-
-		// 3. Écouter les changements d'authentification pour sync automatique
-		pb.authStore.onChange(() => {
-			if (pb.authStore.isValid) {
-				this.#syncToPocketBase();
-			}
-		});
-
-		// 4. Écouter beforeinstallprompt
+		// 2. Écouter beforeinstallprompt
 		on(window, 'beforeinstallprompt', (e) => {
 			e.preventDefault();
 			this.canInstall = true;
 			this.deferredPrompt = e;
 		});
 
-		// 5. Écouter appinstalled
+		// 3. Écouter appinstalled (analytics one-shot)
 		on(window, 'appinstalled', () => {
 			this.isInstalled = true;
 			this.canInstall = false;
 			this.deferredPrompt = null;
-			this.#syncToPocketBase();
+			this.#recordInstallationToPB(); // Analytics : enregistrer l'installation
 		});
 
-		// 6. Écouter changements display-mode
+		// 4. Écouter changements display-mode
 		on(window.matchMedia('(display-mode: standalone)'), 'change', (e) => {
 			this.isInstalled = e.matches;
 		});
@@ -67,14 +48,14 @@ class PwaStore {
 		}
 	}
 
-	async #syncToPocketBase() {
+	async #recordInstallationToPB() {
 		if (!pb.authStore.isValid) return;
 		try {
 			await pb.collection('users').update(pb.authStore.record!.id, {
 				pwa_installed: true
 			});
 		} catch (e) {
-			console.error('PWA sync error:', e);
+			console.error('Failed to record PWA installation:', e);
 		}
 	}
 }
