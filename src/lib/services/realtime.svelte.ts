@@ -2,6 +2,7 @@ import { pb } from '$lib/pocketbase/pb';
 import { toast } from 'svelte-sonner';
 import { userStore } from '$lib/stores/userStore.svelte';
 import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
+import { withPocketBaseTimeout } from '$lib/stores/networkStore.svelte';
 
 /**
  * Service de gestion des abonnements PocketBase Realtime
@@ -88,17 +89,20 @@ class RealtimeService {
 		try {
 			// Utiliser pb.realtime.subscribe avec le topic du record spécifique
 
-			this.masterUnsub = await pb.realtime.subscribe(
-				`planning_masters/${masterId}`,
-				(e) => {
-					console.log('📡 Realtime EVENT (Master):', e.action, e.record.id);
-					this.handleMasterChange(e.action, e.record);
-				},
-				{
-					query: { _token: token },
-					fields:
-						'id,title,description,place,defaultStartTime,defaultEndTime,recurrence,tasks,participants,allowResponses,toConfirm,minPresentRequired,lastModifiedBy,created,updated'
-				}
+			this.masterUnsub = await withPocketBaseTimeout(
+				pb.realtime.subscribe(
+					`planning_masters/${masterId}`,
+					(e) => {
+						console.log('📡 Realtime EVENT (Master):', e.action, e.record.id);
+						this.handleMasterChange(e.action, e.record);
+					},
+					{
+						query: { _token: token },
+						fields:
+							'id,title,description,place,defaultStartTime,defaultEndTime,recurrence,tasks,participants,allowResponses,toConfirm,minPresentRequired,lastModifiedBy,created,updated'
+					}
+				),
+				8000 // 8 secondes timeout
 			);
 
 			console.log('✅ Realtime: Abonné au master', masterId);
@@ -113,19 +117,22 @@ class RealtimeService {
 	 */
 	private async subscribeToOccurrencesCollection(masterId: string, token: string) {
 		try {
-			this.occurrencesUnsub = await pb.realtime.subscribe(
-				`planning_occurrences`,
-				(e) => {
-					this.handleOccurrenceChange(e.action, e.record);
-				},
-				{
-					query: {
-						master: masterId,
-						_token: token
+			this.occurrencesUnsub = await withPocketBaseTimeout(
+				pb.realtime.subscribe(
+					`planning_occurrences`,
+					(e) => {
+						this.handleOccurrenceChange(e.action, e.record);
 					},
-					fields:
-						'id,master,date,startTime,endTime,place,description,tasks,responses,comments,isConfirmed,isCanceled,minPresentRequired,lastModifiedBy,created,updated'
-				}
+					{
+						query: {
+							master: masterId,
+							_token: token
+						},
+						fields:
+							'id,master,date,startTime,endTime,place,description,tasks,responses,comments,isConfirmed,isCanceled,minPresentRequired,lastModifiedBy,created,updated'
+					}
+				),
+				8000 // 8 secondes timeout
 			);
 
 			console.log('✅ Realtime: Abonné aux occurrences du master', masterId);

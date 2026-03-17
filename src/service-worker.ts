@@ -52,8 +52,16 @@ self.addEventListener('fetch', (event) => {
 	// Ignore POST requests etc
 	if (event.request.method !== 'GET') return;
 
+	const url = new URL(event.request.url);
+
+	// ⚠️ NE PAS intercepter les connexions PocketBase Realtime (SSE)
+	// Les connexions Server-Sent Events ne peuvent pas être mises en cache
+	if (url.pathname.includes('/api/realtime')) {
+		// Laisser passer la requête sans intervention du service worker
+		return;
+	}
+
 	async function respond() {
-		const url = new URL(event.request.url);
 		const cache = await caches.open(CACHE);
 
 		// `build`/`files` can always be served from the cache
