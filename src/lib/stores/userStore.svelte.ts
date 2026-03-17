@@ -372,6 +372,33 @@ class UserStore {
 		await this.logout();
 	}
 
+	/**
+	 * Supprime TOUTES les données locales de l'application.
+	 * Contrairement à logout/clearUser, cette méthode nettoie également
+	 * les préférences de vue et recharge la page pour un nettoyage complet.
+	 */
+	async clearAllLocalData() {
+		// Sauvegarder l'état de connexion PocketBase
+		const wasLoggedIn = this.isLoggedIn;
+
+		// Supprimer TOUTES les données locales
+		this.globalProfile = null;
+		this.savedPlannings = [];
+		this.preferredOccurrenceView = 'compact';
+		await storage.removeItem(STORAGE_KEY); // planning_global_profile
+		await storage.removeItem(PLANNINGS_KEY); // planning_saved
+		await storage.removeItem(VIEW_PREF_KEY); // occurrence_view_pref
+		await storage.removeItem(BACKUP_KEY); // backupUser-single
+
+		// Recharger la page pour nettoyer l'état en mémoire
+		if (wasLoggedIn) {
+			window.location.reload();
+		} else {
+			this.isReady = false;
+			await this.init();
+		}
+	}
+
 	hasAdminAccess(masterId: string): boolean {
 		const planning = this.savedPlannings.find((p) => p.masterId === masterId);
 		return !!planning && !!planning.adminToken;

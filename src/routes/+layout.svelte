@@ -8,16 +8,17 @@
 	import { Menu, Calendar, Sun, Moon, CalendarPlus, Github, User } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
+	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { Drawer, DrawerOverlay, DrawerContent, DrawerHandle } from '@abhivarde/svelte-drawer';
 	import CommentSection from '$lib/components/CommentSection.svelte';
-	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import NetworkIndicator from '$lib/components/NetworkIndicator.svelte';
 
 	let { children } = $props();
 
 	let drawerOpen = $state(false);
 	let theme = $state('my');
+	let showConfirmClearPlannings = $state(false);
 
 	onMount(() => {
 		userStore.init();
@@ -145,15 +146,7 @@
 					{#if !userStore.isLoggedIn}
 						<button
 							class="btn btn-ghost btn-xs btn-block mt-6 opacity-50 hover:opacity-100"
-							onclick={() => {
-								if (
-									confirm(
-										'Voulez-vous vraiment oublier tous les plannings sauvegardés sur cet appareil ?'
-									)
-								) {
-									userStore.clearSavedPlannings();
-								}
-							}}
+							onclick={() => (showConfirmClearPlannings = true)}
 						>
 							Oublier les plannings sauvegardés
 						</button>
@@ -213,6 +206,20 @@
 			await userStore.authModal.onPlanningIdentify(identity, isNewParticipant);
 		}
 	}}
+/>
+
+<ConfirmModal
+	bind:open={showConfirmClearPlannings}
+	onClose={() => (showConfirmClearPlannings = false)}
+	onConfirm={async () => {
+		await userStore.clearSavedPlannings();
+		showConfirmClearPlannings = false;
+	}}
+	title="Effacer les plannings sauvegardés ?"
+	message="Voulez-vous vraiment oublier tous les plannings sauvegardés sur cet appareil ?"
+	description="Cette action est irréversible. Vous devrez utiliser les liens des plannings pour y accéder à nouveau."
+	confirmLabel="Effacer tout"
+	variant="danger"
 />
 
 <Toaster position="bottom-right" />
