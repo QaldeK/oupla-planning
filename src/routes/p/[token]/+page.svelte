@@ -287,14 +287,6 @@
 								</div>
 							{/if}
 						</div>
-
-						{#if master.tasks && master.tasks.length > 0}
-							<div class="flex flex-wrap gap-1.5 pt-1">
-								{#each master.tasks as task (task.id)}
-									<span class="badge badge-ghost badge-sm font-medium opacity-80">{task.name}</span>
-								{/each}
-							</div>
-						{/if}
 					</div>
 				</div>
 
