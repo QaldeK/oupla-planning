@@ -5,9 +5,20 @@
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { onMount } from 'svelte';
 	import { Toaster, toast } from 'svelte-sonner';
-	import { Menu, Calendar, Sun, Moon, CalendarPlus, Github, User, LogOut } from 'lucide-svelte';
+	import {
+		Menu,
+		Calendar,
+		Sun,
+		Moon,
+		CalendarPlus,
+		Github,
+		User,
+		LogOut,
+		Download
+	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
+	import MobileHeader from '$lib/components/MobileHeader.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { Drawer, DrawerOverlay, DrawerContent, DrawerHandle } from '@abhivarde/svelte-drawer';
@@ -65,6 +76,9 @@
 <div class="drawer lg:drawer-open min-h-screen">
 	<input id="main-drawer" type="checkbox" class="drawer-toggle" bind:checked={drawerOpen} />
 	<div class="drawer-content flex flex-col">
+		<!-- Header mobile rétractable -->
+		<MobileHeader />
+
 		<!-- Navbar -->
 		<div class="navbar bg-base-200 lg:hidden">
 			<div class="flex-none">
@@ -84,23 +98,38 @@
 
 		<!-- Footer -->
 		<footer class="border-base-300 mt-auto border-t py-4">
-			<div class="text-base-content/60 flex items-center justify-center gap-2">
-				<a
-					href="https://github.com/yourusername/yourrepo"
-					target="_blank"
-					rel="noopener noreferrer"
-					class="hover:text-primary flex items-center gap-2 transition"
-				>
-					<Github size={20} />
-				</a>
-				<a
-					href="https://www.gnu.org/licenses/agpl-3.0.html"
-					target="_blank"
-					rel="noopener noreferrer"
-					class="hover:text-primary transition"
-				>
-					Open Source - AGPL v3
-				</a>
+			<div class="flex flex-col items-center justify-center gap-4">
+				<!-- Bouton d'installation PWA (mobile uniquement) -->
+				{#if !pwaStore.isInstalled && pwaStore.canInstall}
+					<button
+						class="btn btn-soft btn-primary btn-sm lg:hidden"
+						onclick={() => pwaStore.install()}
+						aria-label="Installer l'application"
+					>
+						<Download size={16} />
+						<span>Installer l'app</span>
+					</button>
+				{/if}
+
+				<!-- Links existants -->
+				<div class="text-base-content/60 flex items-center justify-center gap-2">
+					<a
+						href="https://github.com/yourusername/yourrepo"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="hover:text-primary flex items-center gap-2 transition"
+					>
+						<Github size={20} />
+					</a>
+					<a
+						href="https://www.gnu.org/licenses/agpl-3.0.html"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="hover:text-primary transition"
+					>
+						Open Source - AGPL v3
+					</a>
+				</div>
 			</div>
 		</footer>
 	</div>
