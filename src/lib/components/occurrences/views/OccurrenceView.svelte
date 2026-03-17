@@ -126,13 +126,14 @@
 				: 'badge-neutral'
 	);
 
+	// Display logic: show responses if allowed, even for past dates or non-authenticated users
 	const canRespond = $derived(
-		occState.masterConfig.allowResponses &&
-			!occurrence.isCanceled &&
-			currentUserId &&
-			!isPast(occurrence.date) &&
-			!readOnly
+		occState.masterConfig.allowResponses && !occurrence.isCanceled && !readOnly
 	);
+
+	// Edit logic: can only modify if user is authenticated and date is not past
+	const isPastDate = $derived(isPast(occurrence.date));
+	const canEditResponse = $derived(canRespond && currentUserId && !isPastDate);
 
 	function openCommentDrawer() {
 		drawerStore.showComments({
@@ -292,8 +293,9 @@
 						availableTypes={occState.masterConfig.availableResponseTypes}
 						onResponseSelect={occState.setResponse}
 						isCompact={true}
-						disabled={occState.isNetworkUnavailable || occurrence.isCanceled}
+						disabled={occState.isNetworkUnavailable || occurrence.isCanceled || isPastDate}
 						{currentUserId}
+						{isPastDate}
 					/>
 				{/if}
 
@@ -412,7 +414,7 @@
 				{/if}
 			</div>
 
-			{#if occState.masterConfig.allowResponses && currentUserId}
+			{#if occState.masterConfig.allowResponses}
 				<div class="mt-3 flex flex-wrap items-center justify-between gap-8">
 					<div class="flex flex-1">
 						<ResponsesSummary
@@ -421,7 +423,8 @@
 							availableTypes={occState.masterConfig.availableResponseTypes}
 							onResponseSelect={occState.setResponse}
 							{currentUserId}
-							disabled={occState.isNetworkUnavailable || occurrence.isCanceled}
+							disabled={occState.isNetworkUnavailable || occurrence.isCanceled || isPastDate}
+							{isPastDate}
 						/>
 					</div>
 				</div>

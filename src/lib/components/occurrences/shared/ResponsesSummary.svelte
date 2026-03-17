@@ -13,6 +13,7 @@
 		isCompact?: boolean;
 		currentUserId?: string;
 		disabled?: boolean;
+		isPastDate?: boolean;
 	}
 
 	let {
@@ -22,7 +23,8 @@
 		onResponseSelect,
 		isCompact = false,
 		currentUserId,
-		disabled = false
+		disabled = false,
+		isPastDate = false
 	}: Props = $props();
 
 	const types = $derived(availableTypes || AVAILABLE_RESPONSE_TYPES);
@@ -57,8 +59,13 @@
 	Icon: any
 )}
 	<button
-		class="bg-base-200/50 group flex {sizeResponse} grow flex-col overflow-hidden rounded-lg hover:cursor-pointer {config.ringClass} hover:ring-2 {config.borderClass}"
-		onclick={() => onResponseSelect(type)}
+		class="bg-base-200/50 group flex {sizeResponse} grow flex-col overflow-hidden rounded-lg {isPastDate
+			? ''
+			: 'hover:cursor-pointer'} {config.ringClass} {isPastDate
+			? ''
+			: 'hover:ring-2'} {config.borderClass}"
+		onclick={() => !isPastDate && onResponseSelect(type)}
+		disabled={disabled || isPastDate}
 	>
 		<div
 			class="border-neutral/10 flex w-full items-center gap-1.5 border-b-2 px-4 py-1.5 text-sm font-medium opacity-80 {config.bgClass} justify-start"
@@ -91,8 +98,13 @@
 	Icon: any
 )}
 	<button
-		class="bg-base-200/50 group flex flex-wrap overflow-hidden rounded-lg hover:cursor-pointer max-sm:w-full {config.ringClass} hover:ring-2 {config.borderClass}"
-		onclick={() => onResponseSelect(type)}
+		class="bg-base-200/50 group flex flex-wrap overflow-hidden rounded-lg {isPastDate
+			? ''
+			: 'hover:cursor-pointer'} max-sm:w-full {config.ringClass} {isPastDate
+			? ''
+			: 'hover:ring-2'} {config.borderClass}"
+		onclick={() => !isPastDate && onResponseSelect(type)}
+		disabled={disabled || isPastDate}
 	>
 		<div
 			class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium opacity-80 {config.bgClass}"
@@ -126,7 +138,10 @@
 {/snippet}
 
 {#if types.length > 0}
-	<div class="flex w-full flex-wrap gap-3 {disabled && 'opacity-70 grayscale-50'}">
+	<div
+		class="flex w-full flex-wrap gap-3 {disabled && 'opacity-70 grayscale-50'} {isPastDate &&
+			'bg-base-200/30'}"
+	>
 		{#each types as type (type)}
 			{@const config = RESPONSE_TYPE_CONFIG[type]}
 			{@const typeResponses = responsesByType[type]}
