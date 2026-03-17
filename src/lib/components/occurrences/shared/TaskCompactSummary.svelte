@@ -6,7 +6,9 @@
 		CalendarArrowUp,
 		CalendarArrowDown,
 		ClipboardCheck,
-		X
+		X,
+		UserMinus,
+		UserPlus
 	} from 'lucide-svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { slide } from 'svelte/transition';
@@ -72,17 +74,19 @@
 {/if}
 
 {#snippet btnSubscribe(isInTask: boolean, taskId: string)}
-	<button
-		class="btn btn-circle btn-xs {isInTask ? 'btn-error' : 'btn-primary'}"
+	<div
+		class="badge opacity-70 group-hover:scale-110 {isInTask
+			? 'badge-error border-error'
+			: 'badge-primary border-primary'}"
 		onclick={() => onToggle(taskId)}
-		disabled={isSubmitting || readOnly || isPastDate}
+		role="button"
 	>
 		{#if isInTask}
-			<X size={14} strokeWidth={3} />
+			<UserMinus class="size-5 stroke-2" />
 		{:else}
-			<Plus class="size-4 transition-all group-hover:size-5 group-hover:stroke-2" strokeWidth={3} />
+			<UserPlus class="size-5 stroke-2" />
 		{/if}
-	</button>
+	</div>
 {/snippet}
 
 {#snippet taskRegular(
