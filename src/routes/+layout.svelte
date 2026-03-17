@@ -4,8 +4,8 @@
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { onMount } from 'svelte';
-	import { Toaster } from 'svelte-sonner';
-	import { Menu, Calendar, Sun, Moon, CalendarPlus, Github, User } from 'lucide-svelte';
+	import { Toaster, toast } from 'svelte-sonner';
+	import { Menu, Calendar, Sun, Moon, CalendarPlus, Github, User, LogOut } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
@@ -19,6 +19,7 @@
 	let drawerOpen = $state(false);
 	let theme = $state('my');
 	let showConfirmClearPlannings = $state(false);
+	let showClearDataConfirm = $state(false);
 
 	onMount(() => {
 		userStore.init();
@@ -48,6 +49,16 @@
 	async function handleGlobalProfileUpdate(name: string, email?: string, persist = true) {
 		await userStore.updateGlobalProfile({ defaultName: name, defaultEmail: email }, persist);
 		userStore.authModal.open = false;
+	}
+
+	async function handleClearData() {
+		try {
+			await userStore.clearUser();
+			showClearDataConfirm = false;
+			toast.success('Données effacées de cet appareil');
+		} catch (error) {
+			toast.error("Erreur lors de l'effacement des données");
+		}
 	}
 </script>
 
@@ -124,6 +135,16 @@
 					Nouveau planning
 				</a>
 
+				<!-- Bouton connexion/inscription (si non connecté) -->
+				{#if !userStore.isLoggedIn}
+					<button
+						class="btn btn-outline w-full justify-start"
+						onclick={() => (userStore.authModal = { open: true, mode: 'homepage' })}
+					>
+						Créer un compte / Se connecter
+					</button>
+				{/if}
+
 				<!-- Plannings sauvegardés -->
 				{#if userStore.savedPlannings.length > 0}
 					<div class="divider"></div>
@@ -156,30 +177,43 @@
 
 			<!-- Footer -->
 			<div class="mt-auto space-y-4 pt-4">
-				{#if userStore.isLoggedIn && !pwaStore.isInstalled}
-					<button
-						class="btn btn-outline btn-block sm:btn-sm mb-2"
-						onclick={() => userStore.logout()}
-					>
-						Se déconnecter
-					</button>
-				{/if}
-
 				{#if userStore.globalProfile}
-					<button
-						class="btn btn-block btn-accent flex h-auto items-center justify-start gap-2 text-left"
-						onclick={() => (userStore.authModal = { open: true, mode: 'edit-global' })}
-					>
-						<User class="size-5 opacity-70" />
-						<div class="flex flex-col items-start py-0.5 text-left">
-							<div class="text-sm font-medium">{userStore.globalProfile.defaultName}</div>
-							{#if userStore.globalProfile.defaultEmail}
-								<div class="text-base-content/60 text-xs">
-									{userStore.globalProfile.defaultEmail}
-								</div>
-							{/if}
-						</div>
-					</button>
+					<div class="flex gap-2">
+						<!-- Bouton profil global -->
+						<button
+							class="btn btn-accent flex flex-1 items-center justify-start gap-2 text-left"
+							onclick={() => (userStore.authModal = { open: true, mode: 'edit-global' })}
+						>
+							<User class="size-5 opacity-70" />
+							<div class="flex flex-col items-start py-0.5 text-left">
+								<div class="text-sm font-medium">{userStore.globalProfile.defaultName}</div>
+								{#if userStore.globalProfile.defaultEmail}
+									<div class="text-base-content/60 text-xs">
+										{userStore.globalProfile.defaultEmail}
+									</div>
+								{:else if !userStore.isLoggedIn && userStore.globalProfile.persist}
+									<!-- Remplacer l'email par lien d'effacement -->
+									<button
+										class="btn-link text-warning h-auto min-h-0 p-0 text-xs no-underline"
+										onclick={() => (showClearDataConfirm = true)}
+									>
+										Effacer mes données sur ce navigateur
+									</button>
+								{/if}
+							</div>
+						</button>
+
+						<!-- Bouton déconnexion (si connecté ET persist) -->
+						{#if userStore.isLoggedIn && userStore.globalProfile.persist}
+							<button
+								class="btn btn-square btn-ghost"
+								onclick={() => userStore.logout()}
+								aria-label="Se déconnecter"
+							>
+								<LogOut size={18} />
+							</button>
+						{/if}
+					</div>
 				{:else}
 					<button
 						class="btn btn-block btn-outline sm:btn-sm"
@@ -218,6 +252,17 @@
 	title="Effacer les plannings sauvegardés ?"
 	message="Voulez-vous vraiment oublier tous les plannings sauvegardés sur cet appareil ?"
 	description="Cette action est irréversible. Vous devrez utiliser les liens des plannings pour y accéder à nouveau."
+	confirmLabel="Effacer tout"
+	variant="danger"
+/>
+
+<ConfirmModal
+	bind:open={showClearDataConfirm}
+	onClose={() => (showClearDataConfirm = false)}
+	onConfirm={handleClearData}
+	title="Effacer vos données ?"
+	message="Voulez-vous vraiment effacer toutes vos données sur cet appareil ?"
+	description="Cela supprimera votre profil et la liste de vos plannings enregistrés localement. Vos participations sur les plannings eux-mêmes ne seront pas supprimées."
 	confirmLabel="Effacer tout"
 	variant="danger"
 />
