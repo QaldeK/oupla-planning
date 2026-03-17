@@ -96,6 +96,14 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 	async function handleSubmitResponse() {
 		if (!options.currentUserId || isSubmitting) return;
 
+		// Vérifier que le participant a un nom valide
+		const participant = options.master.participants.find((p) => p.id === options.currentUserId);
+
+		if (!participant || !participant.name) {
+			toast.error('Nom de participant invalide. Identifiez-vous à nouveau.');
+			return;
+		}
+
 		const token = options.master.participantToken || options.master.adminToken;
 		if (!token) return;
 
@@ -125,12 +133,24 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 	}
 
 	function setResponse(response: ResponseType) {
+		if (!options.currentUserId) {
+			toast.error('Vous devez être identifié pour répondre');
+			// TODO: Open IdentifyModal - will be handled in OccurrenceView
+			return;
+		}
+
 		selectedResponse = response;
 		if (response === 'absent') selectedTasks = [];
 		handleSubmitResponse();
 	}
 
 	function toggleTask(taskId: string) {
+		if (!options.currentUserId) {
+			toast.error('Vous devez être identifié pour vous inscrire à une tâche');
+			// TODO: Open IdentifyModal - will be handled in OccurrenceView
+			return;
+		}
+
 		const task = inherited.tasks.find((t) => t.id === taskId);
 		if (!task) return;
 

@@ -133,7 +133,8 @@
 
 	// Edit logic: can only modify if user is authenticated and date is not past
 	const isPastDate = $derived(isPast(occurrence.date));
-	const canEditResponse = $derived(canRespond && currentUserId && !isPastDate);
+	const isAuthenticated = $derived(!!currentUserId);
+	const canEditResponse = $derived(canRespond && isAuthenticated && !isPastDate);
 
 	function openCommentDrawer() {
 		drawerStore.showComments({
