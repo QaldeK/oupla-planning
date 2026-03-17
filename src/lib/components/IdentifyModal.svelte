@@ -337,34 +337,34 @@
 				</fieldset>
 
 				{#if hasConflict && matchedParticipant}
-					<div class="animate-in fade-in slide-in-from-top-2 space-y-4 duration-300">
-						<div class="alert alert-warning alert-soft alert-vertical text-base-content">
-							<CircleAlert size={20} class="text-warning shrink-0" />
-							<div class="text-sm">
-								Ce nom est déjà utilisé par un·e participant·e sur ce planning.
-							</div>
-
-							<div class="flex flex-col gap-2">
-								<button
-									type="button"
-									class="btn sm:btn-sm btn-warning"
-									onclick={() => attemptIdentifyAs(matchedParticipant!)}
-									disabled={isSubmitting}
-								>
-									{#if isSubmitting}
-										<span class="loading loading-spinner loading-xs"></span>
-									{:else}
-										C'est moi !
-									{/if}
-								</button>
-							</div>
-							<p class="px-2 text-center text-[10px] leading-tight opacity-50">
-								Choisissez "C'est moi !" si vous avez déjà participé à ce planning sur un autre
-								appareil ou si vous avez effacé vos données. <strong
-									>Sinon, choississez un autre nom</strong
-								>
-							</p>
+					<div
+						class="alert alert-warning alert-soft alert-vertical text-base-content animate-in fade-in slide-in-from-top-2 mt-4 duration-300"
+					>
+						<CircleAlert size={20} class="text-warning shrink-0" />
+						<div class="text-sm">
+							Ce nom est déjà utilisé par un·e participant·e sur ce planning.
 						</div>
+
+						<div class="flex flex-col gap-2">
+							<button
+								type="button"
+								class="btn sm:btn-sm btn-warning"
+								onclick={() => attemptIdentifyAs(matchedParticipant!)}
+								disabled={isSubmitting}
+							>
+								{#if isSubmitting}
+									<span class="loading loading-spinner loading-xs"></span>
+								{:else}
+									C'est moi !
+								{/if}
+							</button>
+						</div>
+						<p class="px-2 text-center text-[10px] leading-tight opacity-50">
+							Choisissez "C'est moi !" si vous avez déjà participé à ce planning sur un autre
+							appareil ou si vous avez effacé vos données. <strong
+								>Sinon, choississez un autre nom</strong
+							>
+						</p>
 					</div>
 				{:else if !hasConflict && matchedParticipant}
 					<!-- Cas où le nom match l'ID global (déjà reconnu mais modal ouvert par erreur ou switch manuel) -->

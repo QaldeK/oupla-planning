@@ -49,13 +49,29 @@
 	$effect(() => {
 		if (!master) return;
 
-		// CAS 1 : Déjà identifié sur ce planning
+		// CAS 1 : Utilisateur PocketBase authentifié
+		if (pb.authStore.isValid && pb.authStore.record?.id) {
+			const existingParticipant = master.participants.find((p) => p.id === pb.authStore.record!.id);
+			if (existingParticipant) {
+				handlePlanningIdentify(
+					{
+						id: existingParticipant.id,
+						name: existingParticipant.name,
+						email: existingParticipant.email
+					},
+					false
+				);
+				return;
+			}
+		}
+
+		// CAS 2 : Déjà identifié sur ce planning
 		const existingIdentity = userStore.getPlanningIdentity(master.id);
 		if (existingIdentity) {
 			return; // Pas de modal
 		}
 
-		// CAS 2 : Vérifier si l'utilisateur est déjà participant via son ID global
+		// CAS 3 : Vérifier si l'utilisateur est déjà participant via son ID global
 		const globalId = userStore.globalProfile?.id;
 		const defaultName = userStore.globalProfile?.defaultName?.trim() || '';
 
@@ -75,7 +91,7 @@
 			return; // Pas de modal
 		}
 
-		// CAS 3 : Première fois sur ce planning - vérifier les conflits de noms
+		// CAS 4 : Première fois sur ce planning - vérifier les conflits de noms
 		const hasConflict = master.participants.some(
 			(p) => p.name.toLowerCase() === defaultName.toLowerCase() && p.id !== globalId
 		);

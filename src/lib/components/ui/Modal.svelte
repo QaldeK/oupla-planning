@@ -48,8 +48,8 @@
 	>
 		<div
 			class="modal-box {isMobileFullscreen
-				? 'flex h-dvh w-full max-w-none flex-col rounded-none px-4 py-2'
-				: sizeClasses[size]} relative"
+				? 'flex h-dvh w-full max-w-none flex-col rounded-none px-4 py-4 pt-6'
+				: '{sizeClasses[size]} pt-8'} relative"
 		>
 			<!-- Header fixe en haut -->
 			{#if title}

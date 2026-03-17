@@ -384,6 +384,13 @@
 		resetTaskForm();
 	}
 
+	function cancelTaskInput() {
+		newTaskName = '';
+		newTaskDescription = '';
+		newTaskVolunteers = 1;
+		newTaskType = 'onEvent';
+	}
+
 	function resetTaskForm() {
 		newTaskName = '';
 		newTaskDescription = '';
@@ -1227,6 +1234,15 @@
 					></textarea> -->
 					<!-- Boutons d'action -->
 					<div class="flex gap-2">
+						<button
+							type="button"
+							class="btn sm:btn-sm btn-ghost"
+							onclick={cancelTaskInput}
+							disabled={isSubmitting}
+							class:hidden={newTaskName.trim().length === 0}
+						>
+							Annuler
+						</button>
 						{#if isEditingTask}
 							<button
 								type="button"
