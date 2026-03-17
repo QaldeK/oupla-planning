@@ -426,6 +426,13 @@
 		newTaskDescription = '';
 		newTaskVolunteers = 1;
 	}
+
+	function cancelTaskInput() {
+		newTaskName = '';
+		newTaskDescription = '';
+		newTaskVolunteers = 1;
+		newTaskType = 'onEvent';
+	}
 </script>
 
 <Modal {open} {onClose} title=" Modifier l'occurrence" size="lg">
@@ -789,6 +796,16 @@
 						></textarea>
 					</fieldset> -->
 						<div class="flex gap-2">
+							{#if !editingTaskId && newTaskName.trim().length > 0}
+								<button
+									type="button"
+									class="btn sm:btn-sm btn-ghost"
+									onclick={cancelTaskInput}
+									disabled={isSubmitting}
+								>
+									Annuler
+								</button>
+							{/if}
 							<button
 								type="button"
 								class="btn sm:btn-sm btn-primary grow"
