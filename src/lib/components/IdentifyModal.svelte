@@ -46,6 +46,7 @@
 	let globalPersist = $state(userStore.globalProfile?.persist ?? true);
 	let isSubmitting = $state(false);
 	let showConfirmClear = $state(false);
+	let showConfirmClearAll = $state(false);
 	let inputRef = $state<HTMLInputElement | null>(null);
 
 	let requireLoginFor = $state<Participant | null>(null);
@@ -262,6 +263,13 @@
 		toast.info('Profil effacé de cet appareil');
 		onClose();
 	}
+
+	async function handleClearAllData() {
+		await userStore.clearAllLocalData();
+		showConfirmClearAll = false;
+		toast.success('Toutes les données ont été effacées');
+		onClose();
+	}
 </script>
 
 <Modal
@@ -371,14 +379,24 @@
 					<div class="alert alert-success alert-soft max-sm:alert-vertical">
 						<CircleCheck size={20} class="shrink-0" />
 						<div class="text-sm font-medium">Votre profil est enregistré sur cet appareil</div>
-						<button
-							type="button"
-							class="btn btn-warning btn-block sm:btn-sm h-auto gap-2"
-							onclick={() => (showConfirmClear = true)}
-						>
-							<Trash2 size={16} class="shrink-0" />
-							Effacer mon profil sur cet appareil
-						</button>
+						<div class="flex flex-col gap-2">
+							<button
+								type="button"
+								class="btn btn-warning btn-block sm:btn-sm h-auto gap-2"
+								onclick={() => (showConfirmClear = true)}
+							>
+								<Trash2 size={16} class="shrink-0" />
+								Effacer mon profil sur cet appareil
+							</button>
+							<button
+								type="button"
+								class="btn btn-error btn-block sm:btn-sm h-auto gap-2"
+								onclick={() => (showConfirmClearAll = true)}
+							>
+								<Trash2 size={16} class="shrink-0" />
+								Effacer TOUTES les données
+							</button>
+						</div>
 					</div>
 				{/if}
 
@@ -535,5 +553,16 @@
 	message="Voulez-vous vraiment effacer votre profil sur cet appareil ?"
 	description="Cela supprimera votre nom par défaut et la liste de vos plannings enregistrés localement. Vos participations sur les plannings eux-mêmes ne seront pas supprimées."
 	confirmLabel="Effacer tout"
+	variant="danger"
+/>
+
+<ConfirmModal
+	bind:open={showConfirmClearAll}
+	onClose={() => (showConfirmClearAll = false)}
+	onConfirm={handleClearAllData}
+	title="Effacer TOUTES les données ?"
+	message="Voulez-vous vraiment effacer toutes les données de cet appareil ?"
+	description="Cela supprimera votre profil, vos plannings sauvegardés, vos préférences de vue et toutes les données locales. Cette action est irréversible."
+	confirmLabel="Tout effacer"
 	variant="danger"
 />
