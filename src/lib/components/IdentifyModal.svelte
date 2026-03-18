@@ -14,9 +14,11 @@
 		CircleCheck,
 		Trash2,
 		ShieldCheck,
-		ArrowLeft
+		ArrowLeft,
+		InfoIcon
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
+	import { fade, slide } from 'svelte/transition';
 
 	const PLANNINGS_KEY = 'planning_saved';
 
@@ -347,9 +349,10 @@
 				{#if hasConflict && matchedParticipant}
 					<div
 						class="alert alert-warning alert-soft alert-vertical text-base-content animate-in fade-in slide-in-from-top-2 mt-4 duration-300"
+						transition:slide
 					>
-						<CircleAlert size={20} class="text-warning shrink-0" />
-						<div class="text-sm">
+						<div class="text-warning-content text-sm">
+							<CircleAlert size={20} class="me-2 inline shrink-0" />
 							Ce nom est déjà utilisé par un·e participant·e sur ce planning.
 						</div>
 
@@ -376,88 +379,72 @@
 					</div>
 				{:else if !hasConflict && matchedParticipant}
 					<!-- Cas où le nom match l'ID global (déjà reconnu mais modal ouvert par erreur ou switch manuel) -->
-					<div class="alert alert-success alert-soft max-sm:alert-vertical">
-						<CircleCheck size={20} class="shrink-0" />
-						<div class="text-sm font-medium">Votre profil est enregistré sur cet appareil</div>
-						<div class="flex flex-col gap-2">
-							<button
-								type="button"
-								class="btn btn-warning btn-block sm:btn-sm h-auto gap-2"
-								onclick={() => (showConfirmClear = true)}
-							>
-								<Trash2 size={16} class="shrink-0" />
-								Effacer mon profil sur cet appareil
-							</button>
-							<button
-								type="button"
-								class="btn btn-error btn-block sm:btn-sm h-auto gap-2"
-								onclick={() => (showConfirmClearAll = true)}
-							>
-								<Trash2 size={16} class="shrink-0" />
-								Effacer TOUTES les données
-							</button>
+					<div class="alert alert-success alert-soft alert-vertical" transition:slide>
+						<div class="text-sm font-medium">
+							<CircleCheck size={20} class="inline shrink-0" />
+							Votre profil et vos plannings sont enregistrés sur cet appareil
+						</div>
+						<button
+							type="button"
+							class="btn btn-warning btn-wide sm:btn-sm h-auto"
+							onclick={() => (showConfirmClear = true)}
+						>
+							<Trash2 size={16} class="shrink-0" />
+							Effacer mon profil sur cet appareil
+						</button>
+					</div>
+				{/if}
+
+				<!-- Liste rapide simplifiée -->
+				{#if existingParticipants.length > 0 && mode === 'planning'}
+					<div class="card card-xs bg-accent/20">
+						<div class="card-body">
+							<span class="text-accent-content/70 flex items-center gap-1 text-sm italic"
+								><InfoIcon class="inline size-4 shrink-0 opacity-80" /> Vous avez déjà participé à ce
+								planning ? Indiquez qui vous êtes :
+							</span>
+							<div class="flex max-h-40 flex-wrap gap-2 overflow-y-auto p-1">
+								{#each existingParticipants as p (p.id)}
+									<button
+										type="button"
+										class="btn btn-accent btn-xs"
+										onclick={() => attemptIdentifyAs(p)}
+										disabled={isSubmitting}
+									>
+										{p.name}
+									</button>
+								{/each}
+							</div>
 						</div>
 					</div>
 				{/if}
 
-				{#if !isTauri && !matchedParticipant && !userStore.isLoggedIn && (mode === 'planning' || mode === 'homepage')}
+				{#if (!isTauri || !userStore.isLoggedIn) && (mode === 'planning' || mode === 'homepage')}
 					<!-- Toggle "Mémoriser sur cet appareil" -->
-					<div class="space-y-2">
-						<label class="label cursor-pointer justify-start gap-3">
-							<span class="label-text font-medium">Mémoriser sur cet appareil</span>
-							<input
-								type="checkbox"
-								class="toggle toggle-primary"
-								bind:checked={globalPersist}
-								disabled={isSubmitting}
-							/>
-						</label>
-
-						{#if globalPersist}
-							<div class="text-xs opacity-75">
-								<div class="alert alert-info alert-sm py-2">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										class="h-4 w-4 shrink-0 stroke-current"
-										><path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-										></path></svg
-									>
-									<span>Vos plannings seront sauvegardés sur cet appareil.</span>
+					<div class=" card card-xs {globalPersist ? 'bg-success/10' : 'bg-warning/10'}">
+						<div class="card-body">
+							<label class="label cursor-pointer justify-start gap-3">
+								<input
+									type="checkbox"
+									class="toggle toggle-primary"
+									bind:checked={globalPersist}
+									disabled={isSubmitting}
+								/>
+								<div class="grid-row">
+									<div class="label-text text-base font-medium">Mémoriser sur cet appareil</div>
+									<div>Vos plannings seront sauvegardés sur cet appareil.</div>
 								</div>
-								<p class="mt-1 px-2 text-[10px] opacity-70">
-									⚠️ Ne fonctionne pas en navigation privée. Peut être perdu lors du nettoyage du
-									cache. Gardez les URLs des plannings ou créez un compte ci-dessous pour plus de
-									sécurité.
-								</p>
-							</div>
-						{:else}
-							<div class="text-xs opacity-75">
-								<div class="alert alert-warning alert-sm py-2">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										class="h-4 w-4 shrink-0 stroke-current"
-										><path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-										></path></svg
-									>
-									<span>Votre navigateur oubliera vos plannings après sa fermeture.</span>
-								</div>
-								<p class="mt-1 px-2 text-[10px] opacity-70">
-									💡 Recommandé sur les appareils partagés ou publics.
-								</p>
-							</div>
-						{/if}
+							</label>
+							<p class="text-xxs mt-1 px-2 opacity-70">
+								⚠️ Ne fonctionne pas en navigation privée. Peut être perdu lors du nettoyage du
+								cache. Gardez les URLs des plannings ou créez un compte ci-dessous pour plus de
+								sécurité.
+							</p>
+							<p class="text-xxs mt-1 px-2 opacity-70">
+								Désactivé: Votre navigateur oubliera vos plannings après sa fermeture. Recommandé
+								sur les appareils partagés ou publics.
+							</p>
+						</div>
 					</div>
 				{/if}
 
@@ -480,30 +467,25 @@
 
 			<!-- Inscription depuis le IdentifyModal -->
 			{#if !pb.authStore.isValid && !isTauri && !hasConflict && (mode === 'planning' || mode === 'homepage' || mode === 'edit-global')}
-				<div class="divider mt-8 text-[10px] tracking-widest uppercase opacity-50">
-					Oupla Notifications
+				<div class="divider mt-8 text-sm font-medium tracking-widest uppercase opacity-50">
+					.. ou Créez un compte !
 				</div>
-				<div class="alert alert-info alert-soft mb-4 flex gap-3 p-3 text-sm">
-					<CircleHelp size={20} class="text-info shrink-0" />
-					<div class="flex w-full flex-col gap-1 leading-tight">
-						<div>
-							Créez un compte pour recevoir des notifications par email (et push sur mobile).
-							<span class="mt-1 block text-xs opacity-75"
-								>Ce compte protégera aussi votre identité.</span
-							>
-						</div>
-						<div class="mt-1 flex justify-end">
-							<button
-								type="button"
-								class="btn btn-link btn-xs text-info h-auto min-h-0 p-0 font-bold no-underline hover:underline"
-								onclick={() =>
-									(inlineAuthMode = inlineAuthMode === 'register' ? 'login' : 'register')}
-							>
-								{inlineAuthMode === 'register'
-									? "J'ai déjà un compte - se connecter"
-									: "Je n'ai pas de compte - s'inscrire"}
-							</button>
-						</div>
+				<div class="flex w-full flex-col gap-1 leading-tight">
+					<div class=" flex items-center gap-2 text-sm opacity-70">
+						<InfoIcon size={20} class="inline shrink-0 " />
+						Créez un compte pour recevoir des notifications par email (et push sur mobile).
+					</div>
+					<div class="mt-1 flex justify-end">
+						<button
+							type="button"
+							class="btn btn-link btn-sm text-info h-auto min-h-0 p-0 font-bold no-underline hover:underline"
+							onclick={() =>
+								(inlineAuthMode = inlineAuthMode === 'register' ? 'login' : 'register')}
+						>
+							{inlineAuthMode === 'register'
+								? "J'ai déjà un compte - se connecter"
+								: "Je n'ai pas de compte - s'inscrire"}
+						</button>
 					</div>
 				</div>
 				<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
@@ -517,28 +499,6 @@
 							else onClose();
 						}}
 					/>
-				</div>
-			{/if}
-
-			<!-- Liste rapide simplifiée -->
-			{#if !name.trim() && existingParticipants.length > 0 && mode === 'planning'}
-				<div class="divider text-[10px] tracking-widest uppercase opacity-50">
-					Déjà participant·es ?
-				</div>
-				<div class="alert alert-soft alert-info text-base-content/80 text-sm italic">
-					<span>Vous avez déjà participé à ce planning ? Indiquez qui vous êtes : </span>
-				</div>
-				<div class="flex max-h-40 flex-wrap gap-2 overflow-y-auto p-1">
-					{#each existingParticipants as p (p.id)}
-						<button
-							type="button"
-							class="btn btn-accent sm:btn-sm"
-							onclick={() => attemptIdentifyAs(p)}
-							disabled={isSubmitting}
-						>
-							{p.name}
-						</button>
-					{/each}
 				</div>
 			{/if}
 		{/if}

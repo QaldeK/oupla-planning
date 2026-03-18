@@ -205,7 +205,7 @@
 			</nav>
 
 			<!-- Footer -->
-			<div class="mt-auto space-y-4 pt-4">
+			<div class="mt-auto">
 				{#if userStore.globalProfile}
 					<div class="flex gap-2">
 						<!-- Bouton profil global -->
@@ -220,17 +220,6 @@
 									<div class="text-base-content/60 text-xs">
 										{userStore.globalProfile.defaultEmail}
 									</div>
-								{:else if !userStore.isLoggedIn && userStore.globalProfile.persist}
-									<!-- Remplacer l'email par lien d'effacement -->
-									<span
-										role="button"
-										tabindex="0"
-										class="btn-link text-warning h-auto min-h-0 cursor-pointer p-0 text-xs no-underline"
-										onclick={() => (showClearDataConfirm = true)}
-										onkeydown={(e) => e.key === 'Enter' && (showClearDataConfirm = true)}
-									>
-										Effacer mes données sur ce navigateur
-									</span>
 								{/if}
 							</div>
 						</button>
@@ -246,6 +235,20 @@
 							</button>
 						{/if}
 					</div>
+					{#if !userStore.isLoggedIn && userStore.globalProfile.persist}
+						<!-- lien d'effacement -->
+
+						<div class="text-end">
+							<button
+								tabindex="0"
+								class="btn-link btn btn-sm text-accent-content/60 h-auto min-h-0 self-end"
+								onclick={() => (showClearDataConfirm = true)}
+								onkeydown={(e) => e.key === 'Enter' && (showClearDataConfirm = true)}
+							>
+								Effacer mes données sur ce navigateur
+							</button>
+						</div>
+					{/if}
 				{:else}
 					<button
 						class="btn btn-block btn-outline sm:btn-sm"
