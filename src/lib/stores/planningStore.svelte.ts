@@ -5,8 +5,10 @@ import { realtimeService } from '$lib/services/realtime.svelte';
 import { userStore } from '$lib/stores/userStore.svelte';
 
 class PlanningStore {
-	// Cache interne des masters
-	#masterCache = $state(new Map<string, PlanningMaster>());
+	// Cache interne : token → master (pour éviter les fetchs)
+	#tokenCache = $state(new Map<string, PlanningMaster>());
+	// Mapping pour l'invalidation : masterId → Set<tokens>
+	#masterTokens = new Map<string, Set<string>>();
 
 	#master = $state<PlanningMaster | null>(null);
 	#occurrences = $state<PlanningOccurrence[]>([]);
@@ -146,37 +148,52 @@ class PlanningStore {
 
 	/**
 	 * Récupère un master depuis le cache ou le fetch depuis PB
+	 * Vérifie le cache AVANT de fetcher (correction du bug initial)
 	 */
 	async getOrFetchMaster(token: string): Promise<PlanningMaster | null> {
+		// 1. Vérifier le cache en premier (cache hit = pas de fetch !)
+		if (this.#tokenCache.has(token)) {
+			return this.#tokenCache.get(token)!;
+		}
+
+		// 2. Cache miss - fetcher depuis PB
 		const result = await getPlanningByToken(token);
 		if (!result) return null;
 
-		const masterId = result.master.id;
+		const master = result.master;
+		const masterId = master.id;
 
-		// 1. Vérifier le cache
-		if (this.#masterCache.has(masterId)) {
-			return this.#masterCache.get(masterId)!;
+		// 3. Mettre en cache
+		this.#tokenCache.set(token, master);
+
+		// 4. Mettre à jour le mapping masterId → tokens
+		if (!this.#masterTokens.has(masterId)) {
+			this.#masterTokens.set(masterId, new Set());
 		}
+		this.#masterTokens.get(masterId)!.add(token);
 
-		// 2. Mettre en cache le master déjà fetché
-		// Note: getPlanningByToken a déjà fait la requête PB avec le token
-		this.#masterCache.set(masterId, result.master);
-
-		return result.master;
+		return master;
 	}
 
 	/**
-	 * Invalide le cache pour un master spécifique
+	 * Invalide le cache pour un master spécifique (invalide tous ses tokens)
 	 */
 	invalidateMaster(masterId: string): void {
-		this.#masterCache.delete(masterId);
+		const tokens = this.#masterTokens.get(masterId);
+		if (tokens) {
+			for (const token of tokens) {
+				this.#tokenCache.delete(token);
+			}
+			this.#masterTokens.delete(masterId);
+		}
 	}
 
 	/**
 	 * Invalide tout le cache (déconnexion, etc.)
 	 */
 	invalidateAll(): void {
-		this.#masterCache.clear();
+		this.#tokenCache.clear();
+		this.#masterTokens.clear();
 	}
 }
 
