@@ -1,6 +1,7 @@
 import { pb } from '$lib/pocketbase/pb';
 import { toast } from 'svelte-sonner';
 import { userStore } from '$lib/stores/userStore.svelte';
+import { planningStore } from '$lib/stores/planningStore.svelte';
 import type { PlanningMaster, PlanningOccurrence, SavedPlanning } from '$lib/types/planning.types';
 import { withPocketBaseTimeout } from '$lib/stores/networkStore.svelte';
 
@@ -29,9 +30,8 @@ class RealtimeService {
 	private currentMasterId: string | null = null;
 	private currentToken: string | null = null;
 
-	// NEW: Global subscription unsubscribers
-	private mastersGlobalUnsub: (() => Promise<void>) | null = null;
-	private occurrencesGlobalUnsub: (() => Promise<void>) | null = null;
+	// NEW: Global subscriptions - Map of masterId -> unsubscribe function
+	private globalUnsubscribes = new Map<string, () => Promise<void>>();
 
 	// NEW: Track current subscriptions
 	subscribedTokens = $state<Set<string>>(new Set());
@@ -101,55 +101,69 @@ class RealtimeService {
 
 	/**
 	 * Subscribe to all user's plannings globally
-	 * Replaces per-page subscriptions with 2 global subscriptions
+	 * Uses individual subscriptions managed centrally (PocketBase doesn't support filter in realtime)
 	 *
 	 * @param savedPlannings - List of user's saved plannings
 	 */
 	async subscribeGlobally(savedPlannings: SavedPlanning[]): Promise<void> {
-		const participantTokens = savedPlannings.map((p) => p.participantToken);
-		const masterIds = savedPlannings.map((p) => p.masterId);
-
-		// Construction des filtres IN avec syntaxe ?=
-		const tokensFilter = `participantToken ?= ${JSON.stringify(participantTokens)}`;
-		const mastersFilter = `master ?= ${JSON.stringify(masterIds)}`;
-
-		try {
-			// 1. Abonnement unique à planning_masters
-			this.mastersGlobalUnsub = await withPocketBaseTimeout(
-				pb.realtime.subscribe('planning_masters', (e) => this.handleMasterChangeGlobal(e), {
-					query: {
-						filter: tokensFilter
-					},
-					fields: 'id,title,description,place,defaultStartTime'
-				}),
-				8000
-			);
-
-			// 2. Abonnement unique à planning_occurrences
-			this.occurrencesGlobalUnsub = await withPocketBaseTimeout(
-				pb.realtime.subscribe('planning_occurrences', (e) => this.handleOccurrenceChangeGlobal(e), {
-					query: {
-						filter: mastersFilter
-					},
-					fields: 'id,master,date,startTime,endTime,place,comments,isConfirmed,isCanceled'
-				}),
-				8000
-			);
-
-			// Track subscriptions
-			this.subscribedTokens = new Set(participantTokens);
-			this.subscribedMasterIds = new Set(masterIds);
-
-			console.log(
-				'✅ Realtime: Global subscriptions active for',
-				savedPlannings.length,
-				'plannings'
-			);
-		} catch (error) {
-			console.error('❌ Realtime: Error during global subscription:', error);
-			toast.error('Erreur de connexion temps réel');
-			throw error;
+		if (savedPlannings.length === 0) {
+			console.warn('⚠️ No plannings to subscribe to');
+			return;
 		}
+
+		const masterIds: string[] = [];
+		const participantTokens: string[] = [];
+
+		// Subscribe to each planning individually
+		for (const planning of savedPlannings) {
+			try {
+				// Subscribe to master record
+				const masterUnsub = await withPocketBaseTimeout(
+					pb.realtime.subscribe(
+						`planning_masters/${planning.masterId}`,
+						(e) => this.handleMasterChangeGlobal(e),
+						{
+							query: { _token: planning.participantToken },
+							fields: 'id,title,description,place,defaultStartTime'
+						}
+					),
+					8000
+				);
+
+				// Subscribe to occurrences for this master
+				const occurrencesUnsub = await withPocketBaseTimeout(
+					pb.realtime.subscribe(
+						'planning_occurrences',
+						(e) => this.handleOccurrenceChangeGlobal(e),
+						{
+							query: {
+								master: planning.masterId,
+								_token: planning.participantToken
+							},
+							fields: 'id,master,date,startTime,endTime,place,comments,isConfirmed,isCanceled'
+						}
+					),
+					8000
+				);
+
+				// Store both unsubscribers under masterId
+				this.globalUnsubscribes.set(planning.masterId, async () => {
+					await masterUnsub();
+					await occurrencesUnsub();
+				});
+
+				masterIds.push(planning.masterId);
+				participantTokens.push(planning.participantToken);
+			} catch (error) {
+				console.error(`❌ Failed to subscribe to planning ${planning.masterId}:`, error);
+			}
+		}
+
+		// Track subscriptions
+		this.subscribedMasterIds = new Set(masterIds);
+		this.subscribedTokens = new Set(participantTokens);
+
+		console.log('✅ Realtime: Global subscriptions active for', masterIds.length, 'plannings');
 	}
 
 	/**
@@ -217,6 +231,12 @@ class RealtimeService {
 	 */
 	private handleMasterChange(action: string, record: any) {
 		console.log('🔔 handleMasterChange called:', action, record.title);
+
+		// Invalider le cache pour ce master
+		if (action === 'update' || action === 'delete') {
+			planningStore.invalidateMaster(record.id);
+		}
+
 		if (!this.callbacks.onMasterChange) {
 			console.warn('⚠️ No onMasterChange callback registered!');
 			return;
@@ -245,6 +265,11 @@ class RealtimeService {
 	 * Gérer les changements des occurrences
 	 */
 	private handleOccurrenceChange(action: string, record: any) {
+		// Invalider le cache du master si l'occurrence change
+		if (action === 'update' || action === 'delete') {
+			planningStore.invalidateMaster(record.master);
+		}
+
 		if (!this.callbacks.onOccurrenceChange) return;
 
 		try {
@@ -274,6 +299,10 @@ class RealtimeService {
 		// Filter: only process events for subscribed plannings
 		if (action === 'update' || action === 'delete') {
 			const masterId = record.id;
+
+			// Invalider le cache
+			planningStore.invalidateMaster(masterId);
+
 			if (this.subscribedMasterIds.has(masterId)) {
 				// Trigger store refresh
 				// TODO: Delegate to notificationStore in iteration 3
@@ -287,6 +316,11 @@ class RealtimeService {
 	 */
 	private handleOccurrenceChangeGlobal(e: RealtimeEvent) {
 		const { action, record } = e;
+
+		// Invalider le cache du master
+		if (action === 'update' || action === 'delete') {
+			planningStore.invalidateMaster(record.master);
+		}
 
 		// Filter: uniquement commentaires et changements de statut
 		if (action === 'update') {
@@ -397,24 +431,15 @@ class RealtimeService {
 	async unsubscribeGlobally(): Promise<void> {
 		console.log('🔌 Realtime: Global unsubscription in progress...');
 
-		try {
-			if (this.mastersGlobalUnsub) {
-				await this.mastersGlobalUnsub();
-				this.mastersGlobalUnsub = null;
+		for (const [masterId, unsub] of this.globalUnsubscribes.entries()) {
+			try {
+				await unsub();
+			} catch (error) {
+				console.error(`❌ Failed to unsubscribe from ${masterId}:`, error);
 			}
-		} catch (error) {
-			console.error('❌ Realtime: Error unsubscribing from masters:', error);
 		}
 
-		try {
-			if (this.occurrencesGlobalUnsub) {
-				await this.occurrencesGlobalUnsub();
-				this.occurrencesGlobalUnsub = null;
-			}
-		} catch (error) {
-			console.error('❌ Realtime: Error unsubscribing from occurrences:', error);
-		}
-
+		this.globalUnsubscribes.clear();
 		this.subscribedTokens.clear();
 		this.subscribedMasterIds.clear();
 
