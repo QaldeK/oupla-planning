@@ -1,9 +1,14 @@
 import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
+import { pb } from '$lib/pocketbase/pb';
 import { getPlanningByToken, getOccurrencesByMaster } from '$lib/services/planningActions';
 import { realtimeService } from '$lib/services/realtime.svelte';
 import { userStore } from '$lib/stores/userStore.svelte';
 
 class PlanningStore {
+	// Cache interne des masters
+	#masterCache = $state(new Map<string, PlanningMaster>());
+	#pendingFetches = new Map<string, Promise<PlanningMaster | null>>();
+
 	#master = $state<PlanningMaster | null>(null);
 	#occurrences = $state<PlanningOccurrence[]>([]);
 	#selectedOccurrenceId = $state<string | null>(null);
@@ -134,6 +139,65 @@ class PlanningStore {
 	}
 	setSelectedOccurrenceId(id: string | null) {
 		this.#selectedOccurrenceId = id;
+	}
+
+	/**
+	 * Récupère un master depuis le cache ou le fetch depuis PB
+	 */
+	async getOrFetchMaster(token: string): Promise<PlanningMaster | null> {
+		const result = await getPlanningByToken(token);
+		if (!result) return null;
+
+		const masterId = result.master.id;
+
+		// 1. Vérifier le cache
+		if (this.#masterCache.has(masterId)) {
+			return this.#masterCache.get(masterId)!;
+		}
+
+		// 2. Dédupliquer les requêtes en cours
+		if (this.#pendingFetches.has(masterId)) {
+			return this.#pendingFetches.get(masterId)!;
+		}
+
+		// 3. Fetch et mise en cache
+		const fetchPromise = this.fetchAndCacheMaster(result.master);
+		this.#pendingFetches.set(masterId, fetchPromise);
+
+		try {
+			return await fetchPromise;
+		} finally {
+			this.#pendingFetches.delete(masterId);
+		}
+	}
+
+	/**
+	 * Fetch un master depuis PB et le met en cache
+	 */
+	private async fetchAndCacheMaster(master: PlanningMaster): Promise<PlanningMaster> {
+		// Fetch avec expand des relations
+		const fullMaster = await pb.collection('planning_masters').getOne<PlanningMaster>(master.id, {
+			expand: 'participants.user'
+		});
+
+		// Mise en cache
+		this.#masterCache.set(master.id, fullMaster);
+
+		return fullMaster;
+	}
+
+	/**
+	 * Invalide le cache pour un master spécifique
+	 */
+	invalidateMaster(masterId: string): void {
+		this.#masterCache.delete(masterId);
+	}
+
+	/**
+	 * Invalide tout le cache (déconnexion, etc.)
+	 */
+	invalidateAll(): void {
+		this.#masterCache.clear();
 	}
 }
 
