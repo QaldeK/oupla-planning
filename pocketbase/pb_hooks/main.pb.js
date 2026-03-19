@@ -76,6 +76,7 @@ onRecordViewRequest((e) => {
 	// Note: Le masquage des tokens est centralisé dans onRecordEnrich
 	e.next();
 }, 'planningMastersView');
+
 onRecordCreateRequest((e) => {
 	if (e.collection.name !== 'planning_masters') {
 		return e.next();
@@ -307,6 +308,7 @@ onRecordUpdateRequest((e) => {
 
 	e.next();
 }, 'planningOccurrencesUpdate');
+
 onRecordDeleteRequest((e) => {
 	if (e.collection.name !== 'planning_occurrences') {
 		return e.next();
@@ -360,3 +362,54 @@ onRecordEnrich((e) => {
 
 	e.next();
 }, 'planningEnrich');
+
+// ============================================
+// REALTIME SUBSCRIPTION SECURITY
+// ============================================
+
+onRealtimeSubscribeRequest((e) => {
+	// Ignorer si ce n'est pas nos collections
+	if (
+		!e.collection ||
+		(e.collection.name !== 'planning_masters' && e.collection.name !== 'planning_occurrences')
+	) {
+		return e.next();
+	}
+
+	// Admin PocketBase a tous les droits
+	if (e.admin) {
+		return e.next();
+	}
+
+	// Récupérer le token depuis les query params
+	const token = e.httpContext?.queryParam('_token');
+
+	if (!token) {
+		throw new ApiError(401, 'Missing token for realtime subscription');
+	}
+
+	// Validation pour abonnement à un record spécifique
+	if (e.recordId) {
+		if (e.collection.name === 'planning_masters') {
+			const master = e.record; // Déjà chargé
+			const participantToken = master.get('participantToken');
+
+			if (token !== participantToken) {
+				throw new ApiError(403, 'Invalid token for this planning');
+			}
+		} else if (e.collection.name === 'planning_occurrences') {
+			const masterId = e.record.get('master');
+			const master = e.app.findRecordById('planning_masters', masterId);
+			const participantToken = master.get('participantToken');
+
+			if (token !== participantToken) {
+				throw new ApiError(403, 'Invalid token for this planning');
+			}
+		}
+	} else {
+		// Abonnement à toute la collection
+		throw new ApiError(403, 'Collection subscriptions not allowed');
+	}
+
+	e.next();
+});
