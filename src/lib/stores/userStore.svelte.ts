@@ -9,6 +9,7 @@ import type { PlanningMastersRecord } from '$lib/types/pocketbase-types';
 import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 import { storage, isTauri } from '$lib/utils/storage';
 import { pb } from '$lib/pocketbase/pb';
+import { planningStore } from '$lib/stores/planningStore.svelte';
 
 const STORAGE_KEY = 'planning_global_profile';
 const PLANNINGS_KEY = 'planning_saved';
@@ -267,6 +268,19 @@ class UserStore {
 			}
 
 			console.log(`Synchronisation PocketBase terminée: ${plannings.length} plannings traités`);
+
+			// Warm planningStore cache with synchronized plannings
+			if (this.savedPlannings.length > 0) {
+				for (const planning of this.savedPlannings) {
+					try {
+						// Use getOrFetchMaster to populate cache
+						await planningStore.getOrFetchMaster(planning.participantToken);
+					} catch (error) {
+						console.warn(`Failed to warm cache for planning ${planning.masterId}:`, error);
+					}
+				}
+				console.log(`Cache warmed with ${this.savedPlannings.length} plannings`);
+			}
 		} catch (error) {
 			console.error('Erreur lors de la synchronisation PocketBase:', error);
 		}
@@ -365,6 +379,9 @@ class UserStore {
 		await storage.removeItem(STORAGE_KEY);
 		await storage.removeItem(PLANNINGS_KEY);
 		pb.authStore.clear();
+
+		// Clear planningStore cache on logout
+		planningStore.invalidateAll();
 	}
 
 	async clearUser() {
@@ -395,6 +412,9 @@ class UserStore {
 		await storage.removeItem(PLANNINGS_KEY); // planning_saved
 		await storage.removeItem(VIEW_PREF_KEY); // occurrence_view_pref
 		await storage.removeItem(BACKUP_KEY); // backupUser-single
+
+		// Clear planningStore cache
+		planningStore.invalidateAll();
 
 		// Recharger la page pour nettoyer l'état en mémoire
 		if (wasLoggedIn) {
