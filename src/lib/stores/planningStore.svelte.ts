@@ -7,7 +7,6 @@ import { userStore } from '$lib/stores/userStore.svelte';
 class PlanningStore {
 	// Cache interne des masters
 	#masterCache = $state(new Map<string, PlanningMaster>());
-	#pendingFetches = new Map<string, Promise<PlanningMaster | null>>();
 
 	#master = $state<PlanningMaster | null>(null);
 	#occurrences = $state<PlanningOccurrence[]>([]);
@@ -159,35 +158,11 @@ class PlanningStore {
 			return this.#masterCache.get(masterId)!;
 		}
 
-		// 2. Dédupliquer les requêtes en cours
-		if (this.#pendingFetches.has(masterId)) {
-			return this.#pendingFetches.get(masterId)!;
-		}
+		// 2. Mettre en cache le master déjà fetché
+		// Note: getPlanningByToken a déjà fait la requête PB avec le token
+		this.#masterCache.set(masterId, result.master);
 
-		// 3. Fetch et mise en cache
-		const fetchPromise = this.fetchAndCacheMaster(result.master);
-		this.#pendingFetches.set(masterId, fetchPromise);
-
-		try {
-			return await fetchPromise;
-		} finally {
-			this.#pendingFetches.delete(masterId);
-		}
-	}
-
-	/**
-	 * Fetch un master depuis PB et le met en cache
-	 */
-	private async fetchAndCacheMaster(master: PlanningMaster): Promise<PlanningMaster> {
-		// Fetch avec expand des relations
-		const fullMaster = await pb.collection('planning_masters').getOne<PlanningMaster>(master.id, {
-			expand: 'participants.user'
-		});
-
-		// Mise en cache
-		this.#masterCache.set(master.id, fullMaster);
-
-		return fullMaster;
+		return result.master;
 	}
 
 	/**
