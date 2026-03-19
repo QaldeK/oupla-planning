@@ -43,39 +43,43 @@ class PlanningStore {
 		this.#error = null;
 
 		try {
-			const result = await getPlanningByToken(token);
-			if (!result) {
+			// Utiliser le cache si disponible
+			const master = await this.getOrFetchMaster(token);
+			if (!master) {
 				this.#error = 'Planning introuvable';
 				return null;
 			}
 
-			this.#master = result.master;
+			this.#master = master;
+
+			// Déterminer si l'utilisateur est admin
+			const isAdmin = master.adminToken === token;
 
 			// Charger les occurrences avec les options passées
-			const occs = await getOccurrencesByMaster(result.master.id, token, options);
+			const occs = await getOccurrencesByMaster(master.id, token, options);
 			this.#occurrences = occs;
 
 			// Sauvegarde
-			const identity = userStore.getPlanningIdentity(result.master.id);
+			const identity = userStore.getPlanningIdentity(master.id);
 
 			await userStore.savePlanning({
-				masterId: result.master.id,
-				title: result.master.title,
-				adminToken: result.isAdmin ? token : undefined,
-				participantToken: (result.isAdmin ? result.master.participantToken : token) || '',
+				masterId: master.id,
+				title: master.title,
+				adminToken: isAdmin ? token : undefined,
+				participantToken: (isAdmin ? master.participantToken : token) || '',
 				lastAccessed: new Date().toISOString(),
 				currentUser: identity || undefined
 			});
 
-			await realtimeService.subscribeToMaster(result.master.id, token, {
+			await realtimeService.subscribeToMaster(master.id, token, {
 				onMasterChange: (_, updatedMaster) => {
 					this.#master = updatedMaster;
 					// Sauvegarder les métadonnées mises à jour
 					userStore.savePlanning({
 						masterId: updatedMaster.id,
 						title: updatedMaster.title,
-						participantToken: (result.isAdmin ? result.master.participantToken : token) || '',
-						adminToken: result.isAdmin ? token : undefined,
+						participantToken: (isAdmin ? master.participantToken : token) || '',
+						adminToken: isAdmin ? token : undefined,
 						lastAccessed: new Date().toISOString()
 					});
 				},
@@ -87,7 +91,7 @@ class PlanningStore {
 				}
 			});
 
-			return result;
+			return { master, isAdmin };
 		} catch (err) {
 			console.error('PlanningStore init error:', err);
 			this.#error = 'Erreur lors du chargement';
