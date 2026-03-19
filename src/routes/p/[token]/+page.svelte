@@ -460,48 +460,6 @@
 						</button>
 					</div>
 				</div>
-			{:else}
-				<div class="card card-sm bg-base-200 border-base-content/5 mt-6 border shadow-sm">
-					<div class="card-body items-center justify-between sm:flex-row">
-						<div class="flex items-center gap-3">
-							<div class="bg-base-300 text-primary rounded-2xl p-3">
-								<User size={24} />
-							</div>
-							<div>
-								<p class="text-sm opacity-70">
-									Sur ce planning, vous êtes identifié en tant que <span class="font-bold"
-										>{currentIdentity.name}</span
-									>
-								</p>
-							</div>
-						</div>
-						<div class="flex items-center gap-2 max-sm:w-full">
-							{#if mediaQuery.isMobile}
-								<button
-									class="btn btn-primary sm:btn-sm flex-1"
-									onclick={() => (showShareModal = true)}
-								>
-									<Share2 size={18} />
-									Partager
-								</button>
-							{/if}
-							<button
-								class="btn btn-soft sm:btn-sm ms-auto max-sm:flex-1"
-								onclick={() => {
-									userStore.authModal = {
-										open: true,
-										mode: 'planning',
-										masterId: master.id,
-										existingParticipants: master.participants,
-										onPlanningIdentify: handlePlanningIdentify
-									};
-								}}
-							>
-								Changer mon nom
-							</button>
-						</div>
-					</div>
-				</div>
 			{/if}
 		</div>
 

@@ -153,12 +153,6 @@
 
 			<!-- Navigation -->
 			<nav class="flex-1 space-y-2">
-				{#if userStore.savedPlannings.length > 0}
-					<a href="/" class="btn btn-neutral w-full justify-start">
-						<Calendar size={18} />
-						Mes plannings
-					</a>
-				{/if}
 				<a href="/new" class="btn btn-primary w-full justify-start">
 					<CalendarPlus size={18} />
 					Nouveau planning

@@ -446,9 +446,9 @@
 	>
 		<fieldset disabled={isNetworkUnavailable}>
 			<!-- Statut et Actions Rapides -->
-			<div class="flex flex-col gap-3">
+			<div class="mb-8 flex flex-col gap-3">
 				<h4 class="text-sm font-medium opacity-60">Statut de l'événement</h4>
-				<div class="flex flex-wrap gap-2">
+				<div class="flex flex-wrap justify-center gap-2">
 					{#if isCanceled}
 						<button
 							type="button"
@@ -481,7 +481,7 @@
 
 						<button
 							type="button"
-							class="btn btn-outline btn-error sm:btn-sm {toConfirm ? '' : 'grow'}"
+							class="btn btn-outline btn-error sm:btn-sm btn-wide"
 							onclick={() => setStatus('canceled')}
 						>
 							<XCircle size={16} class="mr-2" />
@@ -491,9 +491,9 @@
 				</div>
 			</div>
 
-			<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+			<div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
 				<!-- Horaires -->
-				<div class="space-y-4">
+				<div class="">
 					<h4 class="flex items-center gap-2 font-medium">
 						<Clock size={18} class="text-primary" />
 						Horaires
@@ -511,7 +511,7 @@
 				</div>
 
 				<!-- Lieu -->
-				<div class="space-y-4">
+				<div class="">
 					<h4 class="flex items-center gap-2 font-medium">
 						<MapPin size={18} class="text-primary" />
 						Lieu
@@ -661,9 +661,9 @@
 								class="btn btn-ghost btn-sm sm:btn-xs text-error"
 								onclick={resetToMasterTasks}
 							>
-								Rétablir les tâches communes à toutes les dates
+								Rétablir les tâches communes à toutes les dates ({masterTasks?.length ?? 0})
 							</button>
-						{:else}
+						{:else if !isTasksModified && masterTasks?.length > 0}
 							<span class="badge badge-info badge-soft h-auto font-medium"
 								><CircleAlert class="size-4" /> Tâches communes à toutes les dates</span
 							>

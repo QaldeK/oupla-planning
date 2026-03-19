@@ -47,9 +47,9 @@
 		tabindex="-1"
 	>
 		<div
-			class="modal-box {isMobileFullscreen
-				? 'flex h-dvh w-full max-w-none flex-col rounded-none px-4 py-4 pt-6'
-				: '{sizeClasses[size]} pt-8'} relative"
+			class="modal-box relative {isMobileFullscreen &&
+				'flex h-dvh w-full max-w-none flex-col rounded-none px-4 py-4 pt-6'}
+				{!isMobileFullscreen && sizeClasses[size]} pt-8}"
 		>
 			<!-- Header fixe en haut -->
 			{#if title}

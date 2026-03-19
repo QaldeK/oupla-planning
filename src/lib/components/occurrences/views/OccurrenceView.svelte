@@ -14,6 +14,7 @@
 	import {
 		Calendar,
 		CheckCircle,
+		CircleCheck,
 		Clock,
 		MapPin,
 		MessageSquare,
@@ -195,7 +196,7 @@
 						disabled={occState.isNetworkUnavailable}
 						title="Confirmer la tenue"
 					>
-						<CheckCircle size={18} />
+						<CircleCheck size={18} />
 						Confirmer
 					</button>
 				{/if}
