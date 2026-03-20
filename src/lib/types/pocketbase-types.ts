@@ -151,7 +151,8 @@ export type PlanningParticipantsRecord = {
 	user?: RecordIdString
 }
 
-export type UsersRecord<Tpush_subscription = unknown> = {
+export type UsersRecord<TadminOf = unknown, Tpush_subscription = unknown> = {
+	adminOf?: null | TadminOf
 	avatar?: FileNameString
 	created: IsoAutoDateString
 	email: string
@@ -176,7 +177,7 @@ export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> &
 export type PlanningMastersResponse<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown, Texpand = unknown> = Required<PlanningMastersRecord<TavailableResponseTypes, Tparticipants, Trecurrence, Ttasks>> & BaseSystemFields<Texpand>
 export type PlanningOccurrencesResponse<Tcomments = unknown, Tresponses = unknown, Ttasks = unknown, Texpand = unknown> = Required<PlanningOccurrencesRecord<Tcomments, Tresponses, Ttasks>> & BaseSystemFields<Texpand>
 export type PlanningParticipantsResponse<Texpand = unknown> = Required<PlanningParticipantsRecord> & BaseSystemFields<Texpand>
-export type UsersResponse<Tpush_subscription = unknown, Texpand = unknown> = Required<UsersRecord<Tpush_subscription>> & AuthSystemFields<Texpand>
+export type UsersResponse<TadminOf = unknown, Tpush_subscription = unknown, Texpand = unknown> = Required<UsersRecord<TadminOf, Tpush_subscription>> & AuthSystemFields<Texpand>
 
 // Types containing all Records and Responses, useful for creating typing helper functions
 

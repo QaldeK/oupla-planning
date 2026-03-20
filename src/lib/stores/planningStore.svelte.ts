@@ -3,37 +3,58 @@ import { pb } from '$lib/pocketbase/pb';
 import { getPlanningByToken, getOccurrencesByMaster } from '$lib/services/planningActions';
 import { realtimeService } from '$lib/services/realtime.svelte';
 import { userStore } from '$lib/stores/userStore.svelte';
+import { SvelteMap } from 'svelte/reactivity';
 
 class PlanningStore {
 	// Cache interne : token → master (pour éviter les fetchs)
-	#tokenCache = $state(new Map<string, PlanningMaster>());
+	#tokenCache = new Map<string, PlanningMaster>();
 	// Mapping pour l'invalidation : masterId → Set<tokens>
 	#masterTokens = new Map<string, Set<string>>();
 
-	#master = $state<PlanningMaster | null>(null);
-	#occurrences = $state<PlanningOccurrence[]>([]);
+	#masters = new SvelteMap<string, PlanningMaster>();
+	#occurrences = new SvelteMap<string, PlanningOccurrence[]>();
+	// État page-scoped (planning actif, guest ou connecté)
+	#activeMasterId = $state<string | null>(null);
+
 	#selectedOccurrenceId = $state<string | null>(null);
+
 	#isLoading = $state(false);
 	#error = $state<string | null>(null);
 
+	constructor() {
+		// Enregistrement unique des handlers — realtimeService ne connaît plus planningStore
+		realtimeService.registerHandlers({
+			onMasterChange: (action, record) => this.#handleMasterEvent(action, record),
+			onOccurrenceChange: (action, record) => this.#handleOccurrenceEvent(action, record)
+		});
+	}
+
+	// Getters dérivés pour la page active
 	get master() {
-		return this.#master;
+		return this.#activeMasterId ? (this.#masters.get(this.#activeMasterId) ?? null) : null;
 	}
 	get occurrences() {
-		return this.#occurrences;
-	}
-	get selectedOccurrenceId() {
-		return this.#selectedOccurrenceId;
-	}
-	get isLoading() {
-		return this.#isLoading;
-	}
-	get error() {
-		return this.#error;
+		return this.#activeMasterId ? (this.#occurrences.get(this.#activeMasterId) ?? []) : [];
 	}
 
 	get currentOccurrence() {
-		return this.#occurrences.find((o) => o.id === this.#selectedOccurrenceId) || null;
+		return this.occurrences.find((o) => o.id === this.#selectedOccurrenceId) ?? null;
+	}
+
+	get selectedOccurrenceId() {
+		return this.#selectedOccurrenceId;
+	}
+
+	get activeMasterId() {
+		return this.#activeMasterId;
+	}
+
+	get isLoading() {
+		return this.#isLoading;
+	}
+
+	get error() {
+		return this.#error;
 	}
 
 	async init(
@@ -51,46 +72,41 @@ class PlanningStore {
 				return null;
 			}
 
-			this.#master = master;
+			// Mettre en cache dans la Map
+			this.#masters.set(master.id, master);
+			this.#activeMasterId = master.id;
 
 			// Déterminer si l'utilisateur est admin
 			const isAdmin = master.adminToken === token;
 
-			// Charger les occurrences avec les options passées
-			const occs = await getOccurrencesByMaster(master.id, token, options);
-			this.#occurrences = occs;
+			// Si admin auth → déclencher un update minimal pour que le hook enregistre adminOf
+			if (isAdmin && userStore.isLoggedIn) {
+				// Touch silencieux — met à jour lastModifiedBy uniquement
+				// Ce PATCH déclenche onRecordUpdateRequest → hook enregistre adminOf + masterId
+				pb.collection('planning_masters')
+					.update(master.id, { lastModifiedBy: userStore.pbUser?.id }, { query: { _token: token } })
+					.catch(() => {}); // fire-and-forget, non bloquant
+			}
 
+			// Si auth + occurrences déjà fetchées globalement → pas de re-fetch
+			if (!this.#occurrences.has(master.id)) {
+				const occs = await getOccurrencesByMaster(master.id, token, options);
+				this.#occurrences.set(master.id, occs);
+			}
 			// Sauvegarde
 			const identity = userStore.getPlanningIdentity(master.id);
-
+			const existing = userStore.savedPlannings.find((p) => p.masterId === master.id);
 			await userStore.savePlanning({
-				masterId: master.id,
+				...existing,
 				title: master.title,
-				adminToken: isAdmin ? token : undefined,
-				participantToken: (isAdmin ? master.participantToken : token) || '',
+				participantToken: master.participantToken,
+				...(isAdmin ? { adminToken: token } : {}),
 				lastAccessed: new Date().toISOString(),
 				currentUser: identity || undefined
 			});
 
-			await realtimeService.subscribeToMaster(master.id, token, {
-				onMasterChange: (_, updatedMaster) => {
-					this.#master = updatedMaster;
-					// Sauvegarder les métadonnées mises à jour
-					userStore.savePlanning({
-						masterId: updatedMaster.id,
-						title: updatedMaster.title,
-						participantToken: (isAdmin ? master.participantToken : token) || '',
-						adminToken: isAdmin ? token : undefined,
-						lastAccessed: new Date().toISOString()
-					});
-				},
-				onOccurrenceChange: (action, updatedOccurrence) => {
-					this.#handleOccurrenceUpdate(action, updatedOccurrence);
-				},
-				onReconnect: () => {
-					this.init(token, options);
-				}
-			});
+			// Guest uniquement — auth est couvert par subscribeGlobally() dans le layout
+			await realtimeService.subscribeToMaster(master.id, token);
 
 			return { master, isAdmin };
 		} catch (err) {
@@ -102,98 +118,173 @@ class PlanningStore {
 		}
 	}
 
-	#handleOccurrenceUpdate(action: string, updated: PlanningOccurrence) {
+	#handleMasterEvent(action: string, record: any) {
+		// Guard : ignorer les events qui ne concernent pas un master connu
+		if (!this.#masters.has(record.id) && action !== 'create') return;
+
+		if (action === 'update') {
+			const updated: PlanningMaster = {
+				...record,
+				tasks: record.tasks || [],
+				participants: record.participants || []
+			};
+			this.#masters.set(record.id, updated);
+
+			userStore.savePlanning({
+				masterId: updated.id,
+				title: updated.title,
+				participantToken: updated.participantToken,
+				lastAccessed: new Date().toISOString()
+			});
+		} else if (action === 'delete') {
+			this.#masters.delete(record.id);
+			this.#occurrences.delete(record.id);
+		}
+	}
+
+	#handleOccurrenceEvent(action: string, record: any) {
+		const masterId = record.master;
+		if (!masterId) return;
+
+		const current = this.#occurrences.get(masterId) ?? [];
+
+		const occurrence: PlanningOccurrence = {
+			...record,
+			tasks: record.tasks || [],
+			responses: record.responses || [],
+			comments: record.comments || []
+		};
+
 		switch (action) {
 			case 'create':
-				if (!this.#occurrences.find((o) => o.id === updated.id)) {
-					this.#occurrences = [...this.#occurrences, updated].sort((a, b) =>
-						a.date.localeCompare(b.date)
+				if (!current.find((o) => o.id === occurrence.id)) {
+					this.#occurrences.set(
+						masterId,
+						[...current, occurrence].sort((a, b) => a.date.localeCompare(b.date))
 					);
 				}
 				break;
 			case 'update':
-				this.updateOccurrence(updated);
+				this.#occurrences.set(
+					masterId,
+					current.map((o) => (o.id === occurrence.id ? occurrence : o))
+				);
 				break;
 			case 'delete':
-				this.#occurrences = this.#occurrences.filter((o) => o.id !== updated.id);
+				this.#occurrences.set(
+					masterId,
+					current.filter((o) => o.id !== occurrence.id)
+				);
 				break;
 		}
 	}
 
-	updateOccurrence(updated: PlanningOccurrence) {
-		this.#occurrences = this.#occurrences.map((o) => (o.id === updated.id ? updated : o));
+	async refreshActive(): Promise<void> {
+		if (!this.#activeMasterId) return;
+		const saved = userStore.savedPlannings.find((p) => p.masterId === this.#activeMasterId);
+		if (!saved) return;
+
+		const token = saved.adminToken ?? saved.participantToken;
+		const occs = await getOccurrencesByMaster(this.#activeMasterId, token, {
+			dateFilter: 'future'
+		});
+		this.#occurrences.set(this.#activeMasterId, occs);
 	}
 
-	cleanup() {
-		realtimeService.unsubscribe();
-		this.#selectedOccurrenceId = null;
-	}
+	async fetchAllOccurrences(): Promise<void> {
+		if (!pb.authStore.record) return;
 
-	setMaster(master: PlanningMaster | null) {
-		this.#master = master;
-	}
+		// Source 1 : masterId depuis PB (référence)
+		const pbMasterIds: string[] = (pb.authStore.record as any).masterId || [];
 
-	updateParticipants(participants: PlanningMaster['participants']) {
-		if (this.#master) {
-			this.#master.participants = participants;
+		// Source 2 : localStorage (pour les tokens)
+		const localPlannings = userStore.savedPlannings;
+
+		// Merge : PB dicte QUELS plannings, localStorage fournit LES TOKENS
+		const planningsToFetch = pbMasterIds.map((masterId) => {
+			const local = localPlannings.find((p) => p.masterId === masterId);
+			return {
+				masterId,
+				token: local?.adminToken ?? local?.participantToken ?? null
+			};
+		});
+
+		// Ajouter les plannings locaux pas encore dans PB (sync en attente)
+		for (const local of localPlannings) {
+			if (!pbMasterIds.includes(local.masterId)) {
+				planningsToFetch.push({
+					masterId: local.masterId,
+					token: local.adminToken ?? local.participantToken ?? null
+				});
+			}
 		}
+
+		await Promise.allSettled(
+			planningsToFetch
+				.filter((p) => !!p.masterId && !!p.token)
+				.map(async ({ masterId, token }) => {
+					try {
+						const occs = await getOccurrencesByMaster(masterId, token!, { dateFilter: 'future' });
+						this.#occurrences.set(masterId, occs);
+
+						if (!this.#masters.has(masterId)) {
+							const master = await this.getOrFetchMaster(token!);
+							if (master) this.#masters.set(masterId, master);
+						}
+					} catch (err) {
+						console.warn(`fetchAllOccurrences: failed for ${masterId}`, err);
+					}
+				})
+		);
 	}
 
-	setOccurrences(occs: PlanningOccurrence[]) {
-		this.#occurrences = occs;
-	}
-	setSelectedOccurrenceId(id: string | null) {
-		this.#selectedOccurrenceId = id;
-	}
+	// --- Cache ---
 
-	/**
-	 * Récupère un master depuis le cache ou le fetch depuis PB
-	 * Vérifie le cache AVANT de fetcher (correction du bug initial)
-	 */
 	async getOrFetchMaster(token: string): Promise<PlanningMaster | null> {
-		// 1. Vérifier le cache en premier (cache hit = pas de fetch !)
-		if (this.#tokenCache.has(token)) {
-			return this.#tokenCache.get(token)!;
-		}
+		if (this.#tokenCache.has(token)) return this.#tokenCache.get(token)!;
 
-		// 2. Cache miss - fetcher depuis PB
 		const result = await getPlanningByToken(token);
 		if (!result) return null;
 
 		const master = result.master;
-		const masterId = master.id;
-
-		// 3. Mettre en cache
 		this.#tokenCache.set(token, master);
 
-		// 4. Mettre à jour le mapping masterId → tokens
-		if (!this.#masterTokens.has(masterId)) {
-			this.#masterTokens.set(masterId, new Set());
-		}
-		this.#masterTokens.get(masterId)!.add(token);
+		if (!this.#masterTokens.has(master.id)) this.#masterTokens.set(master.id, new Set());
+		this.#masterTokens.get(master.id)!.add(token);
 
 		return master;
 	}
 
-	/**
-	 * Invalide le cache pour un master spécifique (invalide tous ses tokens)
-	 */
-	invalidateMaster(masterId: string): void {
-		const tokens = this.#masterTokens.get(masterId);
-		if (tokens) {
-			for (const token of tokens) {
-				this.#tokenCache.delete(token);
-			}
-			this.#masterTokens.delete(masterId);
-		}
-	}
-
-	/**
-	 * Invalide tout le cache (déconnexion, etc.)
-	 */
 	invalidateAll(): void {
 		this.#tokenCache.clear();
 		this.#masterTokens.clear();
+	}
+
+	// --- Cleanup page ---
+
+	cleanup() {
+		realtimeService.unsubscribe();
+		this.#activeMasterId = null;
+		this.#selectedOccurrenceId = null;
+	}
+
+	// --- Setters ---
+
+	setSelectedOccurrenceId(id: string | null) {
+		this.#selectedOccurrenceId = id;
+	}
+	setOccurrences(occs: PlanningOccurrence[]) {
+		if (this.#activeMasterId) this.#occurrences.set(this.#activeMasterId, occs);
+	}
+
+	updateParticipants(participants: PlanningMaster['participants']) {
+		if (!this.#activeMasterId) return;
+		const master = this.#masters.get(this.#activeMasterId);
+		if (master) this.#masters.set(this.#activeMasterId, { ...master, participants });
+	}
+
+	updateMaster(master: PlanningMaster) {
+		this.#masters.set(master.id, master);
 	}
 }
 

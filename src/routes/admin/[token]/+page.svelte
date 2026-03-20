@@ -24,9 +24,7 @@
 
 		if (result && !result.isAdmin) {
 			const adminTokenInStorage = userStore.getAdminToken(result.master.id);
-			if (adminTokenInStorage) {
-				await goto(`/p/${adminTokenInStorage}`);
-			} else {
+			if (!adminTokenInStorage) {
 				await goto(`/p/${token}`);
 			}
 		}

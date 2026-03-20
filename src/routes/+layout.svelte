@@ -24,6 +24,10 @@
 	import { Drawer, DrawerOverlay, DrawerContent, DrawerHandle } from '@abhivarde/svelte-drawer';
 	import CommentSection from '$lib/components/CommentSection.svelte';
 	import NetworkIndicator from '$lib/components/NetworkIndicator.svelte';
+	import { realtimeService } from '$lib/services/realtime.svelte';
+	import { planningStore } from '$lib/stores/planningStore.svelte';
+	import { page } from '$app/state';
+	import AccountModal from '$lib/components/auth/AccountModal.svelte';
 
 	let { children } = $props();
 
@@ -31,6 +35,8 @@
 	let theme = $state('my');
 	let showConfirmClearPlannings = $state(false);
 	let showClearDataConfirm = $state(false);
+	let showAccountModal = $state(false);
+	let showNotifModal = $state(false);
 
 	onMount(() => {
 		userStore.init();
@@ -40,6 +46,14 @@
 		const savedTheme = localStorage.getItem('theme');
 		if (savedTheme) {
 			theme = savedTheme;
+		}
+	});
+
+	$effect(() => {
+		if (userStore.isLoggedIn) {
+			planningStore.cleanup();
+			realtimeService.subscribeGlobally();
+			planningStore.fetchAllOccurrences();
 		}
 	});
 
@@ -158,16 +172,6 @@
 					Nouveau planning
 				</a>
 
-				<!-- Bouton connexion/inscription (si non connecté) -->
-				{#if !userStore.isLoggedIn}
-					<button
-						class="btn btn-outline w-full justify-start"
-						onclick={() => (userStore.authModal = { open: true, mode: 'homepage' })}
-					>
-						Créer un compte / Se connecter
-					</button>
-				{/if}
-
 				<!-- Plannings sauvegardés -->
 				{#if userStore.savedPlannings.length > 0}
 					<div class="divider"></div>
@@ -185,16 +189,6 @@
 							</button>
 						{/each}
 					</div>
-
-					<!-- Bouton oublier (uniquement si non connecté PocketBase) -->
-					{#if !userStore.isLoggedIn}
-						<button
-							class="btn btn-ghost btn-xs btn-block mt-6 opacity-50 hover:opacity-100"
-							onclick={() => (showConfirmClearPlannings = true)}
-						>
-							Oublier les plannings sauvegardés
-						</button>
-					{/if}
 				{/if}
 			</nav>
 
@@ -243,12 +237,13 @@
 							</button>
 						</div>
 					{/if}
-				{:else}
+				{:else if !userStore.isLoggedIn}
+					<!-- Bouton connexion/inscription (si non connecté) -->
 					<button
-						class="btn btn-block btn-outline sm:btn-sm"
-						onclick={() => (userStore.authModal = { open: true, mode: 'homepage' })}
+						class="btn btn-outline w-full justify-start"
+						onclick={() => (showAccountModal = true)}
 					>
-						S'identifier / Créer un profil
+						Créer un compte / Se connecter
 					</button>
 				{/if}
 			</div>
@@ -296,9 +291,21 @@
 	variant="danger"
 />
 
+<AccountModal
+	bind:open={showAccountModal}
+	onClose={() => (showAccountModal = false)}
+	onSuccess={() => {
+		// Après création/connexion du compte, ouvrir le modal de notifications
+		showAccountModal = false;
+	}}
+	defaultMode="register"
+/>
+
 <Toaster position="bottom-right" />
 
-<NetworkIndicator />
+{#if userStore.isLoggedIn}
+	<NetworkIndicator />
+{/if}
 
 <!-- Drawer Global pour les Commentaires -->
 <Drawer bind:open={drawerStore.open} portal={true} direction="right">

@@ -158,7 +158,28 @@ export async function getPlanningByToken(token: string): Promise<{
 				`participantToken = "${token}" || adminToken = "${token}"`,
 				{ query: { _token: token } }
 			);
-		return { master, isAdmin: master.adminToken === token };
+
+		// // Remplacer par les hooks
+		// // // fire-and-forget claim
+		// if (pb.authStore.isValid && token.length === 64) {
+		// 	const adminOf = (pb.authStore.record as any)?.adminOf || {};
+		// 	const masterId = master.id;
+
+		// 	if (!adminOf[masterId]) {
+		// 		pb.send('/api/claim-admin', {
+		// 			method: 'POST',
+		// 			body: { token }
+		// 		})
+		// 			.then(() => {
+		// 				// Rafraîchir le record pour mettre adminOf à jour en mémoire
+		// 				return pb.collection('users').authRefresh();
+		// 			})
+		// 			.catch((err) => {
+		// 				console.warn('claim-admin failed:', err);
+		// 			});
+		// 	}
+		// }
+		return { master, isAdmin: !!master.adminToken || token.length === 64 };
 	} catch (error: any) {
 		if (error?.status === 404) return null;
 		console.error('Error fetching planning:', error);
@@ -190,55 +211,54 @@ export async function updatePlanningWithOccurrences(
 	adminToken: string,
 	participantToken: string
 ): Promise<PlanningMaster> {
-	const batch = pb.createBatch();
-
-	batch.collection('planning_masters').update(masterId, {
-		title: data.title,
-		description: data.description,
-		place: data.place,
-		defaultStartTime: data.defaultStartTime,
-		defaultEndTime: data.defaultEndTime,
-		recurrence: data.recurrence,
-		tasks: sortTasks(data.tasks),
-		minPresentRequired: data.minPresentRequired,
-		allowResponses: data.allowResponses,
-		toConfirm: data.toConfirm,
-		availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes),
-		lastModifiedBy: userStore.globalProfile?.id
-	});
-
+	const today = format(new Date(), 'yyyy-MM-dd');
+	const normalizeDate = (d: string) => d.split(' ')[0].split('T')[0];
+	// Charger uniquement les occurrences futures
 	const existingOccurrences = await pb
 		.collection('planning_occurrences')
 		.getFullList<PlanningOccurrence>({
-			filter: `master = "${masterId}"`,
+			filter: `master = "${masterId}" && date >= "${today}"`,
 			query: { _token: adminToken }
 		});
 
-	const normalizeDate = (d: string) => d.split(' ')[0].split('T')[0];
-
-	// Séparer les dates passées et futures : ne gérer que les futures dans le batch
-	const today = format(new Date(), 'yyyy-MM-dd');
-
-	// Filtrer les occurrences existantes : garder seulement les futures pour le batch
-	const futureOccurrences = existingOccurrences.filter((occ) => normalizeDate(occ.date) >= today);
-
-	// Filtrer les dates cibles pour ne garder que les dates futures
 	const allTargetDates =
 		data.recurrence.recurrenceDates || generateRecurrenceDates(data.recurrence);
 	const targetDates = allTargetDates.filter((date) => date >= today);
 
-	const existingFutureDatesMap = new Map(futureOccurrences.map((o) => [normalizeDate(o.date), o]));
+	const existingDatesMap = new Map(existingOccurrences.map((o) => [normalizeDate(o.date), o]));
 
-	// Supprimer uniquement les occurrences futures qui ne sont plus dans les dates cibles
-	for (const occ of futureOccurrences) {
+	const batch = pb.createBatch();
+
+	// Master update
+	batch.collection('planning_masters').update(
+		masterId,
+		{
+			title: data.title,
+			description: data.description,
+			place: data.place,
+			defaultStartTime: data.defaultStartTime,
+			defaultEndTime: data.defaultEndTime,
+			recurrence: data.recurrence,
+			tasks: sortTasks(data.tasks),
+			minPresentRequired: data.minPresentRequired,
+			allowResponses: data.allowResponses,
+			toConfirm: data.toConfirm,
+			availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes),
+			lastModifiedBy: userStore.globalProfile?.id
+		},
+		{ query: { _token: adminToken } }
+	);
+
+	// Supprimer les occurrences futures obsolètes
+	for (const occ of existingOccurrences) {
 		if (!targetDates.includes(normalizeDate(occ.date))) {
 			batch.collection('planning_occurrences').delete(occ.id);
 		}
 	}
 
-	// Créer ou mettre à jour uniquement les occurrences futures
+	// Créer ou mettre à jour les occurrences futures
 	for (const date of targetDates) {
-		const existing = existingFutureDatesMap.get(date);
+		const existing = existingDatesMap.get(date);
 		if (existing) {
 			const updateData: any = {
 				startTime: data.defaultStartTime,
@@ -248,25 +268,37 @@ export async function updatePlanningWithOccurrences(
 				lastModifiedBy: userStore.globalProfile?.id
 			};
 			if (data.forceTaskRefresh) updateData.tasks = sortTasks(data.tasks);
-			batch.collection('planning_occurrences').update(existing.id, updateData);
+			batch
+				.collection('planning_occurrences')
+				.update(existing.id, updateData, { query: { _token: adminToken } });
 		} else {
-			batch.collection('planning_occurrences').create({
-				master: masterId,
-				date,
-				startTime: data.defaultStartTime,
-				endTime: data.defaultEndTime,
-				responses: [],
-				comments: [],
-				isConfirmed: false,
-				isCanceled: false,
-				adminToken,
-				participantToken,
-				lastModifiedBy: userStore.globalProfile?.id
-			});
+			batch.collection('planning_occurrences').create(
+				{
+					master: masterId,
+					date,
+					startTime: data.defaultStartTime,
+					endTime: data.defaultEndTime,
+					responses: [],
+					comments: [],
+					isConfirmed: false,
+					isCanceled: false,
+					adminToken,
+					participantToken,
+					lastModifiedBy: userStore.globalProfile?.id
+				},
+				{ query: { _token: adminToken } }
+			);
 		}
 	}
 
-	await batch.send();
+	try {
+		await batch.send();
+	} catch (e: any) {
+		console.error('Batch error detail:', JSON.stringify(e.data, null, 2));
+		console.error('Batch error response:', e.response);
+		throw e;
+	}
+
 	return await pb.collection('planning_masters').getOne<PlanningMaster>(masterId, {
 		query: { _token: adminToken }
 	});
@@ -323,9 +355,9 @@ async function runAtomicUpdate<T extends { id: string; updated: string }>(
 
 			return await pb.collection(collection).update<T>(recordId, updates, {
 				query: {
-					_token: token,
+					_token: token
 
-					_version: current.updated // Envoi de la version connue
+					// _version: current.updated // Envoi de la version connue
 				}
 			});
 		} catch (error: any) {

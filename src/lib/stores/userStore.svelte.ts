@@ -10,6 +10,7 @@ import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 import { storage, isTauri } from '$lib/utils/storage';
 import { pb } from '$lib/pocketbase/pb';
 import { planningStore } from '$lib/stores/planningStore.svelte';
+import { goto } from '$app/navigation';
 
 const STORAGE_KEY = 'planning_global_profile';
 const PLANNINGS_KEY = 'planning_saved';
@@ -36,7 +37,7 @@ class UserStore {
 	authModal = $state<AuthModalState>({ open: false, mode: 'homepage' });
 	preferredOccurrenceView = $state<ViewType>('compact');
 	isReady = $state(false);
-	isLoggedIn = $state(pb.authStore.isValid);
+	isLoggedIn = $state();
 
 	async init() {
 		// Synchro authStore
@@ -235,21 +236,11 @@ class UserStore {
 	 * Appelé automatiquement lors de l'authentification.
 	 */
 	private async syncPlanningsFromPocketBase() {
-		if (!pb.authStore.isValid || !pb.authStore.record) return;
+		if (!pb.authStore.isValid || !pb.authStore.record) return; // FIXIT / TOCHECK : utiliser userStore.isLoggedIn ?
 
 		try {
-			// Récupérer l'utilisateur avec expand sur masterId pour avoir les plannings en une seule requête
-			const user = await pb.collection('users').getOne(pb.authStore.record.id, {
-				expand: 'masterId'
-			});
-
-			// Les plannings sont dans expand.masterId
-			const plannings = (user as any).expand?.masterId || [];
-
-			if (plannings.length === 0) {
-				console.log('Aucun planning à synchroniser depuis PocketBase');
-				return;
-			}
+			// La ListRule autorise l'accès si users.masterId contient l'id du master
+			const plannings = await pb.collection('planning_masters').getFullList();
 
 			// Ajouter les plannings manquants au localStorage
 			for (const planning of plannings) {
@@ -288,40 +279,49 @@ class UserStore {
 
 	/**
 	 * Synchronise les plannings locaux vers PocketBase.
-	 * Ajoute les masterId des plannings localStorage au champ users.masterId dans PocketBase.
+	 * Ajoute les masterId et adminOf des plannings localStorage au champ users.masterId dans PocketBase.
 	 */
 	private async syncPlanningsToPocketBase() {
 		if (!pb.authStore.isValid || !pb.authStore.record) return;
-		if (!this.globalProfile) return;
 
-		// ⚠️ IMPORTANT : Cette vérification est maintenant faite AVANT dans AuthForm
-		// Donc ici on est sûr que les IDs correspondent
-		if (this.globalProfile.id !== pb.authStore.record.id) {
-			console.log('Sync PocketBase ignorée : IDs différents (ne devrait pas arriver)');
-			return;
-		}
-
-		const userRecord = pb.authStore.record as { id: string; masterId?: string[] };
+		const userRecord = pb.authStore.record as {
+			id: string;
+			masterId?: string[];
+			adminOf?: Record<string, string>;
+		};
 		const pbMasterIds = new Set(userRecord.masterId || []);
-		const localMasterIds = this.savedPlannings.map((p) => p.masterId);
+		const pbAdminOf = (userRecord as any).adminOf || {};
 
-		// Trouver les plannings locaux non présents dans PocketBase
+		const localMasterIds = this.savedPlannings.map((p) => p.masterId);
 		const missingIds = localMasterIds.filter((id) => !pbMasterIds.has(id));
 
-		if (missingIds.length === 0) {
+		// Construire adminOf depuis localStorage
+		const localAdminOf: Record<string, string> = {};
+		for (const p of this.savedPlannings) {
+			if (p.adminToken) {
+				localAdminOf[p.masterId] = p.adminToken;
+			}
+		}
+
+		// Détecter si adminOf a des entrées manquantes
+		const missingAdminOf: Record<string, string> = {};
+		for (const [masterId, token] of Object.entries(localAdminOf)) {
+			if (!pbAdminOf[masterId]) {
+				missingAdminOf[masterId] = token;
+			}
+		}
+
+		const hasChanges = missingIds.length > 0 || Object.keys(missingAdminOf).length > 0;
+		if (!hasChanges) {
 			console.log('Tous les plannings sont déjà synchronisés');
 			return;
 		}
 
-		// Ajouter les IDs manquants
-		const updatedMasterIds = [...pbMasterIds, ...missingIds];
 		await pb.collection('users').update(pb.authStore.record.id, {
-			masterId: updatedMasterIds
+			masterId: [...pbMasterIds, ...missingIds],
+			adminOf: { ...pbAdminOf, ...missingAdminOf }
 		});
-
-		console.log(`Sync PocketBase: ${missingIds.length} plannings ajoutés`);
 	}
-
 	/**
 	 * Orchestre la synchronisation complète des plannings avec PocketBase.
 	 * 1. Récupère les plannings depuis PocketBase vers le localStorage
@@ -374,6 +374,7 @@ class UserStore {
 	}
 
 	async logout() {
+		goto('/');
 		this.globalProfile = null;
 		this.savedPlannings = [];
 		await storage.removeItem(STORAGE_KEY);
@@ -436,6 +437,16 @@ class UserStore {
 
 	getSavedPlanning(masterId: string): SavedPlanning | undefined {
 		return this.savedPlannings.find((p) => p.masterId === masterId);
+	}
+
+	get pbUser(): { id: string; name: string; email: string } | null {
+		if (!pb.authStore.isValid || !pb.authStore.record) return null;
+		const record = pb.authStore.record;
+		return {
+			id: record.id,
+			name: (record['name'] as string) ?? '',
+			email: (record['email'] as string) ?? ''
+		};
 	}
 
 	// === Gestion des backups pour collisions de profils ===

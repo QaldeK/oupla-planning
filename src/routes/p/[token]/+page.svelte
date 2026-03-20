@@ -47,35 +47,41 @@
 	});
 
 	// Sécurité : Rediriger adminToken vers participantToken
-	$effect(() => {
-		if (!master) return;
+	// $effect(() => {
+	// 	if (!master) return;
 
-		// Détecter si le token est un adminToken (64 chars vs 32 chars)
-		const isAdminToken = token.length === 64;
+	// 	// Détecter si le token est un adminToken (64 chars vs 32 chars)
+	// 	const isAdminToken = token.length === 64;
 
-		if (isAdminToken) {
-			// Vérifier si l'utilisateur a déjà les droits admin pour ce planning
-			const storedAdminToken = userStore.getAdminToken(master.id);
+	// 	if (isAdminToken) {
+	// 		// Vérifier si l'utilisateur a déjà les droits admin pour ce planning
+	// 		// TOFIX : mais si justement c'est pas déjà enregistré en local ?? getAdminToken ne check pas le backend...
+	// 		const storedAdminToken = userStore.getAdminToken(master.id);
 
-			if (storedAdminToken === token) {
-				// Récupérer le participantToken correspondant
-				const participantToken = master.participantToken;
+	// 		if (storedAdminToken === token) {
+	// 			// Récupérer le participantToken correspondant
+	// 			const participantToken = master.participantToken;
 
-				// Rediriger vers /p/[participantToken]
-				goto(`/p/${participantToken}`);
-				toast.success('Droits admin enregistrés. Redirection...');
-			}
-		}
-	});
+	// 			// Rediriger vers /p/[participantToken]
+	// 			goto(`/p/${participantToken}`);
+	// 			// toast.success('Droits admin enregistrés. Redirection...');
+	// 		}
+	// 	}
+	// });
 
 	// Logique d'ouverture du modal d'identification
 	$effect(() => {
 		if (!master) return;
 
+		const defaultName = userStore.globalProfile?.defaultName?.trim() || '';
+
 		// CAS 1 : Utilisateur PocketBase authentifié
-		if (pb.authStore.isValid && pb.authStore.record?.id) {
-			const existingParticipant = master.participants.find((p) => p.id === pb.authStore.record!.id);
+		if (userStore.isLoggedIn && userStore.pbUser) {
+			const pbUser = userStore.pbUser; // snapshot local pour éviter les lectures multiples
+			const existingParticipant = master.participants.find((p) => p.id === pbUser.id);
+
 			if (existingParticipant) {
+				// Déjà participant — identifier silencieusement
 				handlePlanningIdentify(
 					{
 						id: existingParticipant.id,
@@ -86,40 +92,54 @@
 				);
 				return;
 			}
+
+			// Pas encore participant — auto-identifier si pas de conflit de nom
+			const hasConflict = master.participants.some(
+				(p) => p.name.toLowerCase() === pbUser.name.toLowerCase() && p.id !== pbUser.id
+			);
+			if (!hasConflict) {
+				handlePlanningIdentify(
+					{ id: pbUser.id, name: pbUser.name, email: pbUser.email },
+					true // nouveau participant
+				);
+			} else {
+				// Conflit de nom même pour un user auth → ouvrir le modal
+				userStore.authModal = {
+					open: true,
+					mode: 'conflict',
+					masterId: master.id,
+					existingParticipants: master.participants,
+					onPlanningIdentify: handlePlanningIdentify
+				};
+			}
+			return;
 		}
 
-		// CAS 2 : Déjà identifié sur ce planning
+		// CAS 2 : Déjà identifié sur ce planning (guest)
 		const existingIdentity = userStore.getPlanningIdentity(master.id);
-		if (existingIdentity) {
-			return; // Pas de modal
-		}
+		if (existingIdentity) return;
 
-		// CAS 3 : Vérifier si l'utilisateur est déjà participant via son ID global
+		// CAS 3 : Participant existant via globalProfile.id (guest revenant)
 		const globalId = userStore.globalProfile?.id;
-		const defaultName = userStore.globalProfile?.defaultName?.trim() || '';
-
-		// Chercher un participant avec le même ID global
 		const existingParticipant = master.participants.find((p) => p.id === globalId);
 
 		if (existingParticipant) {
-			// L'utilisateur est déjà participant ! L'identifier automatiquement
 			handlePlanningIdentify(
 				{
 					id: existingParticipant.id,
 					name: existingParticipant.name,
 					email: existingParticipant.email
 				},
-				false // Pas un nouveau participant
+				false
 			);
-			return; // Pas de modal
+			return;
 		}
 
-		// CAS 4 : Première fois sur ce planning - vérifier les conflits de noms
+		// CAS 4 : Première visite — détecter conflit de nom et ouvrir modal
 		const hasConflict = master.participants.some(
 			(p) => p.name.toLowerCase() === defaultName.toLowerCase() && p.id !== globalId
 		);
 
-		// Communiquer le mode au userStore pour que le layout affiche le bon modal
 		userStore.authModal = {
 			open: true,
 			mode: hasConflict ? 'conflict' : 'planning',
@@ -150,7 +170,7 @@
 					},
 					token
 				);
-				planningStore.setMaster(updated);
+				planningStore.updateMaster(updated);
 			} else {
 				// MISE À JOUR : Mettre à jour si le participant existe déjà (ou si c'est une update explicite)
 				if (existing && existing.name !== identity.name) {
@@ -160,14 +180,14 @@
 						{ name: identity.name },
 						token
 					);
-					planningStore.setMaster(updated);
+					planningStore.updateMaster(updated);
 				}
 			}
 
 			// NOUVEAU : Si user authentifié, l'ajouter à planning_participants
-			if (pb.authStore.isValid && pb.authStore.record?.id) {
+			if (userStore.isLoggedIn) {
 				try {
-					await ensurePlanningParticipant(master.id, pb.authStore.record.id);
+					await ensurePlanningParticipant(master.id, userStore.pbUser!.id);
 				} catch (err) {
 					console.error('Erreur création planning_participant:', err);
 				}
@@ -403,14 +423,14 @@
 							<div class="min-w-0 flex-1">
 								<p class="text-sm font-medium">Notifications</p>
 								<p class="text-base-content/60 mb-2 text-xs">
-									{pb.authStore.isValid
+									{userStore.isLoggedIn
 										? 'Configurez vos préférences'
 										: 'Connectez-vous pour recevoir des alertes'}
 								</p>
 								<button
 									class="btn btn-ghost btn-xs"
 									onclick={() =>
-										pb.authStore.isValid ? (showNotifModal = true) : (showAccountModal = true)}
+										userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
 								>
 									Configurer
 								</button>
