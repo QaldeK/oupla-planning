@@ -81,7 +81,7 @@ onRecordUpdateRequest((e) => {
 			'hasAuth',
 			!!e.auth,
 			'token',
-			e.httpContext?.queryParam('_token') || 'NONE'
+			e.requestInfo()?.query?.['_token'] || 'NONE'
 		);
 
 	if (e.collection.name !== 'planning_occurrences') {
@@ -115,7 +115,7 @@ onRecordUpdateRequest((e) => {
 	}
 
 	// === VERROUILLAGE OPTIMISTE ===
-	// const version = e.httpContext.queryParam('_version');
+	// const version = e.requestInfo().query['_version'];
 	// if (version) {
 	// 	const currentUpdated = e.record.get('updated').toString();
 	// 	// On compare les versions. Si elles diffèrent, quelqu'un a modifié le record entre temps.
@@ -124,15 +124,18 @@ onRecordUpdateRequest((e) => {
 	// 	}
 	// }
 
-	// Validation des modifications par participant (pour les updates classiques)
-	if (isParticipant) {
-		const changed = e.record.changedFields();
-		for (const key of changed) {
-			if (key !== 'responses' && key !== 'comments' && key !== 'tasks' && key !== 'updated') {
-				throw new ApiError(403, 'Participants can only update responses, comments, and tasks');
-			}
-		}
-	}
+	// Validation des modifications par participant
+	// NOTE: API Rules gèrent déjà l'autorisation. Ce code est une protection supplémentaire.
+	// Décommenter si nécessaire (cf. Option B dans l'analyse du bug)
+	// if (isParticipant) {
+	// 	const original = e.record.original();
+	// 	const protectedFields = ['master', 'date', 'startTime', 'endTime', 'isConfirmed', 'isCanceled', 'adminToken', 'participantToken'];
+	// 	for (const field of protectedFields) {
+	// 		if (JSON.stringify(e.record.get(field)) !== JSON.stringify(original.get(field))) {
+	// 			throw new ApiError(403, 'Participants can only update responses, comments, and tasks');
+	// 		}
+	// 	}
+	// }
 
 	e.next();
 }, 'planning_occurrences');
@@ -151,7 +154,7 @@ onRecordUpdateRequest((e) => {
 			'hasAuth',
 			!!e.auth,
 			'token',
-			e.httpContext?.queryParam('_token') || 'NONE'
+			e.requestInfo()?.query?.['_token'] || 'NONE'
 		);
 
 	if (e.collection.name !== 'planning_masters') {
@@ -192,7 +195,7 @@ onRecordUpdateRequest((e) => {
 	}
 
 	// // === VERROUILLAGE OPTIMISTE (identique occurrences) ===
-	// const version = e.httpContext.queryParam('_version');
+	// const version = e.requestInfo().query['_version'];
 	// if (version) {
 	// 	const currentUpdated = e.record.get('updated').toString();
 	// 	if (currentUpdated !== version) {
@@ -201,15 +204,19 @@ onRecordUpdateRequest((e) => {
 	// }
 
 	// === RESTRICTION DES CHAMPS PAR RÔLE ===
-	if (isParticipant) {
-		const changed = e.record.changedFields();
-		for (const key of changed) {
-			// Participants : uniquement participants + lastModifiedBy
-			if (key !== 'participants' && key !== 'lastModifiedBy' && key !== 'updated') {
-				throw new ApiError(403, 'Participants can only update the participants field');
-			}
-		}
-	}
+	// NOTE: API Rules gèrent déjà l'autorisation. Ce code est une protection supplémentaire.
+	// Décommenter si nécessaire (cf. Option B dans l'analyse du bug)
+	// if (isParticipant) {
+	// 	const original = e.record.original();
+	// 	const protectedFields = ['title', 'description', 'place', 'recurrence', 'tasks',
+	// 		'minPresentRequired', 'allowResponses', 'toConfirm', 'availableResponseTypes',
+	// 		'adminToken', 'participantToken'];
+	// 	for (const field of protectedFields) {
+	// 		if (JSON.stringify(e.record.get(field)) !== JSON.stringify(original.get(field))) {
+	// 			throw new ApiError(403, 'Participants can only update the participants field');
+	// 		}
+	// 	}
+	// }
 	// isAdmin → pas de restriction sur les champs
 
 	e.next();

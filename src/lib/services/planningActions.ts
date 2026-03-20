@@ -179,7 +179,9 @@ export async function getPlanningByToken(token: string): Promise<{
 		// 			});
 		// 	}
 		// }
-		return { master, isAdmin: !!master.adminToken || token.length === 64 };
+		// NOTE: adminToken est masqué par onRecordEnrich, donc on se base sur la longueur du token
+		// AdminToken = 64 chars, ParticipantToken = 32 chars
+		return { master, isAdmin: token.length === 64 };
 	} catch (error: any) {
 		if (error?.status === 404) return null;
 		console.error('Error fetching planning:', error);

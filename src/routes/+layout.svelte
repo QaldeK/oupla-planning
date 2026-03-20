@@ -52,8 +52,8 @@
 	$effect(() => {
 		if (userStore.isLoggedIn) {
 			planningStore.cleanup();
-			realtimeService.subscribeGlobally();
 			planningStore.fetchAllOccurrences();
+			realtimeService.subscribeGlobally();
 		}
 	});
 

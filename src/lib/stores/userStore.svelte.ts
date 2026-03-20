@@ -352,10 +352,13 @@ class UserStore {
 		}
 		await this.savePlanningsLocal();
 
-		// Si l'utilisateur est connecté et que c'est un nouveau planning, synchroniser avec PocketBase
-		if (this.isLoggedIn && isNewPlanning) {
-			await this.syncPlanningsToPocketBase();
-		}
+		// ⚠️ BUG 2 FIX: Race condition dans syncPlanningsToPocketBase()
+		// Le hook onRecordListRequest met déjà à jour masterId automatiquement côté serveur
+		// La synchronisation se fera via syncPlanningsFromPocketBase() lors de l'authentification
+		// ou manuellement via syncPlanningsWithPocketBase() si nécessaire
+		// if (this.isLoggedIn && isNewPlanning) {
+		// 	await this.syncPlanningsToPocketBase();
+		// }
 	}
 
 	async savePlanningsLocal() {

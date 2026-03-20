@@ -202,12 +202,14 @@
 			await userStore.setPlanningIdentity(master.id, identity);
 
 			// Créer ou mettre à jour le SavedPlanning avec les métadonnées complètes
-			const hasAdmin = userStore.hasAdminAccess(master.id);
+			// NOTE: On détecte l'admin via la longueur du token (64 = admin, 32 = participant)
+			// car hasAdminAccess() renvoie false si le planning n'est pas encore en localStorage
+			const isAdminToken = token.length === 64;
 			const savedPlanning = {
 				masterId: master.id,
 				title: master.title,
-				participantToken: token,
-				adminToken: hasAdmin ? userStore.getAdminToken(master.id) : undefined,
+				participantToken: isAdminToken ? master.participantToken : token,
+				adminToken: isAdminToken ? token : userStore.getAdminToken(master.id) || '',
 				lastAccessed: new Date().toISOString(),
 				currentUser: identity
 			};
