@@ -187,7 +187,6 @@
 				occurrence
 			);
 			occurrence = updated;
-			planningStore.updateOccurrence(occurrence);
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);
@@ -207,7 +206,7 @@
 
 		// Mettre à jour master localement pour réactivité
 		master = updatedMaster;
-		planningStore.setMaster(updatedMaster);
+		planningStore.updateMaster(updatedMaster);
 
 		return updatedMaster.participants.find((p) => p.name === name)!;
 	}
@@ -249,7 +248,6 @@
 				occurrence
 			);
 			occurrence = updated;
-			planningStore.updateOccurrence(occurrence);
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);
@@ -316,7 +314,6 @@
 				occurrence
 			);
 			occurrence = updated;
-			planningStore.updateOccurrence(occurrence);
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);
@@ -359,7 +356,7 @@
 			const updated = await updateOccurrence(occurrence.id, updates, token, occurrence);
 
 			// Mise à jour manuelle du store pour garantir la réactivité immédiate
-			planningStore.updateOccurrence(updated);
+			occurrence = updated;
 
 			toast.success('Occurrence mise à jour');
 			onClose();

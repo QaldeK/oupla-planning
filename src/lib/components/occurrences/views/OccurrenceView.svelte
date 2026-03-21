@@ -88,7 +88,6 @@
 				token,
 				occurrence
 			);
-			planningStore.updateOccurrence(updated);
 			toast.success(updated.isConfirmed ? 'Événement confirmé' : 'Confirmation annulée');
 		} catch (error) {
 			toast.error('Erreur lors de la confirmation');
@@ -104,7 +103,6 @@
 				token,
 				occurrence
 			);
-			planningStore.updateOccurrence(updated);
 			toast.success('Événement rétabli');
 		} catch (error) {
 			toast.error('Erreur lors du rétablissement');

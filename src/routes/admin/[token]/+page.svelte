@@ -45,7 +45,7 @@
 				token,
 				master.participantToken as string
 			);
-			planningStore.setMaster(updatedMaster);
+			planningStore.updateMaster(updatedMaster);
 			toast.success('Planning mis à jour avec succès');
 
 			// Rediriger vers la vue participant après sauvegarde réussie
