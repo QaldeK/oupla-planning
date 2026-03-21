@@ -89,8 +89,10 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 		const newMasters = $app.findAllRecords(
 			'planning_masters',
 			$dbx.or(
-				$dbx.in('participantToken', ...participantTokens),
-				adminTokens.length > 0 ? $dbx.in('adminToken', ...adminTokens) : $dbx.exp('1 = 0')
+				participantTokens.length > 0
+					? $dbx.hashExp({ participantToken: participantTokens })
+					: $dbx.exp('1 = 0'),
+				adminTokens.length > 0 ? $dbx.hashExp({ adminToken: adminTokens }) : $dbx.exp('1 = 0')
 			)
 		);
 
@@ -116,10 +118,20 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 	// Si includeOccurrences, récupérer les occurrences pour chaque master
 	let occurrences = {};
 	if (includeOccurrences && currentMasterIds.size > 0) {
+		const masterIds = Array.from(currentMasterIds);
+		const masterParams = {};
+		masterIds.forEach((id, i) => {
+			masterParams[`m_${i}`] = id;
+		});
+		const masterFilter = masterIds.map((_, i) => `master = {:m_${i}}`).join(' || ');
+
 		const allOccurrences = $app.findRecordsByFilter(
 			'planning_occurrences',
-			$dbx.in('master', ...Array.from(currentMasterIds)),
-			'+date'
+			masterFilter,
+			'+date',
+			1000,
+			0,
+			masterParams
 		);
 
 		// Grouper les occurrences par masterId
