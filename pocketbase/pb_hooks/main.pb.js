@@ -61,6 +61,81 @@ routerAdd('POST', '/api/claim-admin', (e) => {
 	// 		typeof user.getString('adminOf')
 	// 	);
 });
+
+routerAdd('POST', '/api/sync-plannings', (e) => {
+	if (!e.auth) return e.json(401, { error: 'Unauthorized' });
+
+	const body = e.requestInfo().body;
+	const localTokens = body?.tokens || [];
+
+	const user = $app.findRecordById('users', e.auth.id);
+	const currentMasterIds = new Set(user.get('masterId') || []);
+	let adminOf = {};
+	try {
+		adminOf = JSON.parse(user.getString('adminOf') || '{}');
+	} catch {}
+
+	// Filtrer les tokens à valider : seulement ceux pas encore dans masterId
+	const tokensToValidate = localTokens.filter(
+		(t) => t.masterId && !currentMasterIds.has(t.masterId)
+	);
+
+	// Si nouveaux tokens à valider
+	if (tokensToValidate.length > 0) {
+		const participantTokens = tokensToValidate.map((t) => t.participantToken).filter(Boolean);
+		const adminTokens = tokensToValidate.map((t) => t.adminToken).filter(Boolean);
+
+		const newMasters = $app.findAllRecords(
+			'planning_masters',
+			$dbx.or(
+				$dbx.inExp('participantToken', participantTokens),
+				adminTokens.length > 0 ? $dbx.inExp('adminToken', adminTokens) : $dbx.exp('1 = 0')
+			)
+		);
+
+		for (const master of newMasters) {
+			currentMasterIds.add(master.id);
+			const tokenItem = localTokens.find((t) => t.masterId === master.id);
+			if (tokenItem?.adminToken) {
+				adminOf[master.id] = master.get('adminToken');
+			}
+		}
+
+		user.set('masterId', Array.from(currentMasterIds));
+		user.set('adminOf', adminOf);
+		$app.save(user);
+	}
+
+	// Récupérer TOUS les masters de l'utilisateur
+	const allMasters =
+		currentMasterIds.size > 0
+			? $app.findRecordsByIds('planning_masters', Array.from(currentMasterIds))
+			: [];
+
+	return e.json(200, {
+		success: true,
+		syncedIds: Array.from(currentMasterIds),
+		masters: allMasters.map((m) => ({
+			id: m.id,
+			title: m.get('title'),
+			description: m.get('description'),
+			place: m.get('place'),
+			defaultStartTime: m.get('defaultStartTime'),
+			defaultEndTime: m.get('defaultEndTime'),
+			recurrence: m.get('recurrence'),
+			tasks: m.get('tasks'),
+			participantToken: m.get('participantToken'),
+			adminToken: m.get('adminToken'),
+			participants: m.get('participants'),
+			allowResponses: m.get('allowResponses'),
+			minPresentRequired: m.get('minPresentRequired'),
+			availableResponseTypes: m.get('availableResponseTypes'),
+			created: m.get('created'),
+			updated: m.get('updated')
+		}))
+	});
+});
+
 // ============================================
 // PLANNING_OCCURRENCES UPDATE HOOK
 // ============================================
@@ -220,29 +295,6 @@ onRecordUpdateRequest((e) => {
 	// isAdmin → pas de restriction sur les champs
 
 	e.next();
-}, 'planning_masters');
-
-// ============================================
-// Add user.masterId for auth user when listRequestion depuis le layout global
-// ============================================
-
-onRecordListRequest((e) => {
-	if (!e.auth) return e.next();
-
-	e.next(); // Laisser PB exécuter la requête d'abord
-
-	// Après exécution : parcourir les records retournés
-	// e.result contient les records effectivement renvoyés
-	const returnedIds = (e.result?.items || []).map((r) => r.id);
-	if (returnedIds.length === 0) return;
-
-	const currentIds = e.auth.get('masterId') || [];
-	const missing = returnedIds.filter((id) => !currentIds.includes(id));
-
-	if (missing.length === 0) return; // Court-circuit — rien à faire
-
-	e.auth.set('masterId', [...currentIds, ...missing]);
-	e.app.save(e.auth);
 }, 'planning_masters');
 
 // ============================================

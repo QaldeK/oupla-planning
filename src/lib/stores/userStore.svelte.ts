@@ -38,6 +38,7 @@ class UserStore {
 	preferredOccurrenceView = $state<ViewType>('compact');
 	isReady = $state(false);
 	isLoggedIn = $state();
+	hasSyncedThisSession = $state(false); // NOUVEAU : évite les appels multiples au sync
 
 	async init() {
 		// Synchro authStore
@@ -46,10 +47,10 @@ class UserStore {
 			const wasLoggedIn = this.isLoggedIn;
 			this.isLoggedIn = pb.authStore.isValid;
 
-			// Si l'utilisateur vient de s'authentifier, synchroniser depuis PocketBase
+			// Si l'utilisateur vient de s'authentifier, synchroniser le profil depuis PocketBase
+			// La synchronisation des plannings est gérée par syncService dans le layout
 			if (!wasLoggedIn && this.isLoggedIn) {
 				this.syncProfileFromPocketBase();
-				this.syncPlanningsFromPocketBase();
 			}
 		});
 		// 1. Profil global
@@ -72,10 +73,10 @@ class UserStore {
 
 		this.isReady = true;
 
-		// 4. Synchroniser depuis PocketBase si déjà authentifié au démarrage
+		// 4. Synchroniser le profil depuis PocketBase si déjà authentifié au démarrage
+		// La synchronisation des plannings est gérée par syncService dans le layout
 		if (this.isLoggedIn) {
 			await this.syncProfileFromPocketBase();
-			await this.syncPlanningsFromPocketBase();
 		}
 	}
 
@@ -230,110 +231,6 @@ class UserStore {
 	}
 
 	// === Gestion des Plannings ===
-
-	/**
-	 * Synchronise les plannings depuis PocketBase vers le localStorage.
-	 * Appelé automatiquement lors de l'authentification.
-	 */
-	private async syncPlanningsFromPocketBase() {
-		if (!pb.authStore.isValid || !pb.authStore.record) return; // FIXIT / TOCHECK : utiliser userStore.isLoggedIn ?
-
-		try {
-			// La ListRule autorise l'accès si users.masterId contient l'id du master
-			const plannings = await pb.collection('planning_masters').getFullList();
-
-			// Ajouter les plannings manquants au localStorage
-			for (const planning of plannings) {
-				const exists = this.savedPlannings.find((p) => p.masterId === planning.id);
-				if (!exists) {
-					const savedPlanning: SavedPlanning = {
-						masterId: planning.id,
-						title: planning.title,
-						participantToken: planning.participantToken,
-						adminToken: planning.adminToken, // Admin si disponible
-						lastAccessed: new Date().toISOString()
-					};
-					await this.savePlanning(savedPlanning);
-					console.log(`Planning synchronisé: ${planning.title}`);
-				}
-			}
-
-			console.log(`Synchronisation PocketBase terminée: ${plannings.length} plannings traités`);
-
-			// Warm planningStore cache with synchronized plannings
-			if (this.savedPlannings.length > 0) {
-				for (const planning of this.savedPlannings) {
-					try {
-						// Use getOrFetchMaster to populate cache
-						await planningStore.getOrFetchMaster(planning.participantToken);
-					} catch (error) {
-						console.warn(`Failed to warm cache for planning ${planning.masterId}:`, error);
-					}
-				}
-				console.log(`Cache warmed with ${this.savedPlannings.length} plannings`);
-			}
-		} catch (error) {
-			console.error('Erreur lors de la synchronisation PocketBase:', error);
-		}
-	}
-
-	/**
-	 * Synchronise les plannings locaux vers PocketBase.
-	 * Ajoute les masterId et adminOf des plannings localStorage au champ users.masterId dans PocketBase.
-	 */
-	private async syncPlanningsToPocketBase() {
-		if (!pb.authStore.isValid || !pb.authStore.record) return;
-
-		const userRecord = pb.authStore.record as {
-			id: string;
-			masterId?: string[];
-			adminOf?: Record<string, string>;
-		};
-		const pbMasterIds = new Set(userRecord.masterId || []);
-		const pbAdminOf = (userRecord as any).adminOf || {};
-
-		const localMasterIds = this.savedPlannings.map((p) => p.masterId);
-		const missingIds = localMasterIds.filter((id) => !pbMasterIds.has(id));
-
-		// Construire adminOf depuis localStorage
-		const localAdminOf: Record<string, string> = {};
-		for (const p of this.savedPlannings) {
-			if (p.adminToken) {
-				localAdminOf[p.masterId] = p.adminToken;
-			}
-		}
-
-		// Détecter si adminOf a des entrées manquantes
-		const missingAdminOf: Record<string, string> = {};
-		for (const [masterId, token] of Object.entries(localAdminOf)) {
-			if (!pbAdminOf[masterId]) {
-				missingAdminOf[masterId] = token;
-			}
-		}
-
-		const hasChanges = missingIds.length > 0 || Object.keys(missingAdminOf).length > 0;
-		if (!hasChanges) {
-			console.log('Tous les plannings sont déjà synchronisés');
-			return;
-		}
-
-		await pb.collection('users').update(pb.authStore.record.id, {
-			masterId: [...pbMasterIds, ...missingIds],
-			adminOf: { ...pbAdminOf, ...missingAdminOf }
-		});
-	}
-	/**
-	 * Orchestre la synchronisation complète des plannings avec PocketBase.
-	 * 1. Récupère les plannings depuis PocketBase vers le localStorage
-	 * 2. Envoie les plannings locaux vers PocketBase
-	 */
-	async syncPlanningsWithPocketBase() {
-		// Phase 1: Récupérer depuis PocketBase
-		await this.syncPlanningsFromPocketBase();
-
-		// Phase 2: Envoyer vers PocketBase
-		await this.syncPlanningsToPocketBase();
-	}
 
 	async savePlanning(planning: SavedPlanning) {
 		const idx = this.savedPlannings.findIndex((p) => p.masterId === planning.masterId);

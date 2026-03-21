@@ -146,7 +146,7 @@
 
 				// Pas de collision : sync normale
 				await userStore.syncProfileWithPocketBase();
-				await userStore.syncPlanningsWithPocketBase();
+				// La synchronisation des plannings est gérée par syncService dans le layout
 
 				toast.success('Compte créé avec succès !');
 			} else {
@@ -167,7 +167,7 @@
 
 				// Pas de collision : sync normale
 				await userStore.syncProfileWithPocketBase();
-				await userStore.syncPlanningsWithPocketBase();
+				// La synchronisation des plannings est gérée par syncService dans le layout
 
 				toast.success('Connexion réussie !');
 			}
@@ -187,7 +187,7 @@
 		try {
 			await userStore.backupLocalProfile();
 			await userStore.syncProfileWithPocketBase();
-			await userStore.syncPlanningsWithPocketBase();
+			// La synchronisation des plannings est gérée par syncService dans le layout
 			collisionModal.open = false;
 			toast.success('Connexion réussie (données précédentes sauvegardées)');
 			if (onSuccess) onSuccess();
@@ -203,7 +203,7 @@
 		collisionModal.isProcessing = true;
 		try {
 			await userStore.syncProfileWithPocketBase();
-			await userStore.syncPlanningsWithPocketBase();
+			// La synchronisation des plannings est gérée par syncService dans le layout
 			collisionModal.open = false;
 			toast.success('Connexion réussie');
 			if (onSuccess) onSuccess();

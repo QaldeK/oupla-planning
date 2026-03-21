@@ -130,4 +130,5 @@ export interface SavedPlanning {
 	participantToken: string;
 	lastAccessed: string;
 	currentUser?: PlanningIdentity; // Identité de l'user sur CE planning
+	isSync?: boolean; // false par défaut, true après sync réussie avec le serveur
 }

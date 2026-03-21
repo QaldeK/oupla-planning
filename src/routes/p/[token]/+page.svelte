@@ -207,11 +207,12 @@
 			const isAdminToken = token.length === 64;
 			const savedPlanning = {
 				masterId: master.id,
-				title: master.title,
-				participantToken: isAdminToken ? master.participantToken : token,
+				title: master.title!,
+				participantToken: isAdminToken ? master.participantToken! : token,
 				adminToken: isAdminToken ? token : userStore.getAdminToken(master.id) || '',
 				lastAccessed: new Date().toISOString(),
-				currentUser: identity
+				currentUser: identity,
+				isSync: userStore.isLoggedIn ? false : undefined // NOUVEAU : false si auth, undefined si guest
 			};
 			await userStore.savePlanning(savedPlanning);
 

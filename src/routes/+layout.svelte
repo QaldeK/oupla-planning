@@ -26,6 +26,7 @@
 	import NetworkIndicator from '$lib/components/NetworkIndicator.svelte';
 	import { realtimeService } from '$lib/services/realtime.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
+	import { syncService } from '$lib/services/syncService';
 	import { page } from '$app/state';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
 
@@ -50,11 +51,30 @@
 	});
 
 	$effect(() => {
-		if (userStore.isLoggedIn) {
-			planningStore.cleanup();
-			planningStore.fetchAllOccurrences();
-			realtimeService.subscribeGlobally();
+		if (!userStore.isLoggedIn) {
+			// Reset le flag au logout
+			userStore.hasSyncedThisSession = false;
+			return;
 		}
+
+		// Éviter les appels multiples
+		if (userStore.hasSyncedThisSession) return;
+
+		userStore.hasSyncedThisSession = true;
+		planningStore.cleanup();
+
+		// Ordre important : sync → fetch → realtime
+		syncService
+			.sync(userStore.savedPlannings)
+			.then(() => {
+				planningStore.fetchAllOccurrences();
+				realtimeService.subscribeGlobally();
+			})
+			.catch((err) => {
+				console.error('Layout sync failed:', err);
+				// Reset le flag en cas d'erreur pour permettre une nouvelle tentative
+				userStore.hasSyncedThisSession = false;
+			});
 	});
 
 	$effect(() => {

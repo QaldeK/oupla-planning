@@ -79,15 +79,6 @@ class PlanningStore {
 			// Déterminer si l'utilisateur est admin
 			const isAdmin = master.adminToken === token;
 
-			// Si admin auth → déclencher un update minimal pour que le hook enregistre adminOf
-			if (isAdmin && userStore.isLoggedIn) {
-				// Touch silencieux — met à jour lastModifiedBy uniquement
-				// Ce PATCH déclenche onRecordUpdateRequest → hook enregistre adminOf + masterId
-				pb.collection('planning_masters')
-					.update(master.id, { lastModifiedBy: userStore.pbUser?.id }, { query: { _token: token } })
-					.catch(() => {}); // fire-and-forget, non bloquant
-			}
-
 			// Si auth + occurrences déjà fetchées globalement → pas de re-fetch
 			if (!this.#occurrences.has(master.id)) {
 				const occs = await getOccurrencesByMaster(master.id, token, options);
@@ -97,12 +88,13 @@ class PlanningStore {
 			const identity = userStore.getPlanningIdentity(master.id);
 			const existing = userStore.savedPlannings.find((p) => p.masterId === master.id);
 			await userStore.savePlanning({
-				...existing,
-				title: master.title,
-				participantToken: master.participantToken,
+				masterId: master.id,
+				title: master.title!,
+				participantToken: master.participantToken!,
 				...(isAdmin ? { adminToken: token } : {}),
 				lastAccessed: new Date().toISOString(),
-				currentUser: identity || undefined
+				currentUser: identity || undefined,
+				isSync: userStore.isLoggedIn ? false : undefined // false si auth, undefined si guest
 			});
 
 			// Guest uniquement — auth est couvert par subscribeGlobally() dans le layout
@@ -132,8 +124,8 @@ class PlanningStore {
 
 			userStore.savePlanning({
 				masterId: updated.id,
-				title: updated.title,
-				participantToken: updated.participantToken,
+				title: updated.title!,
+				participantToken: updated.participantToken!,
 				lastAccessed: new Date().toISOString()
 			});
 		} else if (action === 'delete') {
