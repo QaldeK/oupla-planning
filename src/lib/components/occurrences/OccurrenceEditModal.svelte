@@ -579,77 +579,79 @@
 			<div class="divider"></div>
 
 			<!-- Gestion des réponses des participants -->
-			<div class="space-y-4">
-				<h4 class="flex items-center gap-2 font-medium">
-					<UserPlus size={18} class="text-primary" />
-					Gérer les réponses des participants
-				</h4>
+			{#if master.allowResponses}
+				<div class="space-y-4">
+					<h4 class="flex items-center gap-2 font-medium">
+						<UserPlus size={18} class="text-primary" />
+						Gérer les réponses des participants
+					</h4>
 
-				<div class="space-y-2">
-					{#each master.participants as participant (participant.id)}
-						{#key participant.id}
-							{@const response = occurrence.responses.find(
-								(r) => r.participantId === participant.id
-							)}
-							<div class="bg-base-200 rounded-box px-4 py-1">
-								<div class="flex items-center justify-between gap-4 max-sm:flex-col">
-									<div class="self-start font-medium">
-										<User class="me-1 inline size-4 opacity-70" />
-										{participant.name}
-									</div>
+					<div class="space-y-2">
+						{#each master.participants as participant (participant.id)}
+							{#key participant.id}
+								{@const response = occurrence.responses.find(
+									(r) => r.participantId === participant.id
+								)}
+								<div class="bg-base-200 rounded-box px-4 py-1">
+									<div class="flex items-center justify-between gap-4 max-sm:flex-col">
+										<div class="self-start font-medium">
+											<User class="me-1 inline size-4 opacity-70" />
+											{participant.name}
+										</div>
 
-									<div class=" flex flex-wrap gap-x-4 gap-y-2">
-										{#each AVAILABLE_RESPONSE_TYPES as type (type)}
-											{@const config = RESPONSE_TYPE_CONFIG[type]}
-											<label
-												class="btn-xs btn flex gap-1 {config.btnClass} {config.borderClass} {response?.response !==
-													type && 'btn-soft text-base-content/80 '}"
-											>
-												<input
-													type="radio"
-													class="check check-sm"
-													name="response-{participant.id}"
-													checked={response?.response === type}
-													onchange={() => handleResponseChange(participant.id, type)}
-												/>
-												{config.label}
-											</label>
-										{/each}
+										<div class=" flex flex-wrap gap-x-4 gap-y-2">
+											{#each master.availableResponseTypes || AVAILABLE_RESPONSE_TYPES as type (type)}
+												{@const config = RESPONSE_TYPE_CONFIG[type]}
+												<label
+													class="btn-xs btn flex gap-1 {config.btnClass} {config.borderClass} {response?.response !==
+														type && 'btn-soft text-base-content/80 '}"
+												>
+													<input
+														type="radio"
+														class="check check-sm"
+														name="response-{participant.id}"
+														checked={response?.response === type}
+														onchange={() => handleResponseChange(participant.id, type)}
+													/>
+													{config.label}
+												</label>
+											{/each}
+										</div>
 									</div>
 								</div>
-							</div>
-						{/key}
-					{/each}
-				</div>
+							{/key}
+						{/each}
+					</div>
 
-				<!-- Ajouter un nouveau participant -->
-				<div class="join mt-2">
-					<input
-						type="text"
-						bind:value={newParticipantName}
-						class="input join-item grow"
-						placeholder="Nouveau participant..."
-						onkeydown={(e) => {
-							if (e.key === 'Enter') {
-								e.preventDefault();
-								handleAddParticipant();
-							}
-						}}
-					/>
-					<button
-						type="button"
-						class="btn btn-primary join-item"
-						onclick={handleAddParticipant}
-						disabled={isCreatingParticipant || !newParticipantName.trim()}
-					>
-						{#if isCreatingParticipant}
-							<span class="loading loading-spinner loading-sm"></span>
-						{:else}
-							<Plus size={14} />
-						{/if}
-					</button>
+					<!-- Ajouter un nouveau participant -->
+					<div class="join mt-2">
+						<input
+							type="text"
+							bind:value={newParticipantName}
+							class="input join-item grow"
+							placeholder="Nouveau participant..."
+							onkeydown={(e) => {
+								if (e.key === 'Enter') {
+									e.preventDefault();
+									handleAddParticipant();
+								}
+							}}
+						/>
+						<button
+							type="button"
+							class="btn btn-primary join-item"
+							onclick={handleAddParticipant}
+							disabled={isCreatingParticipant || !newParticipantName.trim()}
+						>
+							{#if isCreatingParticipant}
+								<span class="loading loading-spinner loading-sm"></span>
+							{:else}
+								<Plus size={14} />
+							{/if}
+						</button>
+					</div>
 				</div>
-			</div>
+			{/if}
 
 			<div class="divider"></div>
 
