@@ -13,9 +13,16 @@
 	} from '$lib/utils/date';
 	import {
 		Calendar,
+		CalendarCheck,
+		CalendarCheckIcon,
+		CalendarSyncIcon,
 		CheckCircle,
 		CircleCheck,
+		CircleCheckBig,
+		CircleQuestionMark,
+		CircleX,
 		Clock,
+		HelpCircle,
 		MapPin,
 		MessageSquare,
 		Pencil,
@@ -193,24 +200,24 @@
 			<div class="flex gap-1">
 				{#if showQuickConfirm}
 					<button
-						class="btn btn-ghost sm:btn-sm text-success"
+						class="btn btn-ghost sm:btn-sm"
 						onclick={toggleConfirm}
 						disabled={occState.isNetworkUnavailable}
 						title="Confirmer la tenue"
 					>
-						<CircleCheck size={18} />
+						<CalendarCheckIcon size={18} />
 						Confirmer
 					</button>
 				{/if}
 				{#if showQuickRestore}
 					<button
-						class="btn btn-ghost sm:btn-sm text-warning"
+						class="btn btn-ghost sm:btn-sm"
 						onclick={restoreEvent}
 						title="Rétablir l'événement"
 						disabled={occState.isNetworkUnavailable}
 					>
-						<Calendar size={18} />
-						Rétablir
+						<CalendarSyncIcon size={18} />
+						<span>Rétablir</span>
 					</button>
 				{/if}
 			</div>
@@ -234,11 +241,11 @@
 	<div
 		class="{occurrence.isCanceled
 			? 'opacity-60'
-			: ''} bg-base-100 border-b-4 border-neutral-300 p-2 pb-4"
+			: ''} bg-base-100 border-b-4 border-neutral-300 pb-4"
 	>
 		<!-- Line 1: Header -->
-		<div class="flex items-center justify-between gap-2 pb-2">
-			<div class="flex items-center gap-3 text-sm">
+		<div class="mb-2 flex items-center justify-between gap-2 px-2">
+			<div class="flex items-center gap-2 text-sm sm:gap-6">
 				<!-- Date & Time -->
 				<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0">
 					<div class="flex items-center gap-1 text-lg font-semibold">
@@ -252,32 +259,39 @@
 						<Clock size={14} />
 						{formatTimeRange(occurrence.startTime, occurrence.endTime)}
 					</div>
-
 					<!-- Place -->
 					{#if occState.inherited.place}
-						<div class="flex items-center gap-1">
-							<MapPin size={14} />
-							<span class="max-w-36 truncate font-semibold">{occState.inherited.place}</span>
+						<div class="flex items-center gap-1 opacity-70">
+							<MapPin size={16} />
+							{occState.inherited.place}
 						</div>
 					{/if}
 				</div>
 
-				<div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-0">
+				<div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
 					<!-- Status badges -->
-					{#if occurrence.isCanceled}
-						<span class="badge badge-error badge-sm">Annulé</span>
-					{:else if occurrence.isConfirmed}
-						<span class="badge badge-success badge-sm">Confirmé</span>
+					{#if master.toConfirm && occurrence.isConfirmed}
+						<span class="badge badge-success badge-soft badge-sm gap-1">
+							<CircleCheckBig size={12} />
+							Confirmé
+						</span>
+					{:else if occurrence.isCanceled}
+						<span class="badge badge-error badge-sm gap-1">
+							<CircleX size={12} />
+							Annulé
+						</span>
+					{:else if master.toConfirm && !occurrence.isConfirmed}
+						<span class="badge badge-info badge-soft badge-sm"
+							><CircleQuestionMark size={12} /> à confirmer</span
+						>
 					{/if}
 
 					<!-- Min present badge -->
 					{#if occState.inherited.minPresentRequired}
-						<div class="">
-							<ResponseBadge
-								present={occState.stats.present}
-								required={occState.inherited.minPresentRequired}
-							/>
-						</div>
+						<ResponseBadge
+							present={occState.stats.present}
+							required={occState.inherited.minPresentRequired}
+						/>
 					{/if}
 				</div>
 			</div>
@@ -288,7 +302,7 @@
 
 		<!-- Line 2: Actions -->
 		{#if canRespond || occState.inherited.tasks.length > 0 || occurrence.comments.length > 0}
-			<div class="mt-2 flex flex-col gap-3">
+			<div class="mt-2 flex flex-col gap-3 p-2">
 				<!-- Response buttons -->
 				{#if canRespond}
 					<ResponsesSummary
@@ -330,79 +344,76 @@
 	<div class="card card-sm bg-base-100 mb-8 shadow-md">
 		<div class="card-body">
 			<!-- En-tête -->
-			<div class="flex items-center justify-between">
-				<div class="flex-1">
-					<div class="mb-2 flex flex-wrap items-center gap-4">
-						<!-- date time -->
-						<div class="flex min-w-60 flex-wrap items-center gap-2">
-							<span class="text-lg font-medium"
-								><Calendar size={18} class="inline " />
-								{formatDateWithDay(occurrence.date)}</span
-							>
-							<div class="text-md flex items-center gap-1 font-medium">
-								<Clock size={16} />
-								{formatTimeRange(occurrence.startTime, occurrence.endTime)}
-							</div>
+			<div class="mb-2 flex items-center justify-between">
+				<div class=" flex flex-wrap items-center gap-4">
+					<!-- date time -->
+					<div class="flex min-w-60 flex-wrap items-center gap-2">
+						<span class="text-base font-medium"
+							><Calendar size={18} class="inline " />
+							{formatDateWithDay(occurrence.date)}</span
+						>
+						<div class="text-md flex items-center gap-1 font-medium">
+							<Clock size={16} />
+							{formatTimeRange(occurrence.startTime, occurrence.endTime)}
 						</div>
-
-						{#if occState.inherited.place}
-							<div class="flex items-center gap-1">
-								<MapPin size={16} />
-								{occState.inherited.place}
-							</div>
-						{/if}
-						{#if master.toConfirm && occurrence.isConfirmed}
-							<span class="badge badge-success badge-sm gap-1">
-								<CheckCircle size={12} />
-								Confirmé
-							</span>
-						{/if}
-						{#if occurrence.isCanceled}
-							<span class="badge badge-error badge-sm gap-1">
-								<XCircle size={12} />
-								Annulé
-							</span>
-						{/if}
-						{#if occState.inherited.minPresentRequired}
-							{@const ratio = Math.min(
-								100,
-								(occState.stats.present / occState.inherited.minPresentRequired) * 100
-							)}
-							<div class="mx-auto flex items-center gap-2">
-								<div class="bg-base-300 h-2 w-24 overflow-hidden rounded-full">
-									<div
-										class="h-full transition-all duration-500 {ratio >= 100
-											? 'bg-success'
-											: 'bg-warning'}"
-										style="width: {ratio}%"
-									></div>
-								</div>
-								<span class="text-xs font-medium tabular-nums">
-									{occState.stats.present}/{occState.inherited.minPresentRequired} présences
-								</span>
-							</div>
-						{/if}
 					</div>
+
+					{#if occState.inherited.place}
+						<div class="flex items-center gap-1">
+							<MapPin size={16} />
+							{occState.inherited.place}
+						</div>
+					{/if}
+					{#if master.toConfirm && occurrence.isConfirmed}
+						<span class="badge badge-success badge-soft badge-sm gap-1">
+							<CheckCircle size={12} />
+							Confirmé
+						</span>
+					{:else if occurrence.isCanceled}
+						<span class="badge badge-error badge-sm gap-1">
+							<XCircle size={12} />
+							Annulé
+						</span>
+					{:else if master.toConfirm && !occurrence.isConfirmed}
+						<span class="badge badge-info badge-soft badge-sm"
+							><CircleQuestionMark size={12} /> à confirmer</span
+						>
+					{/if}
+					{#if occState.inherited.minPresentRequired}
+						{@const ratio = Math.min(
+							100,
+							(occState.stats.present / occState.inherited.minPresentRequired) * 100
+						)}
+						<div class="flex items-center gap-2">
+							<div class="bg-base-300 h-2 w-24 overflow-hidden rounded-full">
+								<div
+									class="h-full transition-all duration-500 {ratio >= 100
+										? 'bg-success'
+										: 'bg-warning'}"
+									style="width: {ratio}%"
+								></div>
+							</div>
+							<span class="text-xs font-medium tabular-nums">
+								{occState.stats.present}/{occState.inherited.minPresentRequired} présences
+							</span>
+						</div>
+					{/if}
 				</div>
 				{#if isAdmin}
-					<div class="flex flex-wrap justify-end gap-2">
+					<div class="flex flex-wrap items-center justify-end gap-2">
 						{#if showQuickConfirm}
-							<button
-								class="btn sm:btn-sm text-success"
-								onclick={toggleConfirm}
-								title="Confirmer la tenue"
-							>
-								<CheckCircle size={20} />
+							<button class="btn sm:btn-sm" onclick={toggleConfirm} title="Confirmer la tenue">
+								<CalendarCheck size={20} />
 								Confirmer
 							</button>
 						{/if}
 						{#if showQuickRestore}
 							<button
-								class="btn btn-ghost sm:btn-sm text-warning"
+								class="btn btn-ghost sm:btn-sm"
 								onclick={restoreEvent}
 								title="Rétablir l'événement"
 							>
-								<Calendar size={20} />
+								<CalendarSyncIcon size={20} />
 								Rétablir
 							</button>
 						{/if}

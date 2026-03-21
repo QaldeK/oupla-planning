@@ -58,7 +58,7 @@ class RealtimeService {
 				pb.realtime.subscribe(
 					'planning_occurrences',
 					(e) => this.dispatch('occurrence', e.action, e.record),
-					{ query: { _token: token } }
+					{ filter: `master = "${masterId}"`, query: { _token: token } }
 				),
 				8000
 			);
