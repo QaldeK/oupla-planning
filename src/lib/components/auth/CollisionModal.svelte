@@ -10,6 +10,7 @@
 		onReplaceOnly: () => Promise<void>;
 		onCancel: () => void;
 		isSubmitting?: boolean;
+		zIndex?: number;
 	}
 
 	let {
@@ -19,7 +20,8 @@
 		onBackupAndReplace,
 		onReplaceOnly,
 		onCancel,
-		isSubmitting = false
+		isSubmitting = false,
+		zIndex
 	}: Props = $props();
 
 	let backupAndReplaceChecked = $state(true);
@@ -27,6 +29,7 @@
 
 <Modal
 	{open}
+	{zIndex}
 	onClose={() => {
 		if (!isSubmitting) onCancel();
 	}}

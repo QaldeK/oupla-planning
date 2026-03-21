@@ -9,9 +9,18 @@
 		children: import('svelte').Snippet;
 		actions?: import('svelte').Snippet;
 		size?: 'sm' | 'md' | 'lg' | 'xl';
+		zIndex?: number;
 	}
 
-	let { open = $bindable(false), onClose, title, children, actions, size = 'md' }: Props = $props();
+	let {
+		open = $bindable(false),
+		onClose,
+		title,
+		children,
+		actions,
+		size = 'md',
+		zIndex
+	}: Props = $props();
 
 	const sizeClasses = {
 		sm: 'max-w-sm',
@@ -40,6 +49,7 @@
 {#if open}
 	<div
 		class="modal modal-open"
+		style:z-index={zIndex}
 		onclick={handleBackdropClick}
 		onkeydown={handleKeydown}
 		role="dialog"
