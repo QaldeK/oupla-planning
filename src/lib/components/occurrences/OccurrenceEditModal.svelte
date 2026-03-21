@@ -37,7 +37,6 @@
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import NetworkAlert from '../NetworkAlert.svelte';
-	import ConfirmModal from '../ui/ConfirmModal.svelte';
 	import Modal from '../ui/Modal.svelte';
 
 	interface Props {
@@ -133,7 +132,21 @@
 	// Logique de statut dérivé
 	const toConfirm = $derived(master.toConfirm ?? false);
 
-	let showCancelConfirm = $state(false);
+	// Statut actuel de l'occurrence
+	type EventStatus = 'confirmed' | 'pending' | 'canceled';
+	const currentStatus = $derived<EventStatus>(
+		isCanceled ? 'canceled' : isConfirmed ? 'confirmed' : 'pending'
+	);
+
+	const statusLabel = $derived(
+		currentStatus === 'canceled'
+			? 'Annulé'
+			: currentStatus === 'confirmed'
+				? 'Confirmé'
+				: toConfirm
+					? 'En attente de confirmation'
+					: 'Prévu'
+	);
 
 	// ===== Gestion admin des responses =====
 	let newParticipantName = $state('');
@@ -322,20 +335,9 @@
 		}
 	}
 
-	async function setStatus(newStatus: 'confirmed' | 'canceled' | 'pending') {
-		if (newStatus === 'canceled') {
-			showCancelConfirm = true;
-			return;
-		}
-
-		isCanceled = false;
+	async function setStatus(newStatus: EventStatus) {
+		isCanceled = newStatus === 'canceled';
 		isConfirmed = newStatus === 'confirmed';
-	}
-
-	function confirmCancel() {
-		showCancelConfirm = false;
-		isCanceled = true;
-		isConfirmed = false;
 	}
 
 	async function handleSubmit() {
@@ -444,49 +446,57 @@
 		class="space-y-6"
 	>
 		<fieldset disabled={isNetworkUnavailable}>
-			<!-- Statut et Actions Rapides -->
+			<!-- Statut de l'événement -->
 			<div class="mb-8 flex flex-col gap-3">
-				<h4 class="text-sm font-medium opacity-60">Statut de l'événement</h4>
-				<div class="flex flex-wrap justify-center gap-2">
-					{#if isCanceled}
-						<button
-							type="button"
-							class="btn btn-error sm:btn-sm grow"
-							onclick={() => setStatus(toConfirm ? 'pending' : 'confirmed')}
+				<h4 class="text-sm font-medium opacity-60">
+					Statut de l'événement : <span class="text-base-content">{statusLabel}</span>
+				</h4>
+				<div class="join" role="radiogroup" aria-label="Statut de l'événement">
+					<label
+						class="join-item btn btn-sm {currentStatus === 'confirmed'
+							? 'btn-success'
+							: 'btn-soft'}"
+					>
+						<input
+							type="radio"
+							class="hidden"
+							name="event-status"
+							checked={currentStatus === 'confirmed'}
+							onchange={() => setStatus('confirmed')}
+						/>
+						<CheckCircle size={16} class="mr-2" />
+						Confirmé
+					</label>
+					{#if toConfirm}
+						<label
+							class="join-item btn btn-sm {currentStatus === 'pending'
+								? 'btn-warning'
+								: 'btn-soft'}"
 						>
-							<XCircle size={16} class="mr-2" />
-							Événement annulé (cliquer pour rétablir)
-						</button>
-					{:else}
-						{#if toConfirm}
-							<button
-								type="button"
-								class="btn sm:btn-sm grow {isConfirmed ? 'btn-success' : 'btn-outline'}"
-								onclick={() => setStatus('confirmed')}
-							>
-								<CheckCircle size={16} class="mr-2" />
-								{isConfirmed ? 'Confirmé' : 'Confirmer la tenue'}
-							</button>
-							{#if isConfirmed}
-								<button
-									type="button"
-									class="btn btn-outline btn-sm"
-									onclick={() => setStatus('pending')}
-								>
-									Remettre en attente
-								</button>
-							{/if}
-						{/if}
-
-						<button
-							type="button"
-							class="btn btn-outline btn-error sm:btn-sm btn-wide"
-							onclick={() => setStatus('canceled')}
-						>
-							<XCircle size={16} class="mr-2" />
-							Annuler l'événement
-						</button>
+							<input
+								type="radio"
+								class="hidden"
+								name="event-status"
+								checked={currentStatus === 'pending'}
+								onchange={() => setStatus('pending')}
+							/>
+							<Clock size={16} class="mr-2" />
+							En attente
+						</label>
 					{/if}
+					<label
+						class="join-item btn btn-sm {currentStatus === 'canceled' ? 'btn-error' : 'btn-soft'}"
+					>
+						<input
+							type="radio"
+							class="hidden"
+							name="event-status"
+							checked={currentStatus === 'canceled'}
+							onchange={() => setStatus('canceled')}
+						/>
+						<XCircle size={16} class="mr-2" />
+						Annulé
+					</label>
 				</div>
 			</div>
 
@@ -917,14 +927,3 @@
 		</div>
 	{/if}
 </Modal>
-
-<ConfirmModal
-	bind:open={showCancelConfirm}
-	onClose={() => (showCancelConfirm = false)}
-	onConfirm={confirmCancel}
-	title="Annuler l'événement"
-	message="Voulez-vous vraiment annuler cet événement ?"
-	description="Les participants en seront informés par notification."
-	confirmLabel="Oui, annuler"
-	variant="danger"
-/>
