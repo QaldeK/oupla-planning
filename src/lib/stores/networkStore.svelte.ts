@@ -35,6 +35,8 @@ if (browser) {
 
 	// onDisconnect : hook officiel, appelé dès que l'EventSource se ferme
 	pb.realtime.onDisconnect = () => {
+		// Ignorer si aucune souscription active (évite race condition lors de la transition guest→auth)
+		if (!status.hasActiveSubscription) return;
 		console.log('🔴 Realtime déconnecté');
 		status.realtimeConnected = false;
 		status.lastError = new Date();
