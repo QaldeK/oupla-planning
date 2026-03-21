@@ -24,7 +24,6 @@
 	import CommentSection from '$lib/components/CommentSection.svelte';
 	import NetworkIndicator from '$lib/components/NetworkIndicator.svelte';
 	import { realtimeService } from '$lib/services/realtime.svelte';
-	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { syncService } from '$lib/services/syncService';
 	import { page } from '$app/state';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
@@ -60,7 +59,10 @@
 		if (userStore.hasSyncedThisSession) return;
 
 		userStore.hasSyncedThisSession = true;
-		planningStore.cleanup();
+
+		// Uniquement nettoyer les souscriptions guest, pas le state du planning actif
+		// (l'utilisateur peut être sur une page /p/[token] et rester sur cette page)
+		realtimeService.unsubscribe();
 
 		// Ordre important : sync → fetch → realtime
 		syncService
