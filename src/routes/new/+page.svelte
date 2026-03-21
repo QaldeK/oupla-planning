@@ -9,6 +9,7 @@
 	import { toast } from 'svelte-sonner';
 	import { Calendar } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
+	import { syncService } from '$lib/services/syncService';
 	import type { Participant } from '$lib/types/planning.types';
 
 	let isSubmitting = $state(false);
@@ -47,6 +48,11 @@
 				participantToken: participantToken,
 				lastAccessed: new Date().toISOString()
 			});
+
+			// Déclencher la synchronisation si l'utilisateur est connecté
+			if (userStore.isLoggedIn) {
+				await syncService.sync(userStore.savedPlannings);
+			}
 
 			toast.success('Planning créé avec succès !');
 

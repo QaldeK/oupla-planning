@@ -1,5 +1,6 @@
 import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
 import { getPlanningByToken, getOccurrencesByMaster } from '$lib/services/planningActions';
+import { syncService } from '$lib/services/syncService';
 import { realtimeService } from '$lib/services/realtime.svelte';
 import { userStore } from '$lib/stores/userStore.svelte';
 import { SvelteMap } from 'svelte/reactivity';
@@ -75,14 +76,13 @@ class PlanningStore {
 			this.#masters.set(master.id, master);
 			this.#activeMasterId = master.id;
 
-			// Déterminer si l'utilisateur est admin
-			const isAdmin = master.adminToken === token;
+			// Déterminer si l'utilisateur est admin (basé sur la longueur car adminToken est masqué)
+			const isAdmin = token.length === 64;
 
-			// Si auth + occurrences déjà fetchées globalement → pas de re-fetch
-			if (!this.#occurrences.has(master.id)) {
-				const occs = await getOccurrencesByMaster(master.id, token, options);
-				this.#occurrences.set(master.id, occs);
-			}
+			// Toujours re-fetcher les occurrences pour la page active (sauf si déjà chargées globalement par sync)
+			// On ne se fie plus uniquement à .has() car le sync initial peut être partiel
+			const occs = await getOccurrencesByMaster(master.id, token, options);
+			this.#occurrences.set(master.id, occs);
 			// Sauvegarde
 			const identity = userStore.getPlanningIdentity(master.id);
 			await userStore.savePlanning({
@@ -95,8 +95,17 @@ class PlanningStore {
 				isSync: userStore.isLoggedIn ? false : undefined // false si auth, undefined si guest
 			});
 
+			// Déclencher la synchronisation si l'utilisateur est connecté pour assurer masterId/adminOf
+			if (userStore.isLoggedIn) {
+				await syncService.sync(userStore.savedPlannings);
+			}
+
 			// Guest uniquement — auth est couvert par subscribeGlobally() dans le layout
-			await realtimeService.subscribeToMaster(master.id, token);
+			try {
+				await realtimeService.subscribeToMaster(master.id, token);
+			} catch (err) {
+				console.warn('Realtime subscription failed (non-blocking):', err);
+			}
 
 			return { master, isAdmin };
 		} catch (err) {
@@ -126,6 +135,14 @@ class PlanningStore {
 				participantToken: updated.participantToken!,
 				lastAccessed: new Date().toISOString()
 			});
+
+			// ✅ Propager au tokenCache pour éviter de servir des données stales
+			const tokens = this.#masterTokens.get(updated.id);
+			if (tokens) {
+				for (const t of tokens) {
+					this.#tokenCache.set(t, updated);
+				}
+			}
 		} else if (action === 'delete') {
 			this.#masters.delete(record.id);
 			this.#occurrences.delete(record.id);
@@ -236,6 +253,14 @@ class PlanningStore {
 
 	updateMaster(master: PlanningMaster) {
 		this.#masters.set(master.id, master);
+
+		// ✅ Propager au tokenCache
+		const tokens = this.#masterTokens.get(master.id);
+		if (tokens) {
+			for (const t of tokens) {
+				this.#tokenCache.set(t, master);
+			}
+		}
 	}
 }
 

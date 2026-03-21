@@ -159,26 +159,26 @@ export async function getPlanningByToken(token: string): Promise<{
 				{ query: { _token: token } }
 			);
 
-		// // Remplacer par les hooks
-		// // // fire-and-forget claim
-		// if (pb.authStore.isValid && token.length === 64) {
-		// 	const adminOf = (pb.authStore.record as any)?.adminOf || {};
-		// 	const masterId = master.id;
+		// fire-and-forget claim pour les liens admin
+		if (pb.authStore.isValid && token.length === 64) {
+			const record = pb.authStore.record;
+			const adminOf = (record as any)?.adminOf || {};
+			const masterId = master.id;
 
-		// 	if (!adminOf[masterId]) {
-		// 		pb.send('/api/claim-admin', {
-		// 			method: 'POST',
-		// 			body: { token }
-		// 		})
-		// 			.then(() => {
-		// 				// Rafraîchir le record pour mettre adminOf à jour en mémoire
-		// 				return pb.collection('users').authRefresh();
-		// 			})
-		// 			.catch((err) => {
-		// 				console.warn('claim-admin failed:', err);
-		// 			});
-		// 	}
-		// }
+			if (!adminOf[masterId]) {
+				pb.send('/api/claim-admin', {
+					method: 'POST',
+					body: { token }
+				})
+					.then(() => {
+						// Rafraîchir le record pour mettre adminOf et masterId à jour en mémoire
+						return pb.collection('users').authRefresh();
+					})
+					.catch((err) => {
+						console.warn('claim-admin failed:', err);
+					});
+			}
+		}
 		// NOTE: adminToken est masqué par onRecordEnrich, donc on se base sur la longueur du token
 		// AdminToken = 64 chars, ParticipantToken = 32 chars
 		return { master, isAdmin: token.length === 64 };
@@ -254,7 +254,7 @@ export async function updatePlanningWithOccurrences(
 	// Supprimer les occurrences futures obsolètes
 	for (const occ of existingOccurrences) {
 		if (!targetDates.includes(normalizeDate(occ.date))) {
-			batch.collection('planning_occurrences').delete(occ.id);
+			batch.collection('planning_occurrences').delete(occ.id, { query: { _token: adminToken } });
 		}
 	}
 

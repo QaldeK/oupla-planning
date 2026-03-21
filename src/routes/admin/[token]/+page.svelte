@@ -97,13 +97,15 @@
 					Modifiez les paramètres du planning. Les changements seront propagés aux occurrences.
 				</p>
 			</div>
-			<PlanningForm
-				{master}
-				onSubmit={handleUpdatePlanning}
-				bind:isSubmitting
-				{datesWithData}
-				{datesWithSpecificTasks}
-			/>
+			{#key master.updated}
+				<PlanningForm
+					{master}
+					onSubmit={handleUpdatePlanning}
+					bind:isSubmitting
+					{datesWithData}
+					{datesWithSpecificTasks}
+				/>
+			{/key}
 		</div>
 	</div>
 {:else}

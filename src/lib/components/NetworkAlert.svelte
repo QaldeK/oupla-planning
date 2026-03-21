@@ -12,9 +12,7 @@
 
 	let { message = 'Le serveur est indisponible - Modifications impossibles' }: Props = $props();
 
-	const isDisabled = $derived(
-		!networkStore.online || !networkStore.pocketbaseReachable || !networkStore.realtimeConnected
-	);
+	const isDisabled = $derived(!networkStore.isNetworkOk);
 </script>
 
 {#if isDisabled}

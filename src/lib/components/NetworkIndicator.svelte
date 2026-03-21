@@ -8,7 +8,7 @@
 	>
 		🔴 Hors ligne - Vérifiez votre connexion
 	</div>
-{:else if !networkStore.realtimeConnected}
+{:else if networkStore.hasActiveSubscription && !networkStore.realtimeConnected}
 	<div
 		class="text-error-content fixed right-0 bottom-0 z-50 bg-red-100 px-2 py-1 text-xs font-medium"
 	>

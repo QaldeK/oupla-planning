@@ -32,7 +32,11 @@
 	let { occurrence, master, currentUserId, isAdmin, readOnly = false }: ViewProps = $props();
 
 	let showEditModal = $state(false);
-	const token = $derived(isAdmin ? master.adminToken : master.participantToken)!;
+	const token = $derived(
+		isAdmin
+			? (userStore.getAdminToken(master.id) || master.adminToken)
+			: master.participantToken
+	)!;
 	const viewMode = $derived(userStore.preferredOccurrenceView);
 
 	// Logique de confirmation/annulation basées sur le master pour toConfirm
@@ -456,7 +460,7 @@
 	</div>
 {/snippet}
 
-{#if isAdmin}
+{#if isAdmin && showEditModal}
 	<OccurrenceEditModal
 		bind:open={showEditModal}
 		onClose={() => (showEditModal = false)}
@@ -464,7 +468,9 @@
 		{master}
 		{token}
 	/>
+{/if}
 
+{#if isAdmin}
 	<ConfirmModal
 		bind:open={confirmModalState.open}
 		onClose={() => (confirmModalState.open = false)}

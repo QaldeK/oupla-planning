@@ -52,9 +52,7 @@
 
 	let isSubmitting = $state(false);
 
-	const isNetworkUnavailable = $derived(
-		!networkStore.online || !networkStore.pocketbaseReachable || !networkStore.realtimeConnected
-	);
+	const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
 
 	const {
 		startTime: initialStartTime,

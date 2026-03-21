@@ -9,6 +9,7 @@ interface NetworkStatus {
 	online: boolean;
 	pocketbaseReachable: boolean;
 	realtimeConnected: boolean;
+	hasActiveSubscription: boolean; // ✅ Nouveau : vrai si au moins un canal est souscrit
 	lastError: Date | null;
 }
 
@@ -16,6 +17,7 @@ const status = $state<NetworkStatus>({
 	online: browser ? navigator.onLine : true,
 	pocketbaseReachable: true,
 	realtimeConnected: true,
+	hasActiveSubscription: false,
 	lastError: null
 });
 
@@ -23,8 +25,6 @@ const status = $state<NetworkStatus>({
 if (browser) {
 	on(window, 'online', () => {
 		status.online = true;
-		// Ne pas remettre pocketbaseReachable à true —
-		// on attend la confirmation du SDK (onConnect ou polling isConnected)
 	});
 
 	on(window, 'offline', () => {
@@ -38,12 +38,12 @@ if (browser) {
 		console.log('🔴 Realtime déconnecté');
 		status.realtimeConnected = false;
 		status.lastError = new Date();
-		// Le SDK gère la reconnexion automatiquement — on observe seulement
 	};
 
-	// Polling pour détecter la remontée (il n'y a pas de onConnect dans le SDK)
+	// Polling pour détecter la remontée
 	setInterval(() => {
-		if (pb.realtime.isConnected && !status.realtimeConnected) {
+		// On ne poll le realtime que si on a une souscription active
+		if (status.hasActiveSubscription && pb.realtime.isConnected && !status.realtimeConnected) {
 			console.log('🟢 Realtime reconnecté (polling)');
 			status.realtimeConnected = true;
 			status.pocketbaseReachable = true;
@@ -51,10 +51,8 @@ if (browser) {
 
 			// Re-sync après reconnexion
 			if (pb.authStore.record) {
-				// Auth : rafraîchir tous les plannings et occurrences
 				syncService.sync(userStore.savedPlannings);
 			} else if (planningStore.activeMasterId) {
-				// Guest : rafraîchir uniquement le planning actif
 				planningStore.refreshActive();
 			}
 		}
@@ -90,7 +88,26 @@ export const networkStore = {
 	get realtimeConnected() {
 		return status.realtimeConnected;
 	},
+	get hasActiveSubscription() {
+		return status.hasActiveSubscription;
+	},
 	get lastError() {
 		return status.lastError;
+	},
+	/**
+	 * Combine les indicateurs pour savoir si l'édition est possible.
+	 * Si aucune souscription realtime n'est active, on ne bloque pas sur realtimeConnected.
+	 */
+	get isNetworkOk() {
+		return (
+			status.online &&
+			status.pocketbaseReachable &&
+			(!status.hasActiveSubscription || status.realtimeConnected)
+		);
+	},
+	setHasActiveSubscription(value: boolean) {
+		status.hasActiveSubscription = value;
+		// Si on active une souscription, on assume que le realtime est OK au départ
+		if (value) status.realtimeConnected = true;
 	}
 };

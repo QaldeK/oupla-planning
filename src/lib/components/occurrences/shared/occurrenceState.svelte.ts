@@ -79,9 +79,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		]
 	}));
 
-	const isNetworkUnavailable = $derived(
-		!networkStore.online || !networkStore.pocketbaseReachable || !networkStore.realtimeConnected
-	);
+	const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
 
 	$effect(() => {
 		if (currentResponse) {
@@ -104,7 +102,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			return;
 		}
 
-		const token = options.master.participantToken || options.master.adminToken;
+		const token = options.master.participantToken;
 		if (!token) return;
 
 		const response: ParticipantResponse = {

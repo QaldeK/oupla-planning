@@ -48,18 +48,18 @@ routerAdd('POST', '/api/claim-admin', (e) => {
 	}
 
 	adminOf[master.id] = token;
+
+	// ✅ Gérer également masterId pour assurer la synchronisation
+	const masterIdArr = user.get('masterId') || [];
+	const currentMasterIds = new Set(masterIdArr);
+	if (!currentMasterIds.has(master.id)) {
+		currentMasterIds.add(master.id);
+		user.set('masterId', Array.from(currentMasterIds));
+	}
+
 	// Pour écrire : passer la string JSON directement
 	user.set('adminOf', adminOf);
 	e.app.save(user);
-	// e.app
-	// 	.logger()
-	// 	.info(
-	// 		'raw adminOf',
-	// 		'getString',
-	// 		user.getString('adminOf'),
-	// 		'typeof',
-	// 		typeof user.getString('adminOf')
-	// 	);
 });
 
 routerAdd('POST', '/api/sync-plannings', (e) => {

@@ -1,5 +1,5 @@
 import { pb } from '$lib/pocketbase/pb';
-import { withPocketBaseTimeout } from '$lib/stores/networkStore.svelte';
+import { networkStore, withPocketBaseTimeout } from '$lib/stores/networkStore.svelte';
 import { userStore } from '$lib/stores/userStore.svelte';
 
 class RealtimeService {
@@ -62,6 +62,7 @@ class RealtimeService {
 				),
 				8000
 			);
+			networkStore.setHasActiveSubscription(true);
 		} catch (error) {
 			console.error('❌ Realtime: subscribeToMaster failed:', error);
 			throw error;
@@ -92,6 +93,7 @@ class RealtimeService {
 				),
 				8000
 			);
+			networkStore.setHasActiveSubscription(true);
 
 			this.globalUnsubscribes.set('__auth__', async () => {
 				await masterUnsub();
@@ -118,6 +120,7 @@ class RealtimeService {
 		}
 		this.currentMasterId = null;
 		this.currentToken = null;
+		networkStore.setHasActiveSubscription(false);
 	}
 
 	async unsubscribeGlobally(): Promise<void> {
@@ -127,6 +130,7 @@ class RealtimeService {
 			} catch {}
 		}
 		this.globalUnsubscribes.clear();
+		networkStore.setHasActiveSubscription(false);
 	}
 }
 
