@@ -382,8 +382,9 @@ onRecordEnrich(
 
 		const adminToken = e.record.get('adminToken');
 		const authUser = e.requestInfo?.auth;
+		const queryToken = e.requestInfo?.query?._token;
 
-		// Si user authentifié, vérifier s'il est admin sur ce planning
+		// 1. User connecté : vérifier adminOf
 		if (authUser && adminToken) {
 			try {
 				const user = e.app.findRecordById('users', authUser.id);
@@ -396,14 +397,18 @@ onRecordEnrich(
 						adminOf = {};
 					}
 				}
-
-				const isAdmin = adminOf[e.record.id] === adminToken;
-				if (isAdmin) return e.next();
+				if (adminOf[e.record.id] === adminToken) return e.next();
 			} catch (err) {
 				// Non-bloquant
 			}
 		}
 
+		// 2. Token query param (guest realtime) : vérifier si c'est l'adminToken
+		if (queryToken && queryToken === adminToken) {
+			return e.next();
+		}
+
+		// Sinon masquer
 		e.record.hide('adminToken');
 		e.next();
 	},
