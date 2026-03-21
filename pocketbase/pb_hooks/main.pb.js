@@ -67,6 +67,7 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 
 	const body = e.requestInfo().body;
 	const localTokens = body?.tokens || [];
+	const includeOccurrences = body?.includeOccurrences === true;
 
 	const user = $app.findRecordById('users', e.auth.id);
 	const currentMasterIds = new Set(user.get('masterId') || []);
@@ -88,8 +89,8 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 		const newMasters = $app.findAllRecords(
 			'planning_masters',
 			$dbx.or(
-				$dbx.inExp('participantToken', participantTokens),
-				adminTokens.length > 0 ? $dbx.inExp('adminToken', adminTokens) : $dbx.exp('1 = 0')
+				$dbx.in('participantToken', ...participantTokens),
+				adminTokens.length > 0 ? $dbx.in('adminToken', ...adminTokens) : $dbx.exp('1 = 0')
 			)
 		);
 
@@ -112,6 +113,38 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 			? $app.findRecordsByIds('planning_masters', Array.from(currentMasterIds))
 			: [];
 
+	// Si includeOccurrences, récupérer les occurrences pour chaque master
+	let occurrences = {};
+	if (includeOccurrences && currentMasterIds.size > 0) {
+		const allOccurrences = $app.findRecordsByFilter(
+			'planning_occurrences',
+			$dbx.in('master', ...Array.from(currentMasterIds)),
+			'+date'
+		);
+
+		// Grouper les occurrences par masterId
+		for (const occ of allOccurrences) {
+			const masterId = occ.get('master');
+			if (!occurrences[masterId]) {
+				occurrences[masterId] = [];
+			}
+			occurrences[masterId].push({
+				id: occ.id,
+				master: masterId,
+				date: occ.get('date'),
+				startTime: occ.get('startTime'),
+				endTime: occ.get('endTime'),
+				isConfirmed: occ.get('isConfirmed'),
+				isCanceled: occ.get('isCanceled'),
+				tasks: occ.get('tasks'),
+				responses: occ.get('responses'),
+				comments: occ.get('comments'),
+				created: occ.get('created'),
+				updated: occ.get('updated')
+			});
+		}
+	}
+
 	return e.json(200, {
 		success: true,
 		syncedIds: Array.from(currentMasterIds),
@@ -132,7 +165,8 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 			availableResponseTypes: m.get('availableResponseTypes'),
 			created: m.get('created'),
 			updated: m.get('updated')
-		}))
+		})),
+		occurrences: includeOccurrences ? occurrences : undefined
 	});
 });
 

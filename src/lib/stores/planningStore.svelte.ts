@@ -1,5 +1,4 @@
 import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
-import { pb } from '$lib/pocketbase/pb';
 import { getPlanningByToken, getOccurrencesByMaster } from '$lib/services/planningActions';
 import { realtimeService } from '$lib/services/realtime.svelte';
 import { userStore } from '$lib/stores/userStore.svelte';
@@ -86,7 +85,6 @@ class PlanningStore {
 			}
 			// Sauvegarde
 			const identity = userStore.getPlanningIdentity(master.id);
-			const existing = userStore.savedPlannings.find((p) => p.masterId === master.id);
 			await userStore.savePlanning({
 				masterId: master.id,
 				title: master.title!,
@@ -149,17 +147,15 @@ class PlanningStore {
 
 		switch (action) {
 			case 'create':
-				if (!current.find((o) => o.id === occurrence.id)) {
-					this.#occurrences.set(
-						masterId,
-						[...current, occurrence].sort((a, b) => a.date.localeCompare(b.date))
-					);
-				}
-				break;
 			case 'update':
+				// UPSERT : Si existe → update, sinon → create
+				// Toujours garantir l'unicité par ID
 				this.#occurrences.set(
 					masterId,
-					current.map((o) => (o.id === occurrence.id ? occurrence : o))
+					[
+						...current.filter((o) => o.id !== occurrence.id), // Supprimer l'ancienne version si existe
+						occurrence // Ajouter la nouvelle version
+					].sort((a, b) => a.date.localeCompare(b.date)) // Garder le tri
 				);
 				break;
 			case 'delete':
@@ -183,51 +179,14 @@ class PlanningStore {
 		this.#occurrences.set(this.#activeMasterId, occs);
 	}
 
-	async fetchAllOccurrences(): Promise<void> {
-		if (!pb.authStore.record) return;
-
-		// Source 1 : masterId depuis PB (référence)
-		const pbMasterIds: string[] = (pb.authStore.record as any).masterId || [];
-
-		// Source 2 : localStorage (pour les tokens)
-		const localPlannings = userStore.savedPlannings;
-
-		// Merge : PB dicte QUELS plannings, localStorage fournit LES TOKENS
-		const planningsToFetch = pbMasterIds.map((masterId) => {
-			const local = localPlannings.find((p) => p.masterId === masterId);
-			return {
-				masterId,
-				token: local?.adminToken ?? local?.participantToken ?? null
-			};
-		});
-
-		// Ajouter les plannings locaux pas encore dans PB (sync en attente)
-		for (const local of localPlannings) {
-			if (!pbMasterIds.includes(local.masterId)) {
-				planningsToFetch.push({
-					masterId: local.masterId,
-					token: local.adminToken ?? local.participantToken ?? null
-				});
-			}
+	/**
+	 * Stocker les occurrences retournées par l'API sync
+	 * Utilisé lors de la synchronisation initiale et de la reconnexion réseau
+	 */
+	setOccurrencesForMasters(occurrencesMap: Record<string, PlanningOccurrence[]>): void {
+		for (const [masterId, occs] of Object.entries(occurrencesMap)) {
+			this.#occurrences.set(masterId, occs);
 		}
-
-		await Promise.allSettled(
-			planningsToFetch
-				.filter((p) => !!p.masterId && !!p.token)
-				.map(async ({ masterId, token }) => {
-					try {
-						const occs = await getOccurrencesByMaster(masterId, token!, { dateFilter: 'future' });
-						this.#occurrences.set(masterId, occs);
-
-						if (!this.#masters.has(masterId)) {
-							const master = await this.getOrFetchMaster(token!);
-							if (master) this.#masters.set(masterId, master);
-						}
-					} catch (err) {
-						console.warn(`fetchAllOccurrences: failed for ${masterId}`, err);
-					}
-				})
-		);
 	}
 
 	// --- Cache ---

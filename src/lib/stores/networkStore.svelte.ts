@@ -2,6 +2,8 @@ import { on } from 'svelte/events';
 import { browser } from '$app/environment';
 import { pb } from '$lib/pocketbase/pb';
 import { planningStore } from './planningStore.svelte';
+import { syncService } from '$lib/services/syncService';
+import { userStore } from '$lib/stores/userStore.svelte';
 
 interface NetworkStatus {
 	online: boolean;
@@ -47,10 +49,10 @@ if (browser) {
 			status.pocketbaseReachable = true;
 			status.lastError = null;
 
-			// Re-fetch après reconnexion
+			// Re-sync après reconnexion
 			if (pb.authStore.record) {
-				// Auth : rafraîchir toutes les occurrences
-				planningStore.fetchAllOccurrences();
+				// Auth : rafraîchir tous les plannings et occurrences
+				syncService.sync(userStore.savedPlannings);
 			} else if (planningStore.activeMasterId) {
 				// Guest : rafraîchir uniquement le planning actif
 				planningStore.refreshActive();

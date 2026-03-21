@@ -1,11 +1,13 @@
 import { pb } from '$lib/pocketbase/pb';
 import { userStore } from '$lib/stores/userStore.svelte';
-import type { SavedPlanning, PlanningMaster } from '$lib/types/planning.types';
+import { planningStore } from '$lib/stores/planningStore.svelte';
+import type { SavedPlanning, PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
 
 interface SyncResponse {
 	success: boolean;
 	syncedIds: string[];
 	masters: PlanningMaster[];
+	occurrences?: Record<string, PlanningOccurrence[]>;
 }
 
 class SyncService {
@@ -38,11 +40,16 @@ class SyncService {
 
 		const response = (await pb.send('/api/sync-plannings', {
 			method: 'POST',
-			body: { tokens }
+			body: { tokens, includeOccurrences: true }
 		})) as SyncResponse;
 
 		// Upsert les masters reçus dans le localStorage
 		this.upsertMasters(response.masters);
+
+		// Stocker les occurrences dans planningStore
+		if (response.occurrences) {
+			planningStore.setOccurrencesForMasters(response.occurrences);
+		}
 
 		// Marquer tous les plannings comme synchronisés
 		this.markAllAsSynced();

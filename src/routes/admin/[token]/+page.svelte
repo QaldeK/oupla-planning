@@ -16,8 +16,6 @@
 	let isLoading = $derived(planningStore.isLoading);
 	let isSubmitting = $state(false);
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-
 	onMount(async () => {
 		token = $page.params.token as string;
 		const result = await planningStore.init(token);

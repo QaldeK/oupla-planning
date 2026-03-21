@@ -67,13 +67,12 @@
 		syncService
 			.sync(userStore.savedPlannings)
 			.then(() => {
-				planningStore.fetchAllOccurrences();
 				realtimeService.subscribeGlobally();
 			})
 			.catch((err) => {
 				console.error('Layout sync failed:', err);
-				// Reset le flag en cas d'erreur pour permettre une nouvelle tentative
-				userStore.hasSyncedThisSession = false;
+				// Ne PAS reset le flag ici pour éviter la boucle infinie
+				// L'utilisateur pourra réessayer en rechargeant la page
 			});
 	});
 
