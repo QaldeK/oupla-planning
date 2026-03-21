@@ -185,6 +185,7 @@
 				occurrence
 			);
 			occurrence = updated;
+			planningStore.updateOccurrenceLocally(updated);
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);
@@ -246,6 +247,7 @@
 				occurrence
 			);
 			occurrence = updated;
+			planningStore.updateOccurrenceLocally(updated);
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);
@@ -312,6 +314,7 @@
 				occurrence
 			);
 			occurrence = updated;
+			planningStore.updateOccurrenceLocally(updated);
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);
@@ -355,6 +358,7 @@
 
 			// Mise à jour manuelle du store pour garantir la réactivité immédiate
 			occurrence = updated;
+			planningStore.updateOccurrenceLocally(updated);
 
 			toast.success('Occurrence mise à jour');
 			onClose();

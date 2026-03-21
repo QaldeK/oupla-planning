@@ -245,6 +245,18 @@ class PlanningStore {
 		if (this.#activeMasterId) this.#occurrences.set(this.#activeMasterId, occs);
 	}
 
+	updateOccurrenceLocally(occurrence: PlanningOccurrence) {
+		if (!this.#activeMasterId) return;
+		const current = this.#occurrences.get(this.#activeMasterId) ?? [];
+		this.#occurrences.set(
+			this.#activeMasterId,
+			[
+				...current.filter((o) => o.id !== occurrence.id),
+				occurrence
+			].sort((a, b) => a.date.localeCompare(b.date))
+		);
+	}
+
 	updateParticipants(participants: PlanningMaster['participants']) {
 		if (!this.#activeMasterId) return;
 		const master = this.#masters.get(this.#activeMasterId);

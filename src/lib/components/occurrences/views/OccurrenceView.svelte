@@ -33,9 +33,7 @@
 
 	let showEditModal = $state(false);
 	const token = $derived(
-		isAdmin
-			? (userStore.getAdminToken(master.id) || master.adminToken)
-			: master.participantToken
+		isAdmin ? userStore.getAdminToken(master.id) || master.adminToken : master.participantToken
 	)!;
 	const viewMode = $derived(userStore.preferredOccurrenceView);
 
@@ -92,6 +90,7 @@
 				token,
 				occurrence
 			);
+			planningStore.updateOccurrenceLocally(updated);
 			toast.success(updated.isConfirmed ? 'Événement confirmé' : 'Confirmation annulée');
 		} catch (error) {
 			toast.error('Erreur lors de la confirmation');
@@ -107,6 +106,7 @@
 				token,
 				occurrence
 			);
+			planningStore.updateOccurrenceLocally(updated);
 			toast.success('Événement rétabli');
 		} catch (error) {
 			toast.error('Erreur lors du rétablissement');
@@ -255,9 +255,9 @@
 
 					<!-- Place -->
 					{#if occState.inherited.place}
-						<div class="flex items-center gap-1 opacity-70">
+						<div class="flex items-center gap-1">
 							<MapPin size={14} />
-							<span class="max-w-[150px] truncate">{occState.inherited.place}</span>
+							<span class="max-w-36 truncate font-semibold">{occState.inherited.place}</span>
 						</div>
 					{/if}
 				</div>

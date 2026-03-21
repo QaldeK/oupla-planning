@@ -2,6 +2,7 @@ import { toast } from 'svelte-sonner';
 import { submitResponse } from '$lib/services/planningActions';
 import { classifyError } from '$lib/utils/errorHandler';
 import { networkStore } from '$lib/stores/networkStore.svelte';
+import { planningStore } from '$lib/stores/planningStore.svelte';
 import type {
 	PlanningOccurrence,
 	PlanningMaster,
@@ -114,13 +115,16 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 
 		isSubmitting = true;
 		try {
-			await submitResponse(
+			const updated = await submitResponse(
 				options.occurrence.id,
 				options.currentUserId,
 				response,
 				token,
 				options.occurrence
 			);
+			if (updated) {
+				planningStore.updateOccurrenceLocally(updated);
+			}
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);
