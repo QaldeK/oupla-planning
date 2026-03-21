@@ -344,6 +344,30 @@ onRecordUpdateRequest((e) => {
 }, 'planning_masters');
 
 // ============================================
+// CHECK IF PARTICIPANT HAS ACCOUNT
+// ============================================
+
+/**
+ * Vérifie si un participant a un compte utilisateur
+ * Accessible à tous (anonymes et connectés)
+ * Utilisé pour l'identification dans IdentifyModal
+ */
+routerAdd('GET', '/api/has-account/{id}', (e) => {
+	const participantId = e.request.pathValue('id');
+
+	if (!participantId) {
+		return e.json(400, { error: 'Missing participant id' });
+	}
+
+	try {
+		e.app.findRecordById('users', participantId);
+		return e.json(200, { hasAccount: true });
+	} catch (err) {
+		return e.json(200, { hasAccount: false });
+	}
+});
+
+// ============================================
 // RECORD ENRICH - Masquer les tokens
 // ============================================
 

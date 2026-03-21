@@ -31,6 +31,7 @@
 	import { toast } from 'svelte-sonner';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { goto } from '$app/navigation';
+	import Dice_4 from 'lucide-svelte/icons/dice-4';
 
 	let token = $derived($page.params.token as string);
 	let master = $derived(planningStore.master);
@@ -388,7 +389,7 @@
 				<div class="card-body">
 					<div class="flex flex-wrap items-start gap-4">
 						<!-- Identification (en premier) -->
-						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
+						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-center gap-2">
 							<User size={18} class="text-primary/70 mt-0.5 shrink-0" />
 							<div class="min-w-0 flex-1">
 								{#if !currentIdentity}
@@ -400,22 +401,23 @@
 										S'identifier
 									</button>
 								{:else}
-									<p class="text-sm font-medium">{currentIdentity.name}</p>
-									<p class="text-base-content/60 text-xs">Identifié sur ce planning</p>
-									<button
-										class="btn btn-ghost btn-xs mt-1"
-										onclick={() => {
-											userStore.authModal = {
-												open: true,
-												mode: 'planning',
-												masterId: master.id,
-												existingParticipants: master.participants,
-												onPlanningIdentify: handlePlanningIdentify
-											};
-										}}
-									>
-										Changer
-									</button>
+									<div class="flex flex-wrap items-center gap-4">
+										<div class="text-sm font-medium">{currentIdentity.name}</div>
+										<button
+											class="btn btn-link btn-sm btn-primary"
+											onclick={() => {
+												userStore.authModal = {
+													open: true,
+													mode: 'planning',
+													masterId: master.id,
+													existingParticipants: master.participants,
+													onPlanningIdentify: handlePlanningIdentify
+												};
+											}}
+										>
+											Changer de nom pour ce planning
+										</button>
+									</div>
 								{/if}
 							</div>
 						</div>
@@ -431,11 +433,11 @@
 										: 'Connectez-vous pour recevoir des alertes'}
 								</p>
 								<button
-									class="btn btn-ghost btn-xs"
+									class="btn btn-link btn-primary btn-sm"
 									onclick={() =>
 										userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
 								>
-									Configurer
+									Configurer les notifications
 								</button>
 							</div>
 						</div>

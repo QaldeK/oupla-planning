@@ -1,5 +1,4 @@
 <script lang="ts">
-	import '../app.css';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';

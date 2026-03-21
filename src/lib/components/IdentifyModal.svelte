@@ -53,6 +53,8 @@
 
 	let requireLoginFor = $state<Participant | null>(null);
 	let inlineAuthMode = $state<'register' | 'login'>('register');
+	let networkError = $state(false);
+	let retryingParticipant = $state<Participant | null>(null);
 
 	// Focus auto à l'ouverture
 	$effect(() => {
@@ -134,6 +136,8 @@
 	$effect(() => {
 		if (open) {
 			requireLoginFor = null;
+			networkError = false;
+			retryingParticipant = null;
 			const planningId = userStore.authModal.masterId;
 			const specificIdentity = planningId ? userStore.getPlanningIdentity(planningId) : null;
 
@@ -189,17 +193,35 @@
 		}
 	}
 
-	async function attemptIdentifyAs(participant: Participant) {
-		// Vérification compte PB existant
+	async function attemptIdentifyAs(participant: Participant, retryCount = 0) {
+		const RETRY_DELAYS = [300, 600, 1000];
+		const MAX_RETRIES = RETRY_DELAYS.length;
+
 		isSubmitting = true;
+		networkError = false;
+		retryingParticipant = participant;
+
 		try {
-			await pb.collection('users').getOne(participant.id, { requestKey: null });
-			// Le compte existe -> exiger la connexion
-			requireLoginFor = participant;
-			isSubmitting = false;
+			const res = await pb.send(`/api/has-account/${participant.id}`, {});
+			if (res.hasAccount) {
+				// Le participant a un compte -> exiger la connexion
+				requireLoginFor = participant;
+				isSubmitting = false;
+				retryingParticipant = null;
+			} else {
+				// Pas de compte -> identification directe
+				await identifyAs(participant);
+			}
 		} catch (err) {
-			// Pas de compte -> on passe direct
-			await identifyAs(participant);
+			if (retryCount < MAX_RETRIES) {
+				// Retry automatique avec délai progressif
+				await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[retryCount]));
+				return attemptIdentifyAs(participant, retryCount + 1);
+			} else {
+				// Échec après tous les retries -> afficher erreur
+				networkError = true;
+				isSubmitting = false;
+			}
 		}
 	}
 
@@ -293,11 +315,7 @@
 						L'identité de <strong>{requireLoginFor.name}</strong> est protégée par un compte.
 					</div>
 				</div>
-				<AuthForm
-					mode="login"
-					showNameInput={false}
-					onSuccess={() => identifyAs(requireLoginFor!)}
-				/>
+				<AuthForm mode="login" showNameInput={false} onSuccess={() => onClose()} />
 				<div class="text-center">
 					<button
 						type="button"
@@ -419,6 +437,23 @@
 					</div>
 				{/if}
 
+				<!-- Erreur réseau -->
+				{#if networkError && retryingParticipant}
+					<div class="alert alert-error alert-soft alert-vertical" transition:slide>
+						<div class="text-sm">
+							<CircleAlert size={20} class="me-2 inline shrink-0" />
+							Impossible de vérifier l'identité. Vérifiez votre connexion.
+						</div>
+						<button
+							type="button"
+							class="btn btn-error btn-sm"
+							onclick={() => attemptIdentifyAs(retryingParticipant!)}
+						>
+							Réessayer
+						</button>
+					</div>
+				{/if}
+
 				{#if (!isTauri || !userStore.isLoggedIn) && (mode === 'planning' || mode === 'homepage')}
 					<!-- Toggle "Mémoriser sur cet appareil" -->
 					<div class=" card card-xs {globalPersist ? 'bg-success/10' : 'bg-warning/10'}">
@@ -475,7 +510,7 @@
 						<InfoIcon size={20} class="inline shrink-0 " />
 						Créez un compte pour recevoir des notifications par email (et push sur mobile).
 					</div>
-					<div class="mt-1 flex justify-end">
+					<div class="mt-1 flex justify-center">
 						<button
 							type="button"
 							class="btn btn-link btn-sm text-info h-auto min-h-0 p-0 font-bold no-underline hover:underline"
