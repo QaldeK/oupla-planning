@@ -10,6 +10,7 @@
 	import type { PlanningIdentity } from '$lib/types/planning.types';
 	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
+	import PlanningNameModal from '$lib/components/PlanningNameModal.svelte';
 	import { pb } from '$lib/pocketbase/pb';
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { formatDateShort } from '$lib/utils/date';
@@ -41,6 +42,7 @@
 	let showShareModal = $state(false);
 	let showNotifModal = $state(false);
 	let showAccountModal = $state(false);
+	let showPlanningNameModal = $state(false);
 
 	// Initialisation via le store
 	$effect(() => {
@@ -104,14 +106,9 @@
 					true // nouveau participant
 				);
 			} else {
-				// Conflit de nom même pour un user auth → ouvrir le modal
-				userStore.authModal = {
-					open: true,
-					mode: 'conflict',
-					masterId: master.id,
-					existingParticipants: master.participants,
-					onPlanningIdentify: handlePlanningIdentify
-				};
+				// Conflit de nom pour un user auth → ouvrir PlanningNameModal
+				// L'utilisateur peut choisir un nom différent pour ce planning
+				showPlanningNameModal = true;
 			}
 			return;
 		}
@@ -136,17 +133,21 @@
 			return;
 		}
 
-		// CAS 4 : Première visite — détecter conflit de nom et ouvrir modal
-		const hasConflict = master.participants.some(
-			(p) => p.name.toLowerCase() === defaultName.toLowerCase() && p.id !== globalId
-		);
-
+		// CAS 4 : Première visite — ouvrir IdentifyModal pour créer le profil global
+		// Le mode 'homepage' permettra de créer le profil global
+		// Les conflits de nom seront gérés via NameConflictHandler si des participants existent
 		userStore.authModal = {
 			open: true,
-			mode: hasConflict ? 'conflict' : 'planning',
-			masterId: master.id,
+			mode: 'homepage',
 			existingParticipants: master.participants,
-			onPlanningIdentify: handlePlanningIdentify
+			onGlobalProfileCreate: async (name, email, persist) => {
+				await userStore.createGlobalProfile(name, email, persist);
+				// Après création du profil, identifier sur le planning
+				handlePlanningIdentify(
+					{ id: userStore.globalProfile!.id, name, email },
+					true // nouveau participant
+				);
+			}
 		};
 	});
 
@@ -390,7 +391,6 @@
 					<div class="flex flex-wrap items-start gap-4">
 						<!-- Identification (en premier) -->
 						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-center gap-2">
-							<User size={18} class="text-primary/70 mt-0.5 shrink-0" />
 							<div class="min-w-0 flex-1">
 								{#if !currentIdentity}
 									<p class="text-sm font-medium">Non identifié</p>
@@ -402,18 +402,12 @@
 									</button>
 								{:else}
 									<div class="flex flex-wrap items-center gap-4">
-										<div class="text-sm font-medium">{currentIdentity.name}</div>
+										<div class="badge badge-primary badge-outline text-sm font-medium">
+											<User size={18} class="text-primary shrink-0" />{currentIdentity.name}
+										</div>
 										<button
-											class="btn btn-link btn-sm btn-primary"
-											onclick={() => {
-												userStore.authModal = {
-													open: true,
-													mode: 'planning',
-													masterId: master.id,
-													existingParticipants: master.participants,
-													onPlanningIdentify: handlePlanningIdentify
-												};
-											}}
+											class="link link-primary text-sm font-semibold"
+											onclick={() => (showPlanningNameModal = true)}
 										>
 											Changer de nom pour ce planning
 										</button>
@@ -422,23 +416,24 @@
 							</div>
 						</div>
 
-						<!-- Notifications (en second) -->
+						<!-- Notifications  -->
 						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
 							<Bell size={18} class="text-info/70 mt-0.5 shrink-0" />
 							<div class="min-w-0 flex-1">
-								<p class="text-sm font-medium">Notifications</p>
+								<div class="flex flex-wrap items-center gap-2">
+									<div class="text-sm font-medium">Notifications :</div>
+									<button
+										class="link link-primary text-sm font-semibold"
+										onclick={() =>
+											userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
+									>
+										Configurer
+									</button>
+								</div>
 								<p class="text-base-content/60 mb-2 text-xs">
-									{userStore.isLoggedIn
-										? 'Configurez vos préférences'
-										: 'Connectez-vous pour recevoir des alertes'}
+									{!userStore.isLoggedIn &&
+										"Un compte est requis pour recevoir des alertes email ou notifications push sur mobile (rappel de vos inscription, alerte annulation, nombre d'inscrit insuffisant, nouveaux messages)"}
 								</p>
-								<button
-									class="btn btn-link btn-primary btn-sm"
-									onclick={() =>
-										userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
-								>
-									Configurer les notifications
-								</button>
 							</div>
 						</div>
 					</div>
@@ -549,4 +544,17 @@
 		showNotifModal = true;
 	}}
 	defaultMode="register"
+/>
+
+<PlanningNameModal
+	bind:open={showPlanningNameModal}
+	onClose={() => (showPlanningNameModal = false)}
+	masterId={master?.id ?? ''}
+	existingParticipants={master?.participants ?? []}
+	currentIdentity={currentIdentity ?? {
+		id: userStore.globalProfile?.id ?? '',
+		name: userStore.globalProfile?.defaultName ?? '',
+		email: userStore.globalProfile?.defaultEmail
+	}}
+	onPlanningIdentify={handlePlanningIdentify}
 />

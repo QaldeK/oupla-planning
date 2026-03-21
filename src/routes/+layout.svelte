@@ -1,32 +1,21 @@
 <script lang="ts">
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { drawerStore } from '$lib/stores/drawerStore.svelte';
-	import { pwaStore } from '$lib/stores/pwaStore.svelte';
-	import { onMount } from 'svelte';
-	import { Toaster, toast } from 'svelte-sonner';
-	import {
-		Menu,
-		Calendar,
-		Sun,
-		Moon,
-		CalendarPlus,
-		Github,
-		User,
-		LogOut,
-		Download
-	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
+	import AccountModal from '$lib/components/auth/AccountModal.svelte';
+	import CommentSection from '$lib/components/CommentSection.svelte';
 	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
 	import MobileHeader from '$lib/components/MobileHeader.svelte';
-	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
-	import { Drawer, DrawerOverlay, DrawerContent, DrawerHandle } from '@abhivarde/svelte-drawer';
-	import CommentSection from '$lib/components/CommentSection.svelte';
 	import NetworkIndicator from '$lib/components/NetworkIndicator.svelte';
+	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import { realtimeService } from '$lib/services/realtime.svelte';
 	import { syncService } from '$lib/services/syncService';
-	import { page } from '$app/state';
-	import AccountModal from '$lib/components/auth/AccountModal.svelte';
+	import { drawerStore } from '$lib/stores/drawerStore.svelte';
+	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
+	import { pwaStore } from '$lib/stores/pwaStore.svelte';
+	import { userStore } from '$lib/stores/userStore.svelte';
+	import { Drawer, DrawerContent, DrawerHandle, DrawerOverlay } from '@abhivarde/svelte-drawer';
+	import { CalendarPlus, Download, Github, LogOut, Menu, Moon, Sun, User } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { Toaster, toast } from 'svelte-sonner';
 
 	let { children } = $props();
 
@@ -35,7 +24,6 @@
 	let showConfirmClearPlannings = $state(false);
 	let showClearDataConfirm = $state(false);
 	let showAccountModal = $state(false);
-	let showNotifModal = $state(false);
 
 	onMount(() => {
 		userStore.init();
@@ -217,20 +205,39 @@
 				{#if userStore.globalProfile}
 					<div class="flex gap-2">
 						<!-- Bouton profil global -->
-						<button
-							class="btn btn-accent flex flex-1 items-center justify-start gap-2 text-left"
-							onclick={() => (userStore.authModal = { open: true, mode: 'edit-global' })}
-						>
-							<User class="size-5 opacity-70" />
-							<div class="flex flex-col items-start py-0.5 text-left">
-								<div class="text-sm font-medium">{userStore.globalProfile.defaultName}</div>
-								{#if userStore.globalProfile.defaultEmail}
-									<div class="text-base-content/60 text-xs">
-										{userStore.globalProfile.defaultEmail}
-									</div>
-								{/if}
-							</div>
-						</button>
+						{#if userStore.isLoggedIn}
+							<!-- User authentifié → lien vers /settings -->
+							<a
+								href="/settings"
+								class="btn btn-accent flex flex-1 items-center justify-start gap-2 text-left"
+							>
+								<User class="size-5 opacity-70" />
+								<div class="flex flex-col items-start py-0.5 text-left">
+									<div class="text-sm font-medium">{userStore.globalProfile.defaultName}</div>
+									{#if userStore.globalProfile.defaultEmail}
+										<div class="text-base-content/60 text-xs">
+											{userStore.globalProfile.defaultEmail}
+										</div>
+									{/if}
+								</div>
+							</a>
+						{:else}
+							<!-- Guest → ouvre IdentifyModal pour modifier le profil local -->
+							<button
+								class="btn btn-accent flex flex-1 items-center justify-start gap-2 text-left"
+								onclick={() => (userStore.authModal = { open: true, mode: 'edit-global' })}
+							>
+								<User class="size-5 opacity-70" />
+								<div class="flex flex-col items-start py-0.5 text-left">
+									<div class="text-sm font-medium">{userStore.globalProfile.defaultName}</div>
+									{#if userStore.globalProfile.defaultEmail}
+										<div class="text-base-content/60 text-xs">
+											{userStore.globalProfile.defaultEmail}
+										</div>
+									{/if}
+								</div>
+							</button>
+						{/if}
 
 						<!-- Bouton déconnexion (si connecté ET persist) -->
 						{#if userStore.isLoggedIn && userStore.globalProfile.persist}
@@ -278,12 +285,6 @@
 	onClose={() => (userStore.authModal = { ...userStore.authModal, open: false })}
 	onGlobalProfileCreate={handleGlobalProfileCreate}
 	onGlobalProfileUpdate={handleGlobalProfileUpdate}
-	onPlanningIdentify={async (identity, isNewParticipant) => {
-		// Appeler le handler enregistré par la page participant
-		if (userStore.authModal.onPlanningIdentify) {
-			await userStore.authModal.onPlanningIdentify(identity, isNewParticipant);
-		}
-	}}
 />
 
 <ConfirmModal

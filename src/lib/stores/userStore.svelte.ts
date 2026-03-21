@@ -19,10 +19,10 @@ export const BACKUP_KEY = 'backupUser-single';
 
 interface AuthModalState {
 	open: boolean;
-	mode: 'homepage' | 'planning' | 'conflict' | 'edit-global';
+	mode: 'homepage' | 'edit-global';
 	masterId?: string;
 	existingParticipants?: Participant[];
-	onPlanningIdentify?: (identity: PlanningIdentity, isNewParticipant: boolean) => Promise<void>;
+	onGlobalProfileCreate?: (name: string, email?: string, persist?: boolean) => Promise<void>;
 }
 
 export interface BackupProfile {
