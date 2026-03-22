@@ -151,36 +151,38 @@
 				</p>
 
 				<form onsubmit={(e) => e.preventDefault()} class="space-y-4">
-					<fieldset>
-						<label class="label">
-							<span class="label-text flex items-center gap-2">
+					<fieldset class="fieldset">
+						<label class="input w-full">
+							<span class="label">
 								<User size={16} />
 								Nom d'affichage
 							</span>
+							<input
+								type="text"
+								class=" w-full"
+								bind:value={name}
+								placeholder="Votre nom"
+								disabled={isSaving}
+							/>
 						</label>
-						<input
-							type="text"
-							class="input input-bordered w-full"
-							bind:value={name}
-							placeholder="Votre nom"
-							disabled={isSaving}
-						/>
+
+						<p class="label ms-auto text-xs">Sera pris en compte pour les nouveau planning.</p>
 					</fieldset>
 
-					<fieldset>
-						<label class="label">
-							<span class="label-text flex items-center gap-2">
+					<fieldset class="fieldset">
+						<label class="input w-full">
+							<span class="label">
 								<Mail size={16} />
 								Email
 							</span>
+							<input
+								type="email"
+								class="w-full"
+								bind:value={email}
+								placeholder="votre@email.com"
+								disabled={isSaving}
+							/>
 						</label>
-						<input
-							type="email"
-							class="input input-bordered w-full"
-							bind:value={email}
-							placeholder="votre@email.com"
-							disabled={isSaving}
-						/>
 					</fieldset>
 
 					<div class="card-actions mt-6 justify-end">
