@@ -105,6 +105,14 @@ export interface PlanningMaster {
 // === View Types ===
 
 export type ViewType = 'card' | 'compact';
+export type ThemeType = 'my' | 'nord-dark';
+
+// === App Preferences ===
+
+export interface AppPreferences {
+	theme: ThemeType;
+	occurrenceView: ViewType;
+}
 
 // === LocalStorage ===
 

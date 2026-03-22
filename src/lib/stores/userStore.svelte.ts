@@ -3,7 +3,9 @@ import type {
 	SavedPlanning,
 	PlanningIdentity,
 	Participant,
-	ViewType
+	ViewType,
+	ThemeType,
+	AppPreferences
 } from '$lib/types/planning.types';
 import type { PlanningMastersRecord } from '$lib/types/pocketbase-types';
 import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
@@ -14,7 +16,7 @@ import { goto } from '$app/navigation';
 
 const STORAGE_KEY = 'planning_global_profile';
 const PLANNINGS_KEY = 'planning_saved';
-const VIEW_PREF_KEY = 'occurrence_view_pref';
+const APP_PREFS_KEY = 'app_preferences';
 export const BACKUP_KEY = 'backupUser-single';
 
 interface AuthModalState {
@@ -36,7 +38,10 @@ class UserStore {
 	globalProfile = $state<GlobalUserProfile | null>(null);
 	savedPlannings = $state<SavedPlanning[]>([]); // Liste unifiée
 	authModal = $state<AuthModalState>({ open: false, mode: 'homepage' });
-	preferredOccurrenceView = $state<ViewType>('compact');
+	appPreferences = $state<AppPreferences>({
+		theme: 'my',
+		occurrenceView: 'compact'
+	});
 	isReady = $state(false);
 	isLoggedIn = $state();
 	hasSyncedThisSession = $state(false); // NOUVEAU : évite les appels multiples au sync
@@ -62,14 +67,16 @@ class UserStore {
 		this.savedPlannings =
 			(await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist })) || [];
 
-		// 3. Préférence de vue
-		if (mediaQuery.isMobile) {
-			this.preferredOccurrenceView = 'compact';
+		// 3. Préférences de l'application (thème, vue)
+		const savedPrefs = await storage.getItem<AppPreferences>(APP_PREFS_KEY);
+		if (savedPrefs) {
+			this.appPreferences = {
+				theme: savedPrefs.theme || 'my',
+				occurrenceView: mediaQuery.isMobile ? 'compact' : savedPrefs.occurrenceView || 'compact'
+			};
 		} else {
-			const viewPref = await storage.getItem<string>(VIEW_PREF_KEY);
-			if (viewPref && ['card', 'compact'].includes(viewPref)) {
-				this.preferredOccurrenceView = viewPref as ViewType;
-			}
+			// Valeurs par défaut
+			this.appPreferences.occurrenceView = mediaQuery.isMobile ? 'compact' : 'compact';
 		}
 
 		this.isReady = true;
@@ -82,8 +89,17 @@ class UserStore {
 	}
 
 	async setOccurrenceView(view: ViewType) {
-		this.preferredOccurrenceView = view;
-		await storage.setItem(VIEW_PREF_KEY, view, { persist: true });
+		this.appPreferences.occurrenceView = view;
+		await this.saveAppPreferences();
+	}
+
+	async setTheme(theme: ThemeType) {
+		this.appPreferences.theme = theme;
+		await this.saveAppPreferences();
+	}
+
+	private async saveAppPreferences() {
+		await storage.setItem(APP_PREFS_KEY, this.appPreferences, { persist: true });
 	}
 
 	// === Gestion du profil global ===
@@ -309,10 +325,10 @@ class UserStore {
 		// Supprimer TOUTES les données locales
 		this.globalProfile = null;
 		this.savedPlannings = [];
-		this.preferredOccurrenceView = 'compact';
+		this.appPreferences = { theme: 'my', occurrenceView: 'compact' };
 		await storage.removeItem(STORAGE_KEY); // planning_global_profile
 		await storage.removeItem(PLANNINGS_KEY); // planning_saved
-		await storage.removeItem(VIEW_PREF_KEY); // occurrence_view_pref
+		await storage.removeItem(APP_PREFS_KEY); // app_preferences
 		await storage.removeItem(BACKUP_KEY); // backupUser-single
 
 		// Clear planningStore cache

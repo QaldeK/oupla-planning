@@ -4,7 +4,7 @@
 	import { LayoutGrid, List } from 'lucide-svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 
-	const activeView = $derived(userStore.preferredOccurrenceView);
+	const activeView = $derived(userStore.appPreferences.occurrenceView);
 
 	function setView(view: ViewType) {
 		userStore.setOccurrenceView(view);

@@ -42,7 +42,7 @@
 	const token = $derived(
 		isAdmin ? userStore.getAdminToken(master.id) || master.adminToken : master.participantToken
 	)!;
-	const viewMode = $derived(userStore.preferredOccurrenceView);
+	const viewMode = $derived(userStore.appPreferences.occurrenceView);
 
 	// Logique de confirmation/annulation basées sur le master pour toConfirm
 	const toConfirm = $derived(master.toConfirm ?? false);
