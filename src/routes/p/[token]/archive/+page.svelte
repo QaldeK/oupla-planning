@@ -5,6 +5,7 @@
 	import { Calendar, ArrowLeft, History, Info } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import OccurrenceView from '$lib/components/occurrences/views/OccurrenceView.svelte';
+	import { ArchiveSkeleton } from '$lib/components/ui/skeletons';
 
 	const token = page.params.token;
 
@@ -71,10 +72,7 @@
 		</div>
 
 		{#if isLoading}
-			<div class="flex flex-col items-center justify-center gap-4 py-20">
-				<span class="loading loading-spinner loading-lg text-primary"></span>
-				<p class="text-base-content/50 animate-pulse">Chargement de l'historique...</p>
-			</div>
+			<ArchiveSkeleton />
 		{:else if occurrences.length === 0}
 			<div class="card bg-base-100 border-base-200 border shadow-xl">
 				<div class="card-body items-center py-16 text-center">

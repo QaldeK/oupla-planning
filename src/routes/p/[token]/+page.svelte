@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import CopyLinksButtons from '$lib/components/CopyLinksButtons.svelte';
+	import { PlanningSkeleton } from '$lib/components/ui/skeletons';
 	import { OccurrenceView } from '$lib/components/occurrences/index';
 	import ViewTabs from '$lib/components/occurrences/ViewTabs.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
@@ -329,9 +330,7 @@
 </svelte:head>
 
 {#if isLoading}
-	<div class="flex min-h-[50vh] items-center justify-center">
-		<span class="loading loading-spinner loading-lg"></span>
-	</div>
+	<PlanningSkeleton />
 {:else if master}
 	<div class="mx-auto max-w-6xl md:px-4 md:py-8">
 		<!-- En-tête -->
@@ -359,7 +358,7 @@
 
 				<div class="ms-auto flex items-center gap-3">
 					{#if isAdmin}
-						<div class="tabs tabs-lg tabs-boxed bg-base-200 font-semibold">
+						<div class="tabs sm:tabs-lg tabs-boxed bg-base-200 font-semibold">
 							<button class="tab tab-active gap-2">
 								<ListFilter size={18} />
 								Planning
@@ -494,6 +493,7 @@
 					</div>
 				</div>
 			{:else}
+				<!-- TODO : ajout du bouton configurer + 2 btn partager (public et admin) → plus de drawer, mais la gestion du partage mobile si possible -->
 				<div class="ms-auto mt-4 flex justify-end">
 					<button class="btn btn-primary" onclick={() => (showShareModal = true)}>
 						<Share2 size={18} />

@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import PlanningForm, { type PlanningFormData } from '$lib/components/PlanningForm.svelte';
+	import { AdminSkeleton } from '$lib/components/ui/skeletons';
 	import { updatePlanningWithOccurrences } from '$lib/services/planningActions';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
@@ -76,9 +77,7 @@
 </svelte:head>
 
 {#if isLoading}
-	<div class="flex min-h-[50vh] items-center justify-center">
-		<span class="loading loading-spinner loading-lg text-primary"></span>
-	</div>
+	<AdminSkeleton />
 {:else if master}
 	<div class="mx-auto max-w-6xl py-2 md:px-4 md:py-8">
 		<div class="mb-4 flex justify-start">
