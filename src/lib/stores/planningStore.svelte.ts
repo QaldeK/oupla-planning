@@ -122,10 +122,13 @@ class PlanningStore {
 		if (!this.#masters.has(record.id) && action !== 'create') return;
 
 		if (action === 'update') {
+			// Dédoublonner les participants par ID
+			const participants = record.participants || [];
+			const uniqueParticipants = Array.from(new Map(participants.map((p) => [p.id, p])).values());
 			const updated: PlanningMaster = {
 				...record,
 				tasks: record.tasks || [],
-				participants: record.participants || []
+				participants: uniqueParticipants || []
 			};
 			this.#masters.set(record.id, updated);
 
@@ -250,10 +253,9 @@ class PlanningStore {
 		const current = this.#occurrences.get(this.#activeMasterId) ?? [];
 		this.#occurrences.set(
 			this.#activeMasterId,
-			[
-				...current.filter((o) => o.id !== occurrence.id),
-				occurrence
-			].sort((a, b) => a.date.localeCompare(b.date))
+			[...current.filter((o) => o.id !== occurrence.id), occurrence].sort((a, b) =>
+				a.date.localeCompare(b.date)
+			)
 		);
 	}
 

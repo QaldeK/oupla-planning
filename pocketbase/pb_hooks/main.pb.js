@@ -73,7 +73,7 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 	const currentMasterIds = new Set(user.get('masterId') || []);
 	let adminOf = {};
 	try {
-		adminOf = JSON.parse(user.getString('adminOf') || '{}');
+		adminOf = JSON.parse(user.getString('adminOf') || null);
 	} catch {}
 
 	// Filtrer les tokens à valider : seulement ceux pas encore dans masterId
@@ -193,17 +193,17 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
  * - La restriction des champs modifiables par les participants
  */
 onRecordUpdateRequest((e) => {
-	e.app
-		.logger()
-		.info(
-			'UPDATE HOOK',
-			'collection',
-			e.collection.name,
-			'hasAuth',
-			!!e.auth,
-			'token',
-			e.requestInfo()?.query?.['_token'] || 'NONE'
-		);
+	// e.app
+	// 	.logger()
+	// 	.info(
+	// 		'UPDATE HOOK',
+	// 		'collection',
+	// 		e.collection.name,
+	// 		'hasAuth',
+	// 		!!e.auth,
+	// 		'token',
+	// 		e.requestInfo()?.query?.['_token'] || 'NONE'
+	// 	);
 
 	if (e.collection.name !== 'planning_occurrences') {
 		return e.next();
@@ -266,17 +266,22 @@ onRecordUpdateRequest((e) => {
 // ============================================
 
 onRecordUpdateRequest((e) => {
-	e.app
-		.logger()
-		.info(
-			'UPDATE HOOK',
-			'collection',
-			e.collection.name,
-			'hasAuth',
-			!!e.auth,
-			'token',
-			e.requestInfo()?.query?.['_token'] || 'NONE'
-		);
+	// Superusers bypass tout
+	if (e.requestInfo().hasSuperuserAuth()) {
+		e.next();
+		return;
+	}
+	// e.app
+	// 	.logger()
+	// 	.info(
+	// 		'UPDATE HOOK',
+	// 		'collection',
+	// 		e.collection.name,
+	// 		'hasAuth',
+	// 		!!e.auth,
+	// 		'token',
+	// 		e.requestInfo()?.query?.['_token'] || 'NONE'
+	// 	);
 
 	if (e.collection.name !== 'planning_masters') {
 		return e.next();
@@ -339,6 +344,25 @@ onRecordUpdateRequest((e) => {
 	// 	}
 	// }
 	// isAdmin → pas de restriction sur les champs
+
+	e.next();
+}, 'planning_masters');
+
+// Security : empeché les doublon de participants.id
+onRecordUpdate((e) => {
+	if (e.collection.name !== 'planning_masters') return e.next();
+
+	const participants = e.record.get('participants');
+	if (Array.isArray(participants) && participants.length > 0) {
+		// Dédoublonnage par ID (garde le dernier)
+		const seen = new Map();
+		for (const p of participants) {
+			if (p && p.id) {
+				seen.set(p.id, p);
+			}
+		}
+		e.record.set('participants', Array.from(seen.values()));
+	}
 
 	e.next();
 }, 'planning_masters');
