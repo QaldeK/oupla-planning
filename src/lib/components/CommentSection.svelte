@@ -20,9 +20,7 @@
 	let isSubmitting = $state(false);
 	let scrollContainer: HTMLDivElement | undefined = $state();
 
-	const isNetworkUnavailable = $derived(
-		!networkStore.online || !networkStore.pocketbaseReachable || !networkStore.realtimeConnected
-	);
+	const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
 
 	function getParticipantName(id: string) {
 		if (!master) return id;

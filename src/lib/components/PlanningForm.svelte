@@ -164,9 +164,7 @@
 
 	let hasAttemptedSubmit = $state(false);
 
-	const isNetworkUnavailable = $derived(
-		!networkStore.online || !networkStore.pocketbaseReachable || !networkStore.realtimeConnected
-	);
+	const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
 
 	let isMounted = $state(false);
 	let lastRecurrenceType = $state(initRecType);
