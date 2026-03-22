@@ -79,8 +79,9 @@
 
 <div class="flex flex-wrap justify-around gap-2">
 	{#if adminToken}
-		<button class="btn btn-primary min-w-1/3 gap-2" onclick={() => goto(`/admin/${adminToken}`)}
-			><Settings size={18} /> Configuration</button
+		<button
+			class="btn btn-primary min-w-1/3 gap-2 max-sm:w-2/3"
+			onclick={() => goto(`/admin/${adminToken}`)}><Settings size={18} /> Configuration</button
 		>
 		<button class="btn btn-warning min-w-1/3 gap-2" onclick={shareAdminLink}>
 			{#if canNativeShare}

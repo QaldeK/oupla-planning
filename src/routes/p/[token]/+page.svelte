@@ -4,7 +4,6 @@
 	import { PlanningSkeleton } from '$lib/components/ui/skeletons';
 	import { OccurrenceView } from '$lib/components/occurrences/index';
 	import ViewTabs from '$lib/components/occurrences/ViewTabs.svelte';
-	import Modal from '$lib/components/ui/Modal.svelte';
 	import { addParticipant, updateParticipant } from '$lib/services/planningActions';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
@@ -16,13 +15,13 @@
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { formatDateShort } from '$lib/utils/date';
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
-	import { Drawer, DrawerContent, DrawerHandle, DrawerOverlay } from '@abhivarde/svelte-drawer';
 	import { fade } from 'svelte/transition';
 
 	import {
 		ArrowRightFromLine,
 		Bell,
 		Calendar,
+		CalendarSyncIcon,
 		Info,
 		InfoIcon,
 		ListFilter,
@@ -42,7 +41,6 @@
 	let occurrences = $derived(planningStore.occurrences);
 	let isLoading = $derived(planningStore.isLoading);
 	let displayCount = $state(10);
-	let showShareModal = $state(false);
 	let showNotifModal = $state(false);
 	let showAccountModal = $state(false);
 	let accountModalMode = $state<'login' | 'register'>('register'); // Mode par défaut
@@ -335,15 +333,15 @@
 {:else if master}
 	<div class="mx-auto max-w-6xl md:px-4 md:py-8" in:fade={{ duration: 300 }}>
 		<!-- En-tête -->
-		<div class="mb-12">
+		<div class="mb-4 sm:mb-12">
 			<div class="mb-8 flex flex-wrap items-start justify-between gap-6">
 				<div class="flex flex-1 items-center gap-5">
-					<div class="bg-primary/10 rounded-2xl p-4">
-						<Calendar class="text-primary size-7 sm:size-10" />
+					<div class="bg-primary/10 rounded-2xl p-2 sm:p-4">
+						<Calendar class="text-primary size-7 sm:size-6" />
 					</div>
 					<div class="flex-1 space-y-1 sm:space-y-3">
 						<div>
-							<h1 class="text-2xl font-semibold tracking-tight sm:text-4xl">{master.title}</h1>
+							<h1 class="text-xl font-semibold tracking-tight sm:text-4xl">{master.title}</h1>
 						</div>
 
 						<div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium opacity-80">
@@ -358,7 +356,7 @@
 				</div>
 
 				<div class="ms-auto flex items-center gap-3">
-					{#if isAdmin}
+					{#if isAdmin && !mediaQuery.isMobile}
 						<div class="tabs sm:tabs-lg tabs-boxed bg-base-200 font-semibold">
 							<button class="tab tab-active gap-2">
 								<ListFilter size={18} />
@@ -377,60 +375,56 @@
 			{#if master.description || master.recurrence || master.participants.length > 0}
 				<div class="card card-sm bg-base-200 border-base-content/5 mb-4 border shadow-sm">
 					<div class="card-body">
-						<div class="flex flex-wrap items-start gap-4">
+						<div class="flex flex-wrap items-start gap-4 max-sm:flex-col">
 							<!-- Récurrence -->
-							<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
-								<Calendar size={18} class="text-primary/70 mt-0.5 shrink-0" />
-								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-medium">
+							<div class="flex min-w-[calc(50%-0.5rem)] items-center gap-2">
+								<CalendarSyncIcon size={18} class="text-primary shrink-0" />
+								<div class="flex flex-wrap items-center gap-x-2">
+									<div class="truncate text-sm font-medium">
 										{getRecurrenceLabel(master.recurrence)}
-									</p>
-									<p class="text-base-content/60 text-xs">
-										{#if master.recurrence.firstDate || master.recurrence.lastDate}
-											Du {formatDateShort(master.recurrence.firstDate || '')}
-											au {formatDateShort(master.recurrence.lastDate || '')}
+									</div>
+									<div class="text-base-content/60 text-xs">
+										{#if master.recurrence.lastDate}
+											jusqu'au {formatDateShort(master.recurrence.lastDate || '')}
 										{/if}
-										{master.defaultStartTime} — {master.defaultEndTime}
-									</p>
+										• {master.defaultStartTime} — {master.defaultEndTime}
+									</div>
 								</div>
 							</div>
-
-							<!-- Description (conditionnel) -->
-							{#if master.description}
-								<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
-									<InfoIcon size={18} class="text-primary/70 mt-0.5 shrink-0" />
-									<p class="text-base-content/80 line-clamp-2 text-sm">{master.description}</p>
-								</div>
-							{/if}
 
 							<!-- Participants -->
 							<div
 								class="{master.description
 									? 'min-w-[calc(50%-0.5rem)]'
-									: 'w-full'} flex flex-1 items-start gap-2"
+									: 'w-full'} flex flex-1 flex-wrap items-center gap-2"
 							>
-								<Users size={18} class="text-primary/70 mt-0.5 shrink-0" />
-								<div class="min-w-0 flex-1">
-									<p class="text-sm font-medium">
-										{master.participants.length} participant
-										{master.participants.length > 1 ? 's' : ''}
-									</p>
-									<div class="mt-1 flex flex-wrap gap-1.5">
-										{#each master.participants as p (p.id)}
-											<span class="badge badge-sm badge-ghost opacity-70">{p.name}</span>
-										{/each}
-									</div>
+								<Users size={18} class="text-primary shrink-0" />
+								<div class="min-w-0 text-sm font-medium">
+									{master.participants.length} participant
+									{master.participants.length > 1 ? 's' : ''}
+								</div>
+								<div class="flex flex-wrap gap-1.5">
+									{#each master.participants as p (p.id)}
+										<span class="badge badge-sm badge-soft">{p.name}</span>
+									{/each}
 								</div>
 							</div>
+							<!-- Description (conditionnel) -->
+							{#if master.description}
+								<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-center gap-2">
+									<InfoIcon size={18} class="text-primary shrink-0" />
+									<p class="text-base-content/80 text-sm">{master.description}</p>
+								</div>
+							{/if}
 						</div>
 					</div>
 				</div>
 			{/if}
 
-			<!-- Card 2: Votre Expérience -->
+			<!-- Card 2: config user -->
 			<div class="card card-sm bg-base-200 border-base-content/5 border shadow-sm">
 				<div class="card-body">
-					<div class="flex flex-wrap items-start gap-4">
+					<div class="flex flex-wrap items-start gap-4 max-sm:flex-col">
 						<!-- Identification (en premier) -->
 						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-center gap-2">
 							<div class="min-w-0 flex-1">
@@ -443,16 +437,21 @@
 										S'identifier
 									</button>
 								{:else}
-									<div class="flex flex-wrap items-center gap-4">
-										<div class="badge badge-primary badge-outline text-sm font-medium">
-											<User size={18} class="text-primary shrink-0" />{currentIdentity.name}
-										</div>
-										<button
-											class="link link-primary text-sm font-semibold"
-											onclick={() => (showPlanningNameModal = true)}
-										>
-											Changer de nom pour ce planning
-										</button>
+									<div class="flex items-center gap-x-2">
+										<User size={18} class="text-primary shrink-0" />
+										<span class="text-sm font-medium">
+											Vous êtes identifié comme
+											<span class="text-primary-content font-semibold underline"
+												>{currentIdentity.name}</span
+											>
+											sur ce planning.
+											<button
+												class="link link-primary text-sm font-semibold"
+												onclick={() => (showPlanningNameModal = true)}
+											>
+												Changer
+											</button>
+										</span>
 									</div>
 								{/if}
 							</div>
@@ -460,9 +459,9 @@
 
 						<!-- Notifications  -->
 						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
-							<Bell size={18} class="text-info/70 mt-0.5 shrink-0" />
+							<Bell size={18} class="text-primary mt-0.5 shrink-0" />
 							<div class="min-w-0 flex-1">
-								<div class="flex flex-wrap items-center gap-2">
+								<div class="flex flex-wrap items-center gap-x-2">
 									<div class="text-sm font-medium">Notifications :</div>
 									<button
 										class="link link-primary text-sm font-semibold"
@@ -472,10 +471,13 @@
 										Configurer
 									</button>
 								</div>
-								<p class="text-base-content/60 mb-2 text-xs">
-									{!userStore.isLoggedIn &&
-										"Un compte est requis pour recevoir des alertes email ou notifications push sur mobile (rappel de vos inscription, alerte annulation, nombre d'inscrit insuffisant, nouveaux messages)"}
-								</p>
+								{#if !userStore.isLoggedIn}
+									<p class="text-base-content/70 mb-2 text-xs">
+										Un compte est requis pour recevoir des alertes email ou notifications push sur
+										mobile (rappel de vos inscription, alerte annulation, nombre d'inscrit
+										insuffisant, nouveaux messages)
+									</p>
+								{/if}
 							</div>
 						</div>
 					</div>
@@ -494,32 +496,13 @@
 					</div>
 				</div>
 			{:else}
-				<!-- TODO : ajout du bouton configurer + 2 btn partager (public et admin) → plus de drawer, mais la gestion du partage mobile si possible -->
-				<div class="ms-auto mt-4 flex justify-end">
-					<button class="btn btn-primary" onclick={() => (showShareModal = true)}>
-						<Share2 size={18} />
-						Partager
-					</button>
-					<!-- <Modal
-						open={showShareModal}
-						onClose={() => (showShareModal = false)}
-						title="Partager ce planning"
-					>
-						<div class="py-4">
-							{@render shareContent()}
-						</div>
-					</Modal> -->
-					<Drawer bind:open={showShareModal} portal={true} direction="bottom">
-						<DrawerOverlay class="fixed inset-0 bg-black/40" />
-						<DrawerContent
-							class="bg-base-100 fixed right-0 bottom-0 left-0 max-h-[80dvh] overflow-auto rounded-t-lg p-4"
-						>
-							<DrawerHandle class="mx-auto mb-4 h-1.5 w-24 bg-black/20" />
-							{#if showShareModal}
-								{@render shareContent()}
-							{/if}
-						</DrawerContent>
-					</Drawer>
+				<!-- Boutons d'action mobile : Configurer + Partage direct -->
+				<div class="p-4">
+					<CopyLinksButtons
+						size="sm"
+						participantToken={token}
+						adminToken={adminToken ?? undefined}
+					/>
 				</div>
 			{/if}
 
