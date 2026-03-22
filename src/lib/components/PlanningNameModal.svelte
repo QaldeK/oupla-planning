@@ -125,7 +125,7 @@
 
 		<form onsubmit={(e) => e.preventDefault()} class="space-y-5">
 			<fieldset>
-				<label class="input w-full" class:input-error={hasConflict}>
+				<label class={['input w-full', hasConflict && 'input-error']}>
 					<span class="label">
 						<User size={18} class="opacity-40" />
 						Nom *

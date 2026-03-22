@@ -131,11 +131,7 @@
 			</div>
 
 			<!-- Types d'alertes -->
-			<div
-				class="space-y-4"
-				class:opacity-50={!prefs.email && !prefs.push}
-				class:pointer-events-none={!prefs.email && !prefs.push}
-			>
+			<div class={['space-y-4', !prefs.email && !prefs.push && 'pointer-events-none opacity-50']}>
 				<h3 class="text-sm font-bold tracking-widest uppercase opacity-50">
 					Ce dont on vous notifie
 				</h3>

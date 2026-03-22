@@ -103,8 +103,10 @@
 		>
 			{#each options as option (option.value)}
 				<label
-					class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2"
-					class:bg-base-300={selectedValues.includes(option.value)}
+					class={[
+						'hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2',
+						selectedValues.includes(option.value) && 'bg-base-300'
+					]}
 				>
 					<input
 						type="checkbox"

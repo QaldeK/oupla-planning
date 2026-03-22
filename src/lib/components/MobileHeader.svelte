@@ -1,13 +1,32 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { CalendarPlus, User } from 'lucide-svelte';
+	import { page } from '$app/stores';
+	import { Menu, PanelLeftClose, User } from 'lucide-svelte';
+	import type { PlanningMaster } from '$lib/types/planning.types';
 	import { userStore } from '$lib/stores/userStore.svelte';
+	import { planningStore } from '$lib/stores/planningStore.svelte';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
 
 	// État du header
 	let isHeaderVisible = $state(true);
 	let lastScrollY = $state(0);
 	let isScrolling = $state(false);
 	let scrollTimeout: ReturnType<typeof setTimeout>;
+
+	// Titre dynamique basé sur la route et le planning actif
+	const pathname = $derived($page.url.pathname);
+	const master = $derived(planningStore.master as PlanningMaster | null);
+
+	const title = $derived(getTitle(pathname, master));
+
+	function getTitle(path: string, master: PlanningMaster | null): string {
+		if (path === '/') return 'Oupla Planning';
+		if (path === '/new') return 'Nouveau planning';
+		if (path.includes('/archive')) return master?.title ? `${master.title} (archives)` : 'Archives';
+		if (path.includes('/admin/')) return master?.title ? `${master.title} ⚙️` : 'Admin';
+		if (path.includes('/p/')) return master?.title || 'Planning';
+		return 'Oupla Planning';
+	}
 
 	// Fonction de gestion du scroll avec requestAnimationFrame
 	function handleScroll() {
@@ -59,17 +78,36 @@
 
 <!-- Header fixe avec z-index inférieur aux modals (z-40) -->
 <header
-	class="fixed top-0 right-0 left-0 z-40 transition-transform duration-300 lg:hidden"
-	class:translate-y-0={isHeaderVisible}
-	class:-translate-y-full={!isHeaderVisible}
+	class={[
+		'fixed top-0 right-0 left-0 z-40 transition-transform duration-300 lg:hidden',
+		isHeaderVisible && 'translate-y-0',
+		!isHeaderVisible && '-translate-y-full'
+	]}
 >
 	<nav class="bg-base-100/95 border-base-300 border-b px-4 py-2 shadow-sm backdrop-blur">
 		<div class="flex items-center gap-2">
-			<!-- Bouton +Planning -->
-			<a href="/new" class="btn btn-primary btn-sm" aria-label="Créer un nouveau planning">
-				<CalendarPlus size={18} />
-				<span>+Planning</span>
+			<!-- Bouton Menu -->
+			<button
+				class="btn btn-ghost btn-sm btn-circle p-0.5"
+				onclick={() => modalStore.toggleNavDrawer()}
+				aria-label="Ouvrir le menu"
+			>
+				{#if modalStore.drawerNavOpen}
+					<PanelLeftClose />
+				{:else}
+					<Menu />
+				{/if}
+			</button>
+
+			<!-- Bouton Home -->
+			<a href="/" class="btn btn-ghost btn-sm btn-circle p-0.5" aria-label="Accueil">
+				<img src="/favicon.svg" alt="Oupla" />
 			</a>
+
+			<!-- Titre dynamique -->
+			<span class="flex-1 truncate text-base font-medium">
+				{title}
+			</span>
 
 			<!-- Bouton User -->
 			<button
@@ -84,4 +122,4 @@
 </header>
 
 <!-- Espaceur pour compenser le header fixe quand visible -->
-<div class="h-14 lg:hidden" class:opacity-0={!isHeaderVisible}></div>
+<div class={['h-14 lg:hidden', !isHeaderVisible && 'opacity-0']}></div>

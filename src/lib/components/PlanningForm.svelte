@@ -1234,10 +1234,9 @@
 					<div class="flex gap-2">
 						<button
 							type="button"
-							class="btn sm:btn-sm btn-ghost"
+							class={['btn sm:btn-sm btn-ghost', newTaskName.trim().length === 0 && 'hidden']}
 							onclick={cancelTaskInput}
 							disabled={isSubmitting}
-							class:hidden={newTaskName.trim().length === 0}
 						>
 							Annuler
 						</button>

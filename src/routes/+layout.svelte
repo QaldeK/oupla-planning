@@ -10,17 +10,17 @@
 	import { syncService } from '$lib/services/syncService';
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
+	import { modalStore } from '$lib/stores/modalStore.svelte';
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
+	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { Drawer, DrawerContent, DrawerHandle, DrawerOverlay } from '@abhivarde/svelte-drawer';
-	import { CalendarPlus, Download, Github, LogOut, Menu, Moon, Sun, User } from 'lucide-svelte';
+	import { CalendarPlus, Download, Github, LogOut, Moon, Sun, User, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { Toaster, toast } from 'svelte-sonner';
 
 	let { children } = $props();
 
-	let drawerOpen = $state(false);
-	let theme = $state('my');
 	let showConfirmClearPlannings = $state(false);
 	let showClearDataConfirm = $state(false);
 	let showAccountModal = $state(false);
@@ -29,11 +29,6 @@
 		userStore.init();
 		mediaQuery.init();
 		pwaStore.init();
-
-		const savedTheme = localStorage.getItem('theme');
-		if (savedTheme) {
-			theme = savedTheme;
-		}
 	});
 
 	$effect(() => {
@@ -66,12 +61,12 @@
 	});
 
 	$effect(() => {
-		document.documentElement.setAttribute('data-theme', theme);
-		localStorage.setItem('theme', theme);
+		document.documentElement.setAttribute('data-theme', userStore.appPreferences.theme);
 	});
 
 	function toggleTheme() {
-		theme = theme === 'my' ? 'nord-dark' : 'my';
+		const newTheme = userStore.appPreferences.theme === 'my' ? 'nord-dark' : 'my';
+		userStore.setTheme(newTheme);
 	}
 
 	async function handleGlobalProfileCreate(name: string, email?: string, persist = true) {
@@ -96,22 +91,16 @@
 </script>
 
 <div class="drawer lg:drawer-open min-h-dvh">
-	<input id="main-drawer" type="checkbox" class="drawer-toggle" bind:checked={drawerOpen} />
+	<input
+		id="main-drawer"
+		type="checkbox"
+		class="drawer-toggle"
+		checked={modalStore.drawerNavOpen}
+		onchange={() => modalStore.toggleNavDrawer()}
+	/>
 	<div class="drawer-content flex flex-col">
 		<!-- Header mobile rétractable -->
 		<MobileHeader />
-
-		<!-- Navbar -->
-		<div class="navbar bg-base-200 lg:hidden">
-			<div class="flex-none">
-				<label for="main-drawer" class="btn btn-square btn-ghost" aria-label="Ouvrir le menu">
-					<Menu size={24} />
-				</label>
-			</div>
-			<div class="flex-1">
-				<a href="/" class="btn btn-ghost text-xl">Planning</a>
-			</div>
-		</div>
 
 		<!-- Contenu principal -->
 		<main class="bg-base-200 flex-1 p-2 md:p-4 lg:p-8">
@@ -159,15 +148,21 @@
 	<!-- Sidebar -->
 	<div class="drawer-side">
 		<label for="main-drawer" class="drawer-overlay" aria-label="Fermer le menu"></label>
-		<aside class="bg-base-300 flex min-h-dvh w-80 flex-col p-4">
+		<aside class="bg-base-300 z-50 flex min-h-dvh w-80 max-w-[85vw] flex-col p-4 pt-14 lg:pt-4">
 			<!-- Logo/Titre -->
 			<div class="mb-6 flex items-center justify-between">
 				<a href="/" class="flex items-center gap-2">
 					<img src="/favicon.svg" alt="Oupla planning" class="size-8" />
 					<h1 class="text-lg font-bold sm:text-xl">Oupla Planning</h1>
 				</a>
+
+				<!-- Toggle thème -->
 				<label class="swap swap-rotate btn btn-ghost btn-circle sm:btn-sm">
-					<input type="checkbox" checked={theme === 'nord-dark'} onchange={toggleTheme} />
+					<input
+						type="checkbox"
+						checked={userStore.appPreferences.theme === 'nord-dark'}
+						onchange={toggleTheme}
+					/>
 					<Sun class="swap-off" size={20} />
 					<Moon class="swap-on" size={20} />
 				</label>
@@ -175,7 +170,11 @@
 
 			<!-- Navigation -->
 			<nav class="mb-4 flex-1 space-y-2">
-				<a href="/new" class="btn btn-primary w-full justify-start">
+				<a
+					href="/new"
+					class="btn btn-primary w-full justify-start"
+					onclick={() => modalStore.closeNavDrawer()}
+				>
 					<CalendarPlus size={18} />
 					Nouveau planning
 				</a>
@@ -187,8 +186,13 @@
 					<div class="space-y-2">
 						{#each userStore.savedPlannings as planning (planning.masterId)}
 							<button
-								class="btn w-full justify-start"
-								onclick={() => goto(`/p/${planning.participantToken}`)}
+								class="btn w-full justify-start {planningStore.activeMasterId === planning.masterId
+									? 'ring-primary ring-2'
+									: ''}"
+								onclick={() => {
+									modalStore.closeNavDrawer();
+									goto(`/p/${planning.participantToken}`);
+								}}
 							>
 								<span class="truncate">{planning.title}</span>
 								{#if userStore.hasAdminAccess(planning.masterId)}

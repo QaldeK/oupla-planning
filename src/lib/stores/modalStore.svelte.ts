@@ -22,6 +22,9 @@ class ModalStore {
 		onReplaceOnly: async () => {}
 	});
 
+	// Navigation drawer (sidebar mobile)
+	drawerNavOpen = $state(false);
+
 	// Ouvre le modal de collision
 	openCollision(options: Omit<CollisionState, 'open'>) {
 		this.collision = { open: true, ...options };
@@ -30,6 +33,21 @@ class ModalStore {
 	// Ferme le modal de collision
 	closeCollision() {
 		this.collision.open = false;
+	}
+
+	// Ouvre le drawer de navigation
+	openNavDrawer() {
+		this.drawerNavOpen = true;
+	}
+
+	// Ferme le drawer de navigation
+	closeNavDrawer() {
+		this.drawerNavOpen = false;
+	}
+
+	// Toggle le drawer de navigation
+	toggleNavDrawer() {
+		this.drawerNavOpen = !this.drawerNavOpen;
 	}
 }
 

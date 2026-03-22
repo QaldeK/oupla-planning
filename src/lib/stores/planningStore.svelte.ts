@@ -124,7 +124,9 @@ class PlanningStore {
 		if (action === 'update') {
 			// Dédoublonner les participants par ID
 			const participants = record.participants || [];
-			const uniqueParticipants = Array.from(new Map(participants.map((p) => [p.id, p])).values());
+			const uniqueParticipants = Array.from(
+				new Map(participants.map((p: any) => [p.id, p])).values()
+			);
 			const updated: PlanningMaster = {
 				...record,
 				tasks: record.tasks || [],

@@ -125,16 +125,14 @@
 	<!-- Tabs -->
 	<div class="tabs tabs-boxed bg-base-200 mb-8">
 		<button
-			class="tab gap-2"
-			class:tab-active={activeTab === 'profile'}
+			class={['tab gap-2', activeTab === 'profile' && 'tab-active']}
 			onclick={() => (activeTab = 'profile')}
 		>
 			<User size={18} />
 			Profil
 		</button>
 		<button
-			class="tab gap-2"
-			class:tab-active={activeTab === 'security'}
+			class={['tab gap-2', activeTab === 'security' && 'tab-active']}
 			onclick={() => (activeTab = 'security')}
 		>
 			<ShieldCheck size={18} />
