@@ -18,7 +18,6 @@
 		CalendarSyncIcon,
 		CheckCircle,
 		CircleCheck,
-		CircleCheckBig,
 		CircleQuestionMark,
 		CircleX,
 		Clock,
@@ -271,17 +270,17 @@
 				<div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
 					<!-- Status badges -->
 					{#if master.toConfirm && occurrence.isConfirmed}
-						<span class="badge badge-success badge-soft badge-sm gap-1">
-							<CircleCheckBig size={12} />
+						<span class="badge badge-sm gap-1 bg-success/40 font-medium">
+							<CheckCircle size={12} />
 							Confirmé
 						</span>
 					{:else if occurrence.isCanceled}
-						<span class="badge badge-error badge-sm gap-1">
-							<CircleX size={12} />
+						<span class="badge badge-sm badge-error gap-1">
+							<XCircle size={12} />
 							Annulé
 						</span>
 					{:else if master.toConfirm && !occurrence.isConfirmed}
-						<span class="badge badge-info badge-soft badge-sm"
+						<span class="badge badge-sm gap-1 bg-warning/40 font-medium"
 							><CircleQuestionMark size={12} /> à confirmer</span
 						>
 					{/if}
