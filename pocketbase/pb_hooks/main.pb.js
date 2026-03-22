@@ -71,10 +71,17 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 
 	const user = $app.findRecordById('users', e.auth.id);
 	const currentMasterIds = new Set(user.get('masterId') || []);
+
+	// Lecture sécurisée du champ JSON adminOf (valeur par défaut PocketBase = 'null')
 	let adminOf = {};
-	try {
-		adminOf = JSON.parse(user.getString('adminOf') || null);
-	} catch {}
+	const rawAdminOf = user.getString('adminOf');
+	if (rawAdminOf && rawAdminOf !== 'null') {
+		try {
+			adminOf = JSON.parse(rawAdminOf);
+		} catch {
+			adminOf = {};
+		}
+	}
 
 	// Filtrer les tokens à valider : seulement ceux pas encore dans masterId
 	const tokensToValidate = localTokens.filter(
@@ -86,15 +93,20 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 		const participantTokens = tokensToValidate.map((t) => t.participantToken).filter(Boolean);
 		const adminTokens = tokensToValidate.map((t) => t.adminToken).filter(Boolean);
 
-		const newMasters = $app.findAllRecords(
-			'planning_masters',
-			$dbx.or(
-				participantTokens.length > 0
-					? $dbx.hashExp({ participantToken: participantTokens })
-					: $dbx.exp('1 = 0'),
-				adminTokens.length > 0 ? $dbx.hashExp({ adminToken: adminTokens }) : $dbx.exp('1 = 0')
-			)
-		);
+		// Construire un filtre OR avec des paramètres nommés (sécurisé, compatible JSVM)
+		const tokenParams = {};
+		const conditions = [];
+		participantTokens.forEach((t, i) => {
+			tokenParams[`pt_${i}`] = t;
+			conditions.push(`participantToken = {:pt_${i}}`);
+		});
+		adminTokens.forEach((t, i) => {
+			tokenParams[`at_${i}`] = t;
+			conditions.push(`adminToken = {:at_${i}}`);
+		});
+		const newMasters = conditions.length > 0
+			? $app.findRecordsByFilter('planning_masters', conditions.join(' || '), '', 0, 0, tokenParams)
+			: [];
 
 		for (const master of newMasters) {
 			currentMasterIds.add(master.id);
