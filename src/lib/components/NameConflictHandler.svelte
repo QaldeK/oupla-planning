@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Participant } from '$lib/types/planning.types';
-	import { CircleAlert, CircleCheck, InfoIcon, ShieldCheck } from 'lucide-svelte';
+	import { pb } from '$lib/pocketbase/pb';
+	import { CircleAlert, CircleCheck, InfoIcon } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
@@ -9,6 +10,7 @@
 		currentUserId?: string;
 		allowClaimIdentity: boolean; // true = guest (peut revendiquer), false = auth (ID comparé)
 		onIdentifyAs: (participant: Participant) => Promise<void>;
+		onRequireLogin?: (participant: Participant) => void; // Appelé quand le participant a un compte
 		onNetworkError?: () => void;
 	}
 
@@ -18,12 +20,12 @@
 		currentUserId,
 		allowClaimIdentity,
 		onIdentifyAs,
+		onRequireLogin,
 		onNetworkError
 	}: Props = $props();
 
 	// État interne
 	let isSubmitting = $state(false);
-	let requireLoginFor = $state<Participant | null>(null);
 	let networkError = $state(false);
 	let retryingParticipant = $state<Participant | null>(null);
 
@@ -50,17 +52,14 @@
 		retryingParticipant = participant;
 
 		try {
-			// Vérifier si le participant a un compte protégé
-			const res = await fetch(`/api/has-account/${participant.id}`);
-			if (!res.ok) throw new Error('Network error');
-
-			const data = await res.json();
+			// Vérifier si le participant a un compte protégé via PocketBase
+			const data = await pb.send(`/api/has-account/${participant.id}`, { requestKey: null });
 
 			if (data.hasAccount) {
-				// Le participant a un compte -> exiger la connexion
-				requireLoginFor = participant;
+				// Le participant a un compte -> notifier le parent pour afficher le login
 				isSubmitting = false;
 				retryingParticipant = null;
+				onRequireLogin?.(participant);
 			} else {
 				// Pas de compte -> identification directe
 				await onIdentifyAs(participant);
@@ -80,7 +79,6 @@
 	}
 
 	function reset() {
-		requireLoginFor = null;
 		networkError = false;
 		retryingParticipant = null;
 	}
@@ -179,15 +177,5 @@
 		>
 			Réessayer
 		</button>
-	</div>
-{/if}
-
-<!-- Connexion requise (compte protégé) -->
-{#if requireLoginFor}
-	<div class="alert alert-warning alert-soft mt-4 text-sm">
-		<ShieldCheck size={20} class="text-warning shrink-0" />
-		<div class="leading-tight">
-			L'identité de <strong>{requireLoginFor.name}</strong> est protégée par un compte.
-		</div>
 	</div>
 {/if}

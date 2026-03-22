@@ -95,7 +95,7 @@
 	}
 </script>
 
-<div class="drawer lg:drawer-open min-h-screen">
+<div class="drawer lg:drawer-open min-h-dvh">
 	<input id="main-drawer" type="checkbox" class="drawer-toggle" bind:checked={drawerOpen} />
 	<div class="drawer-content flex flex-col">
 		<!-- Header mobile rétractable -->
@@ -159,7 +159,7 @@
 	<!-- Sidebar -->
 	<div class="drawer-side">
 		<label for="main-drawer" class="drawer-overlay" aria-label="Fermer le menu"></label>
-		<aside class="bg-base-300 flex min-h-full w-80 flex-col p-4">
+		<aside class="bg-base-300 flex min-h-dvh w-80 flex-col p-4">
 			<!-- Logo/Titre -->
 			<div class="mb-6 flex items-center justify-between">
 				<a href="/" class="flex items-center gap-2">
@@ -174,7 +174,7 @@
 			</div>
 
 			<!-- Navigation -->
-			<nav class="flex-1 space-y-2">
+			<nav class="mb-4 flex-1 space-y-2">
 				<a href="/new" class="btn btn-primary w-full justify-start">
 					<CalendarPlus size={18} />
 					Nouveau planning
@@ -285,6 +285,7 @@
 	onClose={() => (userStore.authModal = { ...userStore.authModal, open: false })}
 	onGlobalProfileCreate={handleGlobalProfileCreate}
 	onGlobalProfileUpdate={handleGlobalProfileUpdate}
+	onRequireLogin={userStore.authModal.onRequireLogin}
 />
 
 <ConfirmModal

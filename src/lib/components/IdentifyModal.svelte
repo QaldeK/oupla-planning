@@ -1,12 +1,12 @@
 <script lang="ts">
-	import type { Participant, PlanningIdentity, SavedPlanning } from '$lib/types/planning.types';
+	import type { Participant, SavedPlanning } from '$lib/types/planning.types';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { isTauri, storage } from '$lib/utils/storage';
 	import Modal from './ui/Modal.svelte';
 	import ConfirmModal from './ui/ConfirmModal.svelte';
 	import AuthForm from './auth/AuthForm.svelte';
 	import NameConflictHandler from './NameConflictHandler.svelte';
-	import { CircleHelp, User, ArrowRight, Trash2, InfoIcon } from 'lucide-svelte';
+	import { User, ArrowRight, InfoIcon, ArrowLeft } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	const PLANNINGS_KEY = 'planning_saved';
@@ -18,6 +18,7 @@
 		existingParticipants?: Participant[];
 		onGlobalProfileCreate?: (name: string, email?: string, persist?: boolean) => void;
 		onGlobalProfileUpdate?: (name: string, email?: string, persist?: boolean) => void;
+		onRequireLogin?: () => void; // Appelé quand une revendication nécessite une connexion
 	}
 
 	let {
@@ -26,7 +27,8 @@
 		mode,
 		existingParticipants = [],
 		onGlobalProfileCreate,
-		onGlobalProfileUpdate
+		onGlobalProfileUpdate,
+		onRequireLogin
 	}: Props = $props();
 
 	let name = $state('');
@@ -125,6 +127,45 @@
 		}
 	});
 
+	// === Gestion des callbacks de NameConflictHandler ===
+
+	// Appelé quand on clique "C'est moi !" sur un participant sans compte
+	async function handleIdentifyAs(participant: Participant) {
+		isSubmitting = true;
+		try {
+			// Créer ou mettre à jour le globalProfile avec ce participant
+			if (!userStore.globalProfile) {
+				await userStore.createGlobalProfile(
+					participant.name,
+					participant.email,
+					globalPersist,
+					participant.id
+				);
+			} else {
+				// Mettre à jour le globalProfile existant avec les infos du participant
+				await userStore.updateGlobalProfile({
+					defaultName: participant.name,
+					defaultEmail: participant.email
+				});
+			}
+
+			toast.success(`Bienvenue, ${participant.name} !`);
+			onClose();
+		} catch (error) {
+			console.error('Error identifying as participant:', error);
+			toast.error("Erreur lors de l'identification");
+		} finally {
+			isSubmitting = false;
+		}
+	}
+
+	// Appelé quand le participant a un compte protégé
+	function handleRequireLogin() {
+		// Fermer IdentifyModal et notifier le parent pour ouvrir AccountModal
+		onClose();
+		onRequireLogin?.();
+	}
+
 	async function handleManualIdentify() {
 		if (!name.trim()) return;
 
@@ -202,12 +243,8 @@
 					{existingParticipants}
 					currentUserId={userStore.globalProfile?.id}
 					allowClaimIdentity={true}
-					onIdentifyAs={async (participant) => {
-						// Pour le mode homepage, on identifie avec le participant existant
-						// NOTE: Ce cas ne devrait plus arriver car on utilise PlanningNameModal
-						// mais on le garde pour la compatibilité
-						console.warn('IdentifyAs called from IdentifyModal homepage mode');
-					}}
+					onIdentifyAs={handleIdentifyAs}
+					onRequireLogin={handleRequireLogin}
 				/>
 			{/if}
 

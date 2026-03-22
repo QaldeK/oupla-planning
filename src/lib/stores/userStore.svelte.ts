@@ -23,6 +23,7 @@ interface AuthModalState {
 	masterId?: string;
 	existingParticipants?: Participant[];
 	onGlobalProfileCreate?: (name: string, email?: string, persist?: boolean) => Promise<void>;
+	onRequireLogin?: () => void;
 }
 
 export interface BackupProfile {

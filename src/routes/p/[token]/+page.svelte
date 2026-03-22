@@ -15,6 +15,8 @@
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { formatDateShort } from '$lib/utils/date';
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
+	import { Drawer, DrawerContent, DrawerHandle, DrawerOverlay } from '@abhivarde/svelte-drawer';
+
 	import {
 		ArrowRightFromLine,
 		Bell,
@@ -32,7 +34,6 @@
 	import { toast } from 'svelte-sonner';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { goto } from '$app/navigation';
-	import Dice_4 from 'lucide-svelte/icons/dice-4';
 
 	let token = $derived($page.params.token as string);
 	let master = $derived(planningStore.master);
@@ -42,7 +43,10 @@
 	let showShareModal = $state(false);
 	let showNotifModal = $state(false);
 	let showAccountModal = $state(false);
+	let accountModalMode = $state<'login' | 'register'>('register'); // Mode par défaut
 	let showPlanningNameModal = $state(false);
+
+	let hasConflictName = $state();
 
 	// Initialisation via le store
 	$effect(() => {
@@ -101,6 +105,8 @@
 				(p) => p.name.toLowerCase() === pbUser.name.toLowerCase() && p.id !== pbUser.id
 			);
 			if (!hasConflict) {
+				hasConflictName = false;
+
 				handlePlanningIdentify(
 					{ id: pbUser.id, name: pbUser.name, email: pbUser.email },
 					true // nouveau participant
@@ -108,6 +114,7 @@
 			} else {
 				// Conflit de nom pour un user auth → ouvrir PlanningNameModal
 				// L'utilisateur peut choisir un nom différent pour ce planning
+				hasConflictName = true;
 				showPlanningNameModal = true;
 			}
 			return;
@@ -133,7 +140,37 @@
 			return;
 		}
 
-		// CAS 4 : Première visite — ouvrir IdentifyModal pour créer le profil global
+		// CAS 3.5 : Utilisateur avec globalProfile mais pas encore sur ce planning
+		if (userStore.globalProfile) {
+			const globalProfile = userStore.globalProfile;
+
+			// Vérifier s'il y a un conflit de nom
+			const hasConflict = master.participants.some(
+				(p) =>
+					p.name.toLowerCase() === globalProfile.defaultName.toLowerCase() &&
+					p.id !== globalProfile.id
+			);
+
+			if (!hasConflict) {
+				// Pas de conflit → identifier silencieusement avec le globalProfile
+				hasConflictName = false;
+				handlePlanningIdentify(
+					{
+						id: globalProfile.id,
+						name: globalProfile.defaultName,
+						email: globalProfile.defaultEmail
+					},
+					true // nouveau participant
+				);
+			} else {
+				// Conflit de nom → ouvrir PlanningNameModal pour permettre de choisir un nom différent
+				hasConflictName = true;
+				showPlanningNameModal = true;
+			}
+			return;
+		}
+
+		// CAS 4 : Première visite sans globalProfile — ouvrir IdentifyModal pour créer le profil global
 		// Le mode 'homepage' permettra de créer le profil global
 		// Les conflits de nom seront gérés via NameConflictHandler si des participants existent
 		userStore.authModal = {
@@ -147,6 +184,11 @@
 					{ id: userStore.globalProfile!.id, name, email },
 					true // nouveau participant
 				);
+			},
+			onRequireLogin: () => {
+				// Ouvrir AccountModal en mode login quand une revendication nécessite une connexion
+				accountModalMode = 'login';
+				showAccountModal = true;
 			}
 		};
 	});
@@ -452,15 +494,32 @@
 					</div>
 				</div>
 			{:else}
-				<Modal
-					open={showShareModal}
-					onClose={() => (showShareModal = false)}
-					title="Partager ce planning"
-				>
-					<div class="py-4">
-						{@render shareContent()}
-					</div>
-				</Modal>
+				<div class="ms-auto mt-4 flex justify-end">
+					<button class="btn btn-primary" onclick={() => (showShareModal = true)}>
+						<Share2 size={18} />
+						Partager
+					</button>
+					<!-- <Modal
+						open={showShareModal}
+						onClose={() => (showShareModal = false)}
+						title="Partager ce planning"
+					>
+						<div class="py-4">
+							{@render shareContent()}
+						</div>
+					</Modal> -->
+					<Drawer bind:open={showShareModal} portal={true} direction="bottom">
+						<DrawerOverlay class="fixed inset-0 bg-black/40" />
+						<DrawerContent
+							class="bg-base-100 fixed right-0 bottom-0 left-0 max-h-[80dvh] overflow-auto rounded-t-lg p-4"
+						>
+							<DrawerHandle class="mx-auto mb-4 h-1.5 w-24 bg-black/20" />
+							{#if showShareModal}
+								{@render shareContent()}
+							{/if}
+						</DrawerContent>
+					</Drawer>
+				</div>
 			{/if}
 
 			<!-- Identification -->
@@ -469,13 +528,17 @@
 					<Info size={18} />
 					<p>Veuillez vous identifier pour répondre aux occurrences</p>
 					<div class="flex gap-2">
-						{#if mediaQuery.isMobile}
-							<button class="btn btn-primary" onclick={() => (showShareModal = true)}>
-								<Share2 size={18} />
-								Partager
-							</button>
-						{/if}
 						<button class="btn" onclick={() => (userStore.authModal.open = true)}>
+							S'identifier
+						</button>
+					</div>
+				</div>
+			{:else if hasConflictName}
+				<div class="alert alert-warning mt-4">
+					<Info size={18} />
+					<p>Votre nom est déjà utilisé sur ce planning. Choississez en un autre.</p>
+					<div class="flex gap-2">
+						<button class="btn" onclick={() => (showPlanningNameModal = true)}>
 							S'identifier
 						</button>
 					</div>
@@ -543,7 +606,7 @@
 		showAccountModal = false;
 		showNotifModal = true;
 	}}
-	defaultMode="register"
+	defaultMode={accountModalMode}
 />
 
 <PlanningNameModal
