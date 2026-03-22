@@ -156,28 +156,31 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 			});
 		}
 	}
-
 	return e.json(200, {
 		success: true,
 		syncedIds: Array.from(currentMasterIds),
-		masters: allMasters.map((m) => ({
-			id: m.id,
-			title: m.get('title'),
-			description: m.get('description'),
-			place: m.get('place'),
-			defaultStartTime: m.get('defaultStartTime'),
-			defaultEndTime: m.get('defaultEndTime'),
-			recurrence: m.get('recurrence'),
-			tasks: m.get('tasks'),
-			participantToken: m.get('participantToken'),
-			adminToken: m.get('adminToken'),
-			participants: m.get('participants'),
-			allowResponses: m.get('allowResponses'),
-			minPresentRequired: m.get('minPresentRequired'),
-			availableResponseTypes: m.get('availableResponseTypes'),
-			created: m.get('created'),
-			updated: m.get('updated')
-		})),
+		masters: allMasters.map((m) => {
+			const masterAdminToken = m.get('adminToken');
+			const shouldShowAdminToken = adminOf[m.id] === masterAdminToken;
+			return {
+				id: m.id,
+				title: m.get('title'),
+				description: m.get('description'),
+				place: m.get('place'),
+				defaultStartTime: m.get('defaultStartTime'),
+				defaultEndTime: m.get('defaultEndTime'),
+				recurrence: m.get('recurrence'),
+				tasks: m.get('tasks'),
+				participantToken: m.get('participantToken'),
+				adminToken: shouldShowAdminToken ? masterAdminToken : undefined,
+				participants: m.get('participants'),
+				allowResponses: m.get('allowResponses'),
+				minPresentRequired: m.get('minPresentRequired'),
+				availableResponseTypes: m.get('availableResponseTypes'),
+				created: m.get('created'),
+				updated: m.get('updated')
+			};
+		}),
 		occurrences: includeOccurrences ? occurrences : undefined
 	});
 });
@@ -349,23 +352,23 @@ onRecordUpdateRequest((e) => {
 }, 'planning_masters');
 
 // Security : empeché les doublon de participants.id
-onRecordUpdate((e) => {
-	if (e.collection.name !== 'planning_masters') return e.next();
+// onRecordUpdate((e) => {
+// 	if (e.collection.name !== 'planning_masters') return e.next();
 
-	const participants = e.record.get('participants');
-	if (Array.isArray(participants) && participants.length > 0) {
-		// Dédoublonnage par ID (garde le dernier)
-		const seen = new Map();
-		for (const p of participants) {
-			if (p && p.id) {
-				seen.set(p.id, p);
-			}
-		}
-		e.record.set('participants', Array.from(seen.values()));
-	}
+// 	const participants = e.record.get('participants');
+// 	if (Array.isArray(participants) && participants.length > 0) {
+// 		// Dédoublonnage par ID (garde le dernier)
+// 		const seen = new Map();
+// 		for (const p of participants) {
+// 			if (p && p.id) {
+// 				seen.set(p.id, p);
+// 			}
+// 		}
+// 		e.record.set('participants', Array.from(seen.values()));
+// 	}
 
-	e.next();
-}, 'planning_masters');
+// 	e.next();
+// }, 'planning_masters');
 
 // ============================================
 // CHECK IF PARTICIPANT HAS ACCOUNT

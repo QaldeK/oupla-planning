@@ -402,7 +402,11 @@ export async function addParticipant(
 			createdAt: new Date().toISOString()
 		};
 		return {
-			participants: [...(current.participants || []), newParticipant],
+			// Filtrer les doublons potentiels par ID avant d'ajouter
+			participants: [
+				...(current.participants || []).filter((p) => p.id !== newParticipant.id),
+				newParticipant
+			],
 			lastModifiedBy: userStore.globalProfile?.id
 		};
 	});
