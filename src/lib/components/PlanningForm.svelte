@@ -649,7 +649,9 @@
 							<span class="text-base">Confirmer les événements</span>
 							<p class="text-sm text-wrap opacity-80">
 								Les administrateurs devront confirmer la tenue de l'événement. Si non coché, les
-								événements seront toujours considérés comme ayant lieu.
+								événements seront toujours considérés comme ayant lieu. Utile si un nombre de
+								participant·es conditionne l'organisation de l'événement. Cela permet aussi de
+								recevoir des notifications (si configuré) lorsqu'un événement est confirmé, etc..
 							</p>
 						</div>
 					</label>
