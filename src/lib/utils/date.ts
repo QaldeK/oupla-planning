@@ -62,13 +62,17 @@ export function getTodayString(): string {
 }
 
 /**
- * Vérifie si une date est dans le passé
+ * Vérifie si une date est dans le passé (jour terminé)
+ * Note: Compare au niveau du jour, pas de l'heure.
+ * Une date "aujourd'hui" n'est PAS considérée comme passée.
  */
 export function isPast(date: string | Date): boolean {
 	try {
 		const dateObj = typeof date === 'string' ? new Date(date) : date;
 		if (!isValid(dateObj)) return false;
-		return dateObj < new Date();
+		// Comparer les dates au format YYYY-MM-DD
+		// Une date est passée uniquement si son jour est strictement avant aujourd'hui
+		return format(dateObj, 'yyyy-MM-dd') < getTodayString();
 	} catch {
 		return false;
 	}

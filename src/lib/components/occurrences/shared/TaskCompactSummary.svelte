@@ -77,7 +77,7 @@
 	<div
 		class="badge opacity-70 group-hover:scale-110 {isInTask
 			? 'badge-error border-error'
-			: 'badge-primary border-primary'}"
+			: 'badge-accent'}"
 		onclick={() => onToggle(taskId)}
 		onkeydown={(e) => e.key === 'Enter' && onToggle(taskId)}
 		role="button"
@@ -104,6 +104,7 @@
 		class="bg-base-200/50 group border-accent ring-accent flex grow flex-col items-stretch overflow-hidden rounded-lg border shadow-sm transition-all hover:cursor-pointer hover:ring-2 lg:max-w-1/3"
 		onclick={() => onToggle(task.id)}
 		disabled={isSubmitting || readOnly || isPastDate}
+		title="s'inscrire/se désinscrire à la tâche {task.name}"
 	>
 		<div
 			class="border-neutral/10 flex w-full items-center gap-4 border-b-2 px-3 py-1.5 text-sm font-medium opacity-80 {config.bgClass} justify-start"
@@ -120,6 +121,8 @@
 					class="badge badge-sm font-black {isComplete
 						? 'badge-success'
 						: 'badge-warning'} ms-auto px-1"
+					aria-label="nombre requis"
+					title="Nombre de personnes requises pour la tâche {task.name}"
 				>
 					{volunteers}/{task.requiredVolunteers}
 				</div>
@@ -131,7 +134,12 @@
 		<div class="flex flex-1 flex-wrap items-center gap-1.5 p-3">
 			{#if volunteers > 0}
 				{#each inscribed as response (response.participantId)}
-					<div class="badge md:badge-lg bg-accent border-none font-medium" transition:slide>
+					<div
+						class="badge md:badge-lg bg-accent/60 {response.participantId === currentUserId
+							? 'border-accent border-2 font-bold'
+							: 'font-medium'}"
+						transition:slide
+					>
 						{getParticipantName(response)}
 					</div>
 				{/each}
@@ -152,9 +160,10 @@
 	isInTask: boolean
 )}
 	<button
-		class="bg-base-200/50 group border-accent ring-accent flex flex-wrap items-stretch overflow-hidden rounded-lg border shadow-sm transition-all hover:cursor-pointer hover:ring-2 max-sm:w-full md:min-w-xs"
+		class="bg-base-200/50 group border-accent ring-accent flex flex-wrap items-center overflow-hidden rounded-lg border shadow-sm transition-all hover:cursor-pointer hover:ring-2 max-sm:w-full md:min-w-xs"
 		onclick={() => onToggle(task.id)}
 		disabled={isSubmitting || readOnly || isPastDate}
+		title="s'inscrire/se désinscrire à la tâche {task.name}"
 	>
 		<div
 			class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium opacity-80 {config.bgClass}"
@@ -168,7 +177,12 @@
 		{#if volunteers > 0}
 			{@const displayInscribed = inscribed.slice(0, 6)}
 			{#each displayInscribed as response (response.participantId)}
-				<div class="badge md:badge-lg bg-accent m-1.5 border-none font-medium" transition:slide>
+				<div
+					class="badge bg-accent/60 m-1.5 {response.participantId === currentUserId
+						? 'border-accent border-2 font-bold'
+						: 'font-medium'}"
+					transition:slide
+				>
 					{getParticipantName(response)}
 				</div>
 			{/each}
@@ -187,6 +201,7 @@
 		<div class="ms-auto flex items-center gap-2 p-1.5">
 			<div
 				class="badge badge-sm font-semibold {isComplete ? 'badge-success' : 'badge-warning'} px-1"
+				title="Nombre de personnes requises pour la tâche {task.name}"
 			>
 				{volunteers}/{task.requiredVolunteers}
 			</div>

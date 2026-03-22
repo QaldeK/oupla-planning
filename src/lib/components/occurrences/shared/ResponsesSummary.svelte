@@ -73,7 +73,7 @@
 			<Icon size={16} />
 			<span>{config.label}</span>
 			{#if currentUserResponseType !== type}
-				<div class="ms-auto flex items-center p-1.5">
+				<div class="ms-auto flex items-center">
 					<div
 						class="badge opacity-70 group-hover:scale-110 {config.badgeClass} {config.borderClass}"
 					>
@@ -84,7 +84,12 @@
 		</div>
 		<div class="flex min-h-6 flex-1 flex-wrap items-start gap-2 p-4 px-3">
 			{#each typeResponses as response (response.participantId)}
-				<div class="badge badge-lg font-semibold {config.bgClass}" transition:slide>
+				<div
+					class="badge badge-lg {config.bgClass} {response.participantId === currentUserId
+						? `border-2 ${config.borderClass} font-bold`
+						: 'font-medium'}"
+					transition:slide
+				>
 					{getParticipantName(response)}
 				</div>
 			{/each}
@@ -118,7 +123,7 @@
 				>{config.label}</span
 			>
 		</div>
-		<div class="min-w-24">
+		<div class="min-w-20">
 			{#each typeResponses as response (response.participantId)}
 				<div
 					class="badge m-1.5 {config.bgClass} {response.participantId === currentUserId

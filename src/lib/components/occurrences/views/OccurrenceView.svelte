@@ -250,7 +250,7 @@
 				<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0">
 					<div class="flex items-center gap-1 text-lg font-semibold">
 						<Calendar size={16} />
-						<span class:badge={isToday(occurrence.date)} class={dateClass}>
+						<span>
 							{formatDateShort(occurrence.date)}
 						</span>
 					</div>
@@ -347,12 +347,12 @@
 			<div class="mb-2 flex items-center justify-between">
 				<div class=" flex flex-wrap items-center gap-4">
 					<!-- date time -->
-					<div class="flex min-w-60 flex-wrap items-center gap-2">
-						<span class="text-base font-medium"
-							><Calendar size={18} class="inline " />
-							{formatDateWithDay(occurrence.date)}</span
-						>
-						<div class="text-md flex items-center gap-1 font-medium">
+					<div class="flex min-w-60 flex-wrap items-center gap-x-4 gap-y-2">
+						<div class="flex items-center gap-2 text-lg font-medium">
+							<Calendar size={18} class="inline" />
+							{formatDateWithDay(occurrence.date)}
+						</div>
+						<div class="flex items-center gap-1 text-base font-medium">
 							<Clock size={16} />
 							{formatTimeRange(occurrence.startTime, occurrence.endTime)}
 						</div>
@@ -365,18 +365,23 @@
 						</div>
 					{/if}
 					{#if master.toConfirm && occurrence.isConfirmed}
-						<span class="badge badge-success badge-soft badge-sm gap-1">
-							<CheckCircle size={12} />
+						<span
+							class="badge bg-success/40 font-medium"
+							title="La tenue de l'évenement a été confirmé "
+						>
+							<CheckCircle size={16} />
 							Confirmé
 						</span>
 					{:else if occurrence.isCanceled}
-						<span class="badge badge-error badge-sm gap-1">
-							<XCircle size={12} />
+						<span class="badge badge-error font-medium">
+							<XCircle size={16} />
 							Annulé
 						</span>
 					{:else if master.toConfirm && !occurrence.isConfirmed}
-						<span class="badge badge-info badge-soft badge-sm"
-							><CircleQuestionMark size={12} /> à confirmer</span
+						<span
+							class="badge bg-warning/40 font-medium"
+							title="L'évenement n'a pas encore été confirmé par un·e administrateur·ice"
+							><CircleQuestionMark size={16} /> à confirmer</span
 						>
 					{/if}
 					{#if occState.inherited.minPresentRequired}
@@ -384,7 +389,11 @@
 							100,
 							(occState.stats.present / occState.inherited.minPresentRequired) * 100
 						)}
-						<div class="flex items-center gap-2">
+						<div
+							class="badge flex items-center gap-2 border {ratio >= 100
+								? 'border-success'
+								: 'border-warning'}"
+						>
 							<div class="bg-base-300 h-2 w-24 overflow-hidden rounded-full">
 								<div
 									class="h-full transition-all duration-500 {ratio >= 100
@@ -393,7 +402,7 @@
 									style="width: {ratio}%"
 								></div>
 							</div>
-							<span class="text-xs font-medium tabular-nums">
+							<span class="text-sm font-medium tabular-nums">
 								{occState.stats.present}/{occState.inherited.minPresentRequired} présences
 							</span>
 						</div>
