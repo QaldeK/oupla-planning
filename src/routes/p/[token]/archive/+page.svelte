@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { Calendar, ArrowLeft, History, Info } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import OccurrenceView from '$lib/components/occurrences/views/OccurrenceView.svelte';
 	import { ArchiveSkeleton } from '$lib/components/ui/skeletons';
 
@@ -73,43 +74,47 @@
 
 		{#if isLoading}
 			<ArchiveSkeleton />
-		{:else if occurrences.length === 0}
-			<div class="card bg-base-100 border-base-200 border shadow-xl">
-				<div class="card-body items-center py-16 text-center">
-					<div class="bg-base-200 mb-4 rounded-full p-6">
-						<Calendar size={48} class="text-base-content/20" />
-					</div>
-					<h2 class="card-title text-2xl">Aucune archive</h2>
-					<p class="text-base-content/60 max-w-sm">
-						Il n'y a pas encore d'événements passés pour ce planning.
-					</p>
-					<div class="card-actions mt-6">
-						<a href="/p/{token}" class="btn btn-primary">Voir le planning actuel</a>
-					</div>
-				</div>
-			</div>
 		{:else}
-			<div class="alert alert-info mb-8 shadow-sm">
-				<Info size={20} />
-				<span class="text-sm"
-					>Les événements passés sont consultables en lecture seule. Vous ne pouvez plus modifier
-					vos réponses ou commentaires.</span
-				>
-			</div>
+			<div in:fade={{ duration: 300 }}>
+				{#if occurrences.length === 0}
+					<div class="card bg-base-100 border-base-200 border shadow-xl">
+						<div class="card-body items-center py-16 text-center">
+							<div class="bg-base-200 mb-4 rounded-full p-6">
+								<Calendar size={48} class="text-base-content/20" />
+							</div>
+							<h2 class="card-title text-2xl">Aucune archive</h2>
+							<p class="text-base-content/60 max-w-sm">
+								Il n'y a pas encore d'événements passés pour ce planning.
+							</p>
+							<div class="card-actions mt-6">
+								<a href="/p/{token}" class="btn btn-primary">Voir le planning actuel</a>
+							</div>
+						</div>
+					</div>
+				{:else}
+					<div class="alert alert-info mb-8 shadow-sm">
+						<Info size={20} />
+						<span class="text-sm"
+							>Les événements passés sont consultables en lecture seule. Vous ne pouvez plus
+							modifier vos réponses ou commentaires.</span
+						>
+					</div>
 
-			<div class="space-y-6">
-				{#each occurrences as occurrence (occurrence.id)}
-					{#if master}
-						<OccurrenceView
-							{occurrence}
-							{master}
-							participants={master.participants}
-							{currentUserId}
-							isAdmin={false}
-							readOnly={true}
-						/>
-					{/if}
-				{/each}
+					<div class="space-y-6">
+						{#each occurrences as occurrence (occurrence.id)}
+							{#if master}
+								<OccurrenceView
+									{occurrence}
+									{master}
+									participants={master.participants}
+									{currentUserId}
+									isAdmin={false}
+									readOnly={true}
+								/>
+							{/if}
+						{/each}
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</div>

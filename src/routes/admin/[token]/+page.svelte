@@ -7,6 +7,7 @@
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { onDestroy, onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	import { ArrowLeft, Calendar } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
@@ -79,7 +80,7 @@
 {#if isLoading}
 	<AdminSkeleton />
 {:else if master}
-	<div class="mx-auto max-w-6xl py-2 md:px-4 md:py-8">
+	<div class="mx-auto max-w-6xl py-2 md:px-4 md:py-8" in:fade={{ duration: 300 }}>
 		<div class="mb-4 flex justify-start">
 			<a href="/p/{master.participantToken}" class="btn btn-ghost sm:btn-sm gap-2">
 				<ArrowLeft size={18} />

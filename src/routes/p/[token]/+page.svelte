@@ -17,6 +17,7 @@
 	import { formatDateShort } from '$lib/utils/date';
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
 	import { Drawer, DrawerContent, DrawerHandle, DrawerOverlay } from '@abhivarde/svelte-drawer';
+	import { fade } from 'svelte/transition';
 
 	import {
 		ArrowRightFromLine,
@@ -332,7 +333,7 @@
 {#if isLoading}
 	<PlanningSkeleton />
 {:else if master}
-	<div class="mx-auto max-w-6xl md:px-4 md:py-8">
+	<div class="mx-auto max-w-6xl md:px-4 md:py-8" in:fade={{ duration: 300 }}>
 		<!-- En-tête -->
 		<div class="mb-12">
 			<div class="mb-8 flex flex-wrap items-start justify-between gap-6">
