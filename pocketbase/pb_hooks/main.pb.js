@@ -104,9 +104,17 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 			tokenParams[`at_${i}`] = t;
 			conditions.push(`adminToken = {:at_${i}}`);
 		});
-		const newMasters = conditions.length > 0
-			? $app.findRecordsByFilter('planning_masters', conditions.join(' || '), '', 0, 0, tokenParams)
-			: [];
+		const newMasters =
+			conditions.length > 0
+				? $app.findRecordsByFilter(
+						'planning_masters',
+						conditions.join(' || '),
+						'',
+						0,
+						0,
+						tokenParams
+					)
+				: [];
 
 		for (const master of newMasters) {
 			currentMasterIds.add(master.id);

@@ -34,7 +34,9 @@ module.exports = {
 				timeout: 10
 			});
 		} catch (err) {
-			app.logger().error('[Notification] Push HTTP error', err?.message || err, 'userId', user.getId());
+			app
+				.logger()
+				.error('[Notification] Push HTTP error', err?.message || err, 'userId', user.getId());
 			return;
 		}
 
@@ -45,13 +47,22 @@ module.exports = {
 				user.set('push_subscription', null);
 				app.save(user);
 			} catch (cleanupErr) {
-				app.logger().error('[Notification] Erreur nettoyage subscription', cleanupErr?.message, 'userId', user.getId());
+				app
+					.logger()
+					.error(
+						'[Notification] Erreur nettoyage subscription',
+						cleanupErr?.message,
+						'userId',
+						user.getId()
+					);
 			}
 			return;
 		}
 
 		if (res.statusCode !== 200) {
-			app.logger().error('[Notification] Push error', res.statusCode, 'userId', user.getId(), 'url', url);
+			app
+				.logger()
+				.error('[Notification] Push error', res.statusCode, 'userId', user.getId(), 'url', url);
 		}
 	},
 

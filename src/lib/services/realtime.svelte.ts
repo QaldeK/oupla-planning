@@ -1,3 +1,30 @@
+/**
+ * RealtimeService - Gestion des souscriptions temps réel PocketBase
+ *
+ * ## Architecture à deux flux
+ *
+ * Ce service maintient deux flux de souscription distincts, justifiés par des contraintes
+ * techniques et des besoins fonctionnels différents :
+ *
+ * ### 1. Flux Auth (subscribeGlobally)
+ * - **Cible** : Utilisateurs connectés (PocketBase auth)
+ * - **Scope** : TOUTES les collections planning_masters et planning_occurrences
+ * - **Sécurité** : API Rules natives via @request.auth.id
+ * - **Usage** : Sidebar avec tous les plannings, notifications cross-plannings
+ *
+ * ### 2. Flux Guest (subscribeToMaster)
+ * - **Cible** : Utilisateurs anonymes (token dans l'URL)
+ * - **Scope** : UN planning spécifique via filtre `master = "${masterId}"`
+ * - **Sécurité** : API Rules via @request.query._token
+ * - **Usage** : Page active unique, pas de dashboard
+ *
+ * ### Pourquoi ne pas unifier ?
+ * - Les API Rules PocketBase exigent un token pour les guests, impossible d'avoir un
+ *   abonnement global sans authentification
+ * - Le realtime PocketBase ne supporte pas les filtres IN (`field ?= [values]`), ce qui
+ *   empêcherait de filtrer plusieurs plannings pour un guest
+ * - Un guest ne doit voir qu'UN planning (celui de son token), pas tous
+ */
 import { pb } from '$lib/pocketbase/pb';
 import { networkStore, withPocketBaseTimeout } from '$lib/stores/networkStore.svelte';
 import { userStore } from '$lib/stores/userStore.svelte';
