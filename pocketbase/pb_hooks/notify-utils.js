@@ -3,9 +3,6 @@
  *
  * Ce module fournit tous les helpers nécessaires pour l'envoi de notifications
  * push et email, ainsi que le traitement de la logique de notifications.
- *
- * NOTE: Les notifications push nécessitent le service Bun (notify-service)
- * qui sera déployé dans la Phase 5.
  */
 
 module.exports = {
@@ -14,14 +11,17 @@ module.exports = {
 	// ============================================================================
 
 	/**
-	 * Envoyer une notification push à un user
+	 * Envoyer une notification push à un user.
+	 * $http.send() est synchrone dans la JSVM PocketBase — pas de Promise.
+	 * Si la subscription est expirée (410/404), elle est nettoyée dans PocketBase.
 	 */
 	sendPushNotification(app, user, title, body, url) {
 		const sub = user.get('push_subscription');
-		if (!sub) return Promise.resolve();
+		if (!sub) return;
 
-		return $http
-			.send({
+		let res;
+		try {
+			res = $http.send({
 				method: 'POST',
 				url: 'http://services-notifyservice-rbwdvg:3001/notify',
 				headers: { 'Content-Type': 'application/json' },
@@ -30,12 +30,29 @@ module.exports = {
 					title,
 					body,
 					url: `https://planning.oupla.net${url}`
-				})
-			})
-			.catch((err) => {
-				// Logger l'erreur avec l'API PocketBase
-				app.logger().error('[Notification] Push error', err?.message || err, 'url', url);
+				}),
+				timeout: 10
 			});
+		} catch (err) {
+			app.logger().error('[Notification] Push HTTP error', err?.message || err, 'userId', user.getId());
+			return;
+		}
+
+		// Subscription expirée ou révoquée — nettoyer dans PocketBase
+		if (res.statusCode === 410 || res.statusCode === 404) {
+			app.logger().info('[Notification] Subscription expirée, nettoyage', 'userId', user.getId());
+			try {
+				user.set('push_subscription', null);
+				app.save(user);
+			} catch (cleanupErr) {
+				app.logger().error('[Notification] Erreur nettoyage subscription', cleanupErr?.message, 'userId', user.getId());
+			}
+			return;
+		}
+
+		if (res.statusCode !== 200) {
+			app.logger().error('[Notification] Push error', res.statusCode, 'userId', user.getId(), 'url', url);
+		}
 	},
 
 	/**
@@ -98,8 +115,8 @@ module.exports = {
 	},
 
 	/**
-	 * Traite les rappels pour une occurrence
-	 * N'envoie qu'aux participants qui ont répondu "present"
+	 * Traite les rappels pour une occurrence.
+	 * N'envoie qu'aux participants qui ont répondu "present".
 	 */
 	processReminders(app, occ, groups, notifUrl, daysUntil, occTime) {
 		const responses = occ.get('responses') || [];
@@ -118,21 +135,9 @@ module.exports = {
 		const title = `Rappel — Événement`;
 		const body = `Vous avez un événement ${daysUntil === 1 ? 'demain' : `dans ${daysUntil} jours`} (${occDate} à ${occTime}).`;
 
-		// Webpush: Promise.all en parallèle
-		if (presentPushUsers.length > 0) {
-			const pushPromises = presentPushUsers.map((user) =>
-				this.sendPushNotification(app, user, title, body, notifUrl)
-			);
-			Promise.all(pushPromises).catch((err) => {
-				app
-					.logger()
-					.error(
-						'[Notification] Batch push error',
-						err?.message || err,
-						'count',
-						presentPushUsers.length
-					);
-			});
+		// Push: séquentiel (JSVM synchrone)
+		for (const user of presentPushUsers) {
+			this.sendPushNotification(app, user, title, body, notifUrl);
 		}
 
 		// Email: 1 seul email avec CC
@@ -142,8 +147,8 @@ module.exports = {
 	},
 
 	/**
-	 * Traite les alertes de participants manquants pour une occurrence
-	 * N'envoie que si le nombre de présents est inférieur au minRequired
+	 * Traite les alertes de participants manquants pour une occurrence.
+	 * N'envoie que si le nombre de présents est inférieur au minRequired.
 	 */
 	processMissingParticipants(app, occ, groups, notifUrl, daysUntil) {
 		const responses = occ.get('responses') || [];
@@ -157,21 +162,9 @@ module.exports = {
 		const title = `Il manque des participants — Événement`;
 		const body = `Occurrence du ${occDate} : ${presentCount}/${minRequired} présents.`;
 
-		// Webpush
-		if (groups.pushUsers.length > 0) {
-			const pushPromises = groups.pushUsers.map((user) =>
-				this.sendPushNotification(app, user, title, body, notifUrl)
-			);
-			Promise.all(pushPromises).catch((err) => {
-				app
-					.logger()
-					.error(
-						'[Notification] Batch push error',
-						err?.message || err,
-						'count',
-						groups.pushUsers.length
-					);
-			});
+		// Push: séquentiel (JSVM synchrone)
+		for (const user of groups.pushUsers) {
+			this.sendPushNotification(app, user, title, body, notifUrl);
 		}
 
 		// Email groupé
