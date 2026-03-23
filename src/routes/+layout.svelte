@@ -21,6 +21,19 @@
 
 	let { children } = $props();
 
+	import { page } from '$app/state';
+
+	// Layout-driven : observer $page.params.token pour activer/désactiver le planning
+	$effect(() => {
+		const token = page.params.token as string | undefined;
+
+		// Détecter si on est sur la page archive pour passer le bon dateFilter
+		const isArchivePage = page.url.pathname.includes('/archive');
+		const dateFilter = isArchivePage ? 'past' : 'future';
+
+		planningStore.setActiveToken(token, dateFilter);
+	});
+
 	let showConfirmClearPlannings = $state(false);
 	let showClearDataConfirm = $state(false);
 	let showAccountModal = $state(false);

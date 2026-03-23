@@ -4,6 +4,7 @@ import { syncService } from '$lib/services/syncService';
 import { realtimeService } from '$lib/services/realtime.svelte';
 import { userStore } from '$lib/stores/userStore.svelte';
 import { SvelteMap } from 'svelte/reactivity';
+import { pb } from '$lib/pocketbase/pb';
 
 class PlanningStore {
 	// Cache interne : token → master (pour éviter les fetchs)
@@ -57,6 +58,120 @@ class PlanningStore {
 		return this.#error;
 	}
 
+	// Flag pour éviter les re-fetchs lors de navigations rapides
+	#currentToken = $state<string | null>(null);
+
+	/**
+	 * Active un planning à partir de son token (participant ou admin).
+	 * Cette méthode est appelée par le layout qui observe $page.params.token.
+	 *
+	 * @param token - Le token du planning (participantToken ou adminToken)
+	 * @param dateFilter - Optionnel : 'future' (défaut), 'past', ou 'all'
+	 */
+	async setActiveToken(
+		token: string | undefined,
+		dateFilter: 'future' | 'past' | 'all' = 'future'
+	): Promise<void> {
+		// Cas 1: pas de token → désactiver le planning actif
+		if (!token) {
+			this.#deactivate();
+			return;
+		}
+
+		// Éviter les re-fetchs si même token
+		if (this.#currentToken === token) return;
+
+		this.#isLoading = true;
+		this.#error = null;
+		this.#currentToken = token;
+
+		try {
+			// Cas 2: résoudre token → masterId
+			const master = await this.getOrFetchMaster(token);
+			if (!master) {
+				this.#error = 'Planning introuvable';
+				this.#activeMasterId = null;
+				return;
+			}
+
+			// Cas 3: masterId inchangé → NOP (optimisation)
+			if (this.#activeMasterId === master.id) {
+				return;
+			}
+
+			// Cas 4: nouveau master
+			this.#activeMasterId = master.id;
+			this.#masters.set(master.id, master);
+
+			// Charger occurrences avec le bon filtre
+			const occs = await getOccurrencesByMaster(master.id, token, { dateFilter });
+			this.#occurrences.set(master.id, occs);
+
+			// Sauvegarder dans savedPlannings
+			const identity = userStore.getPlanningIdentity(master.id);
+			const isAdmin = token.length === 64;
+			await userStore.savePlanning({
+				masterId: master.id,
+				title: master.title!,
+				participantToken: master.participantToken!,
+				...(isAdmin ? { adminToken: token } : {}),
+				lastAccessed: new Date().toISOString(),
+				currentUser: identity || undefined,
+				isSync: userStore.isLoggedIn ? false : undefined
+			});
+
+			// Synchronisation PocketBase (seulement si pas déjà sync)
+			if (userStore.isLoggedIn && !this.#isAlreadySynced(master.id)) {
+				await syncService.sync(userStore.savedPlannings);
+			}
+
+			// Realtime (guest uniquement - guard déjà présent dans realtimeService)
+			if (!userStore.isLoggedIn) {
+				try {
+					await realtimeService.subscribeToMaster(master.id, token);
+				} catch (err) {
+					console.warn('Realtime subscription failed (non-blocking):', err);
+				}
+			}
+			console.log(this.activeMasterId);
+		} catch (err) {
+			console.error('PlanningStore setActiveToken error:', err);
+			this.#error = 'Erreur lors du chargement';
+		} finally {
+			this.#isLoading = false;
+		}
+	}
+
+	/**
+	 * Désactive le planning actif (appelé quand on quitte une page planning).
+	 * Nettoie les souscriptions realtime et reset l'état.
+	 */
+	#deactivate(): void {
+		realtimeService.unsubscribe();
+		this.#activeMasterId = null;
+		this.#selectedOccurrenceId = null;
+		this.#currentToken = null;
+	}
+
+	/**
+	 * Vérifie si un planning est déjà synchronisé avec PocketBase.
+	 * Un planning est considéré sync si son masterId est dans pb.authStore.record.masterId[]
+	 * ou s'il est une clé de pb.authStore.record.adminOf.
+	 */
+	#isAlreadySynced(masterId: string): boolean {
+		const record = pb.authStore.record;
+		if (!record) return false;
+
+		const masterIds = record.masterId || [];
+		const adminOfKeys = Object.keys(record.adminOf || {});
+
+		return masterIds.includes(masterId) || adminOfKeys.includes(masterId);
+	}
+
+	/**
+	 * @deprecated Utiliser setActiveToken() à la place. Cette méthode est conservée
+	 * pour compatibilité mais ne devrait plus être appelée directement par les pages.
+	 */
 	async init(
 		token: string,
 		options: { dateFilter: 'future' | 'past' | 'all' } = { dateFilter: 'future' }
@@ -96,6 +211,7 @@ class PlanningStore {
 			});
 
 			// Déclencher la synchronisation si l'utilisateur est connecté pour assurer masterId/adminOf
+			// TOCHEK : est-ce que l'on ne pourrait/devrait pas verifier pb.authStore avant, pour savoir si ce planning est déjà synchronisé avec le backend (users.masterId et users.adminOf si tokenAdmin) ??
 			if (userStore.isLoggedIn) {
 				await syncService.sync(userStore.savedPlannings);
 			}
@@ -233,12 +349,15 @@ class PlanningStore {
 		this.#masterTokens.clear();
 	}
 
-	// --- Cleanup page ---
+	// --- Cleanup ---
 
+	/**
+	 * @deprecated Cette méthode ne devrait plus être appelée directement.
+	 * Le layout gère maintenant l'activation/désactivation via setActiveToken().
+	 * Conservée pour compatibilité éventuelle.
+	 */
 	cleanup() {
-		realtimeService.unsubscribe();
-		this.#activeMasterId = null;
-		this.#selectedOccurrenceId = null;
+		this.#deactivate();
 	}
 
 	// --- Setters ---

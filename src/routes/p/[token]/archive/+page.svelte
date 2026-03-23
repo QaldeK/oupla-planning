@@ -3,7 +3,6 @@
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { page } from '$app/state';
 	import { Calendar, ArrowLeft, History, Info } from 'lucide-svelte';
-	import { onDestroy, onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import OccurrenceView from '$lib/components/occurrences/views/OccurrenceView.svelte';
 	import { ArchiveSkeleton } from '$lib/components/ui/skeletons';
@@ -15,16 +14,11 @@
 	let isLoading = $derived(planningStore.isLoading);
 	let currentUserId = $state<string | undefined>(undefined);
 
-	onMount(async () => {
-		await planningStore.init(token || '', { dateFilter: 'past' });
-		if (master) {
-			const identity = userStore.getIdentityForPlanning(master.id);
-			currentUserId = identity?.id;
-		}
-	});
-
-	onDestroy(() => {
-		planningStore.cleanup();
+	// Récupérer l'identité de l'utilisateur pour ce planning
+	$effect(() => {
+		if (!master) return;
+		const identity = userStore.getIdentityForPlanning(master.id);
+		currentUserId = identity?.id;
 	});
 
 	// Nom du participant pour l'affichage (depuis le store local)

@@ -11,7 +11,6 @@
 	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
 	import PlanningNameModal from '$lib/components/PlanningNameModal.svelte';
-	import { pb } from '$lib/pocketbase/pb';
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { formatDateShort } from '$lib/utils/date';
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
@@ -31,10 +30,8 @@
 		User,
 		Users
 	} from 'lucide-svelte';
-	import { onDestroy } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
-	import { goto } from '$app/navigation';
 
 	let token = $derived($page.params.token as string);
 	let master = $derived(planningStore.master);
@@ -47,11 +44,6 @@
 	let showPlanningNameModal = $state(false);
 
 	let hasConflictName = $state();
-
-	// Initialisation via le store
-	$effect(() => {
-		planningStore.init(token);
-	});
 
 	// Sécurité : Rediriger adminToken vers participantToken
 	// $effect(() => {
@@ -79,8 +71,6 @@
 	// Logique d'ouverture du modal d'identification
 	$effect(() => {
 		if (!master) return;
-
-		const defaultName = userStore.globalProfile?.defaultName?.trim() || '';
 
 		// CAS 1 : Utilisateur PocketBase authentifié
 		if (userStore.isLoggedIn && userStore.pbUser) {
@@ -191,10 +181,6 @@
 				showAccountModal = true;
 			}
 		};
-	});
-
-	onDestroy(() => {
-		planningStore.cleanup();
 	});
 
 	async function handlePlanningIdentify(identity: PlanningIdentity, isNewParticipant: boolean) {

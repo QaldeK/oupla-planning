@@ -6,32 +6,25 @@
 	import { updatePlanningWithOccurrences } from '$lib/services/planningActions';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
-	import { onDestroy, onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	import { ArrowLeft, Calendar } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
-	let token = $state('');
+	let token = $derived($page.params.token as string);
 	let master = $derived(planningStore.master);
 	let occurrences = $derived(planningStore.occurrences);
 	let isLoading = $derived(planningStore.isLoading);
 	let isSubmitting = $state(false);
 
-	onMount(async () => {
-		token = $page.params.token as string;
-		const result = await planningStore.init(token);
+	// Logique de redirection admin → participant
+	$effect(() => {
+		if (!master) return;
 
-		if (result && !result.isAdmin) {
-			const adminTokenInStorage = userStore.getAdminToken(result.master.id);
-			if (!adminTokenInStorage) {
-				await goto(`/p/${token}`);
-			}
+		// Si l'utilisateur n'a pas les droits admin sur ce planning, rediriger
+		if (!userStore.hasAdminAccess(master.id)) {
+			goto(`/p/${master.participantToken}`);
 		}
-	});
-
-	onDestroy(() => {
-		planningStore.cleanup();
 	});
 
 	async function handleUpdatePlanning(data: PlanningFormData) {
