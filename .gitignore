@@ -37,6 +37,7 @@ CLAUDE.md
 # pocketbase
 **/pb_data
 **/pb_migrations
+pocketbase/pb_hooks/generateHooks.pb.js
 
 # Config files
 .npmrc
