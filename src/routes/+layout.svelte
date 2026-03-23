@@ -32,6 +32,9 @@
 	});
 
 	$effect(() => {
+		// Attendre que init() ait fini de charger savedPlannings depuis le localStorage
+		if (!userStore.isReady) return;
+
 		if (!userStore.isLoggedIn) {
 			// Reset le flag au logout
 			userStore.hasSyncedThisSession = false;
