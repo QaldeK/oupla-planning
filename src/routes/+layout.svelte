@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
 	import CommentSection from '$lib/components/CommentSection.svelte';
 	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
@@ -42,6 +42,11 @@
 		userStore.init();
 		mediaQuery.init();
 		pwaStore.init();
+	});
+
+	// Fermer le drawer des commentaires lors des changements de route
+	afterNavigate(() => {
+		drawerStore.close();
 	});
 
 	$effect(() => {
@@ -350,14 +355,21 @@
 {/if}
 
 <!-- Drawer Global pour les Commentaires -->
-<Drawer bind:open={drawerStore.open} portal={true} direction="right">
+<Drawer
+	bind:open={drawerStore.open}
+	portal={true}
+	direction="right"
+	onOpenChange={(isOpen: boolean) => {
+		if (!isOpen) drawerStore.close();
+	}}
+>
 	<DrawerOverlay />
 	<DrawerContent
 		class="bg-base-100 fixed top-0 right-0 bottom-0 z-50 h-dvh w-120 max-w-[85vw] shadow-2xl"
 	>
-		<DrawerHandle class="my-4 ml-4" />
+		<DrawerHandle class="absolute top-1/2 left-0 ml-2 -translate-y-1/2" />
 		{#if drawerStore.open}
-			<div class="h-full pb-6"><CommentSection /></div>
+			<CommentSection />
 		{/if}
 	</DrawerContent>
 </Drawer>
