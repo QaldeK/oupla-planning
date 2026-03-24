@@ -6,6 +6,7 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { modalStore } from '$lib/stores/modalStore.svelte';
+	import { goto } from '$app/navigation';
 
 	// État du header
 	let isHeaderVisible = $state(true);
@@ -65,6 +66,14 @@
 		};
 	}
 
+	function handleUserBtnClick() {
+		if (userStore.isLoggedIn) {
+			goto('/settings');
+		} else {
+			openUserModal();
+		}
+	}
+
 	onMount(() => {
 		lastScrollY = window.scrollY;
 		window.addEventListener('scroll', handleScroll, { passive: true });
@@ -111,8 +120,8 @@
 
 			<!-- Bouton User -->
 			<button
-				class="btn btn-ghost btn-sm"
-				onclick={openUserModal}
+				class="btn btn-ghost btn-sm btn-circle"
+				onclick={handleUserBtnClick}
 				aria-label="Ouvrir le profil utilisateur"
 			>
 				<User size={18} />

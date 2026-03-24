@@ -48,7 +48,7 @@
 
 {#if open}
 	<div
-		class="modal modal-open"
+		class="modal modal-open mb-0"
 		style:z-index={zIndex}
 		onclick={handleBackdropClick}
 		onkeydown={handleKeydown}
@@ -57,56 +57,50 @@
 		tabindex="-1"
 	>
 		<div
-			class="modal-box relative {isMobileFullscreen &&
-				'flex h-dvh w-full max-w-none flex-col rounded-none px-4 py-4 pt-6'}
+			class="modal-box relative p-0 {isMobileFullscreen &&
+				' flex h-dvh w-full max-w-none flex-col rounded-none'}
 				{!isMobileFullscreen && sizeClasses[size]} pt-8}"
 		>
 			<!-- Header fixe en haut -->
-			{#if title}
-				<div
-					class="flex items-center justify-between {isMobileFullscreen
-						? 'bg-base-100 border-base-300 sticky top-0 z-10 border-b pb-2'
-						: 'mb-4'}"
-				>
-					{#if isMobileFullscreen}
-						<button
-							class="btn btn-circle btn-ghost sm:btn-sm mr-2"
-							onclick={onClose}
-							aria-label="Retour"
-						>
-							<ArrowLeft size={20} />
-						</button>
-						<h3 class="flex-1 text-base font-semibold md:text-lg">{title}</h3>
-						<!-- <button class="btn btn-circle btn-primary btn-sm" onclick={}><Save class="p-1" /></button> -->
-					{:else}
-						<h3 class="text-lg font-semibold">{title}</h3>
-						<button class="btn btn-circle btn-ghost btn-sm" onclick={onClose} aria-label="Fermer">
-							<X size={20} />
-						</button>
-					{/if}
-				</div>
-			{:else}
-				<button
-					class="btn btn-circle btn-ghost sm:btn-sm absolute top-2 right-2 z-10"
-					onclick={onClose}
-					aria-label="Fermer"
-				>
-					{#if isMobileFullscreen}
+			<div
+				class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between border-b px-4 py-2"
+			>
+				{#if isMobileFullscreen}
+					<button
+						class="btn btn-circle btn-ghost sm:btn-sm mr-2"
+						onclick={onClose}
+						aria-label="Retour"
+					>
 						<ArrowLeft size={20} />
-					{:else}
-						<X size={20} />
+					</button>
+					{#if title}
+						<h3 class="flex-1 text-base font-semibold">{title}</h3>
 					{/if}
-				</button>
-			{/if}
+					<!-- <button class="btn btn-circle btn-primary btn-sm" onclick={}><Save class="p-1" /></button> -->
+				{:else}
+					<h3 class="flex-1 text-lg font-semibold">{title}</h3>
+					<button class="btn btn-circle btn-ghost btn-sm" onclick={onClose} aria-label="Fermer">
+						<X size={20} />
+					</button>
+				{/if}
+			</div>
 
-			<!-- Contenu scrollable -->
-			<div class="modal-content {isMobileFullscreen ? 'flex-1 overflow-y-auto' : ''}">
+			<!-- Contenu scrollable avec padding pour les actions -->
+			<div
+				class="p-4 {isMobileFullscreen ? 'mt-2 flex-1 overflow-y-auto' : ''} {actions
+					? 'pb-10'
+					: ''}"
+			>
 				{@render children()}
 			</div>
 
 			<!-- Actions fixes en bas -->
 			{#if actions}
-				<div class="modal-action">
+				<div
+					class="bg-base-100/90 sticky bottom-0 mt-auto flex w-full justify-between gap-4 border-t border-slate-400 px-4 py-2 shadow-xl backdrop-blur {isMobileFullscreen
+						? 'rounded-none'
+						: 'rounded-b-xl'}"
+				>
 					{@render actions()}
 				</div>
 			{/if}

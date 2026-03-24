@@ -8,6 +8,7 @@
 	} from '$lib/services/planningActions';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
+	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { classifyError } from '$lib/utils/errorHandler';
 	import type {
 		Participant,
@@ -28,6 +29,7 @@
 		MapPin,
 		Pencil,
 		Plus,
+		RefreshCcw,
 		Trash2,
 		User,
 		UserPlus,
@@ -38,6 +40,7 @@
 	import { toast } from 'svelte-sonner';
 	import NetworkAlert from '../NetworkAlert.svelte';
 	import Modal from '../ui/Modal.svelte';
+	import { fade, slide } from 'svelte/transition';
 
 	interface Props {
 		open: boolean;
@@ -145,7 +148,7 @@
 				? 'Confirmé'
 				: toConfirm
 					? 'En attente de confirmation'
-					: 'Prévu'
+					: 'Toujours confirmé'
 	);
 
 	// ===== Gestion admin des responses =====
@@ -436,7 +439,17 @@
 	}
 </script>
 
-<Modal {open} {onClose} title=" Modifier l'occurrence" size="lg">
+{#snippet actions()}
+	<button type="button" class="btn" onclick={onClose}>Annuler</button>
+	<button type="submit" class="btn btn-primary px-8" disabled={isSubmitting}>
+		{#if isSubmitting}
+			<span class="loading loading-spinner loading-sm"></span>
+		{/if}
+		Enregistrer <span class="hidden md:flex">les changements</span>
+	</button>
+{/snippet}
+
+<Modal {open} {onClose} {actions} title=" Modifier l'occurrence" size="lg">
 	<NetworkAlert message="Modifications impossibles - Serveur indisponible" />
 	<form
 		onsubmit={(e) => {
@@ -445,13 +458,16 @@
 		}}
 		class="space-y-6"
 	>
-		<fieldset disabled={isNetworkUnavailable}>
-			<!-- Statut de l'événement -->
-			<div class="mb-8 flex flex-col gap-3">
-				<h4 class="text-sm font-medium opacity-60">
-					Statut de l'événement : <span class="text-base-content">{statusLabel}</span>
-				</h4>
-				<div class="join" role="radiogroup" aria-label="Statut de l'événement">
+		<!-- Statut de l'événement -->
+		<div class="bg-base-200 card mb-8 flex flex-col gap-3 px-4 py-2">
+			<h4 class="text-sm font-medium">
+				Statut de l'événement : <span
+					class="text-base-content {currentStatus === 'canceled' && 'text-error'}"
+					>{statusLabel}</span
+				>
+			</h4>
+			{#if toConfirm}
+				<div class="join max-sm:mx-auto" role="radiogroup" aria-label="Statut de l'événement">
 					<label
 						class="join-item btn btn-sm {currentStatus === 'confirmed'
 							? 'btn-success'
@@ -467,23 +483,19 @@
 						<CheckCircle size={16} class="mr-2" />
 						Confirmé
 					</label>
-					{#if toConfirm}
-						<label
-							class="join-item btn btn-sm {currentStatus === 'pending'
-								? 'btn-warning'
-								: 'btn-soft'}"
-						>
-							<input
-								type="radio"
-								class="hidden"
-								name="event-status"
-								checked={currentStatus === 'pending'}
-								onchange={() => setStatus('pending')}
-							/>
-							<Clock size={16} class="mr-2" />
-							En attente
-						</label>
-					{/if}
+					<label
+						class="join-item btn btn-sm {currentStatus === 'pending' ? 'btn-warning' : 'btn-soft'}"
+					>
+						<input
+							type="radio"
+							class="hidden"
+							name="event-status"
+							checked={currentStatus === 'pending'}
+							onchange={() => setStatus('pending')}
+						/>
+						<Clock size={16} class="mr-2" />
+						En attente
+					</label>
 					<label
 						class="join-item btn btn-sm {currentStatus === 'canceled' ? 'btn-error' : 'btn-soft'}"
 					>
@@ -498,8 +510,24 @@
 						Annulé
 					</label>
 				</div>
-			</div>
-
+			{:else if currentStatus !== 'canceled'}
+				<p class="text-base-content/80 text-sm">
+					Ce planning est configuré de façon à ce que ses événements soient toujours considérés
+					comme ayant lieu. Vous pouvez cependant annuler une date spécifique. <button
+						class="link link-error"
+						onclick={() => setStatus('canceled')}>annuler cette date</button
+					>
+				</p>
+			{:else}
+				<p class="text-base-content/80">
+					Cette date a été annulée. <button
+						class="link link-error"
+						onclick={() => setStatus('pending')}>réactiver cette date</button
+					>
+				</p>
+			{/if}
+		</div>
+		<fieldset disabled={isNetworkUnavailable || currentStatus === 'canceled'}>
 			<div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
 				<!-- Horaires -->
 				<div class="">
@@ -624,11 +652,10 @@
 					</div>
 
 					<!-- Ajouter un nouveau participant -->
-					<div class="join mt-2">
+					<label class="input mt-2 w-full">
 						<input
 							type="text"
 							bind:value={newParticipantName}
-							class="input join-item grow"
 							placeholder="Nouveau participant..."
 							onkeydown={(e) => {
 								if (e.key === 'Enter') {
@@ -639,17 +666,18 @@
 						/>
 						<button
 							type="button"
-							class="btn btn-primary join-item"
+							class="btn btn-primary btn-circle btn-sm"
 							onclick={handleAddParticipant}
 							disabled={isCreatingParticipant || !newParticipantName.trim()}
+							title="Ajouter"
 						>
 							{#if isCreatingParticipant}
-								<span class="loading loading-spinner loading-sm"></span>
+								<span class="loading loading-spinner loading-xs"></span>
 							{:else}
-								<Plus size={14} />
+								<Plus size={16} />
 							{/if}
 						</button>
-					</div>
+					</label>
 				</div>
 			{/if}
 
@@ -662,7 +690,7 @@
 						<ClipboardCheck size={18} class="text-primary" />
 						Liste des tâches
 					</h4>
-					<div class="flex items-center gap-2">
+					<div class="flex flex-wrap items-center gap-2">
 						{#if isTasksModified}
 							<span class="badge badge-warning badge-soft font-medium"
 								><CircleAlert class="size-4" /> Tâches spécifiques à cette date</span
@@ -672,6 +700,7 @@
 								class="btn btn-ghost btn-sm sm:btn-xs text-error"
 								onclick={resetToMasterTasks}
 							>
+								<RefreshCcw class="size-3" />
 								Rétablir les tâches communes à toutes les dates ({masterTasks?.length ?? 0})
 							</button>
 						{:else if !isTasksModified && masterTasks?.length > 0}
@@ -700,21 +729,23 @@
 												? 'Pendant'
 												: 'Après'}
 									</div>
+									<button
+										type="button"
+										class="btn btn-ghost sm:btn-sm btn-circle text-error"
+										title="Supprimer cette tâche pour cet événement"
+										onclick={() => removeTask(task.id)}
+									>
+										<Trash2 size={14} />
+									</button>
 								</div>
 								<div class="flex gap-1">
 									<button
 										type="button"
 										class="btn btn-ghost sm:btn-sm btn-circle"
+										title="Modifier cette tâche"
 										onclick={() => editTask(task)}
 									>
 										<Pencil size={14} />
-									</button>
-									<button
-										type="button"
-										class="btn btn-ghost sm:btn-sm btn-circle text-error"
-										onclick={() => removeTask(task.id)}
-									>
-										<Trash2 size={14} />
 									</button>
 								</div>
 							</div>
@@ -754,43 +785,58 @@
 				</div>
 
 				<div class="space-y-3">
-					{#if editingTaskId}
-						<div class="alert alert-info rounded-lg py-2 text-sm">
-							<Pencil size={16} />
-							<span>Modification de la tâche en cours</span>
-						</div>
-					{/if}
-
 					<div class="bg-base-200/50 space-y-3 rounded-xl p-4">
-						<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+						<div class="grid grid-cols-1 items-baseline gap-3 sm:grid-cols-2">
+							{#if editingTaskId}
+								<div
+									class="alert alert-info alert-outline rounded-lg py-2 text-sm"
+									transition:slide
+								>
+									<Pencil size={16} />
+									<span>Modification de la tâche sélectionnée}</span>
+								</div>
+							{/if}
 							<fieldset class="fieldset">
-								<legend class="fieldset-legend">Nom de la tâche</legend>
-								<input
-									type="text"
-									bind:value={newTaskName}
-									bind:this={taskNameInput}
-									class="input sm:input-sm w-full"
-									onkeydown={(e) => {
-										if (e.key === 'Enter') {
-											e.preventDefault();
-											addTask();
-										}
-									}}
-								/>
+								<label class="input w-full">
+									<input
+										type="text"
+										bind:value={newTaskName}
+										bind:this={taskNameInput}
+										placeholder="Nom de la tâche"
+										onkeydown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault();
+												addTask();
+											}
+										}}
+									/>
+									<!-- Bouton + intégré visible uniquement en mobile -->
+									<button
+										type="button"
+										class="btn btn-primary btn-circle btn-sm hidden max-sm:flex"
+										onclick={addTask}
+										disabled={newTaskName.trim().length === 0 ||
+											(editingTaskId !== null && !taskHasChanges)}
+										title="Ajouter la tâche"
+									>
+										<Plus size={16} />
+									</button>
+								</label>
 							</fieldset>
 							<div class="grid grid-cols-2 gap-3">
 								<fieldset class="fieldset">
-									<legend class="fieldset-legend">Pariticpant·es</legend>
+									<legend class="fieldset-legend">Participant·es requis·ses</legend>
 									<input
 										type="number"
 										bind:value={newTaskVolunteers}
-										class="input sm:input-sm w-full"
+										class="input w-full"
 										min="1"
+										placeholder="Nb."
 									/>
 								</fieldset>
 								<fieldset class="fieldset">
 									<legend class="fieldset-legend">Moment</legend>
-									<select bind:value={newTaskType} class="select sm:select-sm w-full">
+									<select bind:value={newTaskType} class="select w-full">
 										<option value="beforeEvent">Avant</option>
 										<option value="onEvent">Pendant</option>
 										<option value="afterEvent">Après</option>
@@ -817,6 +863,11 @@
 									Annuler
 								</button>
 							{/if}
+							{#if editingTaskId}
+								<button type="button" class="btn sm:btn-sm btn-ghost" onclick={cancelEdit}
+									>Annuler</button
+								>
+							{/if}
 							<button
 								type="button"
 								class="btn sm:btn-sm btn-primary grow"
@@ -826,23 +877,8 @@
 							>
 								{editingTaskId ? 'Modifier la tâche' : 'Ajouter la tâche'}
 							</button>
-							{#if editingTaskId}
-								<button type="button" class="btn sm:btn-sm btn-ghost" onclick={cancelEdit}
-									>Annuler</button
-								>
-							{/if}
 						</div>
 					</div>
-				</div>
-
-				<div class="modal-action">
-					<button type="button" class="btn" onclick={onClose}>Annuler</button>
-					<button type="submit" class="btn btn-primary px-8" disabled={isSubmitting}>
-						{#if isSubmitting}
-							<span class="loading loading-spinner loading-sm"></span>
-						{/if}
-						Enregistrer <span class="hidden md:flex">les changements</span>
-					</button>
 				</div>
 			</div>
 		</fieldset>
@@ -894,11 +930,10 @@
 			</div>
 
 			<!-- Ajouter un nouveau bénévole -->
-			<div class="join mt-2">
+			<label class="input mt-2 w-full">
 				<input
 					type="text"
 					bind:value={newVolunteerName}
-					class="input join-item grow"
 					placeholder="Ajouter un·e participant·e..."
 					onkeydown={(e) => {
 						if (e.key === 'Enter') {
@@ -909,17 +944,18 @@
 				/>
 				<button
 					type="button"
-					class="btn btn-primary join-item"
+					class="btn btn-primary btn-circle btn-sm"
 					onclick={handleAddVolunteer}
 					disabled={isCreatingVolunteer || !newVolunteerName.trim()}
+					title="Ajouter"
 				>
 					{#if isCreatingVolunteer}
 						<span class="loading loading-spinner loading-xs"></span>
 					{:else}
-						<Plus size={14} />
+						<Plus size={16} />
 					{/if}
 				</button>
-			</div>
+			</label>
 
 			<div class="modal-action">
 				<button type="button" class="btn" onclick={() => (taskVolunteerModalOpen = false)}>

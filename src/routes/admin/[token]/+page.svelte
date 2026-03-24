@@ -8,7 +8,7 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { fade } from 'svelte/transition';
 
-	import { ArrowLeft, Calendar } from 'lucide-svelte';
+	import { ArrowLeft, Calendar, CalendarCog } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	let token = $derived($page.params.token as string);
@@ -81,25 +81,28 @@
 			</a>
 		</div>
 		<!-- Contenu principal (Formulaire uniquement) -->
-		<div class="mx-auto max-w-4xl">
-			<div class="mb-8">
-				<h3 class="mb-2 text-center text-2xl sm:font-semibold">
+		<div class="mb-6 flex flex-1 items-center gap-5">
+			<div class="bg-primary/10 self-start rounded-2xl p-2 sm:p-4">
+				<CalendarCog class="text-primary size-7 sm:size-6" />
+			</div>
+			<div class="flex-1 space-y-1">
+				<h3 class="font-semibold sm:text-xl">
 					Configuration {'de ' + master?.title || 'du Planning'}
 				</h3>
-				<p class="text-base-content/50 text-center text-sm">
+				<p class="text-base-content/50 text-sm">
 					Modifiez les paramètres du planning. Les changements seront propagés aux occurrences.
 				</p>
 			</div>
-			{#key master.updated}
-				<PlanningForm
-					{master}
-					onSubmit={handleUpdatePlanning}
-					bind:isSubmitting
-					{datesWithData}
-					{datesWithSpecificTasks}
-				/>
-			{/key}
 		</div>
+		{#key master.updated}
+			<PlanningForm
+				{master}
+				onSubmit={handleUpdatePlanning}
+				bind:isSubmitting
+				{datesWithData}
+				{datesWithSpecificTasks}
+			/>
+		{/key}
 	</div>
 {:else}
 	<div class="flex min-h-[50vh] items-center justify-center p-4">

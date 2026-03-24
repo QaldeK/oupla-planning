@@ -320,7 +320,7 @@
 	<div class="mx-auto max-w-6xl md:px-4 md:py-8" in:fade={{ duration: 300 }}>
 		<!-- En-tête -->
 		<div class="mb-4 sm:mb-12">
-			<div class="mb-8 flex flex-wrap items-start justify-between gap-6">
+			<div class="mb-2 flex flex-wrap items-start justify-between gap-6 sm:mb-8">
 				<div class="flex flex-1 items-center gap-5">
 					<div class="bg-primary/10 rounded-2xl p-2 sm:p-4">
 						<Calendar class="text-primary size-7 sm:size-6" />
@@ -496,7 +496,7 @@
 			{#if !currentIdentity}
 				<div class="alert alert-warning mt-4">
 					<Info size={18} />
-					<p>Veuillez vous identifier pour répondre aux occurrences</p>
+					<p>Veuillez vous identifier pour répondre aux sondages</p>
 					<div class="flex gap-2">
 						<button class="btn" onclick={() => (userStore.authModal.open = true)}>
 							S'identifier
@@ -526,7 +526,7 @@
 			</div>
 			<!-- Header avec tabs -->
 			<div class="flex flex-wrap items-center justify-between gap-4">
-				<h2 class="text-2xl font-semibold">Prochaines occurrences</h2>
+				<h2 class="text-xl font-semibold max-sm:px-2 sm:text-2xl">Prochaines dates</h2>
 				<ViewTabs />
 			</div>
 

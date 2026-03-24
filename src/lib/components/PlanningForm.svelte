@@ -9,8 +9,19 @@
 	import MultiSelect from './MultiSelect.svelte';
 	import MultiDatePicker from './ui/MultiDatePicker.svelte';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
+	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { classifyError } from '$lib/utils/errorHandler';
-	import { Plus, Trash2, Calendar, Clock, MapPin, AlignLeft, Pencil, X } from 'lucide-svelte';
+	import {
+		Plus,
+		Trash2,
+		Calendar,
+		Clock,
+		MapPin,
+		AlignLeft,
+		Pencil,
+		X,
+		ClipboardCheck
+	} from 'lucide-svelte';
 	import { generateRecurrenceDates, getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from '$lib/constants';
 	import { toast } from 'svelte-sonner';
@@ -18,6 +29,7 @@
 	import { fr } from 'date-fns/locale';
 	import { untrack } from 'svelte';
 	import NetworkAlert from './NetworkAlert.svelte';
+	import { fade, slide } from 'svelte/transition';
 
 	interface Props {
 		master?: PlanningMaster; // Si présent, on est en mode édition
@@ -629,13 +641,13 @@
 		class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
 		disabled={isSubmitting || isNetworkUnavailable}
 	>
-		<div class="card-body gap-6">
-			<h3 class="card-title flex items-center gap-2 text-xl">
+		<div class="card-body gap-4 sm:gap-6">
+			<h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
 				<AlignLeft class="text-primary" />
 				Informations générales
 			</h3>
 
-			<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+			<div class="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
 				<fieldset class="fieldset col-span-full">
 					<label
 						class="label bg-primary/5 ring-primary/20 flex cursor-pointer items-start gap-4 rounded-xl p-4 ring-1"
@@ -683,16 +695,16 @@
 				</fieldset>
 
 				<fieldset class="fieldset">
-					<legend class="fieldset-legend flex items-center gap-2">
-						<MapPin size={16} /> Lieu
-					</legend>
-					<input
-						type="text"
-						bind:value={place}
-						class="input w-full"
-						placeholder="Ex: Club house, Terrain 1..."
-						disabled={isSubmitting}
-					/>
+					<label class="input w-full">
+						<span class="label"><MapPin size={16} /></span>
+						<input
+							type="text"
+							bind:value={place}
+							class="w-full"
+							placeholder="Lieu."
+							disabled={isSubmitting}
+						/>
+					</label>
 				</fieldset>
 
 				<div class="space-y-4">
@@ -775,13 +787,13 @@
 		class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
 		disabled={isSubmitting || isNetworkUnavailable}
 	>
-		<div class="card-body gap-6">
-			<h3 class="card-title flex items-center gap-2 text-xl">
+		<div class="card-body gap-4 sm:gap-6">
+			<h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
 				<Calendar class="text-primary" />
-				Calendrier et récurrence
+				Calendrier et récurrences
 			</h3>
 
-			<div class="flex flex-col gap-6">
+			<div class="flex flex-col gap-4 sm:gap-6">
 				<fieldset class="fieldset md:max-w-1/2">
 					<legend class="fieldset-legend">Type de récurrence</legend>
 					<select
@@ -1018,8 +1030,8 @@
 		class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
 		disabled={isSubmitting || isNetworkUnavailable}
 	>
-		<div class="card-body gap-6">
-			<h3 class="card-title flex items-center gap-2 text-xl">
+		<div class="card-body sm-gap-6 gap-4">
+			<h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
 				<Plus class="text-primary" />
 				Réponses et tâches
 			</h3>
@@ -1105,12 +1117,16 @@
 				{/if}
 			</div>
 
-			<div class="divider"></div>
+			<div class="divider my-0"></div>
 			<div
 				class="space-y-4 {validationErrors.tasks || validationErrors.taskInProgress
 					? 'ring-error rounded-xl p-2 ring-2 ring-offset-2'
 					: ''}"
 			>
+				<h4 class="flex items-center gap-2 text-base font-medium">
+					<ClipboardCheck size={18} class="text-primary" />
+					Liste des tâches
+				</h4>
 				{#if master && datesWithSpecificTasks.length > 0}
 					<div class="alert alert-info max-sm:alert-vertical rounded-2xl shadow-sm">
 						<AlignLeft size={20} />
@@ -1144,11 +1160,23 @@
 							: ''}"
 					>
 						<div class="flex-1">
-							<div class="font-bold">{task.name}</div>
+							<div class="text-base font-medium">{task.name}</div>
+
 							{#if task.description}
 								<div class="text-sm opacity-70">{task.description}</div>
 							{/if}
 						</div>
+
+						<!-- Bouton supprimer -->
+						<button
+							type="button"
+							class="btn btn-ghost btn-circle text-error"
+							onclick={() => removeTask(task.id)}
+							disabled={isSubmitting}
+							title="Supprimer cette tâche"
+						>
+							<Trash2 size={14} />
+						</button>
 						<div class="badge badge-outline">{task.requiredVolunteers} pers.</div>
 
 						<div class="flex gap-1">
@@ -1162,109 +1190,109 @@
 							>
 								<Pencil size={14} />
 							</button>
-
-							<!-- Bouton supprimer -->
-							<button
-								type="button"
-								class="btn btn-ghost btn-circle text-error"
-								onclick={() => removeTask(task.id)}
-								disabled={isSubmitting}
-								title="Supprimer cette tâche"
-							>
-								<Trash2 size={14} />
-							</button>
 						</div>
 					</div>
 				{/each}
 
-				<div class="flex flex-col gap-3">
-					<!-- Indicateur de mode édition -->
-					{#if isEditingTask}
-						<div class="alert alert-info rounded-lg py-2 text-sm">
-							<Pencil size={16} />
-							<span>Modification de la tâche en cours</span>
+				<div class="space-y-3">
+					<div class="bg-base-200/50 space-y-3 rounded-xl p-4">
+						<div class="grid grid-cols-1 items-baseline gap-3 sm:grid-cols-2">
+							{#if editingTaskId}
+								<div
+									class="alert alert-info alert-outline rounded-lg py-2 text-sm"
+									transition:slide
+								>
+									<Pencil size={16} />
+									<span>Modification de la tâche sélectionnée}</span>
+								</div>
+							{/if}
+							<fieldset class="fieldset">
+								<label class="input w-full {validationErrors.taskInProgress ? 'input-error' : ''}">
+									<input
+										type="text"
+										bind:value={newTaskName}
+										bind:this={taskNameInput}
+										placeholder="Nom de la tâche"
+										disabled={isSubmitting}
+										maxlength="50"
+										onkeydown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault();
+												addTask();
+											}
+										}}
+									/>
+									<!-- Bouton + intégré visible uniquement en mobile -->
+									<button
+										type="button"
+										class="btn btn-primary btn-circle btn-sm hidden max-sm:flex"
+										onclick={addTask}
+										disabled={isSubmitting ||
+											newTaskName.trim().length === 0 ||
+											(isEditingTask && !taskHasChanges)}
+										title="Ajouter la tâche"
+									>
+										<Plus size={16} />
+									</button>
+								</label>
+							</fieldset>
+							<div class="grid grid-cols-2 gap-3">
+								<fieldset class="fieldset">
+									<legend class="fieldset-legend">Participant·es requis·ses</legend>
+									<input
+										type="number"
+										bind:value={newTaskVolunteers}
+										class="input w-full"
+										min="1"
+										placeholder="Nb."
+										disabled={isSubmitting}
+										max="1000"
+									/>
+								</fieldset>
+								<fieldset class="fieldset">
+									<legend class="fieldset-legend">Moment</legend>
+									<select bind:value={newTaskType} class="select w-full" disabled={isSubmitting}>
+										<option value="beforeEvent">Avant</option>
+										<option value="onEvent">Pendant</option>
+										<option value="afterEvent">Après</option>
+									</select>
+								</fieldset>
+							</div>
 						</div>
-					{:else}
-						<div class="fieldset-legend">Ajouter une tâche</div>
-					{/if}
-
-					<div class="grid grid-cols-1 items-center justify-between gap-3 md:grid-cols-3">
-						<input
-							type="text"
-							bind:value={newTaskName}
-							bind:this={taskNameInput}
-							class="input sm:input-sm {validationErrors.taskInProgress ? 'input-error' : ''}"
-							placeholder="Nom de la tâche"
-							disabled={isSubmitting}
-							maxlength="50"
-							onkeydown={(e) => {
-								if (e.key === 'Enter') {
-									e.preventDefault();
-									addTask();
-								}
-							}}
-						/>
-						<label class="input sm:input-sm w-44 items-center gap-2">
-							<input
-								type="number"
-								bind:value={newTaskVolunteers}
-								class=" w-full"
-								min="1"
-								placeholder="Nb. pers"
-								disabled={isSubmitting}
-								max="1000"
-							/>
-							<span class="text-sm whitespace-nowrap opacity-60">pers.</span>
-						</label>
-						<select
-							bind:value={newTaskType}
-							class="select select-sm w-full"
-							disabled={isSubmitting}
-						>
-							<option value="beforeEvent">Avant l'événement</option>
-							<option value="onEvent">Pendant l'événement</option>
-							<option value="afterEvent">Après l'événement</option>
-						</select>
-					</div>
-					<!-- <textarea
+						<!-- <textarea
 						bind:value={newTaskDescription}
 						class="textarea textarea-sm h-16 w-full"
 						placeholder="Description de la tâche (optionnel)"
 						disabled={isSubmitting}
 					></textarea> -->
-					<!-- Boutons d'action -->
-					<div class="flex gap-2">
-						<button
-							type="button"
-							class={['btn sm:btn-sm btn-ghost', newTaskName.trim().length === 0 && 'hidden']}
-							onclick={cancelTaskInput}
-							disabled={isSubmitting}
-						>
-							Annuler
-						</button>
-						{#if isEditingTask}
+						<!-- Boutons d'action -->
+						<div class="flex gap-2">
+							{#if !isEditingTask && newTaskName.trim().length > 0}
+								<button
+									type="button"
+									class="btn sm:btn-sm btn-ghost"
+									onclick={cancelTaskInput}
+									disabled={isSubmitting}
+								>
+									Annuler
+								</button>
+							{/if}
+							{#if isEditingTask}
+								<button type="button" class="btn sm:btn-sm btn-ghost" onclick={cancelTaskEdit}
+									>Annuler</button
+								>
+							{/if}
 							<button
 								type="button"
-								class="btn sm:btn-sm btn-ghost"
-								onclick={cancelTaskEdit}
-								disabled={isSubmitting}
+								class="btn sm:btn-sm btn-primary grow"
+								onclick={addTask}
+								disabled={isSubmitting ||
+									newTaskName.trim().length === 0 ||
+									(isEditingTask && !taskHasChanges)}
 							>
-								Annuler
+								{isEditingTask ? 'Modifier la tâche' : 'Ajouter la tâche'}
 							</button>
-						{/if}
-						<button
-							type="button"
-							class="btn sm:btn-sm btn-primary flex-1"
-							onclick={addTask}
-							disabled={isSubmitting ||
-								newTaskName.trim().length === 0 ||
-								(isEditingTask && !taskHasChanges)}
-						>
-							{#if isEditingTask}
-								<Pencil size={14} class="mr-1" />
-							{/if}
-							{taskSubmitButtonLabel}
-						</button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -1272,7 +1300,7 @@
 	</fieldset>
 
 	<div
-		class="fixed bottom-0 left-0 z-10 flex w-full justify-center gap-4 border-t border-slate-400 p-2 shadow-xl backdrop-blur md:sticky md:bottom-2 md:justify-end md:rounded-2xl md:border md:p-4"
+		class="bg-base-100/80 fixed bottom-0 left-0 z-10 flex w-full justify-between gap-4 border-t border-slate-400 p-2 shadow-xl backdrop-blur md:sticky md:bottom-2 md:justify-end md:rounded-2xl md:border md:p-4"
 	>
 		<button
 			type="button"

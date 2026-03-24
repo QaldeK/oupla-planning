@@ -135,15 +135,12 @@
 				: 'badge-neutral'
 	);
 
-	// Display logic: show responses if allowed, even for past dates or non-authenticated users
-	const canRespond = $derived(
-		occState.masterConfig.allowResponses && !occurrence.isCanceled && !readOnly
-	);
-
 	// Edit logic: can only modify if user is authenticated and date is not past
 	const isPastDate = $derived(isPast(occurrence.date));
 	const isAuthenticated = $derived(!!currentUserId);
-	const canEditResponse = $derived(canRespond && isAuthenticated && !isPastDate);
+	const canRespond = $derived(
+		!isPastDate && !occurrence.isCanceled && !readOnly && isAuthenticated
+	);
 
 	function openCommentDrawer() {
 		drawerStore.showComments({
@@ -183,10 +180,10 @@
 {/if}
 
 {#snippet actionCompact()}
-	<div class="my-1 flex items-center justify-end gap-2">
+	<div class="flex items-center justify-end gap-2">
 		<!-- Comment button -->
 		<button
-			class="btn btn-ghost sm:btn-sm gap-1"
+			class="btn btn-ghost sm:btn-sm btn-circle gap-1"
 			onclick={openCommentDrawer}
 			aria-label="Voir les commentaires"
 		>
@@ -237,11 +234,7 @@
 {/snippet}
 
 {#snippet rowLayout()}
-	<div
-		class="{occurrence.isCanceled
-			? 'opacity-60'
-			: ''} bg-base-100 border-b-4 border-neutral-300 pb-4"
-	>
+	<div class=" bg-base-100 border-b-4 border-neutral-300 py-2">
 		<!-- Line 1: Header -->
 		<div class="mb-2 flex items-center justify-between gap-2 px-2">
 			<div class="flex items-center gap-2 text-sm sm:gap-6">
@@ -300,40 +293,38 @@
 		</div>
 
 		<!-- Line 2: Actions -->
-		{#if canRespond || occState.inherited.tasks.length > 0 || occurrence.comments.length > 0}
-			<div class="mt-2 flex flex-col gap-3 p-2">
+		<div class="mt-2 flex flex-col gap-3 p-2 {occurrence.isCanceled ? 'opacity-60' : ''}">
+			{#if occState.masterConfig.allowResponses}
 				<!-- Response buttons -->
-				{#if canRespond}
-					<ResponsesSummary
-						responses={occurrence.responses}
-						getParticipantName={occState.getParticipantName}
-						availableTypes={occState.masterConfig.availableResponseTypes}
-						onResponseSelect={occState.setResponse}
-						isCompact={true}
-						disabled={occState.isNetworkUnavailable || occurrence.isCanceled || isPastDate}
-						{currentUserId}
-						{isPastDate}
-					/>
-				{/if}
+				<ResponsesSummary
+					responses={occurrence.responses}
+					getParticipantName={occState.getParticipantName}
+					availableTypes={occState.masterConfig.availableResponseTypes}
+					onResponseSelect={occState.setResponse}
+					isCompact={true}
+					disabled={occState.isNetworkUnavailable || !canRespond}
+					{currentUserId}
+					{isPastDate}
+				/>
+			{/if}
 
-				<!-- Task summary -->
-				{#if occState.inherited.tasks.length > 0}
-					<TaskCompactSummary
-						tasks={occState.inherited.tasks}
-						responses={occurrence.responses}
-						{currentUserId}
-						isSubmitting={occState.isSubmitting}
-						{readOnly}
-						isPastDate={isPast(occurrence.date)}
-						getParticipantName={occState.getParticipantName}
-						onToggle={occState.toggleTask}
-						isCompact={true}
-						disabled={occState.isNetworkUnavailable || occurrence.isCanceled}
-					/>
-				{/if}
-			</div>
-		{/if}
-		<div class="pt-4 sm:hidden">
+			<!-- Task summary -->
+			{#if occState.inherited.tasks.length > 0}
+				<TaskCompactSummary
+					tasks={occState.inherited.tasks}
+					responses={occurrence.responses}
+					{currentUserId}
+					isSubmitting={occState.isSubmitting}
+					{readOnly}
+					isPastDate={isPast(occurrence.date)}
+					getParticipantName={occState.getParticipantName}
+					onToggle={occState.toggleTask}
+					isCompact={true}
+					disabled={occState.isNetworkUnavailable || !canRespond}
+				/>
+			{/if}
+		</div>
+		<div class="sm:hidden">
 			{@render actionCompact()}
 		</div>
 	</div>
@@ -446,7 +437,7 @@
 							availableTypes={occState.masterConfig.availableResponseTypes}
 							onResponseSelect={occState.setResponse}
 							{currentUserId}
-							disabled={occState.isNetworkUnavailable || occurrence.isCanceled || isPastDate}
+							disabled={occState.isNetworkUnavailable || !canRespond}
 							{isPastDate}
 						/>
 					</div>
@@ -466,7 +457,7 @@
 					isPastDate={isPast(occurrence.date)}
 					getParticipantName={occState.getParticipantName}
 					onToggle={occState.toggleTask}
-					disabled={occState.isNetworkUnavailable}
+					disabled={occState.isNetworkUnavailable || !canRespond}
 				/>
 			{/if}
 

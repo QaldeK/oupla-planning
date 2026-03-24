@@ -133,7 +133,7 @@ class PlanningStore {
 					console.warn('Realtime subscription failed (non-blocking):', err);
 				}
 			}
-			console.log(this.activeMasterId);
+			// console.log(this.activeMasterId);
 		} catch (err) {
 			console.error('PlanningStore setActiveToken error:', err);
 			this.#error = 'Erreur lors du chargement';
