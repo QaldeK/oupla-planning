@@ -59,13 +59,9 @@
 	Icon: any
 )}
 	<button
-		class="bg-base-200/50 group flex {sizeResponse} grow flex-col overflow-hidden rounded-lg {isPastDate
-			? ''
-			: 'hover:cursor-pointer'} {config.ringClass} {isPastDate
-			? ''
-			: 'hover:ring-2'} {config.borderClass}"
+		class="bg-base-200/50 group flex {sizeResponse} grow flex-col overflow-hidden rounded-lg {!disabled &&
+			'hover:cursor-pointer hover:ring-2'} {config.ringClass} {config.borderClass}"
 		onclick={() => !isPastDate && onResponseSelect(type)}
-		disabled={disabled || isPastDate}
 	>
 		<div
 			class="border-neutral/10 flex w-full items-center gap-1.5 border-b-2 px-4 py-1.5 text-sm font-medium opacity-80 {config.bgClass} justify-start"
@@ -75,7 +71,8 @@
 			{#if currentUserResponseType !== type}
 				<div class="ms-auto flex items-center">
 					<div
-						class="badge opacity-70 group-hover:scale-110 {config.badgeClass} {config.borderClass}"
+						class="badge opacity-70 {!disabled &&
+							'group-hover:scale-110'} {config.badgeClass} {config.borderClass}"
 					>
 						<UserPlus class="size-5 stroke-2" />
 					</div>
@@ -107,13 +104,9 @@
 	Icon: any
 )}
 	<button
-		class="bg-base-200/50 group flex flex-wrap overflow-hidden rounded-lg {isPastDate
-			? ''
-			: 'hover:cursor-pointer'} max-sm:w-full {config.ringClass} {isPastDate
-			? ''
-			: 'hover:ring-2'} {config.borderClass}"
+		class="bg-base-200/50 group flex flex-wrap overflow-hidden rounded-lg {!disabled &&
+			'hover:cursor-pointer hover:ring-2'} max-sm:w-full {config.ringClass} {config.borderClass}"
 		onclick={() => !isPastDate && onResponseSelect(type)}
-		disabled={disabled || isPastDate}
 	>
 		<div
 			class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium opacity-80 {config.bgClass}"
@@ -137,7 +130,8 @@
 		{#if currentUserResponseType !== type}
 			<div class="ms-auto flex items-center p-1.5">
 				<div
-					class="badge opacity-70 group-hover:scale-110 {config.badgeClass} {config.borderClass}"
+					class="badge opacity-70 {!disabled &&
+						'group-hover:scale-110'} {config.badgeClass} {config.borderClass}"
 				>
 					<UserPlus class="size-5 stroke-2   " />
 				</div>
@@ -147,8 +141,9 @@
 {/snippet}
 
 {#if types.length > 0}
-	<div
-		class="flex w-full flex-wrap gap-3 {disabled && 'opacity-70 grayscale-50'} {isPastDate &&
+	<fieldset
+		{disabled}
+		class="flex w-full flex-wrap gap-3 {disabled && 'opacity-80 grayscale-50'} {isPastDate &&
 			'bg-base-200/30'}"
 	>
 		{#each types as type (type)}
@@ -161,7 +156,7 @@
 				{@render responseRegular(type, config, typeResponses, Icon)}
 			{/if}
 		{/each}
-	</div>
+	</fieldset>
 {:else if !isCompactDisplay}
 	<p class="text-base-content/70 text-sm">Aucune réponse pour le moment</p>
 {/if}

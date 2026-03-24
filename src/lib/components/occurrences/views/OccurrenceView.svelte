@@ -293,7 +293,7 @@
 		</div>
 
 		<!-- Line 2: Actions -->
-		<div class="mt-2 flex flex-col gap-3 p-2 {occurrence.isCanceled ? 'opacity-60' : ''}">
+		<div class="mt-2 flex flex-col gap-3 p-2">
 			{#if occState.masterConfig.allowResponses}
 				<!-- Response buttons -->
 				<ResponsesSummary

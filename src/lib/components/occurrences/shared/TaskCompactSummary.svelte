@@ -75,7 +75,7 @@
 
 {#snippet btnSubscribe(isInTask: boolean, taskId: string)}
 	<div
-		class="badge opacity-70 group-hover:scale-110 {isInTask
+		class="badge opacity-70 {!disabled && 'group-hover:scale-110'} {isInTask
 			? 'badge-error border-error'
 			: 'badge-accent'}"
 		onclick={() => onToggle(taskId)}
@@ -101,9 +101,10 @@
 	isInTask: boolean
 )}
 	<button
-		class="bg-base-200/50 group border-accent ring-accent flex grow flex-col items-stretch overflow-hidden rounded-lg border shadow-sm transition-all hover:cursor-pointer hover:ring-2 lg:max-w-1/3"
+		class="bg-base-200/50 group border-accent ring-accent flex grow flex-col items-stretch overflow-hidden rounded-lg border shadow-sm transition-all {!disabled &&
+			'hover:cursor-pointer hover:ring-2'} lg:max-w-1/3"
 		onclick={() => onToggle(task.id)}
-		disabled={isSubmitting || readOnly || isPastDate}
+		disabled={isSubmitting}
 		title="s'inscrire/se désinscrire à la tâche {task.name}"
 	>
 		<div
@@ -160,7 +161,8 @@
 	isInTask: boolean
 )}
 	<button
-		class="bg-base-200/50 group border-accent ring-accent flex flex-wrap items-center overflow-hidden rounded-lg border shadow-sm transition-all hover:cursor-pointer hover:ring-2 max-sm:w-full md:min-w-xs"
+		class="bg-base-200/50 group border-accent ring-accent flex flex-wrap items-center overflow-hidden rounded-lg border shadow-sm transition-all {!disabled &&
+			'hover:cursor-pointer hover:ring-2'} max-sm:w-full md:min-w-xs"
 		onclick={() => onToggle(task.id)}
 		disabled={isSubmitting || readOnly || isPastDate}
 		title="s'inscrire/se désinscrire à la tâche {task.name}"
@@ -213,7 +215,7 @@
 {/snippet}
 
 {#if tasks && tasks.length > 0}
-	<div class="flex w-full flex-wrap gap-3 {disabled && 'opacity-70 grayscale-50'}">
+	<fieldset {disabled} class="flex w-full flex-wrap gap-3 {disabled && 'opacity-70 grayscale-50'}">
 		{#each tasks as task (task.id)}
 			{@const config = TASK_TYPE_CONFIG[task.type]}
 			{@const Icon = config.icon}
@@ -227,5 +229,5 @@
 				{@render taskRegular(task, config, Icon, inscribed, volunteers, isComplete, isInTask)}
 			{/if}
 		{/each}
-	</div>
+	</fieldset>
 {/if}

@@ -410,7 +410,7 @@
 			<!-- Card 2: config user -->
 			<div class="card card-sm bg-base-200 border-base-content/5 border shadow-sm">
 				<div class="card-body">
-					<div class="flex flex-wrap items-start gap-4 max-sm:flex-col">
+					<div class="flex flex-wrap items-start gap-4 gap-y-4 max-sm:flex-col">
 						<!-- Identification (en premier) -->
 						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-center gap-2">
 							<div class="min-w-0 flex-1">
@@ -423,21 +423,23 @@
 										S'identifier
 									</button>
 								{:else}
-									<div class="flex items-center gap-x-2">
-										<User size={18} class="text-primary shrink-0" />
-										<span class="text-sm font-medium">
-											Vous êtes identifié comme
-											<span class="text-primary-content font-semibold underline"
-												>{currentIdentity.name}</span
-											>
-											sur ce planning.
+									<div class="flex items-start gap-x-2">
+										<User size={18} class="text-primary mt-0.5 shrink-0" />
+										<div class="flex justify-between gap-x-2">
+											<span class="text-sm leading-4 font-medium">
+												Vous êtes identifié comme
+												<span class="text-primary-content font-semibold underline"
+													>{currentIdentity.name}</span
+												>
+												sur ce planning.
+											</span>
 											<button
-												class="link link-primary text-sm font-semibold"
+												class="btn btn-xs btn-primary btn-outline ms-auto text-end"
 												onclick={() => (showPlanningNameModal = true)}
 											>
 												Changer
 											</button>
-										</span>
+										</div>
 									</div>
 								{/if}
 							</div>
@@ -447,10 +449,10 @@
 						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
 							<Bell size={18} class="text-primary mt-0.5 shrink-0" />
 							<div class="min-w-0 flex-1">
-								<div class="flex flex-wrap items-center gap-x-2">
+								<div class="flex flex-wrap items-center justify-between gap-x-2">
 									<div class="text-sm font-medium">Notifications :</div>
 									<button
-										class="link link-primary text-sm font-semibold"
+										class="btn btn-xs btn-primary btn-outline font-semibold"
 										onclick={() =>
 											userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
 									>
