@@ -1,21 +1,22 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import AccountModal from '$lib/components/auth/AccountModal.svelte';
 	import CopyLinksButtons from '$lib/components/CopyLinksButtons.svelte';
-	import { PlanningSkeleton } from '$lib/components/ui/skeletons';
+	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
 	import { OccurrenceView } from '$lib/components/occurrences/index';
 	import ViewTabs from '$lib/components/occurrences/ViewTabs.svelte';
+	import PlanningNameModal from '$lib/components/PlanningNameModal.svelte';
+	import { PlanningSkeleton } from '$lib/components/ui/skeletons';
 	import { addParticipant, updateParticipant } from '$lib/services/planningActions';
+	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import type { PlanningIdentity } from '$lib/types/planning.types';
-	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
-	import AccountModal from '$lib/components/auth/AccountModal.svelte';
-	import PlanningNameModal from '$lib/components/PlanningNameModal.svelte';
-	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { formatDateShort } from '$lib/utils/date';
-	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
+	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { fade } from 'svelte/transition';
 
+	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import {
 		ArrowRightFromLine,
 		Bell,
@@ -31,7 +32,6 @@
 		Users
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 
 	let token = $derived($page.params.token as string);
 	let master = $derived(planningStore.master);
@@ -425,7 +425,7 @@
 								{:else}
 									<div class="flex items-start gap-x-2">
 										<User size={18} class="text-primary mt-0.5 shrink-0" />
-										<div class="flex justify-between gap-x-2">
+										<div class="flex items-center justify-between gap-x-2">
 											<span class="text-sm leading-4 font-medium">
 												Vous êtes identifié comme
 												<span class="text-primary-content font-semibold underline"
@@ -449,7 +449,7 @@
 						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
 							<Bell size={18} class="text-primary mt-0.5 shrink-0" />
 							<div class="min-w-0 flex-1">
-								<div class="flex flex-wrap items-center justify-between gap-x-2">
+								<div class="mb-1 flex flex-wrap items-center justify-between gap-x-2">
 									<div class="text-sm font-medium">Notifications :</div>
 									<button
 										class="btn btn-xs btn-primary btn-outline font-semibold"

@@ -183,7 +183,7 @@
 	<div class="flex items-center justify-end gap-2">
 		<!-- Comment button -->
 		<button
-			class="btn btn-ghost sm:btn-sm btn-circle gap-1"
+			class="btn btn-ghost sm:btn-sm gap-1"
 			onclick={openCommentDrawer}
 			aria-label="Voir les commentaires"
 		>

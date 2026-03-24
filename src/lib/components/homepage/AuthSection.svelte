@@ -2,7 +2,7 @@
 <script lang="ts">
 	import AuthForm from '$lib/components/auth/AuthForm.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
-	import { HatGlasses, Lightbulb, Mail, ShieldCheck, Smartphone } from 'lucide-svelte';
+	import { HatGlasses, Lightbulb, Mail, Smartphone } from 'lucide-svelte';
 
 	let authMode = $state<'register' | 'login'>('register');
 

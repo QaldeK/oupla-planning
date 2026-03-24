@@ -355,19 +355,12 @@
 {/if}
 
 <!-- Drawer Global pour les Commentaires -->
-<Drawer
-	bind:open={drawerStore.open}
-	portal={true}
-	direction="right"
-	onOpenChange={(isOpen: boolean) => {
-		if (!isOpen) drawerStore.close();
-	}}
->
-	<DrawerOverlay />
+<Drawer bind:open={drawerStore.open} portal={true} direction="right">
+	<DrawerOverlay class="fixed  bg-black/40 " />
 	<DrawerContent
-		class="bg-base-100 fixed top-0 right-0 bottom-0 z-50 h-dvh w-120 max-w-[85vw] shadow-2xl"
+		class="bg-base-100 fixed top-0 right-0 bottom-0 z-50 h-dvh w-dvw shadow-2xl sm:w-120 sm:max-w-[85vw]"
 	>
-		<DrawerHandle class="absolute top-1/2 left-0 ml-2 -translate-y-1/2" />
+		<!-- <DrawerHandle class="bg-base-300 absolute top-1/2 left-0 ml-2 h-1/5 -translate-y-1/2" /> -->
 		{#if drawerStore.open}
 			<CommentSection />
 		{/if}

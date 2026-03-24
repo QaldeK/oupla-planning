@@ -1,13 +1,13 @@
 <script lang="ts">
-	import type { Participant, SavedPlanning } from '$lib/types/planning.types';
 	import { userStore } from '$lib/stores/userStore.svelte';
+	import type { Participant, SavedPlanning } from '$lib/types/planning.types';
 	import { isTauri, storage } from '$lib/utils/storage';
-	import Modal from './ui/Modal.svelte';
-	import ConfirmModal from './ui/ConfirmModal.svelte';
+	import { ArrowRight, InfoIcon, User } from 'lucide-svelte';
+	import { toast } from 'svelte-sonner';
 	import AuthForm from './auth/AuthForm.svelte';
 	import NameConflictHandler from './NameConflictHandler.svelte';
-	import { User, ArrowRight, InfoIcon, ArrowLeft } from 'lucide-svelte';
-	import { toast } from 'svelte-sonner';
+	import ConfirmModal from './ui/ConfirmModal.svelte';
+	import Modal from './ui/Modal.svelte';
 
 	const PLANNINGS_KEY = 'planning_saved';
 
@@ -37,6 +37,7 @@
 	let isSubmitting = $state(false);
 	let showConfirmClear = $state(false);
 	let inputRef = $state<HTMLInputElement | null>(null);
+	let authMode = $state<'login' | 'register'>('register');
 
 	// Focus auto à l'ouverture
 	$effect(() => {
@@ -298,15 +299,24 @@
 			<div class="divider mt-8 text-sm font-medium tracking-widest uppercase opacity-50">
 				.. ou Créez un compte !
 			</div>
-			<div class="flex w-full flex-col gap-1 leading-tight">
+			<div class="flex w-full flex-col gap-2 leading-tight">
 				<div class="flex items-center gap-2 text-sm opacity-70">
 					<InfoIcon size={20} class="inline shrink-0" />
-					Créez un compte pour recevoir des notifications par email (et push sur mobile).
+					Créez un compte pour recevoir des notifications par email (et push sur mobile), et retrouver
+					vos planning sur tous vos appareils.
 				</div>
+				<button
+					class="btn btn-sm btn-outline btn-primary mx-auto"
+					onclick={() => (authMode = authMode === 'register' ? 'login' : 'register')}
+				>
+					{authMode === 'register'
+						? "J'ai déjà un compte - Se connecter"
+						: "Je n'ai pas de compte - Créer un compte"}
+				</button>
 			</div>
 			<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
 				<AuthForm
-					mode="register"
+					mode={authMode}
 					name={name.trim()}
 					showNameInput={false}
 					compact

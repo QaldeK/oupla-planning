@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { AlertTriangle } from 'lucide-svelte';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		/**
@@ -16,7 +17,7 @@
 </script>
 
 {#if isDisabled}
-	<div class="alert alert-warning mb-4 text-sm">
+	<div class="alert alert-warning m-4 text-sm" transition:slide>
 		<AlertTriangle class="h-6 w-6 shrink-0 stroke-current" />
 		<span>{message}</span>
 	</div>

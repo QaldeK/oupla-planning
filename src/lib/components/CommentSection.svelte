@@ -72,13 +72,15 @@
 <div class="flex h-full flex-col">
 	{#if occurrence}
 		<!-- Header -->
-		<div class="border-base-300 flex items-center justify-between border-b px-4 py-3">
+		<div class="border-base-300 flex h-fit items-center justify-between border-b px-4 py-3">
 			<div class="flex items-center gap-2">
 				<div class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
 					<MessageSquare size={18} class="text-primary" />
 				</div>
 				<div>
-					<h4 class=" leading-none font-medium">{eventTitle}</h4>
+					<h4 class=" leading-none font-medium">
+						{eventTitle} - {formatDate(occurrence.date, 'd MMM')}
+					</h4>
 					<p class="text-base-content/50 mt-1 text-xs">
 						{occurrence.comments.length} message{occurrence.comments.length > 1 ? 's' : ''}
 					</p>
@@ -93,11 +95,9 @@
 			</button>
 		</div>
 
-		<div class="p-4">
-			<NetworkAlert message="Serveur indisponible" />
-		</div>
+		<NetworkAlert message="Serveur indisponible" />
 
-		<div bind:this={scrollContainer} class="flex-1 overflow-y-auto p-4">
+		<div bind:this={scrollContainer} class="h-full flex-1 grow overflow-y-auto p-4">
 			{#if occurrence.comments.length > 0}
 				<div class="flex flex-col gap-4">
 					{#each occurrence.comments as comment (comment.id)}
