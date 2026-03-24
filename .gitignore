@@ -25,6 +25,7 @@ vite.config.ts.timestamp-*
 # Cloudflare Types
 /worker-configuration.d.ts
 
+# agent and conf
 agent/
 docs/
 .claude
@@ -38,6 +39,7 @@ CLAUDE.md
 **/pb_data
 **/pb_migrations
 pocketbase/pb_hooks/generateHooks.pb.js
+pb_schema**
 
 # Config files
 .npmrc
