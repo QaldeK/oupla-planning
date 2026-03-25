@@ -4,6 +4,7 @@
 	import { toast } from 'svelte-sonner';
 	import { Mail, KeyRound, LoaderCircle, User } from 'lucide-svelte';
 	import CollisionModal from './CollisionModal.svelte';
+	import MigrationModal from './MigrationModal.svelte';
 
 	interface Props {
 		mode?: 'register' | 'login';
@@ -28,12 +29,29 @@
 	let isSubmitting = $state(false);
 	let errorMsg = $state('');
 
+	// Wrapper pour syncProfileWithPocketBase qui gère le flag preserveLocalProfile
+	async function syncProfileSafely() {
+		userStore.preserveLocalProfile = true;
+		try {
+			await userStore.syncProfileWithPocketBase();
+		} finally {
+			userStore.preserveLocalProfile = false;
+		}
+	}
+
 	// Collision modal state
 	let collisionModal = $state({
 		open: false,
 		localName: '',
 		remoteName: '',
 		isProcessing: false
+	});
+
+	// Migration modal state
+	let migrationModal = $state({
+		open: false,
+		localId: '',
+		remoteId: ''
 	});
 
 	// États de validation
@@ -136,16 +154,37 @@
 				const collision = userStore.detectCollision();
 
 				if (collision === 'collision') {
-					// Ouvrir le modal de collision
-					collisionModal.localName = userStore.globalProfile!.defaultName;
-					collisionModal.remoteName = pb.authStore.record?.name || email;
-					collisionModal.open = true;
-					isSubmitting = false;
-					return; // Ne pas continuer pour l'instant
+					// Vérifier si c'est une vraie collision ou une migration nécessaire
+					const localId = userStore.globalProfile!.id;
+					const remoteId = pb.authStore.record?.id;
+					if (!remoteId) {
+						// Ne devrait pas arriver, mais sécurité
+						isSubmitting = false;
+						return;
+					}
+
+					// L'utilisateur local a-t-il déjà un compte PB ?
+					const localUserExists = await userStore.checkPocketBaseUserExists(localId);
+
+					if (localUserExists) {
+						// Scenario A : Vraie collision → backup existant
+						collisionModal.localName = userStore.globalProfile!.defaultName;
+						collisionModal.remoteName = pb.authStore.record?.name || email;
+						collisionModal.open = true;
+						isSubmitting = false;
+						return; // Ne pas continuer pour l'instant
+					} else {
+						// Scenario B : Migration nécessaire → ouvrir MigrationModal
+						migrationModal.localId = localId;
+						migrationModal.remoteId = remoteId;
+						migrationModal.open = true;
+						isSubmitting = false;
+						return; // Ne pas continuer pour l'instant
+					}
 				}
 
 				// Pas de collision : sync normale
-				await userStore.syncProfileWithPocketBase();
+				await syncProfileSafely();
 				// La synchronisation des plannings est gérée par syncService dans le layout
 
 				toast.success('Compte créé avec succès !');
@@ -157,16 +196,37 @@
 				const collision = userStore.detectCollision();
 
 				if (collision === 'collision') {
-					// Ouvrir le modal de collision
-					collisionModal.localName = userStore.globalProfile!.defaultName;
-					collisionModal.remoteName = pb.authStore.record?.name || email;
-					collisionModal.open = true;
-					isSubmitting = false;
-					return; // Ne pas continuer pour l'instant
+					// Vérifier si c'est une vraie collision ou une migration nécessaire
+					const localId = userStore.globalProfile!.id;
+					const remoteId = pb.authStore.record?.id;
+					if (!remoteId) {
+						// Ne devrait pas arriver, mais sécurité
+						isSubmitting = false;
+						return;
+					}
+
+					// L'utilisateur local a-t-il déjà un compte PB ?
+					const localUserExists = await userStore.checkPocketBaseUserExists(localId);
+
+					if (localUserExists) {
+						// Scenario A : Vraie collision → backup existant
+						collisionModal.localName = userStore.globalProfile!.defaultName;
+						collisionModal.remoteName = pb.authStore.record?.name || email;
+						collisionModal.open = true;
+						isSubmitting = false;
+						return; // Ne pas continuer pour l'instant
+					} else {
+						// Scenario B : Migration nécessaire → ouvrir MigrationModal
+						migrationModal.localId = localId;
+						migrationModal.remoteId = remoteId;
+						migrationModal.open = true;
+						isSubmitting = false;
+						return; // Ne pas continuer pour l'instant
+					}
 				}
 
 				// Pas de collision : sync normale
-				await userStore.syncProfileWithPocketBase();
+				await syncProfileSafely();
 				// La synchronisation des plannings est gérée par syncService dans le layout
 
 				toast.success('Connexion réussie !');
@@ -186,7 +246,7 @@
 		collisionModal.isProcessing = true;
 		try {
 			await userStore.backupLocalProfile();
-			await userStore.syncProfileWithPocketBase();
+			await syncProfileSafely();
 			// La synchronisation des plannings est gérée par syncService dans le layout
 			collisionModal.open = false;
 			toast.success('Connexion réussie (données précédentes sauvegardées)');
@@ -202,7 +262,7 @@
 	async function handleReplaceOnly() {
 		collisionModal.isProcessing = true;
 		try {
-			await userStore.syncProfileWithPocketBase();
+			await syncProfileSafely();
 			// La synchronisation des plannings est gérée par syncService dans le layout
 			collisionModal.open = false;
 			toast.success('Connexion réussie');
@@ -337,4 +397,18 @@
 	onReplaceOnly={handleReplaceOnly}
 	onCancel={handleCancelCollision}
 	isSubmitting={collisionModal.isProcessing}
+/>
+
+<!-- Modal de migration -->
+<MigrationModal
+	open={migrationModal.open}
+	localId={migrationModal.localId}
+	remoteId={migrationModal.remoteId}
+	onClose={() => {
+		migrationModal.open = false;
+		pb.authStore.clear();
+	}}
+	onSuccess={() => {
+		if (onSuccess) onSuccess();
+	}}
 />

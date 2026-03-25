@@ -118,8 +118,13 @@
 		if (existingIdentity) return;
 
 		// CAS 3 : Participant existant via globalProfile.id (guest revenant)
+		// Note: si l'utilisateur a revendiqué une identité via handleIdentifyAs,
+		// le CAS 2 aurait déjà retourné (car getPlanningIdentity aurait trouvé l'identité)
+		// Ici on cherche avec globalProfile.id comme fallback
 		const globalId = userStore.globalProfile?.id;
-		const existingParticipant = master.participants.find((p) => p.id === globalId);
+		const existingParticipant = globalId
+			? master.participants.find((p) => p.id === globalId)
+			: undefined;
 
 		if (existingParticipant) {
 			handlePlanningIdentify(
@@ -170,6 +175,7 @@
 			open: true,
 			mode: 'homepage',
 			existingParticipants: master.participants,
+			masterId: master.id, // ← pour revendication d'identité via handleIdentifyAs
 			onGlobalProfileCreate: async (name, email, persist) => {
 				await userStore.createGlobalProfile(name, email, persist);
 				// Après création du profil, identifier sur le planning

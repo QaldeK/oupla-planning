@@ -44,7 +44,8 @@ class UserStore {
 	});
 	isReady = $state(false);
 	isLoggedIn = $state();
-	hasSyncedThisSession = $state(false); // NOUVEAU : évite les appels multiples au sync
+	hasSyncedThisSession = $state(false); // évite les appels multiples au sync
+	preserveLocalProfile = $state(false); // évite l'écrasement du profil local pendant l'auth
 
 	async init() {
 		// Synchro authStore
@@ -106,7 +107,7 @@ class UserStore {
 
 	async createGlobalProfile(name: string, email?: string, persist = true, id?: string) {
 		this.globalProfile = {
-			id: id || crypto.randomUUID(), // Utiliser l'ID fourni ou en générer un nouveau
+			id: id || crypto.randomUUID(), // En vrai, on genere maintenant toujours l'id. (voir ce commit)
 			defaultName: name,
 			defaultEmail: email,
 			persist: isTauri ? true : persist // Toujours persister sous Tauri
@@ -149,6 +150,8 @@ class UserStore {
 	private async syncProfileFromPocketBase() {
 		if (!pb.authStore.isValid || !pb.authStore.record) return;
 		if (!this.globalProfile) return;
+		// IMPORTANT: Préserver le profil local si flag activé (évite écrasement pendant l'auth)
+		if (this.preserveLocalProfile) return;
 
 		try {
 			// Récupérer les données fraîches depuis PocketBase
@@ -243,6 +246,17 @@ class UserStore {
 		const idx = this.savedPlannings.findIndex((p) => p.masterId === masterId);
 		if (idx >= 0) {
 			this.savedPlannings[idx].currentUser = identity;
+			await this.savePlanningsLocal();
+		} else {
+			// Créer une entrée minimale (sera complétée par savePlanning plus tard)
+			this.savedPlannings.push({
+				masterId,
+				title: '', // sera mis à jour par savePlanning
+				participantToken: '',
+				adminToken: '',
+				lastAccessed: new Date().toISOString(),
+				currentUser: identity
+			});
 			await this.savePlanningsLocal();
 		}
 	}
@@ -374,6 +388,47 @@ class UserStore {
 	detectCollision(): 'none' | 'collision' {
 		if (!this.globalProfile || !pb.authStore.isValid || !pb.authStore.record) return 'none';
 		return this.globalProfile.id === pb.authStore.record.id ? 'none' : 'collision';
+	}
+
+	/**
+	 * Vérifie si un utilisateur existe dans PocketBase via l'endpoint has-account
+	 */
+	async checkPocketBaseUserExists(userId: string): Promise<boolean> {
+		try {
+			const result = await pb.send(`/api/has-account/${userId}`, {
+				method: 'GET'
+			});
+			return result.hasAccount === true;
+		} catch (err) {
+			// En cas d'erreur, on suppose que le compte n'existe pas (conservateur)
+			return false;
+		}
+	}
+
+	/**
+	 * Migrate multiple participant IDs via l'endpoint batch
+	 * Format: { migrations: { masterId, oldId, newId }[] }
+	 */
+	async migrateParticipantIds(
+		migrations: { masterId: string; oldId: string; newId: string }[]
+	): Promise<{
+		results: Record<string, { success: boolean; error?: string; occurrencesUpdated?: number }>;
+	}> {
+		return pb.send('/api/migrate-participants', {
+			method: 'POST',
+			body: { migrations }
+		});
+	}
+
+	/**
+	 * Met à jour le statut de migration en local (pour retry)
+	 */
+	updateMigrationStatus(masterId: string, error: string) {
+		const planning = this.savedPlannings.find((p) => p.masterId === masterId);
+		if (planning) {
+			// Ajouter un champ temporaire pour marquer l'échec
+			(planning as unknown as { migrationError?: string }).migrationError = error;
+		}
 	}
 
 	/**

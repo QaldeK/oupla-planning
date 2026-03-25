@@ -16,6 +16,7 @@
 		onClose: () => void;
 		mode: 'homepage' | 'edit-global';
 		existingParticipants?: Participant[];
+		masterId?: string; // ID du planning en cours (pour revendication d'identité)
 		onGlobalProfileCreate?: (name: string, email?: string, persist?: boolean) => void;
 		onGlobalProfileUpdate?: (name: string, email?: string, persist?: boolean) => void;
 		onRequireLogin?: () => void; // Appelé quand une revendication nécessite une connexion
@@ -26,6 +27,7 @@
 		onClose,
 		mode,
 		existingParticipants = [],
+		masterId,
 		onGlobalProfileCreate,
 		onGlobalProfileUpdate,
 		onRequireLogin
@@ -134,19 +136,30 @@
 	async function handleIdentifyAs(participant: Participant) {
 		isSubmitting = true;
 		try {
-			// Créer ou mettre à jour le globalProfile avec ce participant
+			// CRITICAL: Ne jamais modifier globalProfile.id avec participant.id
+			// L'ID participant est spécifique à un planning, pas l'identité universelle
 			if (!userStore.globalProfile) {
+				// Créer le globalProfile avec un ID généré (pas participant.id)
 				await userStore.createGlobalProfile(
 					participant.name,
 					participant.email,
-					globalPersist,
-					participant.id
+					globalPersist
+					// Pas de 4ème paramètre → ID généré automatiquement
 				);
 			} else {
-				// Mettre à jour le globalProfile existant avec les infos du participant
+				// Mettre à jour seulement le nom/email, PAS l'ID
 				await userStore.updateGlobalProfile({
 					defaultName: participant.name,
 					defaultEmail: participant.email
+				});
+			}
+
+			// Stocker l'association dans le planning (si masterId disponible)
+			if (masterId) {
+				await userStore.setPlanningIdentity(masterId, {
+					id: participant.id, // L'ID du participant dans CE planning
+					name: participant.name,
+					email: participant.email
 				});
 			}
 

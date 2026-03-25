@@ -232,8 +232,11 @@
 						<!-- Bouton profil global -->
 						{#if userStore.isLoggedIn}
 							<!-- User authentifié → lien vers /settings -->
-							<a
-								href="/settings"
+							<button
+								onclick={() => {
+									modalStore.closeNavDrawer();
+									goto('/settings');
+								}}
 								class="btn btn-accent flex flex-1 items-center justify-start gap-2 text-left"
 							>
 								<User class="size-5 opacity-70" />
@@ -245,7 +248,7 @@
 										</div>
 									{/if}
 								</div>
-							</a>
+							</button>
 						{:else}
 							<!-- Guest → ouvre IdentifyModal pour modifier le profil local -->
 							<button
@@ -307,6 +310,7 @@
 	open={userStore.authModal.open}
 	mode={userStore.authModal.mode}
 	existingParticipants={userStore.authModal.existingParticipants || []}
+	masterId={userStore.authModal.masterId}
 	onClose={() => (userStore.authModal = { ...userStore.authModal, open: false })}
 	onGlobalProfileCreate={handleGlobalProfileCreate}
 	onGlobalProfileUpdate={handleGlobalProfileUpdate}
@@ -350,9 +354,7 @@
 
 <Toaster position="bottom-right" />
 
-{#if userStore.isLoggedIn}
-	<NetworkIndicator />
-{/if}
+<NetworkIndicator />
 
 <!-- Drawer Global pour les Commentaires -->
 <Drawer bind:open={drawerStore.open} portal={true} direction="right">

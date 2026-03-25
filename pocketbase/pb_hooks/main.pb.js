@@ -415,6 +415,136 @@ routerAdd('GET', '/api/has-account/{id}', (e) => {
 });
 
 // ============================================
+// MIGRATE PARTICIPANT IDS
+// ============================================
+
+/**
+ * Migre les IDs de participants sur plusieurs plannings
+ * Utilisé lors de la connexion d'un utilisateur avec un compte PocketBase pré-existant
+ *
+ * Format du body : { migrations: [{ masterId, oldId, newId }] }
+ *
+ * Pour chaque migration :
+ * - Remplace oldId par newId dans master.participants
+ * - Met à jour occurrence.responses[].participantId (>= today uniquement)
+ * - Met à jour occurrence.tasks[].assignedTo (>= today uniquement)
+ * - Met à jour occurrence.comments[].authorId (>= today uniquement)
+ *
+ * Nécessite une authentification valide
+ */
+routerAdd('POST', '/api/migrate-participants', (e) => {
+	if (!e.auth) throw new ApiError(401, 'Authentication required');
+
+	// Binder le body
+	const data = new DynamicModel({ migrations: [] });
+	e.bindBody(data);
+
+	const results = {};
+	const today = new Date().toISOString().split('T')[0] + ' 00:00:00.000Z';
+
+	for (const migration of data.migrations) {
+		const masterId = migration.masterId || '';
+		const oldId = migration.oldId || '';
+		const newId = migration.newId || '';
+
+		if (!masterId || !oldId || !newId) {
+			results[masterId] = {
+				success: false,
+				error: 'Missing required fields (masterId, oldId, newId)'
+			};
+			continue;
+		}
+
+		try {
+			$app.runInTransaction(function (txApp) {
+				// 1. Mettre à jour master.participants
+				const master = txApp.findRecordById('planning_masters', masterId);
+				const participants = master.getStringSlice('participants');
+
+				// Remplacer oldId par newId dans le tableau
+				const updatedParticipants = participants.map(function (p) {
+					const obj = JSON.parse(p);
+					if (obj.id === oldId) {
+						obj.id = newId;
+					}
+					return JSON.stringify(obj);
+				});
+				master.set('participants', updatedParticipants);
+				txApp.save(master);
+
+				// 2. Récupérer les occurrences >= today
+				const occurrences = txApp.findRecordsByFilter(
+					'planning_occurrences',
+					'master = {:masterId} AND start >= {:today}',
+					'start ASC',
+					1000,
+					0,
+					{ masterId: masterId, today: today }
+				);
+
+				// 3. Mettre à jour responses, tasks, comments pour chaque occurrence
+				for (let i = 0; i < occurrences.length; i++) {
+					const occ = occurrences[i];
+
+					// Responses
+					const responsesModel = new DynamicModel({ responses: [] });
+					occ.unmarshalJSONField('responses', responsesModel);
+					let responsesChanged = false;
+
+					for (let r = 0; r < responsesModel.responses.length; r++) {
+						if (responsesModel.responses[r].participantId === oldId) {
+							responsesModel.responses[r].participantId = newId;
+							responsesChanged = true;
+						}
+					}
+					if (responsesChanged) {
+						occ.set('responses', responsesModel.responses);
+					}
+
+					// Tasks
+					const tasksModel = new DynamicModel({ tasks: [] });
+					occ.unmarshalJSONField('tasks', tasksModel);
+					let tasksChanged = false;
+
+					for (let t = 0; t < tasksModel.tasks.length; t++) {
+						if (tasksModel.tasks[t].assignedTo === oldId) {
+							tasksModel.tasks[t].assignedTo = newId;
+							tasksChanged = true;
+						}
+					}
+					if (tasksChanged) {
+						occ.set('tasks', tasksModel.tasks);
+					}
+
+					// Comments
+					const commentsModel = new DynamicModel({ comments: [] });
+					occ.unmarshalJSONField('comments', commentsModel);
+					let commentsChanged = false;
+
+					for (let c = 0; c < commentsModel.comments.length; c++) {
+						if (commentsModel.comments[c].authorId === oldId) {
+							commentsModel.comments[c].authorId = newId;
+							commentsChanged = true;
+						}
+					}
+					if (commentsChanged) {
+						occ.set('comments', commentsModel.comments);
+					}
+
+					txApp.save(occ);
+				}
+
+				results[masterId] = { success: true, occurrencesUpdated: occurrences.length };
+			});
+		} catch (err) {
+			results[masterId] = { success: false, error: String(err) };
+		}
+	}
+
+	return e.json(200, { results });
+});
+
+// ============================================
 // RECORD ENRICH - Masquer les tokens
 // ============================================
 

@@ -74,14 +74,15 @@ class SyncService {
 				existing.lastAccessed = new Date().toISOString();
 				existing.isSync = true;
 			} else {
-				// Créer une nouvelle entrée
+				// Créer une nouvelle entrée (currentUser sera réconcilié par le $effect de la page)
 				userStore.savedPlannings.push({
 					masterId: master.id,
 					title: master.title,
 					participantToken: master.participantToken,
 					adminToken: master.adminToken,
 					lastAccessed: new Date().toISOString(),
-					isSync: true
+					isSync: true,
+					currentUser: undefined // ← explicite : sera résolu par le $effect de /p/[token]
 				});
 			}
 		}
