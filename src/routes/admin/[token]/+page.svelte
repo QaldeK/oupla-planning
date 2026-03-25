@@ -6,9 +6,10 @@
 	import { updatePlanningWithOccurrences } from '$lib/services/planningActions';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
+	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { fade } from 'svelte/transition';
 
-	import { ArrowLeft, Calendar, CalendarCog } from 'lucide-svelte';
+	import { ArrowLeft, Calendar, CalendarCog, RefreshCw, WifiOff } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	let token = $derived($page.params.token as string);
@@ -103,6 +104,42 @@
 				{datesWithSpecificTasks}
 			/>
 		{/key}
+	</div>
+{:else if !networkStore.online}
+	<div class="flex min-h-[50vh] items-center justify-center p-4">
+		<div class="max-w-sm text-center">
+			<div class="alert alert-error alert-soft">
+				<WifiOff size={24} />
+				<div>
+					<h3 class="font-bold">Connexion impossible</h3>
+					<div class="text-xs">
+						<p>Vous êtes hors ligne. Vérifiez votre connexion internet.</p>
+					</div>
+				</div>
+			</div>
+			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
+				<RefreshCw size={16} />
+				Réessayer
+			</button>
+		</div>
+	</div>
+{:else if planningStore.error?.type === 'network'}
+	<div class="flex min-h-[50vh] items-center justify-center p-4">
+		<div class="max-w-sm text-center">
+			<div class="alert alert-error alert-soft">
+				<WifiOff size={24} />
+				<div>
+					<h3 class="font-bold">Connexion impossible</h3>
+					<div class="text-xs">
+						<p>Le serveur est inaccessible. Réessayez dans quelques instants.</p>
+					</div>
+				</div>
+			</div>
+			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
+				<RefreshCw size={16} />
+				Réessayer
+			</button>
+		</div>
 	</div>
 {:else}
 	<div class="flex min-h-[50vh] items-center justify-center p-4">

@@ -6,6 +6,9 @@ import { userStore } from '$lib/stores/userStore.svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import { pb } from '$lib/pocketbase/pb';
 
+// Type de retour pour getOrFetchMaster (en dehors de la classe)
+type GetOrFetchMasterResult = PlanningMaster | { error: 'network' | 'not_found' };
+
 class PlanningStore {
 	// Cache interne : token → master (pour éviter les fetchs)
 	#tokenCache = new Map<string, PlanningMaster>();
@@ -20,7 +23,11 @@ class PlanningStore {
 	#selectedOccurrenceId = $state<string | null>(null);
 
 	#isLoading = $state(false);
-	#error = $state<string | null>(null);
+	// Type d'erreur pour distinguer réseau vs 404
+	#error = $state<{
+		type: 'network' | 'not_found';
+		message: string;
+	} | null>(null);
 
 	constructor() {
 		// Enregistrement unique des handlers — realtimeService ne connaît plus planningStore
@@ -87,12 +94,20 @@ class PlanningStore {
 
 		try {
 			// Cas 2: résoudre token → masterId
-			const master = await this.getOrFetchMaster(token);
-			if (!master) {
-				this.#error = 'Planning introuvable';
+			const result = await this.getOrFetchMaster(token);
+
+			// Erreur typée (réseau ou not_found)
+			if ('error' in result) {
+				this.#error = {
+					type: result.error,
+					message: result.error === 'network' ? 'Connexion impossible' : 'Planning introuvable'
+				};
 				this.#activeMasterId = null;
 				return;
 			}
+
+			// result est maintenant de type PlanningMaster (le type guard a fonctionné)
+			const master = result;
 
 			// Cas 3: masterId inchangé → NOP (optimisation)
 			if (this.#activeMasterId === master.id) {
@@ -136,7 +151,7 @@ class PlanningStore {
 			// console.log(this.activeMasterId);
 		} catch (err) {
 			console.error('PlanningStore setActiveToken error:', err);
-			this.#error = 'Erreur lors du chargement';
+			this.#error = { type: 'network', message: 'Erreur lors du chargement' };
 		} finally {
 			this.#isLoading = false;
 		}
@@ -181,11 +196,18 @@ class PlanningStore {
 
 		try {
 			// Utiliser le cache si disponible
-			const master = await this.getOrFetchMaster(token);
-			if (!master) {
-				this.#error = 'Planning introuvable';
+			const result = await this.getOrFetchMaster(token);
+
+			// Erreur typée (réseau ou not_found)
+			if ('error' in result) {
+				this.#error = {
+					type: result.error,
+					message: result.error === 'network' ? 'Connexion impossible' : 'Planning introuvable'
+				};
 				return null;
 			}
+
+			const master = result;
 
 			// Mettre en cache dans la Map
 			this.#masters.set(master.id, master);
@@ -226,7 +248,7 @@ class PlanningStore {
 			return { master, isAdmin };
 		} catch (err) {
 			console.error('PlanningStore init error:', err);
-			this.#error = 'Erreur lors du chargement';
+			this.#error = { type: 'network', message: 'Erreur lors du chargement' };
 			return null;
 		} finally {
 			this.#isLoading = false;
@@ -329,11 +351,15 @@ class PlanningStore {
 
 	// --- Cache ---
 
-	async getOrFetchMaster(token: string): Promise<PlanningMaster | null> {
+	async getOrFetchMaster(token: string): Promise<GetOrFetchMasterResult> {
 		if (this.#tokenCache.has(token)) return this.#tokenCache.get(token)!;
 
 		const result = await getPlanningByToken(token);
-		if (!result) return null;
+
+		// Propager l'erreur typée
+		if ('error' in result) {
+			return { error: result.error };
+		}
 
 		const master = result.master;
 		this.#tokenCache.set(token, master);

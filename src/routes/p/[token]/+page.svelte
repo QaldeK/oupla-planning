@@ -17,6 +17,7 @@
 	import { fade } from 'svelte/transition';
 
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
+	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import {
 		ArrowRightFromLine,
 		Bell,
@@ -26,10 +27,12 @@
 		InfoIcon,
 		ListFilter,
 		MapPin,
+		RefreshCw,
 		Settings,
 		Share2,
 		User,
-		Users
+		Users,
+		WifiOff
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -552,6 +555,42 @@
 					</button>
 				</div>
 			{/if}
+		</div>
+	</div>
+{:else if !networkStore.online}
+	<div class="flex min-h-[50vh] items-center justify-center">
+		<div class="max-w-md text-center">
+			<div class="alert alert-error alert-soft">
+				<WifiOff size={24} />
+				<div>
+					<h3 class="font-bold">Connexion impossible</h3>
+					<div class="text-xs">
+						<p>Vous êtes hors ligne. Vérifiez votre connexion internet.</p>
+					</div>
+				</div>
+			</div>
+			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
+				<RefreshCw size={16} />
+				Réessayer
+			</button>
+		</div>
+	</div>
+{:else if planningStore.error?.type === 'network'}
+	<div class="flex min-h-[50vh] items-center justify-center">
+		<div class="max-w-md text-center">
+			<div class="alert alert-error alert-soft">
+				<WifiOff size={24} />
+				<div>
+					<h3 class="font-bold">Connexion impossible</h3>
+					<div class="text-xs">
+						<p>Le serveur est inaccessible. Réessayez dans quelques instants.</p>
+					</div>
+				</div>
+			</div>
+			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
+				<RefreshCw size={16} />
+				Réessayer
+			</button>
 		</div>
 	</div>
 {:else}

@@ -147,10 +147,12 @@ export async function createPlanningWithOccurrences(
 	return master;
 }
 
-export async function getPlanningByToken(token: string): Promise<{
-	master: PlanningMaster;
-	isAdmin: boolean;
-} | null> {
+// Type de retour pour getPlanningByToken avec gestion d'erreur typée
+export type GetPlanningByTokenResult =
+	| { master: PlanningMaster; isAdmin: boolean }
+	| { error: 'network' | 'not_found' };
+
+export async function getPlanningByToken(token: string): Promise<GetPlanningByTokenResult> {
 	try {
 		const master = await pb
 			.collection('planning_masters')
@@ -183,9 +185,18 @@ export async function getPlanningByToken(token: string): Promise<{
 		// AdminToken = 64 chars, ParticipantToken = 32 chars
 		return { master, isAdmin: token.length === 64 };
 	} catch (error: any) {
-		if (error?.status === 404) return null;
-		console.error('Error fetching planning:', error);
-		return null;
+		// Erreur 404 explicite = planning introuvable
+		if (error?.status === 404) {
+			return { error: 'not_found' };
+		}
+
+		// Annulation (auto-cancellation) → traiter comme réseau
+		if (error?.isAbort) {
+			return { error: 'network' };
+		}
+
+		// Toutes les autres erreurs (réseau, timeout, 500, etc.) → erreur réseau
+		return { error: 'network' };
 	}
 }
 
