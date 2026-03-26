@@ -72,8 +72,10 @@
 <div class="flex h-full flex-col">
 	{#if occurrence}
 		<!-- Header -->
-		<div class="border-base-300 flex h-fit items-center justify-between border-b px-4 py-3">
-			<div class="flex items-center gap-2">
+		<div
+			class="border-base-300 flex h-fit items-center justify-between border-b px-2 py-2 sm:px-4 sm:py-3"
+		>
+			<div class="flex items-center gap-4">
 				<div class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
 					<MessageSquare size={18} class="text-primary" />
 				</div>
@@ -139,7 +141,10 @@
 		</div>
 
 		<!-- Input Area -->
-		<fieldset class="bg-base-200/50 border-base-300 border-t p-4" disabled={isNetworkUnavailable}>
+		<fieldset
+			class="bg-base-200 border-base-300 border-t p-1 sm:p-2"
+			disabled={isNetworkUnavailable}
+		>
 			<form
 				onsubmit={(e) => {
 					e.preventDefault();
@@ -149,7 +154,7 @@
 			>
 				<textarea
 					bind:value={newComment}
-					class="textarea textarea-bordered focus:textarea-primary w-full resize-none py-3 pr-12 pl-4 text-sm transition-all"
+					class="textarea textarea-bordered focus:textarea-primary w-full resize-none py-2 pr-12 pl-4 text-sm transition-all"
 					placeholder="Votre message..."
 					rows="2"
 					onkeydown={(e) => {
@@ -161,7 +166,7 @@
 				></textarea>
 				<button
 					type="submit"
-					class="btn btn-primary btn-circle sm:btn-sm absolute right-3 bottom-3 shadow-lg"
+					class="btn btn-primary btn-circle btn-sm absolute right-2 bottom-2 shadow-lg"
 				>
 					{#if isSubmitting}
 						<span class="loading loading-spinner loading-xs"></span>

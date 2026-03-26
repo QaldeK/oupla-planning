@@ -42,7 +42,7 @@
 
 	// Identité finale à enregistrer (toujours avec l'ID du globalProfile)
 	let finalIdentity = $derived<PlanningIdentity>({
-		id: userStore.globalProfile?.id || currentIdentity.id,
+		id: currentIdentity.id || userStore.globalProfile?.id || '',
 		name: name.trim(),
 		email: email.trim() || undefined
 	});

@@ -404,6 +404,22 @@
 	open={migrationModal.open}
 	localId={migrationModal.localId}
 	remoteId={migrationModal.remoteId}
+	onKeepSeparate={async () => {
+		collisionModal.isProcessing = true; // Use collision modal spinner or something? Actually MigrationModal has no spinner on Cancel.
+		try {
+			await userStore.backupLocalProfile();
+			await syncProfileSafely();
+			migrationModal.open = false;
+			toast.success('Connexion réussie (compte précédent sauvegardé)');
+			if (onSuccess) onSuccess();
+		} catch (error: any) {
+			console.error('Backup and Keep Separate error', error);
+			errorMsg = error.response?.message || "Une erreur s'est produite lors de la connexion.";
+			migrationModal.open = false;
+		} finally {
+			collisionModal.isProcessing = false;
+		}
+	}}
 	onClose={() => {
 		migrationModal.open = false;
 		pb.authStore.clear();

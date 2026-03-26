@@ -201,6 +201,8 @@ class UserStore {
 			await this.createGlobalProfile(pbUserName, pbUserEmail, true, pbUserId);
 		} else {
 			// Mettre à jour le profil existant
+			const wasPersist = this.globalProfile.persist;
+
 			const updates: Partial<Pick<GlobalUserProfile, 'id' | 'defaultName' | 'defaultEmail'>> = {
 				id: pbUserId
 			};
@@ -218,7 +220,11 @@ class UserStore {
 				updates.defaultEmail = pbUserEmail;
 			}
 
-			await this.updateGlobalProfile(updates);
+			await this.updateGlobalProfile(updates, true);
+
+			if (!wasPersist) {
+				await this.savePlanningsLocal();
+			}
 		}
 	}
 

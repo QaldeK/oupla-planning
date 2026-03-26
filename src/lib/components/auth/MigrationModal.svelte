@@ -9,9 +9,10 @@
 		remoteId: string; // pb.authStore.record.id
 		onClose?: () => void;
 		onSuccess?: () => void;
+		onKeepSeparate?: () => void;
 	}
 
-	let { open, localId, remoteId, onClose, onSuccess }: Props = $props();
+	let { open, localId, remoteId, onClose, onSuccess, onKeepSeparate }: Props = $props();
 
 	// Plannings à migrer (ceux où currentUser.id === localId)
 	let planningsToMigrate = $derived(
@@ -105,9 +106,13 @@
 		}
 	}
 
-	function handleCancel() {
-		open = false;
-		if (onClose) onClose();
+	function handleKeepSeparate() {
+		if (onKeepSeparate) {
+			onKeepSeparate();
+		} else {
+			open = false;
+			if (onClose) onClose();
+		}
 	}
 </script>
 
@@ -117,8 +122,8 @@
 			<h3 class="text-lg font-bold">Migrer vos plannings vers votre compte ?</h3>
 
 			<p class="py-2 text-sm opacity-70">
-				Nous avons détecté que vous vous connectez avec un compte existant. Vos participations
-				locales peuvent être migrées vers ce compte pour être accessibles depuis tous vos appareils.
+				Vos participations locales peuvent être migrées vers ce compte pour être accessibles depuis
+				tous vos appareils.
 			</p>
 
 			{#if planningsToMigrate.length > 0}
@@ -174,7 +179,7 @@
 				</div>
 
 				<div class="modal-action">
-					<button class="btn btn-ghost" onclick={handleCancel} disabled={isProcessing}>
+					<button class="btn btn-ghost" onclick={handleKeepSeparate} disabled={isProcessing}>
 						Non, conserver les comptes séparés
 					</button>
 					<button
@@ -188,14 +193,14 @@
 						{:else}
 							Migrer {selectedIds.size === planningsToMigrate.length
 								? 'tous'
-								: selectedIds.toString()} planning(s)
+								: selectedIds.size} planning(s)
 						{/if}
 					</button>
 				</div>
 			{:else}
 				<p class="py-4">Aucun planning à migrer.</p>
 				<div class="modal-action">
-					<button class="btn btn-primary" onclick={handleCancel}>Continuer</button>
+					<button class="btn btn-primary" onclick={handleKeepSeparate}>Continuer</button>
 				</div>
 			{/if}
 		</div>

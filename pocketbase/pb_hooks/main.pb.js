@@ -459,24 +459,28 @@ routerAdd('POST', '/api/migrate-participants', (e) => {
 			$app.runInTransaction(function (txApp) {
 				// 1. Mettre à jour master.participants
 				const master = txApp.findRecordById('planning_masters', masterId);
-				const participants = master.getStringSlice('participants');
 
-				// Remplacer oldId par newId dans le tableau
-				const updatedParticipants = participants.map(function (p) {
-					const obj = JSON.parse(p);
-					if (obj.id === oldId) {
-						obj.id = newId;
+				// Unmarshal JSON field (cohérent avec responses, tasks, comments)
+				const participantsModel = new DynamicModel({ participants: [] });
+				master.unmarshalJSONField('participants', participantsModel);
+
+				let participantsChanged = false;
+				for (let i = 0; i < participantsModel.participants.length; i++) {
+					if (participantsModel.participants[i].id === oldId) {
+						participantsModel.participants[i].id = newId;
+						participantsChanged = true;
 					}
-					return JSON.stringify(obj);
-				});
-				master.set('participants', updatedParticipants);
+				}
+				if (participantsChanged) {
+					master.set('participants', participantsModel.participants);
+				}
 				txApp.save(master);
 
 				// 2. Récupérer les occurrences >= today
 				const occurrences = txApp.findRecordsByFilter(
 					'planning_occurrences',
-					'master = {:masterId} AND start >= {:today}',
-					'start ASC',
+					'master = {:masterId} AND date >= {:today}',
+					'date ASC',
 					1000,
 					0,
 					{ masterId: masterId, today: today }

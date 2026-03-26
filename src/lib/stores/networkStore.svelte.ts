@@ -46,7 +46,7 @@ if (browser) {
 	setInterval(() => {
 		// On ne poll le realtime que si on a une souscription active
 		if (status.hasActiveSubscription && pb.realtime.isConnected && !status.realtimeConnected) {
-			console.log('🟢 Realtime reconnecté (polling)');
+			console.log('🟢 Realtime reconnecté (polling)', new Date().getMinutes());
 			status.realtimeConnected = true;
 			status.pocketbaseReachable = true;
 			status.lastError = null;
