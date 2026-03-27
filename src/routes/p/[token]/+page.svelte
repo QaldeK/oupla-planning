@@ -21,7 +21,6 @@
 		ArrowRightFromLine,
 		Bell,
 		Calendar,
-		CalendarSyncIcon,
 		Info,
 		InfoIcon,
 		ListFilter,
@@ -44,18 +43,17 @@
 	let showAccountModal = $state(false);
 	let accountModalMode = $state<'login' | 'register'>('register');
 
-	// === LOGIQUE D'IDENTIFICATION SIMPLIFIÉE (3 CAS) ===
-
 	$effect(() => {
 		if (!master) return;
 
-		// CAS 1 : Utilisateur PocketBase authentifié
+		// Déjà identifié sur ce planning — ne rien faire
+		if (userStore.getPlanningIdentity(master.id)) return;
+
 		if (userStore.isLoggedIn && userStore.pbUser) {
 			const pbUser = userStore.pbUser;
 			const existingParticipant = master.participants.find((p) => p.id === pbUser.id);
 
 			if (existingParticipant) {
-				// Déjà participant — identifier silencieusement
 				handlePlanningIdentify(
 					{
 						id: existingParticipant.id,
@@ -67,28 +65,18 @@
 				return;
 			}
 
-			// Pas encore participant — auto-identifier si pas de conflit de nom
 			const hasConflict = master.participants.some(
 				(p) => p.name.toLowerCase() === pbUser.name.toLowerCase() && p.id !== pbUser.id
 			);
 
 			if (!hasConflict) {
-				handlePlanningIdentify(
-					{ id: pbUser.id, name: pbUser.name, email: pbUser.email },
-					true // nouveau participant
-				);
+				handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true);
 			} else {
-				// Conflit de nom → ouvrir IdentifyModal pour choisir un autre nom
 				openIdentifyModal();
 			}
 			return;
 		}
 
-		// CAS 2 : Guest déjà identifié sur ce planning
-		const existingIdentity = userStore.getPlanningIdentity(master.id);
-		if (existingIdentity) return; // Déjà identifié → ne rien faire
-
-		// CAS 3 : Guest sans identité sur ce planning → ouvrir IdentifyModal
 		openIdentifyModal();
 	});
 
@@ -96,7 +84,6 @@
 		if (!master) return;
 
 		try {
-			// Vérifier si le participant existe déjà (pour éviter les doublons)
 			const existing = master.participants.find((p) => p.id === identity.id);
 
 			if (isNewParticipant && !existing) {
@@ -110,20 +97,16 @@
 					token
 				);
 				planningStore.updateMaster(updated);
-			} else {
-				// MISE À JOUR : Mettre à jour si le participant existe déjà
-				if (existing && existing.name !== identity.name) {
-					const updated = await updateParticipant(
-						master.id,
-						identity.id,
-						{ name: identity.name },
-						token
-					);
-					planningStore.updateMaster(updated);
-				}
+			} else if (existing && existing.name !== identity.name) {
+				const updated = await updateParticipant(
+					master.id,
+					identity.id,
+					{ name: identity.name },
+					token
+				);
+				planningStore.updateMaster(updated);
 			}
 
-			// Si user authentifié, l'ajouter à planning_participants
 			if (userStore.isLoggedIn) {
 				try {
 					await ensurePlanningParticipant(master.id, userStore.pbUser!.id);
@@ -132,10 +115,8 @@
 				}
 			}
 
-			// Mettre à jour l'identité locale
 			await userStore.setPlanningIdentity(master.id, identity);
 
-			// Créer ou mettre à jour le SavedPlanning avec les métadonnées complètes
 			const isAdminToken = token.length === 64;
 			const savedPlanning = {
 				masterId: master.id,
@@ -159,35 +140,21 @@
 		displayCount += 10;
 	}
 
-	// Fonction utilitaire pour ouvrir le modal d'identification
 	function openIdentifyModal() {
 		if (!master) return;
 
-		// Nom à préremplir : identité actuelle ou nom du profil
 		const identityName = currentIdentity?.name || userStore.pbUser?.name || '';
 
 		// Pour les users authentifiés : préremplir le nom et cacher la liste des participants
-		if (userStore.isLoggedIn) {
-			userStore.authModal = {
-				open: true,
-				masterId: master.id,
-				existingParticipants: master.participants,
-				onPlanningIdentify: handlePlanningIdentify,
-				initialName: identityName,
-				hideExistingParticipants: true,
-				currentIdentity: currentIdentity
-			};
-		} else {
-			// Pour les guests : préremplir le nom aussi
-			userStore.authModal = {
-				open: true,
-				masterId: master.id,
-				existingParticipants: master.participants,
-				onPlanningIdentify: handlePlanningIdentify,
-				initialName: identityName,
-				currentIdentity: currentIdentity
-			};
-		}
+		userStore.authModal = {
+			open: true,
+			masterId: master.id,
+			existingParticipants: master.participants,
+			onPlanningIdentify: handlePlanningIdentify,
+			initialName: identityName,
+			hideExistingParticipants: userStore.isLoggedIn ? true : undefined,
+			currentIdentity: currentIdentity
+		};
 	}
 
 	const isAdmin = $derived(master ? userStore.hasAdminAccess(master.id) : false);
@@ -201,11 +168,9 @@
 	const sortedParticipants = $derived.by(() => {
 		if (!master || !currentIdentity) return master?.participants ?? [];
 
-		// Séparer l'utilisateur actuel des autres participants
 		const currentUser = master.participants.find((p) => p.id === currentIdentity.id);
 		const otherParticipants = master.participants.filter((p) => p.id !== currentIdentity.id);
 
-		// Retourner l'utilisateur actuel en premier, puis les autres
 		return currentUser ? [currentUser, ...otherParticipants] : master.participants;
 	});
 </script>
@@ -267,14 +232,11 @@
 		<div class="mb-4 sm:mb-12">
 			<div class="mb-2 flex flex-wrap items-start justify-between gap-6 sm:mb-8">
 				<div class="flex flex-1 items-center gap-5">
-					<div class="bg-primary/10 rounded-2xl p-2 sm:p-4">
+					<div class="bg-primary/10 self-start rounded-2xl p-2 sm:p-4">
 						<Calendar class="text-primary size-7 sm:size-6" />
 					</div>
-					<div class="flex-1 space-y-1 sm:space-y-3">
-						<div>
-							<h1 class="text-xl font-semibold tracking-tight sm:text-4xl">{master.title}</h1>
-						</div>
-
+					<div class="flex-1 space-y-1">
+						<h1 class="text-xl font-semibold tracking-tight sm:text-4xl">{master.title}</h1>
 						<div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium opacity-80">
 							{#if master.place}
 								<div class="flex items-center gap-2">
@@ -282,6 +244,19 @@
 									<span>{master.place}</span>
 								</div>
 							{/if}
+						</div>
+						<!-- Récurrence -->
+						<div class="flex min-w-[calc(50%-0.5rem)] items-center gap-2">
+							<div class="flex flex-wrap items-center gap-x-2">
+								<div class="truncate text-sm font-medium">
+									{getRecurrenceLabel(master.recurrence)} • {master.defaultStartTime} — {master.defaultEndTime}
+								</div>
+								<div class="text-base-content/70 text-sm">
+									{#if master.recurrence.lastDate}
+										jusqu'au {formatDateShort(master.recurrence.lastDate)}
+									{/if}
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -307,22 +282,6 @@
 				<div class="card card-sm bg-base-200 border-base-content/5 mb-4 border shadow-sm">
 					<div class="card-body">
 						<div class="flex flex-wrap items-start gap-4 max-sm:flex-col">
-							<!-- Récurrence -->
-							<div class="flex min-w-[calc(50%-0.5rem)] items-center gap-2">
-								<CalendarSyncIcon size={18} class="text-primary shrink-0" />
-								<div class="flex flex-wrap items-center gap-x-2">
-									<div class="truncate text-sm font-medium">
-										{getRecurrenceLabel(master.recurrence)}
-									</div>
-									<div class="text-base-content/60 text-xs">
-										{#if master.recurrence.lastDate}
-											jusqu'au {formatDateShort(master.recurrence.lastDate || '')}
-										{/if}
-										• {master.defaultStartTime} — {master.defaultEndTime}
-									</div>
-								</div>
-							</div>
-
 							<!-- Participants -->
 							<div
 								class="{master.description
@@ -477,17 +436,15 @@
 			</div>
 
 			<!-- Liste des occurrences avec composant unique -->
-			<div class="">
-				{#each displayedOccurrences as occurrence (occurrence.id)}
-					<OccurrenceView
-						{occurrence}
-						{master}
-						participants={master.participants}
-						currentUserId={userStore.getIdentityForPlanning(master.id)?.id}
-						{isAdmin}
-					/>
-				{/each}
-			</div>
+			{#each displayedOccurrences as occurrence (occurrence.id)}
+				<OccurrenceView
+					{occurrence}
+					{master}
+					participants={master.participants}
+					currentUserId={currentIdentity?.id}
+					{isAdmin}
+				/>
+			{/each}
 
 			{#if hasMore}
 				<div class="text-center">
@@ -498,7 +455,10 @@
 			{/if}
 		</div>
 	</div>
-{:else if !networkStore.online}
+{:else if !networkStore.online || planningStore.error?.type === 'network'}
+	{@const errorMessage = !networkStore.online
+		? 'Vous êtes hors ligne. Vérifiez votre connexion internet.'
+		: 'Le serveur est inaccessible. Réessayez dans quelques instants.'}
 	<div class="flex min-h-[50vh] items-center justify-center">
 		<div class="max-w-md text-center">
 			<div class="alert alert-error alert-soft">
@@ -506,25 +466,7 @@
 				<div>
 					<h3 class="font-bold">Connexion impossible</h3>
 					<div class="text-xs">
-						<p>Vous êtes hors ligne. Vérifiez votre connexion internet.</p>
-					</div>
-				</div>
-			</div>
-			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
-				<RefreshCw size={16} />
-				Réessayer
-			</button>
-		</div>
-	</div>
-{:else if planningStore.error?.type === 'network'}
-	<div class="flex min-h-[50vh] items-center justify-center">
-		<div class="max-w-md text-center">
-			<div class="alert alert-error alert-soft">
-				<WifiOff size={24} />
-				<div>
-					<h3 class="font-bold">Connexion impossible</h3>
-					<div class="text-xs">
-						<p>Le serveur est inaccessible. Réessayez dans quelques instants.</p>
+						<p>{errorMessage}</p>
 					</div>
 				</div>
 			</div>

@@ -65,7 +65,7 @@
 	}
 </script>
 
-{#if !isCardDisplay}
+{#if isCardDisplay}
 	<div class="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
 		<div class="flex items-center gap-2 opacity-70">
 			<ClipboardCheck size={16} class="shrink-0" />

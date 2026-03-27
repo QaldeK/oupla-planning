@@ -120,12 +120,15 @@
 
 		try {
 			if (mode === 'register') {
+				// Si le nom n'est pas renseigné, extraire la partie avant '@' de l'email
+				const userName = localName.trim() || email.split('@')[0];
+
 				// Créer l'utilisateur PocketBase
 				await pb.collection('users').create({
 					email,
 					password,
 					passwordConfirm,
-					name: localName
+					name: userName
 				});
 
 				// Authentification auto

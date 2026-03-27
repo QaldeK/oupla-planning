@@ -54,16 +54,19 @@ class UserStore {
 			(await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: true })) || [];
 
 		// 2. Préférences de l'application (thème, vue)
+		const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+		const defaultTheme: ThemeType = prefersDark ? 'nord-dark' : 'my';
+
 		const savedPrefs = await storage.getItem<AppPreferences>(APP_PREFS_KEY);
 		if (savedPrefs) {
 			this.appPreferences = {
-				theme: savedPrefs.theme || 'my',
+				theme: savedPrefs.theme || defaultTheme,
 				occurrenceView: savedPrefs.occurrenceView || (mediaQuery.isMobile ? 'minimal' : 'compact')
 			};
 		} else {
-			// Valeurs par défaut intelligentes par device
+			// Valeurs par défaut intelligentes par device + OS theme
 			this.appPreferences = {
-				theme: 'my',
+				theme: defaultTheme,
 				occurrenceView: mediaQuery.isMobile ? 'minimal' : 'compact'
 			};
 		}

@@ -159,11 +159,11 @@
 				class={[
 					'response-cell text-base-content flex items-center justify-center gap-1.5 px-2 py-2 text-sm  transition-all ',
 
-					!disabled && !isPastDate && `hover:cursor-pointer hover:brightness-110`,
-					config.bgClass10,
+					!disabled && !isPastDate && `hover:cursor-pointer hover:brightness-120`,
+
 					isCurrentUserResponse
-						? ` rounded-lg ring-2 ring-inset ${config.ringClass} font-bold`
-						: 'font-medium'
+						? ` rounded-lg ring-3 ring-inset ${config.ringClass} ${config.bgClass} font-bold`
+						: `font-medium ${config.bgClass10}`
 				]}
 				onclick={() => !isPastDate && onResponseSelect(type)}
 				disabled={disabled || isPastDate}
@@ -183,9 +183,10 @@
 			{#each responsesByType[type] as response (response.participantId)}
 				<div
 					class={[
-						'badge badge-lg gap-1',
+						'badge  gap-1',
 						config.bgClass,
-						response.participantId === currentUserId && `border-2 ${config.borderClass} font-bold`
+						response.participantId === currentUserId &&
+							`border-3 ${config.borderClass} font-semibold`
 					]}
 					in:slide
 				>

@@ -203,26 +203,35 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 export async function updatePlanning(
 	masterId: string,
 	updates: Partial<PlanningMaster>,
-	token: string
+	token: string,
+	currentMaster?: PlanningMaster
 ): Promise<PlanningMaster> {
-	const updateData = { ...updates, lastModifiedBy: pb.authStore.record?.id };
-	if (updateData.tasks) {
-		const sorted = sortTasks(updateData.tasks);
-		if (sorted) updateData.tasks = sorted;
-	}
-	return await pb.collection('planning_masters').update<PlanningMaster>(masterId, updateData, {
-		query: { _token: token }
-	});
+	return runAtomicUpdate<PlanningMaster>(
+		'planning_masters',
+		masterId,
+		token,
+		(current) => {
+			const updateData = { ...updates, lastModifiedBy: pb.authStore.record?.id };
+			if (updateData.tasks) {
+				const sorted = sortTasks(updateData.tasks);
+				if (sorted) updateData.tasks = sorted;
+			}
+			return updateData;
+		},
+		currentMaster
+	);
 }
 
 /**
  * Met à jour un planning master et ses occurrences de manière atomique (batch)
+ * @param expectedVersion - Optionnel, timestamp `updated` du master pour optimistic locking
  */
 export async function updatePlanningWithOccurrences(
 	masterId: string,
 	data: CreatePlanningData,
 	adminToken: string,
-	participantToken: string
+	participantToken: string,
+	expectedVersion?: string
 ): Promise<PlanningMaster> {
 	const today = format(new Date(), 'yyyy-MM-dd');
 	const normalizeDate = (d: string) => d.split(' ')[0].split('T')[0];
@@ -242,7 +251,12 @@ export async function updatePlanningWithOccurrences(
 
 	const batch = pb.createBatch();
 
-	// Master update
+	// Master update avec vérification de version (optimistic locking)
+	const masterQuery: Record<string, string> = { _token: adminToken };
+	if (expectedVersion) {
+		masterQuery._version = expectedVersion;
+	}
+
 	batch.collection('planning_masters').update(
 		masterId,
 		{
@@ -259,7 +273,7 @@ export async function updatePlanningWithOccurrences(
 			availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes),
 			lastModifiedBy: pb.authStore.record?.id
 		},
-		{ query: { _token: adminToken } }
+		{ query: masterQuery }
 	);
 
 	// Supprimer les occurrences futures obsolètes
@@ -368,9 +382,8 @@ async function runAtomicUpdate<T extends { id: string; updated: string }>(
 
 			return await pb.collection(collection).update<T>(recordId, updates, {
 				query: {
-					_token: token
-
-					// _version: current.updated // Envoi de la version connue
+					_token: token,
+					_version: current.updated
 				}
 			});
 		} catch (error: any) {

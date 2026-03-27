@@ -458,24 +458,26 @@
 
 {#snippet rowLayoutMinimal()}
 	<div class="bg-base-100 border-neutral/30 border-b-2 py-1.5">
-		<div class="flex flex-wrap items-center gap-2 px-2">
+		<div class="mb-1 flex flex-wrap items-center gap-2 px-2">
 			<!-- Date -->
-			<div class="flex items-center gap-1 text-sm font-semibold">
+			<div class="flex items-center gap-1 font-semibold">
 				<Calendar size={14} />
 				<span>{formatDateShort(occurrence.date)}</span>
 			</div>
 
 			<!-- Time -->
-			<div class="flex items-center gap-1 text-xs opacity-70">
-				<Clock size={12} />
-				{formatTimeRange(occurrence.startTime, occurrence.endTime)}
-			</div>
+			{#if occurrence.startTime !== master.defaultStartTime || occurrence.endTime !== master.defaultEndTime}
+				<div class="flex items-center gap-1 text-sm opacity-70">
+					<Clock size={12} />
+					{formatTimeRange(occurrence.startTime, occurrence.endTime)}
+				</div>
+			{/if}
 
 			<!-- Place -->
-			{#if occState.inherited.place}
+			{#if occurrence.place}
 				<div class="flex items-center gap-1 text-xs opacity-70">
 					<MapPin size={12} />
-					{occState.inherited.place}
+					{occurrence.place}
 				</div>
 			{/if}
 
@@ -497,6 +499,9 @@
 				</span>
 			{/if}
 
+			<!-- Spacer -->
+			<div class="flex-1"></div>
+
 			<!-- Min present badge -->
 			{#if occState.inherited.minPresentRequired}
 				<ResponseBadge
@@ -504,56 +509,52 @@
 					required={occState.inherited.minPresentRequired}
 				/>
 			{/if}
-
-			<!-- Spacer -->
-			<div class="flex-1"></div>
-
 			<!-- Comments -->
 			<button
-				class="btn btn-ghost btn-xs gap-0.5"
+				class="btn btn-ghost btn-sm gap-0.5"
 				onclick={openCommentDrawer}
 				aria-label="Voir les commentaires"
 			>
-				<MessageSquare size={12} />
-				<span class="text-xs">{occurrence.comments.length}</span>
+				<MessageSquare size={16} />
+				<span class="text-sm">{occurrence.comments.length}</span>
 			</button>
 
 			<!-- Admin actions -->
 			{#if isAdmin}
 				{#if showQuickConfirm}
 					<button
-						class="btn btn-ghost btn-xs"
+						class="btn btn-ghost btn-sm"
 						onclick={toggleConfirm}
 						disabled={occState.isNetworkUnavailable}
 						title="Confirmer la tenue"
 					>
-						<CalendarCheckIcon size={14} />
+						<CalendarCheckIcon size={16} />
 					</button>
 				{/if}
 				{#if showQuickRestore}
 					<button
-						class="btn btn-ghost btn-xs"
+						class="btn btn-ghost btn-sm"
 						onclick={restoreEvent}
 						title="Rétablir l'événement"
 						disabled={occState.isNetworkUnavailable}
 					>
-						<CalendarSyncIcon size={14} />
+						<CalendarSyncIcon size={16} />
 					</button>
 				{/if}
 				<button
-					class="btn btn-ghost btn-xs btn-circle"
+					class="btn btn-ghost btn-sm btn-circle"
 					aria-label="Modifier"
 					onclick={() => (showEditModal = true)}
 					disabled={occState.isNetworkUnavailable}
 				>
-					<Pencil size={12} />
+					<Pencil size={16} />
 				</button>
 			{/if}
 		</div>
 
 		<!-- Actions section -->
 		{#if occState.masterConfig.allowResponses}
-			<div class="px-2 py-1">
+			<div class="mb-1 px-2 py-1">
 				<ResponsesSummary
 					responses={occurrence.responses}
 					getParticipantName={occState.getParticipantName}

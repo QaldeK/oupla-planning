@@ -693,9 +693,9 @@
 					></textarea>
 				</fieldset>
 
-				<fieldset class="fieldset">
+				<fieldset class="fieldset col-span-full">
 					<label class="input w-full">
-						<span class="label"><MapPin size={16} /></span>
+						<span class="label"><MapPin size={16} />Lieu</span>
 						<input
 							type="text"
 							bind:value={place}
@@ -706,7 +706,7 @@
 					</label>
 				</fieldset>
 
-				<div class="space-y-4">
+				<div class="space-y-2">
 					<div class="grid grid-cols-2 gap-4">
 						<fieldset class="fieldset">
 							<legend class="fieldset-legend flex items-center gap-2">
@@ -734,7 +734,7 @@
 						</fieldset>
 					</div>
 
-					<div class="flex flex-wrap gap-2">
+					<div class="flex w-full flex-wrap gap-2">
 						<button
 							type="button"
 							class="btn btn-ghost btn-xs bg-base-200"

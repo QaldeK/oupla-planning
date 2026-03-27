@@ -259,14 +259,14 @@ onRecordUpdateRequest((e) => {
 	}
 
 	// === VERROUILLAGE OPTIMISTE ===
-	// const version = e.requestInfo().query['_version'];
-	// if (version) {
-	// 	const currentUpdated = e.record.get('updated').toString();
-	// 	// On compare les versions. Si elles diffèrent, quelqu'un a modifié le record entre temps.
-	// 	if (currentUpdated !== version) {
-	// 		throw new ApiError(409, 'Conflict: The record has been modified by another user.');
-	// 	}
-	// }
+	const version = e.requestInfo()?.query?.['_version'];
+	if (version) {
+		const currentUpdated = e.record.get('updated').toString();
+		// On compare les versions. Si elles diffèrent, quelqu'un a modifié le record entre temps.
+		if (currentUpdated !== version) {
+			throw new ApiError(409, 'Conflict: The record has been modified by another user.');
+		}
+	}
 
 	// Validation des modifications par participant
 	// NOTE: API Rules gèrent déjà l'autorisation. Ce code est une protection supplémentaire.
@@ -343,14 +343,14 @@ onRecordUpdateRequest((e) => {
 		throw new ApiError(403, 'Invalid token');
 	}
 
-	// // === VERROUILLAGE OPTIMISTE (identique occurrences) ===
-	// const version = e.requestInfo().query['_version'];
-	// if (version) {
-	// 	const currentUpdated = e.record.get('updated').toString();
-	// 	if (currentUpdated !== version) {
-	// 		throw new ApiError(409, 'Conflict: record modified by another user.');
-	// 	}
-	// }
+	// === VERROUILLAGE OPTIMISTE ===
+	const version = e.requestInfo()?.query?.['_version'];
+	if (version) {
+		const currentUpdated = e.record.get('updated').toString();
+		if (currentUpdated !== version) {
+			throw new ApiError(409, 'Conflict: The record has been modified by another user.');
+		}
+	}
 
 	// === RESTRICTION DES CHAMPS PAR RÔLE ===
 	// NOTE: API Rules gèrent déjà l'autorisation. Ce code est une protection supplémentaire.

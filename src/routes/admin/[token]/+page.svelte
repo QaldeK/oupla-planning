@@ -37,7 +37,8 @@
 				master.id,
 				data,
 				token,
-				master.participantToken as string
+				master.participantToken as string,
+				master.updated // Optimistic locking
 			);
 			planningStore.updateMaster(updatedMaster);
 			toast.success('Planning mis à jour avec succès');
