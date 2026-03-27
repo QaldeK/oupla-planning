@@ -1,132 +1,65 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/userStore.svelte';
-	import type { Participant, SavedPlanning } from '$lib/types/planning.types';
-	import { isTauri, storage } from '$lib/utils/storage';
-	import { ArrowRight, InfoIcon, User } from 'lucide-svelte';
+	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
+	import { ArrowLeft, ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import AuthForm from './auth/AuthForm.svelte';
 	import NameConflictHandler from './NameConflictHandler.svelte';
-	import ConfirmModal from './ui/ConfirmModal.svelte';
 	import Modal from './ui/Modal.svelte';
-
-	const PLANNINGS_KEY = 'planning_saved';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		open: boolean;
 		onClose: () => void;
-		mode: 'homepage' | 'edit-global';
+		masterId?: string;
 		existingParticipants?: Participant[];
-		masterId?: string; // ID du planning en cours (pour revendication d'identité)
-		onGlobalProfileCreate?: (name: string, email?: string, persist?: boolean) => void;
-		onGlobalProfileUpdate?: (name: string, email?: string, persist?: boolean) => void;
-		onRequireLogin?: () => void; // Appelé quand une revendication nécessite une connexion
+		onPlanningIdentify?: (identity: PlanningIdentity, isNewParticipant: boolean) => Promise<void>;
+		initialName?: string; // Nom prérempli pour les users auth
+		hideExistingParticipants?: boolean; // Cacher la liste des participants existants pour les users auth
+		currentIdentity?: PlanningIdentity | null; // Identité actuelle de l'utilisateur pour ce planning
 	}
 
 	let {
 		open = $bindable(false),
 		onClose,
-		mode,
-		existingParticipants = [],
 		masterId,
-		onGlobalProfileCreate,
-		onGlobalProfileUpdate,
-		onRequireLogin
+		existingParticipants = [],
+		onPlanningIdentify,
+		initialName,
+		hideExistingParticipants = false,
+		currentIdentity = null
 	}: Props = $props();
 
 	let name = $state('');
 	let email = $state('');
-	let globalPersist = $state(userStore.globalProfile?.persist ?? true);
 	let isSubmitting = $state(false);
-	let showConfirmClear = $state(false);
 	let inputRef = $state<HTMLInputElement | null>(null);
 	let authMode = $state<'login' | 'register'>('register');
 
-	// Focus auto à l'ouverture
+	// État pour la revendication d'identité protégée
+	let claimedIdentity = $state<Participant | null>(null);
+
+	// Focus auto à l'ouverture et préremplissage du nom
 	$effect(() => {
-		if (open && inputRef) {
-			setTimeout(() => inputRef?.focus(), 50);
+		if (open && !claimedIdentity) {
+			// Préremplir le nom si fourni (pour les users auth)
+			if (initialName) {
+				name = initialName;
+			}
+			// Focus sur l'input
+			if (inputRef) {
+				setTimeout(() => inputRef?.focus(), 50);
+			}
 		}
 	});
 
-	// Réagir aux changements du toggle avec migration des données
+	// Réinitialiser les champs à la fermeture
 	$effect(() => {
-		if (!userStore.globalProfile) return;
-
-		const oldPersist = userStore.globalProfile.persist;
-		const newPersist = globalPersist;
-
-		if (oldPersist !== newPersist) {
-			handlePersistChange(newPersist);
-		}
-	});
-
-	async function handlePersistChange(newPersist: boolean) {
-		if (newPersist) {
-			// false → true : Transférer sessionStorage → localStorage
-			await migrateSessionToLocalStorage();
-		} else {
-			// true → false : Transférer localStorage → sessionStorage
-			await migrateLocalStorageToSessionStorage();
-		}
-
-		// Mettre à jour le profil global
-		await userStore.updateGlobalProfile({ persist: newPersist });
-	}
-
-	async function migrateSessionToLocalStorage() {
-		const session =
-			(await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: false })) || [];
-		if (session.length === 0) return;
-
-		// Récupérer aussi les localStorage existants
-		const local = (await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: true })) || [];
-
-		// Fusionner
-		const merged = [...local];
-		for (const planning of session) {
-			if (!merged.find((p) => p.masterId === planning.masterId)) {
-				merged.push(planning);
-			}
-		}
-
-		userStore.savedPlannings = merged;
-		await userStore.savePlanningsLocal();
-
-		toast.info(`${session.length} planning(s) transféré(s) vers le stockage permanent.`);
-	}
-
-	async function migrateLocalStorageToSessionStorage() {
-		const local = (await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: true })) || [];
-		if (local.length === 0) return;
-
-		// Récupérer aussi les sessionStorage existants
-		const session =
-			(await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: false })) || [];
-
-		// Fusionner
-		const merged = [...session];
-		for (const planning of local) {
-			if (!merged.find((p) => p.masterId === planning.masterId)) {
-				merged.push(planning);
-			}
-		}
-
-		userStore.savedPlannings = merged;
-		await userStore.savePlanningsLocal();
-
-		toast.info(`${local.length} planning(s) transféré(s) vers le stockage temporaire.`);
-	}
-
-	// Initialiser les champs à l'ouverture
-	$effect(() => {
-		if (open) {
-			if (userStore.globalProfile) {
-				name = userStore.globalProfile.defaultName;
-				email = userStore.globalProfile.defaultEmail || '';
-			} else {
-				name = '';
-				email = '';
-			}
+		if (!open) {
+			name = '';
+			email = '';
+			claimedIdentity = null;
+			authMode = 'register';
 		}
 	});
 
@@ -136,31 +69,16 @@
 	async function handleIdentifyAs(participant: Participant) {
 		isSubmitting = true;
 		try {
-			// CRITICAL: Ne jamais modifier globalProfile.id avec participant.id
-			// L'ID participant est spécifique à un planning, pas l'identité universelle
-			if (!userStore.globalProfile) {
-				// Créer le globalProfile avec un ID généré (pas participant.id)
-				await userStore.createGlobalProfile(
-					participant.name,
-					participant.email,
-					globalPersist
-					// Pas de 4ème paramètre → ID généré automatiquement
-				);
-			} else {
-				// Mettre à jour seulement le nom/email, PAS l'ID
-				await userStore.updateGlobalProfile({
-					defaultName: participant.name,
-					defaultEmail: participant.email
-				});
-			}
-
 			// Stocker l'association dans le planning (si masterId disponible)
-			if (masterId) {
-				await userStore.setPlanningIdentity(masterId, {
-					id: participant.id, // L'ID du participant dans CE planning
-					name: participant.name,
-					email: participant.email
-				});
+			if (masterId && onPlanningIdentify) {
+				await onPlanningIdentify(
+					{
+						id: participant.id, // L'ID du participant dans CE planning
+						name: participant.name,
+						email: participant.email
+					},
+					false // pas nouveau participant
+				);
 			}
 
 			toast.success(`Bienvenue, ${participant.name} !`);
@@ -173,196 +91,180 @@
 		}
 	}
 
-	// Appelé quand le participant a un compte protégé
-	function handleRequireLogin() {
-		// Fermer IdentifyModal et notifier le parent pour ouvrir AccountModal
-		onClose();
-		onRequireLogin?.();
+	// Appelé quand le participant a un compte protégé - géré en interne
+	function handleRequireLogin(participant: Participant) {
+		claimedIdentity = participant;
+		authMode = 'login';
+		// Le focus sera géré par AuthForm via focusEmail
 	}
 
-	async function handleManualIdentify() {
-		if (!name.trim()) return;
+	async function handleSubmit() {
+		if (!name.trim() || isSubmitting) return;
 
-		// Cas Homepage : Création du profil global
-		if (mode === 'homepage') {
-			onGlobalProfileCreate?.(name.trim(), email.trim() || undefined, globalPersist);
+		// Cas avec masterId : identification sur un planning
+		if (masterId && onPlanningIdentify) {
+			// Déterminer si c'est un nouveau participant ou un changement de nom
+			const hasExistingIdentity = !!currentIdentity;
+			const isNewParticipant = !hasExistingIdentity;
+
+			const newIdentity: PlanningIdentity = {
+				// Garder l'ID existant si l'utilisateur a déjà une identité, sinon en générer un nouveau
+				id: currentIdentity?.id || crypto.randomUUID(),
+				name: name.trim(),
+				email: email.trim() || undefined
+			};
+
+			await onPlanningIdentify(newIdentity, isNewParticipant);
 			onClose();
 			return;
 		}
 
-		// Cas Edit Global : Modification du profil global (guest uniquement)
-		if (mode === 'edit-global') {
-			onGlobalProfileUpdate?.(name.trim(), email.trim() || undefined, globalPersist);
-			onClose();
-			return;
-		}
+		// Sans masterId : ne rien faire (ne devrait pas arriver)
+		console.warn('IdentifyModal: handleSubmit called without masterId or onPlanningIdentify');
 	}
 
-	async function handleClearProfile() {
-		await userStore.clearUser();
-		showConfirmClear = false;
-		toast.info('Profil effacé de cet appareil');
+	// Callback après connexion réussie
+	function handleAuthSuccess() {
+		// L'identification sur le planning sera gérée par la page parente
+		// via la réactivité de userStore.isLoggedIn
 		onClose();
 	}
 </script>
 
-<Modal {open} {onClose} title={mode === 'edit-global' ? 'Mon Profil' : 'Identification'} size="md">
+<Modal {open} {onClose} title="Identification" size="md">
 	<div class="space-y-6">
-		{#if mode === 'edit-global'}
-			<p class="text-sm opacity-80">
-				Modifiez votre profil par défaut. Ces changements s'appliqueront aux nouveaux plannings.
-			</p>
-		{:else}
-			<p class="text-sm opacity-80">
-				Créez votre profil pour commencer. Il sera utilisé par défaut dans les plannings.
-			</p>
-		{/if}
-
-		<form
-			onsubmit={(e) => {
-				e.preventDefault();
-				handleManualIdentify();
-			}}
-			class="space-y-5"
-		>
-			<fieldset>
-				<label class="input w-full">
-					<span class="label">
-						<User size={18} class="opacity-40" />
-						Nom *
-					</span>
-					<input
-						bind:this={inputRef}
-						type="text"
-						bind:value={name}
-						class="grow"
-						placeholder="Votre nom ou pseudo"
-						required
-						disabled={isSubmitting}
-					/>
-				</label>
-				<div class="fieldset-label p-1 text-xs">
-					{#if mode === 'edit-global'}
-						C'est le nom qui apparaîtra par défaut dans les plannings que vous rejoindrez.
-					{:else}
-						C'est le nom qui apparaîtra pour les autres participants.
-					{/if}
+		<!-- Alerte pour identité protégée -->
+		{#if claimedIdentity}
+			<div
+				class="alert alert-info alert-soft animate-in fade-in slide-in-from-top-2 duration-300"
+				in:fade
+			>
+				<Lock size={20} class="shrink-0" />
+				<div class="flex-1">
+					<p class="text-sm font-medium">
+						L'identité <strong>{claimedIdentity.name}</strong> est protégée par un compte.
+					</p>
+					<p class="text-xs opacity-80">Connectez-vous pour revendiquer cette identité.</p>
 				</div>
-			</fieldset>
-
-			<!-- Détection de conflit via NameConflictHandler (mode homepage uniquement) -->
-			{#if mode === 'homepage' && existingParticipants.length > 0}
-				<NameConflictHandler
-					{name}
-					{existingParticipants}
-					currentUserId={userStore.globalProfile?.id}
-					allowClaimIdentity={true}
-					onIdentifyAs={handleIdentifyAs}
-					onRequireLogin={handleRequireLogin}
-				/>
-			{/if}
-
-			{#if (!isTauri || !userStore.isLoggedIn) && mode === 'homepage'}
-				<!-- Toggle "Mémoriser sur cet appareil" -->
-				<div class="card card-xs {globalPersist ? 'bg-success/10' : 'bg-warning/10'}">
-					<div class="card-body">
-						<label class="label cursor-pointer justify-start gap-3">
-							<input
-								type="checkbox"
-								class="toggle toggle-primary"
-								bind:checked={globalPersist}
-								disabled={isSubmitting}
-							/>
-							<div class="grid-row">
-								<div class="label-text text-base font-medium">Mémoriser sur cet appareil</div>
-								<div>Vos plannings seront sauvegardés sur cet appareil.</div>
-							</div>
-						</label>
-						<p class="text-xxs mt-1 px-2 opacity-70">
-							⚠️ Ne fonctionne pas en navigation privée. Peut être perdu lors du nettoyage du cache.
-							Gardez les URLs des plannings ou créez un compte ci-dessous pour plus de sécurité.
-						</p>
-						<p class="text-xxs mt-1 px-2 opacity-70">
-							Désactivé: Votre navigateur oubliera vos plannings après sa fermeture. Recommandé sur
-							les appareils partagés ou publics.
-						</p>
-					</div>
-				</div>
-			{/if}
-
-			<div class="modal-action mt-8">
-				<button
-					type="submit"
-					class="btn btn-primary btn-block gap-2"
-					disabled={isSubmitting || !name.trim()}
-				>
-					{#if isSubmitting}
-						<span class="loading loading-spinner loading-xs"></span>
-						Traitement...
-					{:else}
-						Continuer comme {name || '...'}
-						<ArrowRight size={18} />
-					{/if}
-				</button>
 			</div>
-		</form>
-
-		<!-- Inscription depuis le IdentifyModal -->
-		{#if !userStore.isLoggedIn && !isTauri && (mode === 'homepage' || mode === 'edit-global')}
-			<div class="divider mt-8 text-sm font-medium tracking-widest uppercase opacity-50">
-				.. ou Créez un compte !
-			</div>
-			<div class="flex w-full flex-col gap-2 leading-tight">
-				<div class="flex items-center gap-2 text-sm opacity-70">
-					<InfoIcon size={20} class="inline shrink-0" />
-					Créez un compte pour recevoir des notifications par email (et push sur mobile), et retrouver
-					vos planning sur tous vos appareils.
-				</div>
-				<button
-					class="btn btn-sm btn-outline btn-primary mx-auto"
-					onclick={() => (authMode = authMode === 'register' ? 'login' : 'register')}
-				>
-					{authMode === 'register'
-						? "J'ai déjà un compte - Se connecter"
-						: "Je n'ai pas de compte - Créer un compte"}
-				</button>
-			</div>
+			<button
+				type="button"
+				class="btn btn-soft btn-sm btn-block"
+				onclick={() => {
+					claimedIdentity = null;
+					authMode = 'register';
+				}}
+			>
+				<ArrowLeftFromLine size={20} class="shrink-0" />
+				Choisir un autre nom
+			</button>
+			<!-- Formulaire de connexion directement visible -->
 			<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
+				<h4 class="mb-4 text-sm font-medium">Connexion requise</h4>
 				<AuthForm
-					mode={authMode}
-					name={name.trim()}
+					mode="login"
+					name={claimedIdentity.name}
+					initialEmail={claimedIdentity.email || ''}
+					focusEmail={true}
 					showNameInput={false}
 					compact
-					onSuccess={() => {
-						if (name.trim()) handleManualIdentify();
-						else onClose();
-					}}
+					onSuccess={handleAuthSuccess}
 				/>
 			</div>
-		{/if}
 
-		<!-- Effacer le profil (mode edit-global uniquement) -->
-		{#if mode === 'edit-global' && userStore.globalProfile}
-			<div class="text-center">
-				<button
-					type="button"
-					class="btn-link btn btn-sm text-error h-auto min-h-0 p-0"
-					onclick={() => (showConfirmClear = true)}
-				>
-					Effacer mon profil
-				</button>
-			</div>
+			<!-- Option pour annuler et choisir un autre nom -->
+		{:else}
+			<!-- Formulaire normal -->
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					handleSubmit();
+				}}
+				class="space-y-5"
+				in:fade
+			>
+				<fieldset>
+					<label class="input w-full">
+						<span class="label">
+							<User size={18} class="opacity-40" />
+							Nom *
+						</span>
+						<input
+							bind:this={inputRef}
+							type="text"
+							bind:value={name}
+							class="grow"
+							placeholder="Votre nom ou pseudo"
+							required
+							disabled={isSubmitting}
+						/>
+					</label>
+					<div class="fieldset-label p-1 text-xs">
+						C'est le nom qui apparaîtra pour les autres participants.
+					</div>
+				</fieldset>
+
+				<!-- Détection de conflit via NameConflictHandler -->
+				{#if existingParticipants.length > 0}
+					<NameConflictHandler
+						{name}
+						{initialName}
+						{existingParticipants}
+						currentUserId={userStore.isLoggedIn ? userStore.pbUser?.id : undefined}
+						allowClaimIdentity={!userStore.isLoggedIn}
+						{hideExistingParticipants}
+						onIdentifyAs={handleIdentifyAs}
+						onRequireLogin={handleRequireLogin}
+					/>
+				{/if}
+
+				<div class="modal-action mt-8">
+					<button
+						type="submit"
+						class="btn btn-primary btn-block gap-2"
+						disabled={isSubmitting || !name.trim()}
+					>
+						{#if isSubmitting}
+							<span class="loading loading-spinner loading-xs"></span>
+							Traitement...
+						{:else}
+							Continuer comme {name || '...'}
+							<ArrowRight size={18} />
+						{/if}
+					</button>
+				</div>
+			</form>
+
+			<!-- Inscription depuis le IdentifyModal -->
+			{#if !userStore.isLoggedIn}
+				<div class="divider mt-8 text-sm font-medium tracking-widest uppercase opacity-50">
+					.. ou Créez un compte !
+				</div>
+				<div class="flex w-full flex-col gap-2 leading-tight">
+					<div class="flex items-center gap-2 text-sm opacity-70">
+						<InfoIcon size={20} class="inline shrink-0" />
+						Créez un compte pour retrouver vos planning sur tous vos appareils, et recevoir des notifications
+						par email (et push sur mobile)
+					</div>
+					<button
+						class="btn btn-sm btn-outline btn-primary mx-auto"
+						onclick={() => (authMode = authMode === 'register' ? 'login' : 'register')}
+					>
+						{authMode === 'register'
+							? "J'ai déjà un compte - Se connecter"
+							: "Je n'ai pas de compte - Créer un compte"}
+					</button>
+				</div>
+				<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
+					<AuthForm
+						mode={authMode}
+						name={name.trim()}
+						showNameInput={false}
+						compact
+						onSuccess={handleAuthSuccess}
+					/>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </Modal>
-
-<ConfirmModal
-	bind:open={showConfirmClear}
-	onClose={() => (showConfirmClear = false)}
-	onConfirm={handleClearProfile}
-	title="Effacer le profil ?"
-	message="Voulez-vous vraiment effacer votre profil sur cet appareil ?"
-	description="Cela supprimera votre nom par défaut et la liste de vos plannings enregistrés localement. Vos participations sur les plannings eux-mêmes ne seront pas supprimées."
-	confirmLabel="Effacer tout"
-	variant="danger"
-/>

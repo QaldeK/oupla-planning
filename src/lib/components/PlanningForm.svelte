@@ -687,7 +687,6 @@
 					<textarea
 						bind:value={description}
 						class="textarea w-full"
-						placeholder="Expliquez l'objectif de ce planning..."
 						rows="3"
 						disabled={isSubmitting}
 						maxlength="280"

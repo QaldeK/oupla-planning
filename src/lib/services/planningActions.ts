@@ -87,7 +87,7 @@ export async function createPlanning(
 		participantToken: finalParticipantToken,
 		participants: data.participants || [],
 		availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes),
-		lastModifiedBy: userStore.globalProfile?.id
+		lastModifiedBy: pb.authStore.record?.id
 	});
 }
 
@@ -118,7 +118,7 @@ export async function createPlanningWithOccurrences(
 		adminToken: finalAdminToken,
 		participantToken: finalParticipantToken,
 		participants: data.participants || [],
-		lastModifiedBy: userStore.globalProfile?.id
+		lastModifiedBy: pb.authStore.record?.id
 	});
 
 	// 2. Générer les dates de récurrence
@@ -138,7 +138,7 @@ export async function createPlanningWithOccurrences(
 			isCanceled: false,
 			adminToken: finalAdminToken,
 			participantToken: finalParticipantToken,
-			lastModifiedBy: userStore.globalProfile?.id
+			lastModifiedBy: pb.authStore.record?.id
 		});
 	}
 
@@ -205,7 +205,7 @@ export async function updatePlanning(
 	updates: Partial<PlanningMaster>,
 	token: string
 ): Promise<PlanningMaster> {
-	const updateData = { ...updates, lastModifiedBy: userStore.globalProfile?.id };
+	const updateData = { ...updates, lastModifiedBy: pb.authStore.record?.id };
 	if (updateData.tasks) {
 		const sorted = sortTasks(updateData.tasks);
 		if (sorted) updateData.tasks = sorted;
@@ -257,7 +257,7 @@ export async function updatePlanningWithOccurrences(
 			allowResponses: data.allowResponses,
 			toConfirm: data.toConfirm,
 			availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes),
-			lastModifiedBy: userStore.globalProfile?.id
+			lastModifiedBy: pb.authStore.record?.id
 		},
 		{ query: { _token: adminToken } }
 	);
@@ -278,7 +278,7 @@ export async function updatePlanningWithOccurrences(
 				endTime: data.defaultEndTime,
 				adminToken,
 				participantToken,
-				lastModifiedBy: userStore.globalProfile?.id
+				lastModifiedBy: pb.authStore.record?.id
 			};
 			if (data.forceTaskRefresh) updateData.tasks = sortTasks(data.tasks);
 			batch
@@ -297,7 +297,7 @@ export async function updatePlanningWithOccurrences(
 					isCanceled: false,
 					adminToken,
 					participantToken,
-					lastModifiedBy: userStore.globalProfile?.id
+					lastModifiedBy: pb.authStore.record?.id
 				},
 				{ query: { _token: adminToken } }
 			);
@@ -418,7 +418,7 @@ export async function addParticipant(
 				...(current.participants || []).filter((p) => p.id !== newParticipant.id),
 				newParticipant
 			],
-			lastModifiedBy: userStore.globalProfile?.id
+			lastModifiedBy: pb.authStore.record?.id
 		};
 	});
 }
@@ -440,7 +440,7 @@ export async function updateParticipant(
 			);
 			return {
 				participants: updatedParticipants,
-				lastModifiedBy: userStore.globalProfile?.id
+				lastModifiedBy: pb.authStore.record?.id
 			};
 		},
 		currentMaster
@@ -463,7 +463,7 @@ export async function removeParticipant(
 			);
 			return {
 				participants: updatedParticipants,
-				lastModifiedBy: userStore.globalProfile?.id
+				lastModifiedBy: pb.authStore.record?.id
 			};
 		},
 		currentMaster
@@ -489,7 +489,7 @@ export async function createOccurrence(
 		isCanceled: false,
 		adminToken,
 		participantToken,
-		lastModifiedBy: userStore.globalProfile?.id
+		lastModifiedBy: pb.authStore.record?.id
 	});
 }
 
@@ -527,7 +527,7 @@ export async function updateOccurrence(
 		occurrenceId,
 		token,
 		(current) => {
-			const updateData = { ...updates, lastModifiedBy: userStore.globalProfile?.id };
+			const updateData = { ...updates, lastModifiedBy: pb.authStore.record?.id };
 			if (updateData.tasks !== undefined) updateData.tasks = sortTasks(updateData.tasks);
 			return updateData;
 		},
@@ -569,7 +569,7 @@ export async function submitResponse(
 
 			return {
 				responses: updatedResponses,
-				lastModifiedBy: userStore.globalProfile?.id
+				lastModifiedBy: pb.authStore.record?.id
 			};
 		},
 		currentOccurrence
@@ -591,7 +591,7 @@ export async function removeResponse(
 		(current) => {
 			return {
 				responses: (current.responses || []).filter((r) => r.participantId !== participantId),
-				lastModifiedBy: userStore.globalProfile?.id
+				lastModifiedBy: pb.authStore.record?.id
 			};
 		},
 		currentOccurrence
@@ -622,7 +622,7 @@ export async function addComment(
 			};
 			return {
 				comments: [...(current.comments || []), newComment],
-				lastModifiedBy: userStore.globalProfile?.id
+				lastModifiedBy: pb.authStore.record?.id
 			};
 		},
 		currentOccurrence
@@ -642,7 +642,7 @@ export async function deleteComment(
 		(current) => {
 			return {
 				comments: (current.comments || []).filter((c) => c.id !== commentId),
-				lastModifiedBy: userStore.globalProfile?.id
+				lastModifiedBy: pb.authStore.record?.id
 			};
 		},
 		currentOccurrence

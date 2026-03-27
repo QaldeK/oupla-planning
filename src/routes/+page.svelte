@@ -43,8 +43,8 @@
 		<AuthSection />
 	{/if}
 
-	<!-- Saved Plannings List (if any) -->
-	{#if userStore.savedPlannings.length > 0}
+	<!-- Saved Plannings List - UNIQUEMENT si connecté -->
+	{#if userStore.isLoggedIn && userStore.savedPlannings.length > 0}
 		<!-- Liste des plannings sauvegardés -->
 		<div class="mt-8">
 			<h2 class="mb-4 text-xl font-semibold">Vos plannings</h2>

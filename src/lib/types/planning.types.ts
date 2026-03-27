@@ -116,14 +116,6 @@ export interface AppPreferences {
 
 // === LocalStorage ===
 
-// Profil global de l'utilisateur
-export interface GlobalUserProfile {
-	id: string; // UUID global unique
-	defaultName: string; // Nom par défaut pour les nouveaux plannings
-	defaultEmail?: string; // Email par défaut
-	persist: boolean; // Si true, sauvegardé dans localStorage, sinon sessionStorage
-}
-
 // Identité spécifique à un planning
 export interface PlanningIdentity {
 	id: string; // participantId sur CE planning

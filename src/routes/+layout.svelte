@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { afterNavigate, goto } from '$app/navigation';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
+	import AccountBenefitsSidebar from '$lib/components/homepage/AccountBenefitsSidebar.svelte';
 	import CommentSection from '$lib/components/CommentSection.svelte';
 	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
 	import MobileHeader from '$lib/components/MobileHeader.svelte';
 	import NetworkIndicator from '$lib/components/NetworkIndicator.svelte';
-	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import { realtimeService } from '$lib/services/realtime.svelte';
 	import { syncService } from '$lib/services/syncService';
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
@@ -14,8 +14,8 @@
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
-	import { Drawer, DrawerContent, DrawerHandle, DrawerOverlay } from '@abhivarde/svelte-drawer';
-	import { CalendarPlus, Download, Github, LogOut, Moon, Sun, User, X } from 'lucide-svelte';
+	import { Drawer, DrawerContent, DrawerOverlay } from '@abhivarde/svelte-drawer';
+	import { CalendarPlus, Download, Github, LogOut, Moon, Sun, Settings, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { Toaster, toast } from 'svelte-sonner';
 
@@ -34,8 +34,6 @@
 		planningStore.setActiveToken(token, dateFilter);
 	});
 
-	let showConfirmClearPlannings = $state(false);
-	let showClearDataConfirm = $state(false);
 	let showAccountModal = $state(false);
 
 	onMount(() => {
@@ -88,26 +86,6 @@
 	function toggleTheme() {
 		const newTheme = userStore.appPreferences.theme === 'my' ? 'nord-dark' : 'my';
 		userStore.setTheme(newTheme);
-	}
-
-	async function handleGlobalProfileCreate(name: string, email?: string, persist = true) {
-		await userStore.createGlobalProfile(name, email, persist);
-		userStore.authModal.open = false;
-	}
-
-	async function handleGlobalProfileUpdate(name: string, email?: string, persist = true) {
-		await userStore.updateGlobalProfile({ defaultName: name, defaultEmail: email }, persist);
-		userStore.authModal.open = false;
-	}
-
-	async function handleClearData() {
-		try {
-			await userStore.clearUser();
-			showClearDataConfirm = false;
-			toast.success('Données effacées de cet appareil');
-		} catch (error) {
-			toast.error("Erreur lors de l'effacement des données");
-		}
 	}
 </script>
 
@@ -200,8 +178,8 @@
 					Nouveau planning
 				</a>
 
-				<!-- Plannings sauvegardés -->
-				{#if userStore.savedPlannings.length > 0}
+				<!-- Plannings sauvegardés - UNIQUEMENT si connecté -->
+				{#if userStore.isLoggedIn && userStore.savedPlannings.length > 0}
 					<div class="divider"></div>
 					<p class="text-base-content/60 px-2 text-sm font-semibold">Plannings sauvegardés</p>
 					<div class="space-y-2">
@@ -226,74 +204,39 @@
 			</nav>
 
 			<!-- Footer -->
-			<div class="mt-auto">
-				{#if userStore.globalProfile}
+			<div>
+				{#if userStore.isLoggedIn && userStore.pbUser}
+					<!-- User authentifié → lien vers /settings + déconnexion -->
 					<div class="flex gap-2">
-						<!-- Bouton profil global -->
-						{#if userStore.isLoggedIn}
-							<!-- User authentifié → lien vers /settings -->
-							<button
-								onclick={() => {
-									modalStore.closeNavDrawer();
-									goto('/settings');
-								}}
-								class="btn btn-accent flex flex-1 items-center justify-start gap-2 text-left"
-							>
-								<User class="size-5 opacity-70" />
-								<div class="flex flex-col items-start py-0.5 text-left">
-									<div class="text-sm font-medium">{userStore.globalProfile.defaultName}</div>
-									{#if userStore.globalProfile.defaultEmail}
-										<div class="text-base-content/60 text-xs">
-											{userStore.globalProfile.defaultEmail}
-										</div>
-									{/if}
+						<button
+							onclick={() => {
+								modalStore.closeNavDrawer();
+								goto('/settings');
+							}}
+							class="btn btn-accent flex flex-1 items-center justify-start gap-2 text-left"
+						>
+							<Settings class="size-5 opacity-70" />
+							<div class="flex flex-col items-start py-0.5 text-left">
+								<div class="text-sm font-medium">{userStore.pbUser.name}</div>
+								<div class="text-base-content/60 text-xs">
+									{userStore.pbUser.email}
 								</div>
-							</button>
-						{:else}
-							<!-- Guest → ouvre IdentifyModal pour modifier le profil local -->
-							<button
-								class="btn btn-accent flex flex-1 items-center justify-start gap-2 text-left"
-								onclick={() => (userStore.authModal = { open: true, mode: 'edit-global' })}
-							>
-								<User class="size-5 opacity-70" />
-								<div class="flex flex-col items-start py-0.5 text-left">
-									<div class="text-sm font-medium">{userStore.globalProfile.defaultName}</div>
-									{#if userStore.globalProfile.defaultEmail}
-										<div class="text-base-content/60 text-xs">
-											{userStore.globalProfile.defaultEmail}
-										</div>
-									{/if}
-								</div>
-							</button>
-						{/if}
+							</div>
+						</button>
 
-						<!-- Bouton déconnexion (si connecté ET persist) -->
-						{#if userStore.isLoggedIn && userStore.globalProfile.persist}
-							<button
-								class="btn btn-square btn-ghost"
-								onclick={() => userStore.logout()}
-								aria-label="Se déconnecter"
-							>
-								<LogOut size={18} />
-							</button>
-						{/if}
+						<button
+							class="btn btn-square btn-ghost"
+							onclick={() => userStore.logout()}
+							aria-label="Se déconnecter"
+						>
+							<LogOut size={18} />
+						</button>
 					</div>
-					{#if !userStore.isLoggedIn && userStore.globalProfile.persist}
-						<!-- lien d'effacement -->
-
-						<div class="text-end">
-							<button
-								tabindex="0"
-								class="btn-link btn btn-sm text-accent-content/60 h-auto min-h-0 self-end"
-								onclick={() => (showClearDataConfirm = true)}
-								onkeydown={(e) => e.key === 'Enter' && (showClearDataConfirm = true)}
-							>
-								Effacer mes données sur ce navigateur
-							</button>
-						</div>
-					{/if}
-				{:else if !userStore.isLoggedIn}
-					<!-- Bouton connexion/inscription (si non connecté) -->
+				{:else}
+					<!-- Guest : Alerte avantages compte + bouton connexion -->
+					<div class="flex flex-1 py-4">
+						<AccountBenefitsSidebar />
+					</div>
 					<button
 						class="btn btn-outline w-full justify-start"
 						onclick={() => (showAccountModal = true)}
@@ -308,45 +251,19 @@
 
 <IdentifyModal
 	open={userStore.authModal.open}
-	mode={userStore.authModal.mode}
-	existingParticipants={userStore.authModal.existingParticipants || []}
 	masterId={userStore.authModal.masterId}
+	existingParticipants={userStore.authModal.existingParticipants || []}
+	initialName={userStore.authModal.initialName}
+	hideExistingParticipants={userStore.authModal.hideExistingParticipants}
+	currentIdentity={userStore.authModal.currentIdentity}
 	onClose={() => (userStore.authModal = { ...userStore.authModal, open: false })}
-	onGlobalProfileCreate={handleGlobalProfileCreate}
-	onGlobalProfileUpdate={handleGlobalProfileUpdate}
-	onRequireLogin={userStore.authModal.onRequireLogin}
-/>
-
-<ConfirmModal
-	bind:open={showConfirmClearPlannings}
-	onClose={() => (showConfirmClearPlannings = false)}
-	onConfirm={async () => {
-		await userStore.clearSavedPlannings();
-		showConfirmClearPlannings = false;
-	}}
-	title="Effacer les plannings sauvegardés ?"
-	message="Voulez-vous vraiment oublier tous les plannings sauvegardés sur cet appareil ?"
-	description="Cette action est irréversible. Vous devrez utiliser les liens des plannings pour y accéder à nouveau."
-	confirmLabel="Effacer tout"
-	variant="danger"
-/>
-
-<ConfirmModal
-	bind:open={showClearDataConfirm}
-	onClose={() => (showClearDataConfirm = false)}
-	onConfirm={handleClearData}
-	title="Effacer vos données ?"
-	message="Voulez-vous vraiment effacer toutes vos données sur cet appareil ?"
-	description="Cela supprimera votre profil et la liste de vos plannings enregistrés localement. Vos participations sur les plannings eux-mêmes ne seront pas supprimées."
-	confirmLabel="Effacer tout"
-	variant="danger"
+	onPlanningIdentify={userStore.authModal.onPlanningIdentify}
 />
 
 <AccountModal
 	bind:open={showAccountModal}
 	onClose={() => (showAccountModal = false)}
 	onSuccess={() => {
-		// Après création/connexion du compte, ouvrir le modal de notifications
 		showAccountModal = false;
 	}}
 	defaultMode="register"
@@ -358,11 +275,10 @@
 
 <!-- Drawer Global pour les Commentaires -->
 <Drawer bind:open={drawerStore.open} portal={true} direction="right">
-	<DrawerOverlay class="fixed  bg-black/40 " />
+	<DrawerOverlay class="fixed bg-black/40" />
 	<DrawerContent
 		class="bg-base-100 fixed top-0 right-0 bottom-0 z-50 h-dvh w-dvw shadow-2xl sm:w-120 sm:max-w-[85vw]"
 	>
-		<!-- <DrawerHandle class="bg-base-300 absolute top-1/2 left-0 ml-2 h-1/5 -translate-y-1/2" /> -->
 		{#if drawerStore.open}
 			<CommentSection />
 		{/if}

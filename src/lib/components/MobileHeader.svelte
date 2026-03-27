@@ -60,10 +60,9 @@
 
 	// Ouvrir le modal d'identification
 	function openUserModal() {
-		userStore.authModal = {
-			open: true,
-			mode: userStore.globalProfile ? 'edit-global' : 'homepage'
-		};
+		// Ouvrir AccountModal pour les non-connectés
+		// Pour les users connectés, ils vont sur /settings
+		goto('/settings');
 	}
 
 	function handleUserBtnClick() {

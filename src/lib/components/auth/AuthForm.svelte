@@ -3,13 +3,13 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { toast } from 'svelte-sonner';
 	import { Mail, KeyRound, LoaderCircle, User } from 'lucide-svelte';
-	import CollisionModal from './CollisionModal.svelte';
-	import MigrationModal from './MigrationModal.svelte';
 
 	interface Props {
 		mode?: 'register' | 'login';
 		compact?: boolean;
 		name?: string;
+		initialEmail?: string;
+		focusEmail?: boolean;
 		showNameInput?: boolean;
 		onSuccess?: () => void;
 	}
@@ -18,46 +18,37 @@
 		mode = 'login',
 		compact = false,
 		name = '',
+		initialEmail = '',
+		focusEmail = false,
 		showNameInput = true,
 		onSuccess
 	}: Props = $props();
 
-	let email = $state('');
+	let email = $state(initialEmail);
 	let password = $state('');
 	let passwordConfirm = $state('');
+	let emailInputRef = $state<HTMLInputElement | null>(null);
+
+	// État local pour le nom (sync avec prop car les props sont read-only)
+	let localName = $state(name);
+	$effect(() => {
+		localName = name;
+	});
 
 	let isSubmitting = $state(false);
 	let errorMsg = $state('');
-
-	// Wrapper pour syncProfileWithPocketBase qui gère le flag preserveLocalProfile
-	async function syncProfileSafely() {
-		userStore.preserveLocalProfile = true;
-		try {
-			await userStore.syncProfileWithPocketBase();
-		} finally {
-			userStore.preserveLocalProfile = false;
-		}
-	}
-
-	// Collision modal state
-	let collisionModal = $state({
-		open: false,
-		localName: '',
-		remoteName: '',
-		isProcessing: false
-	});
-
-	// Migration modal state
-	let migrationModal = $state({
-		open: false,
-		localId: '',
-		remoteId: ''
-	});
 
 	// États de validation
 	let emailError = $state('');
 	let passwordError = $state('');
 	let passwordConfirmError = $state('');
+
+	// Focus auto sur l'email si demandé
+	$effect(() => {
+		if (focusEmail && emailInputRef) {
+			setTimeout(() => emailInputRef?.focus(), 50);
+		}
+	});
 
 	// Validation en temps réel
 	$effect(() => {
@@ -129,62 +120,17 @@
 
 		try {
 			if (mode === 'register') {
-				const globalProfile = userStore.globalProfile;
-				const userId = globalProfile ? globalProfile.id : crypto.randomUUID();
-
-				if (!globalProfile) {
-					// Utilisation du nom fourni ou à défaut le prefix de l'email
-					const defaultName = name || email.split('@')[0];
-					await userStore.createGlobalProfile(defaultName, email, true, userId);
-				}
-
-				// Créer l'utilisateur PocketBase (l'ID est l'uuid du client)
+				// Créer l'utilisateur PocketBase
 				await pb.collection('users').create({
-					id: userId,
 					email,
 					password,
 					passwordConfirm,
-					name
+					name: localName
 				});
 
 				// Authentification auto
 				await pb.collection('users').authWithPassword(email, password);
 
-				// ⚠️ DÉTECTION DE COLLISION ICI
-				const collision = userStore.detectCollision();
-
-				if (collision === 'collision') {
-					// Vérifier si c'est une vraie collision ou une migration nécessaire
-					const localId = userStore.globalProfile!.id;
-					const remoteId = pb.authStore.record?.id;
-					if (!remoteId) {
-						// Ne devrait pas arriver, mais sécurité
-						isSubmitting = false;
-						return;
-					}
-
-					// L'utilisateur local a-t-il déjà un compte PB ?
-					const localUserExists = await userStore.checkPocketBaseUserExists(localId);
-
-					if (localUserExists) {
-						// Scenario A : Vraie collision → backup existant
-						collisionModal.localName = userStore.globalProfile!.defaultName;
-						collisionModal.remoteName = pb.authStore.record?.name || email;
-						collisionModal.open = true;
-						isSubmitting = false;
-						return; // Ne pas continuer pour l'instant
-					} else {
-						// Scenario B : Migration nécessaire → ouvrir MigrationModal
-						migrationModal.localId = localId;
-						migrationModal.remoteId = remoteId;
-						migrationModal.open = true;
-						isSubmitting = false;
-						return; // Ne pas continuer pour l'instant
-					}
-				}
-
-				// Pas de collision : sync normale
-				await syncProfileSafely();
 				// La synchronisation des plannings est gérée par syncService dans le layout
 
 				toast.success('Compte créé avec succès !');
@@ -192,41 +138,6 @@
 				// Mode Login
 				await pb.collection('users').authWithPassword(email, password);
 
-				// ⚠️ DÉTECTION DE COLLISION ICI
-				const collision = userStore.detectCollision();
-
-				if (collision === 'collision') {
-					// Vérifier si c'est une vraie collision ou une migration nécessaire
-					const localId = userStore.globalProfile!.id;
-					const remoteId = pb.authStore.record?.id;
-					if (!remoteId) {
-						// Ne devrait pas arriver, mais sécurité
-						isSubmitting = false;
-						return;
-					}
-
-					// L'utilisateur local a-t-il déjà un compte PB ?
-					const localUserExists = await userStore.checkPocketBaseUserExists(localId);
-
-					if (localUserExists) {
-						// Scenario A : Vraie collision → backup existant
-						collisionModal.localName = userStore.globalProfile!.defaultName;
-						collisionModal.remoteName = pb.authStore.record?.name || email;
-						collisionModal.open = true;
-						isSubmitting = false;
-						return; // Ne pas continuer pour l'instant
-					} else {
-						// Scenario B : Migration nécessaire → ouvrir MigrationModal
-						migrationModal.localId = localId;
-						migrationModal.remoteId = remoteId;
-						migrationModal.open = true;
-						isSubmitting = false;
-						return; // Ne pas continuer pour l'instant
-					}
-				}
-
-				// Pas de collision : sync normale
-				await syncProfileSafely();
 				// La synchronisation des plannings est gérée par syncService dans le layout
 
 				toast.success('Connexion réussie !');
@@ -239,45 +150,6 @@
 		} finally {
 			isSubmitting = false;
 		}
-	}
-
-	// Handlers pour le modal de collision
-	async function handleBackupAndReplace() {
-		collisionModal.isProcessing = true;
-		try {
-			await userStore.backupLocalProfile();
-			await syncProfileSafely();
-			// La synchronisation des plannings est gérée par syncService dans le layout
-			collisionModal.open = false;
-			toast.success('Connexion réussie (données précédentes sauvegardées)');
-			if (onSuccess) onSuccess();
-		} catch (error: any) {
-			console.error('Backup and replace error', error);
-			errorMsg = error.response?.message || "Une erreur s'est produite lors de la sauvegarde.";
-		} finally {
-			collisionModal.isProcessing = false;
-		}
-	}
-
-	async function handleReplaceOnly() {
-		collisionModal.isProcessing = true;
-		try {
-			await syncProfileSafely();
-			// La synchronisation des plannings est gérée par syncService dans le layout
-			collisionModal.open = false;
-			toast.success('Connexion réussie');
-			if (onSuccess) onSuccess();
-		} catch (error: any) {
-			console.error('Replace only error', error);
-			errorMsg = error.response?.message || "Une erreur s'est produite lors de la connexion.";
-		} finally {
-			collisionModal.isProcessing = false;
-		}
-	}
-
-	function handleCancelCollision() {
-		collisionModal.open = false;
-		pb.authStore.clear();
 	}
 </script>
 
@@ -297,7 +169,7 @@
 				</span>
 				<input
 					type="text"
-					bind:value={name}
+					bind:value={localName}
 					class="grow"
 					placeholder="Votre nom"
 					required
@@ -315,6 +187,7 @@
 				Email
 			</span>
 			<input
+				bind:this={emailInputRef}
 				type="email"
 				bind:value={email}
 				class="grow"
@@ -387,28 +260,3 @@
 		{/if}
 	</button>
 </form>
-
-<!-- Modal de collision -->
-<CollisionModal
-	open={collisionModal.open}
-	localName={collisionModal.localName}
-	remoteName={collisionModal.remoteName}
-	onBackupAndReplace={handleBackupAndReplace}
-	onReplaceOnly={handleReplaceOnly}
-	onCancel={handleCancelCollision}
-	isSubmitting={collisionModal.isProcessing}
-/>
-
-<!-- Modal de migration -->
-<MigrationModal
-	open={migrationModal.open}
-	localId={migrationModal.localId}
-	remoteId={migrationModal.remoteId}
-	onClose={() => {
-		migrationModal.open = false;
-		pb.authStore.clear();
-	}}
-	onSuccess={() => {
-		if (onSuccess) onSuccess();
-	}}
-/>

@@ -20,13 +20,13 @@
 			const adminToken = generateAdminToken();
 			const participantToken = generateParticipantToken();
 
-			// Préparer les participants : ajouter le créateur s'il a un profil global
+			// Préparer les participants : ajouter le créateur s'il est connecté
 			let participants: Participant[] = [];
-			if (userStore.globalProfile) {
+			if (userStore.pbUser) {
 				participants = [
 					{
-						id: userStore.globalProfile.id,
-						name: userStore.globalProfile.defaultName,
+						id: userStore.pbUser.id,
+						name: userStore.pbUser.name,
 						isAdmin: true, // Le créateur est admin
 						createdAt: new Date().toISOString()
 					}

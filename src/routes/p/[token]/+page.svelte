@@ -5,7 +5,6 @@
 	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
 	import { OccurrenceView } from '$lib/components/occurrences/index';
 	import ViewTabs from '$lib/components/occurrences/ViewTabs.svelte';
-	import PlanningNameModal from '$lib/components/PlanningNameModal.svelte';
 	import { PlanningSkeleton } from '$lib/components/ui/skeletons';
 	import { addParticipant, updateParticipant } from '$lib/services/planningActions';
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
@@ -43,41 +42,16 @@
 	let displayCount = $state(10);
 	let showNotifModal = $state(false);
 	let showAccountModal = $state(false);
-	let accountModalMode = $state<'login' | 'register'>('register'); // Mode par défaut
-	let showPlanningNameModal = $state(false);
+	let accountModalMode = $state<'login' | 'register'>('register');
 
-	let hasConflictName = $state();
+	// === LOGIQUE D'IDENTIFICATION SIMPLIFIÉE (3 CAS) ===
 
-	// Sécurité : Rediriger adminToken vers participantToken
-	// $effect(() => {
-	// 	if (!master) return;
-
-	// 	// Détecter si le token est un adminToken (64 chars vs 32 chars)
-	// 	const isAdminToken = token.length === 64;
-
-	// 	if (isAdminToken) {
-	// 		// Vérifier si l'utilisateur a déjà les droits admin pour ce planning
-	// 		// TOFIX : mais si justement c'est pas déjà enregistré en local ?? getAdminToken ne check pas le backend...
-	// 		const storedAdminToken = userStore.getAdminToken(master.id);
-
-	// 		if (storedAdminToken === token) {
-	// 			// Récupérer le participantToken correspondant
-	// 			const participantToken = master.participantToken;
-
-	// 			// Rediriger vers /p/[participantToken]
-	// 			goto(`/p/${participantToken}`);
-	// 			// toast.success('Droits admin enregistrés. Redirection...');
-	// 		}
-	// 	}
-	// });
-
-	// Logique d'ouverture du modal d'identification
 	$effect(() => {
 		if (!master) return;
 
 		// CAS 1 : Utilisateur PocketBase authentifié
 		if (userStore.isLoggedIn && userStore.pbUser) {
-			const pbUser = userStore.pbUser; // snapshot local pour éviter les lectures multiples
+			const pbUser = userStore.pbUser;
 			const existingParticipant = master.participants.find((p) => p.id === pbUser.id);
 
 			if (existingParticipant) {
@@ -97,106 +71,32 @@
 			const hasConflict = master.participants.some(
 				(p) => p.name.toLowerCase() === pbUser.name.toLowerCase() && p.id !== pbUser.id
 			);
-			if (!hasConflict) {
-				hasConflictName = false;
 
+			if (!hasConflict) {
 				handlePlanningIdentify(
 					{ id: pbUser.id, name: pbUser.name, email: pbUser.email },
 					true // nouveau participant
 				);
 			} else {
-				// Conflit de nom pour un user auth → ouvrir PlanningNameModal
-				// L'utilisateur peut choisir un nom différent pour ce planning
-				hasConflictName = true;
-				showPlanningNameModal = true;
+				// Conflit de nom → ouvrir IdentifyModal pour choisir un autre nom
+				openIdentifyModal();
 			}
 			return;
 		}
 
-		// CAS 2 : Déjà identifié sur ce planning (guest)
+		// CAS 2 : Guest déjà identifié sur ce planning
 		const existingIdentity = userStore.getPlanningIdentity(master.id);
-		if (existingIdentity) return;
+		if (existingIdentity) return; // Déjà identifié → ne rien faire
 
-		// CAS 3 : Participant existant via globalProfile.id (guest revenant)
-		// Note: si l'utilisateur a revendiqué une identité via handleIdentifyAs,
-		// le CAS 2 aurait déjà retourné (car getPlanningIdentity aurait trouvé l'identité)
-		// Ici on cherche avec globalProfile.id comme fallback
-		const globalId = userStore.globalProfile?.id;
-		const existingParticipant = globalId
-			? master.participants.find((p) => p.id === globalId)
-			: undefined;
-
-		if (existingParticipant) {
-			handlePlanningIdentify(
-				{
-					id: existingParticipant.id,
-					name: existingParticipant.name,
-					email: existingParticipant.email
-				},
-				false
-			);
-			return;
-		}
-
-		// CAS 3.5 : Utilisateur avec globalProfile mais pas encore sur ce planning
-		if (userStore.globalProfile) {
-			const globalProfile = userStore.globalProfile;
-
-			// Vérifier s'il y a un conflit de nom
-			const hasConflict = master.participants.some(
-				(p) =>
-					p.name.toLowerCase() === globalProfile.defaultName.toLowerCase() &&
-					p.id !== globalProfile.id
-			);
-
-			if (!hasConflict) {
-				// Pas de conflit → identifier silencieusement avec le globalProfile
-				hasConflictName = false;
-				handlePlanningIdentify(
-					{
-						id: globalProfile.id,
-						name: globalProfile.defaultName,
-						email: globalProfile.defaultEmail
-					},
-					true // nouveau participant
-				);
-			} else {
-				// Conflit de nom → ouvrir PlanningNameModal pour permettre de choisir un nom différent
-				hasConflictName = true;
-				showPlanningNameModal = true;
-			}
-			return;
-		}
-
-		// CAS 4 : Première visite sans globalProfile — ouvrir IdentifyModal pour créer le profil global
-		// Le mode 'homepage' permettra de créer le profil global
-		// Les conflits de nom seront gérés via NameConflictHandler si des participants existent
-		userStore.authModal = {
-			open: true,
-			mode: 'homepage',
-			existingParticipants: master.participants,
-			masterId: master.id, // ← pour revendication d'identité via handleIdentifyAs
-			onGlobalProfileCreate: async (name, email, persist) => {
-				await userStore.createGlobalProfile(name, email, persist);
-				// Après création du profil, identifier sur le planning
-				handlePlanningIdentify(
-					{ id: userStore.globalProfile!.id, name, email },
-					true // nouveau participant
-				);
-			},
-			onRequireLogin: () => {
-				// Ouvrir AccountModal en mode login quand une revendication nécessite une connexion
-				accountModalMode = 'login';
-				showAccountModal = true;
-			}
-		};
+		// CAS 3 : Guest sans identité sur ce planning → ouvrir IdentifyModal
+		openIdentifyModal();
 	});
 
 	async function handlePlanningIdentify(identity: PlanningIdentity, isNewParticipant: boolean) {
 		if (!master) return;
 
 		try {
-			// Vérifier si le participant existe déjà (pour éviter les doublons même si le modal dit "nouveau")
+			// Vérifier si le participant existe déjà (pour éviter les doublons)
 			const existing = master.participants.find((p) => p.id === identity.id);
 
 			if (isNewParticipant && !existing) {
@@ -211,7 +111,7 @@
 				);
 				planningStore.updateMaster(updated);
 			} else {
-				// MISE À JOUR : Mettre à jour si le participant existe déjà (ou si c'est une update explicite)
+				// MISE À JOUR : Mettre à jour si le participant existe déjà
 				if (existing && existing.name !== identity.name) {
 					const updated = await updateParticipant(
 						master.id,
@@ -223,7 +123,7 @@
 				}
 			}
 
-			// NOUVEAU : Si user authentifié, l'ajouter à planning_participants
+			// Si user authentifié, l'ajouter à planning_participants
 			if (userStore.isLoggedIn) {
 				try {
 					await ensurePlanningParticipant(master.id, userStore.pbUser!.id);
@@ -232,17 +132,10 @@
 				}
 			}
 
-			// Créer le profil global AVANT de sauvegarder les plannings (pour avoir la bonne préférence de storage)
-			if (!userStore.globalProfile) {
-				await userStore.createGlobalProfile(identity.name, identity.email);
-			}
-
 			// Mettre à jour l'identité locale
 			await userStore.setPlanningIdentity(master.id, identity);
 
 			// Créer ou mettre à jour le SavedPlanning avec les métadonnées complètes
-			// NOTE: On détecte l'admin via la longueur du token (64 = admin, 32 = participant)
-			// car hasAdminAccess() renvoie false si le planning n'est pas encore en localStorage
 			const isAdminToken = token.length === 64;
 			const savedPlanning = {
 				masterId: master.id,
@@ -251,7 +144,7 @@
 				adminToken: isAdminToken ? token : userStore.getAdminToken(master.id) || '',
 				lastAccessed: new Date().toISOString(),
 				currentUser: identity,
-				isSync: userStore.isLoggedIn ? false : undefined // NOUVEAU : false si auth, undefined si guest
+				isSync: userStore.isLoggedIn ? false : undefined
 			};
 			await userStore.savePlanning(savedPlanning);
 
@@ -266,12 +159,55 @@
 		displayCount += 10;
 	}
 
+	// Fonction utilitaire pour ouvrir le modal d'identification
+	function openIdentifyModal() {
+		if (!master) return;
+
+		// Nom à préremplir : identité actuelle ou nom du profil
+		const identityName = currentIdentity?.name || userStore.pbUser?.name || '';
+
+		// Pour les users authentifiés : préremplir le nom et cacher la liste des participants
+		if (userStore.isLoggedIn) {
+			userStore.authModal = {
+				open: true,
+				masterId: master.id,
+				existingParticipants: master.participants,
+				onPlanningIdentify: handlePlanningIdentify,
+				initialName: identityName,
+				hideExistingParticipants: true,
+				currentIdentity: currentIdentity
+			};
+		} else {
+			// Pour les guests : préremplir le nom aussi
+			userStore.authModal = {
+				open: true,
+				masterId: master.id,
+				existingParticipants: master.participants,
+				onPlanningIdentify: handlePlanningIdentify,
+				initialName: identityName,
+				currentIdentity: currentIdentity
+			};
+		}
+	}
+
 	const isAdmin = $derived(master ? userStore.hasAdminAccess(master.id) : false);
 	const adminToken = $derived(master && isAdmin ? userStore.getAdminToken(master.id) : null);
 
 	const displayedOccurrences = $derived(occurrences.slice(0, displayCount));
 	const hasMore = $derived(displayCount < occurrences.length);
 	const currentIdentity = $derived(master ? userStore.getIdentityForPlanning(master.id) : null);
+
+	// Liste des participants avec l'utilisateur actuel en premier
+	const sortedParticipants = $derived.by(() => {
+		if (!master || !currentIdentity) return master?.participants ?? [];
+
+		// Séparer l'utilisateur actuel des autres participants
+		const currentUser = master.participants.find((p) => p.id === currentIdentity.id);
+		const otherParticipants = master.participants.filter((p) => p.id !== currentIdentity.id);
+
+		// Retourner l'utilisateur actuel en premier, puis les autres
+		return currentUser ? [currentUser, ...otherParticipants] : master.participants;
+	});
 </script>
 
 {#snippet shareContent()}
@@ -399,8 +335,22 @@
 									{master.participants.length > 1 ? 's' : ''}
 								</div>
 								<div class="flex flex-wrap gap-1.5">
-									{#each master.participants as p (p.id)}
-										<span class="badge badge-sm badge-soft">{p.name}</span>
+									{#each sortedParticipants as p (p.id)}
+										{#if currentIdentity && p.id === currentIdentity.id}
+											<!-- Utilisateur actuel en badge-info avec bouton changer -->
+											<span class="badge badge-info gap-1">
+												{p.name}
+												<button
+													class="btn btn-soft btn-info btn-xs ms-1 h-4 min-h-0 px-1 text-current"
+													type="button"
+													onclick={openIdentifyModal}
+												>
+													Changer
+												</button>
+											</span>
+										{:else}
+											<span class="badge badge-soft">{p.name}</span>
+										{/if}
 									{/each}
 								</div>
 							</div>
@@ -425,10 +375,7 @@
 							<div class="min-w-0 flex-1">
 								{#if !currentIdentity}
 									<p class="text-sm font-medium">Non identifié</p>
-									<button
-										class="btn btn-primary btn-xs mt-1"
-										onclick={() => (userStore.authModal.open = true)}
-									>
+									<button class="btn btn-primary btn-xs mt-1" onclick={openIdentifyModal}>
 										S'identifier
 									</button>
 								{:else}
@@ -444,7 +391,7 @@
 											</span>
 											<button
 												class="btn btn-xs btn-primary btn-outline ms-auto text-end"
-												onclick={() => (showPlanningNameModal = true)}
+												onclick={openIdentifyModal}
 											>
 												Changer
 											</button>
@@ -503,25 +450,13 @@
 				</div>
 			{/if}
 
-			<!-- Identification -->
+			<!-- Identification manquante -->
 			{#if !currentIdentity}
 				<div class="alert alert-warning mt-4">
 					<Info size={18} />
 					<p>Veuillez vous identifier pour répondre aux sondages</p>
 					<div class="flex gap-2">
-						<button class="btn" onclick={() => (userStore.authModal.open = true)}>
-							S'identifier
-						</button>
-					</div>
-				</div>
-			{:else if hasConflictName}
-				<div class="alert alert-warning mt-4">
-					<Info size={18} />
-					<p>Votre nom est déjà utilisé sur ce planning. Choississez en un autre.</p>
-					<div class="flex gap-2">
-						<button class="btn" onclick={() => (showPlanningNameModal = true)}>
-							S'identifier
-						</button>
+						<button class="btn" onclick={openIdentifyModal}>S'identifier</button>
 					</div>
 				</div>
 			{/if}
@@ -624,17 +559,4 @@
 		showNotifModal = true;
 	}}
 	defaultMode={accountModalMode}
-/>
-
-<PlanningNameModal
-	bind:open={showPlanningNameModal}
-	onClose={() => (showPlanningNameModal = false)}
-	masterId={master?.id ?? ''}
-	existingParticipants={master?.participants ?? []}
-	currentIdentity={currentIdentity ?? {
-		id: userStore.globalProfile?.id ?? '',
-		name: userStore.globalProfile?.defaultName ?? '',
-		email: userStore.globalProfile?.defaultEmail
-	}}
-	onPlanningIdentify={handlePlanningIdentify}
 />

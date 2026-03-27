@@ -12,8 +12,8 @@
 
 	let { open = $bindable(false), onClose, onSuccess, defaultMode = 'login' }: Props = $props();
 
-	// Nom par défaut depuis le localStorage
-	let defaultName = $derived(userStore.globalProfile?.defaultName || '');
+	// Nom par défaut depuis le profil PocketBase
+	let defaultName = $derived(userStore.pbUser?.name || '');
 
 	let currentMode = $state<'register' | 'login'>('login');
 

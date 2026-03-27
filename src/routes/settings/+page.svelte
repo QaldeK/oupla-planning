@@ -12,8 +12,8 @@
 	}
 
 	// État du formulaire
-	let name = $state(userStore.globalProfile?.defaultName || '');
-	let email = $state(userStore.globalProfile?.defaultEmail || '');
+	let name = $state(userStore.pbUser?.name || '');
+	let email = $state(userStore.pbUser?.email || '');
 	let currentPassword = $state('');
 	let newPassword = $state('');
 	let confirmPassword = $state('');
@@ -37,17 +37,8 @@
 				email: email.trim() || undefined
 			});
 
-			// 2. Mettre à jour le globalProfile local
-			await userStore.updateGlobalProfile({
-				defaultName: name.trim(),
-				defaultEmail: email.trim() || undefined
-			});
-
-			// 3. Mettre à jour le record authStore pour cohérence immédiate
-			if (pb.authStore.record) {
-				pb.authStore.record.name = name.trim();
-				pb.authStore.record.email = email.trim() || pb.authStore.record.email;
-			}
+			// 2. Rafraîchir le record authStore pour cohérence immédiate
+			await pb.collection('users').authRefresh();
 
 			toast.success('Profil mis à jour');
 		} catch (error) {
