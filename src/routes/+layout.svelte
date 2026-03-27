@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { afterNavigate, goto } from '$app/navigation';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
-	import AccountBenefitsSidebar from '$lib/components/homepage/AccountBenefitsSidebar.svelte';
 	import CommentSection from '$lib/components/CommentSection.svelte';
+	import AccountBenefitsSidebar from '$lib/components/homepage/AccountBenefitsSidebar.svelte';
 	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
 	import MobileHeader from '$lib/components/MobileHeader.svelte';
 	import NetworkIndicator from '$lib/components/NetworkIndicator.svelte';
@@ -11,13 +11,13 @@
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { modalStore } from '$lib/stores/modalStore.svelte';
-	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
+	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { Drawer, DrawerContent, DrawerOverlay } from '@abhivarde/svelte-drawer';
-	import { CalendarPlus, Download, Github, LogOut, Moon, Sun, Settings, X } from 'lucide-svelte';
+	import { CalendarPlus, Download, Github, LogOut, Moon, Settings, Sun } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { Toaster, toast } from 'svelte-sonner';
+	import { Toaster } from 'svelte-sonner';
 
 	let { children } = $props();
 

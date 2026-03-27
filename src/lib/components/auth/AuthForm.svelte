@@ -31,9 +31,9 @@
 
 	// État local pour le nom (sync avec prop car les props sont read-only)
 	let localName = $state(name);
-	$effect(() => {
-		localName = name;
-	});
+	// $effect(() => {
+	// 	localName = name;
+	// });
 
 	let isSubmitting = $state(false);
 	let errorMsg = $state('');

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Participant } from '$lib/types/planning.types';
 	import { pb } from '$lib/pocketbase/pb';
+	import type { Participant } from '$lib/types/planning.types';
 	import { CircleAlert, InfoIcon } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 

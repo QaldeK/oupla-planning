@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
-	import { ArrowLeft, ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from 'lucide-svelte';
+	import { ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
+	import { fade } from 'svelte/transition';
 	import AuthForm from './auth/AuthForm.svelte';
 	import NameConflictHandler from './NameConflictHandler.svelte';
 	import Modal from './ui/Modal.svelte';
-	import { fade } from 'svelte/transition';
 
 	interface Props {
 		open: boolean;
@@ -200,7 +200,7 @@
 						/>
 					</label>
 					<div class="fieldset-label p-1 text-xs">
-						C'est le nom qui apparaîtra pour les autres participants.
+						C'est le nom qui apparaîtra pour les autres participants sur ce planning.
 					</div>
 				</fieldset>
 
