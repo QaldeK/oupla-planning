@@ -1,35 +1,44 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import type { ViewType } from './index';
-	import { LayoutGrid, List } from 'lucide-svelte';
+	import { LayoutGrid, List, Minimize2 } from 'lucide-svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 
 	const activeView = $derived(userStore.appPreferences.occurrenceView);
 
+	// Options disponibles par device
+	const mobileViews: ViewType[] = ['minimal', 'compact'];
+	const desktopViews: ViewType[] = ['card', 'compact', 'minimal'];
+	const availableViews = $derived(mediaQuery.isMobile ? mobileViews : desktopViews);
+
 	function setView(view: ViewType) {
 		userStore.setOccurrenceView(view);
 	}
+
+	function getLabel(view: ViewType): string {
+		if (view === 'card') return 'Cartes';
+		if (view === 'compact') return 'Normal';
+		return 'Minimal';
+	}
+
+	function getIcon(view: ViewType) {
+		if (view === 'card') return LayoutGrid;
+		if (view === 'compact') return List;
+		return Minimize2;
+	}
 </script>
 
-{#if !mediaQuery.isMobile}
-	<div role="tablist" class="tabs tabs-boxed tabs-lg bg-base-200 font-semibold">
+<div role="tablist" class="tabs tabs-boxed tabs-lg bg-base-200 font-semibold">
+	{#each availableViews as view (view)}
+		{@const Icon = getIcon(view)}
 		<button
 			role="tab"
-			class="tab gap-2 {activeView === 'card' ? 'tab-active' : ''}"
-			onclick={() => setView('card')}
-			aria-selected={activeView === 'card'}
+			class="tab gap-2 {activeView === view ? 'tab-active' : ''}"
+			onclick={() => setView(view)}
+			aria-selected={activeView === view}
 		>
-			<LayoutGrid size={16} />
-			<span class="hidden sm:inline">Cartes</span>
+			<Icon size={16} />
+			<span class="hidden sm:inline">{getLabel(view)}</span>
 		</button>
-		<button
-			role="tab"
-			class="tab gap-2 {activeView === 'compact' ? 'tab-active' : ''}"
-			onclick={() => setView('compact')}
-			aria-selected={activeView === 'compact'}
-		>
-			<List size={16} />
-			<span class="hidden sm:inline">Compact</span>
-		</button>
-	</div>
-{/if}
+	{/each}
+</div>

@@ -104,7 +104,7 @@ export interface PlanningMaster {
 
 // === View Types ===
 
-export type ViewType = 'card' | 'compact';
+export type ViewType = 'card' | 'compact' | 'minimal';
 export type ThemeType = 'my' | 'nord-dark';
 
 // === App Preferences ===

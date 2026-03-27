@@ -1,17 +1,16 @@
 <script lang="ts">
-	import type { Task, ParticipantResponse, TaskType } from '$lib/types/planning.types';
+	import type { Task, ParticipantResponse, TaskType, ViewType } from '$lib/types/planning.types';
 	import {
-		Plus,
 		Clock,
 		CalendarArrowUp,
 		CalendarArrowDown,
 		ClipboardCheck,
-		X,
 		UserMinus,
-		UserPlus
+		UserPlus,
+		Eye
 	} from 'lucide-svelte';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { slide } from 'svelte/transition';
+	import TaskVolunteersModal from './TaskVolunteersModal.svelte';
 
 	interface Props {
 		tasks: Task[];
@@ -20,7 +19,7 @@
 		isSubmitting: boolean;
 		readOnly: boolean;
 		isPastDate: boolean;
-		isCompact?: boolean;
+		displayMode: ViewType;
 		getParticipantName: (response: ParticipantResponse) => string;
 		onToggle: (taskId: string) => void;
 		disabled?: boolean;
@@ -33,13 +32,20 @@
 		isSubmitting,
 		readOnly,
 		isPastDate,
-		isCompact = false,
+		displayMode,
 		getParticipantName,
 		onToggle,
 		disabled = false
 	}: Props = $props();
 
-	const isCompactDisplay = $derived(mediaQuery.isMobile || isCompact);
+	const isCardDisplay = $derived(displayMode === 'card');
+	const isCompactDisplay = $derived(displayMode === 'compact');
+	const isMinimalDisplay = $derived(displayMode === 'minimal');
+
+	// Modal state
+	let modalTaskId = $state<string | null>(null);
+	const modalTask = $derived(tasks.find((t) => t.id === modalTaskId));
+	const modalOpen = $derived(modalTaskId !== null);
 
 	const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: any }> = {
 		beforeEvent: { bgClass: 'bg-accent/30', label: 'Avant', icon: CalendarArrowUp },
@@ -59,7 +65,7 @@
 	}
 </script>
 
-{#if !isCompact}
+{#if !isCardDisplay}
 	<div class="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
 		<div class="flex items-center gap-2 opacity-70">
 			<ClipboardCheck size={16} class="shrink-0" />
@@ -214,20 +220,104 @@
 	</button>
 {/snippet}
 
+{#snippet taskMinimal(
+	task: Task,
+	config: any,
+	Icon: any,
+	inscribed: ParticipantResponse[],
+	volunteers: number,
+	isComplete: boolean,
+	isInTask: boolean
+)}
+	<div class="badge badge-lg border-accent/30 bg-accent/10 flex items-center gap-2 border">
+		<Icon size={14} class="shrink-0" />
+		<span class="text-sm">{task.name}</span>
+		<span class="text-xs opacity-70">({config.label})</span>
+
+		<!-- Badge inscrit/requis -->
+		<div
+			class="badge badge-sm font-semibold {isComplete ? 'badge-success' : 'badge-warning'} px-1"
+			title="Nombre de personnes requises pour la tâche {task.name}"
+		>
+			{volunteers}/{task.requiredVolunteers}
+		</div>
+
+		<!-- Spacer -->
+		<div class="flex-1"></div>
+
+		<!-- Bouton Eyes pour voir les inscrits -->
+		<button
+			class="btn btn-ghost btn-xs btn-circle"
+			onclick={() => (modalTaskId = task.id)}
+			title="Voir les inscrits"
+		>
+			<Eye size={14} />
+		</button>
+
+		<!-- Bouton inscription rapide -->
+		{#if !readOnly && !isPastDate}
+			<button
+				class="btn btn-ghost btn-xs btn-circle"
+				onclick={() => onToggle(task.id)}
+				title={isInTask ? 'Se désinscrire' : "S'inscrire"}
+			>
+				{#if isInTask}
+					<UserMinus size={14} class="text-error" />
+				{:else}
+					<UserPlus size={14} class="text-accent" />
+				{/if}
+			</button>
+		{/if}
+	</div>
+{/snippet}
+
 {#if tasks && tasks.length > 0}
-	<fieldset {disabled} class="flex w-full flex-wrap gap-3 {disabled && 'opacity-70 grayscale-50'}">
-		{#each tasks as task (task.id)}
-			{@const config = TASK_TYPE_CONFIG[task.type]}
-			{@const Icon = config.icon}
-			{@const inscribed = getInscribed(task.id)}
-			{@const volunteers = inscribed.length}
-			{@const isComplete = volunteers >= task.requiredVolunteers}
-			{@const isInTask = isUserInscribed(task.id)}
-			{#if isCompactDisplay}
-				{@render taskCompact(task, config, Icon, inscribed, volunteers, isComplete, isInTask)}
-			{:else}
-				{@render taskRegular(task, config, Icon, inscribed, volunteers, isComplete, isInTask)}
-			{/if}
-		{/each}
-	</fieldset>
+	{#if isMinimalDisplay}
+		<fieldset {disabled} class="flex w-full flex-col gap-2 {disabled && 'opacity-70 grayscale-50'}">
+			{#each tasks as task (task.id)}
+				{@const config = TASK_TYPE_CONFIG[task.type]}
+				{@const Icon = config.icon}
+				{@const inscribed = getInscribed(task.id)}
+				{@const volunteers = inscribed.length}
+				{@const isComplete = volunteers >= task.requiredVolunteers}
+				{@const isInTask = isUserInscribed(task.id)}
+				{@render taskMinimal(task, config, Icon, inscribed, volunteers, isComplete, isInTask)}
+			{/each}
+		</fieldset>
+	{:else}
+		<fieldset
+			{disabled}
+			class="flex w-full flex-wrap gap-3 {disabled && 'opacity-70 grayscale-50'}"
+		>
+			{#each tasks as task (task.id)}
+				{@const config = TASK_TYPE_CONFIG[task.type]}
+				{@const Icon = config.icon}
+				{@const inscribed = getInscribed(task.id)}
+				{@const volunteers = inscribed.length}
+				{@const isComplete = volunteers >= task.requiredVolunteers}
+				{@const isInTask = isUserInscribed(task.id)}
+				{#if isCompactDisplay}
+					{@render taskCompact(task, config, Icon, inscribed, volunteers, isComplete, isInTask)}
+				{:else}
+					{@render taskRegular(task, config, Icon, inscribed, volunteers, isComplete, isInTask)}
+				{/if}
+			{/each}
+		</fieldset>
+	{/if}
+{/if}
+
+{#if modalTask}
+	<TaskVolunteersModal
+		open={modalOpen}
+		onClose={() => (modalTaskId = null)}
+		task={modalTask}
+		inscribed={getInscribed(modalTask.id)}
+		{currentUserId}
+		isInTask={isUserInscribed(modalTask.id)}
+		{isSubmitting}
+		{readOnly}
+		{isPastDate}
+		{getParticipantName}
+		onToggle={() => onToggle(modalTask.id)}
+	/>
 {/if}

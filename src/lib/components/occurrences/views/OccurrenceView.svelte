@@ -4,24 +4,15 @@
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
-	import {
-		formatDateShort,
-		formatDateWithDay,
-		formatTimeRange,
-		isPast,
-		isToday
-	} from '$lib/utils/date';
+	import { formatDateShort, formatDateWithDay, formatTimeRange, isPast } from '$lib/utils/date';
 	import {
 		Calendar,
 		CalendarCheck,
 		CalendarCheckIcon,
 		CalendarSyncIcon,
 		CheckCircle,
-		CircleCheck,
 		CircleQuestionMark,
-		CircleX,
 		Clock,
-		HelpCircle,
 		MapPin,
 		MessageSquare,
 		Pencil,
@@ -98,7 +89,7 @@
 			);
 			planningStore.updateOccurrenceLocally(updated);
 			toast.success(updated.isConfirmed ? 'Événement confirmé' : 'Confirmation annulée');
-		} catch (error) {
+		} catch (_error) {
 			toast.error('Erreur lors de la confirmation');
 		}
 	}
@@ -114,7 +105,7 @@
 			);
 			planningStore.updateOccurrenceLocally(updated);
 			toast.success('Événement rétabli');
-		} catch (error) {
+		} catch (_error) {
 			toast.error('Erreur lors du rétablissement');
 		}
 	}
@@ -125,15 +116,6 @@
 		master,
 		currentUserId
 	}));
-
-	// Classes et états dérivés partagés
-	const dateClass = $derived(
-		isToday(occurrence.date)
-			? 'badge-primary'
-			: isPast(occurrence.date)
-				? 'badge-ghost'
-				: 'badge-neutral'
-	);
 
 	// Edit logic: can only modify if user is authenticated and date is not past
 	const isPastDate = $derived(isPast(occurrence.date));
@@ -175,6 +157,8 @@
 
 {#if viewMode === 'card'}
 	{@render cardLayout()}
+{:else if viewMode === 'minimal'}
+	{@render rowLayoutMinimal()}
 {:else}
 	{@render rowLayout()}
 {/if}
@@ -301,7 +285,7 @@
 					getParticipantName={occState.getParticipantName}
 					availableTypes={occState.masterConfig.availableResponseTypes}
 					onResponseSelect={occState.setResponse}
-					isCompact={true}
+					displayMode={viewMode}
 					disabled={occState.isNetworkUnavailable || !canRespond}
 					{currentUserId}
 					{isPastDate}
@@ -319,7 +303,7 @@
 					isPastDate={isPast(occurrence.date)}
 					getParticipantName={occState.getParticipantName}
 					onToggle={occState.toggleTask}
-					isCompact={true}
+					displayMode={viewMode}
 					disabled={occState.isNetworkUnavailable || !canRespond}
 				/>
 			{/if}
@@ -436,6 +420,7 @@
 							getParticipantName={occState.getParticipantName}
 							availableTypes={occState.masterConfig.availableResponseTypes}
 							onResponseSelect={occState.setResponse}
+							displayMode={viewMode}
 							{currentUserId}
 							disabled={occState.isNetworkUnavailable || !canRespond}
 							{isPastDate}
@@ -457,6 +442,7 @@
 					isPastDate={isPast(occurrence.date)}
 					getParticipantName={occState.getParticipantName}
 					onToggle={occState.toggleTask}
+					displayMode={viewMode}
 					disabled={occState.isNetworkUnavailable || !canRespond}
 				/>
 			{/if}
@@ -467,6 +453,136 @@
 				Afficher les commentaires ({occurrence.comments.length})
 			</button>
 		</div>
+	</div>
+{/snippet}
+
+{#snippet rowLayoutMinimal()}
+	<div class="bg-base-100 border-neutral/30 border-b-2 py-1.5">
+		<div class="flex flex-wrap items-center gap-2 px-2">
+			<!-- Date -->
+			<div class="flex items-center gap-1 text-sm font-semibold">
+				<Calendar size={14} />
+				<span>{formatDateShort(occurrence.date)}</span>
+			</div>
+
+			<!-- Time -->
+			<div class="flex items-center gap-1 text-xs opacity-70">
+				<Clock size={12} />
+				{formatTimeRange(occurrence.startTime, occurrence.endTime)}
+			</div>
+
+			<!-- Place -->
+			{#if occState.inherited.place}
+				<div class="flex items-center gap-1 text-xs opacity-70">
+					<MapPin size={12} />
+					{occState.inherited.place}
+				</div>
+			{/if}
+
+			<!-- Status badges -->
+			{#if master.toConfirm && occurrence.isConfirmed}
+				<span class="badge badge-sm bg-success/40 gap-0.5 text-xs">
+					<CheckCircle size={10} />
+					Confirmé
+				</span>
+			{:else if occurrence.isCanceled}
+				<span class="badge badge-sm badge-error gap-0.5 text-xs">
+					<XCircle size={10} />
+					Annulé
+				</span>
+			{:else if master.toConfirm && !occurrence.isConfirmed}
+				<span class="badge badge-sm bg-warning/40 gap-0.5 text-xs">
+					<CircleQuestionMark size={10} />
+					à confirmer
+				</span>
+			{/if}
+
+			<!-- Min present badge -->
+			{#if occState.inherited.minPresentRequired}
+				<ResponseBadge
+					present={occState.stats.present}
+					required={occState.inherited.minPresentRequired}
+				/>
+			{/if}
+
+			<!-- Spacer -->
+			<div class="flex-1"></div>
+
+			<!-- Comments -->
+			<button
+				class="btn btn-ghost btn-xs gap-0.5"
+				onclick={openCommentDrawer}
+				aria-label="Voir les commentaires"
+			>
+				<MessageSquare size={12} />
+				<span class="text-xs">{occurrence.comments.length}</span>
+			</button>
+
+			<!-- Admin actions -->
+			{#if isAdmin}
+				{#if showQuickConfirm}
+					<button
+						class="btn btn-ghost btn-xs"
+						onclick={toggleConfirm}
+						disabled={occState.isNetworkUnavailable}
+						title="Confirmer la tenue"
+					>
+						<CalendarCheckIcon size={14} />
+					</button>
+				{/if}
+				{#if showQuickRestore}
+					<button
+						class="btn btn-ghost btn-xs"
+						onclick={restoreEvent}
+						title="Rétablir l'événement"
+						disabled={occState.isNetworkUnavailable}
+					>
+						<CalendarSyncIcon size={14} />
+					</button>
+				{/if}
+				<button
+					class="btn btn-ghost btn-xs btn-circle"
+					aria-label="Modifier"
+					onclick={() => (showEditModal = true)}
+					disabled={occState.isNetworkUnavailable}
+				>
+					<Pencil size={12} />
+				</button>
+			{/if}
+		</div>
+
+		<!-- Actions section -->
+		{#if occState.masterConfig.allowResponses}
+			<div class="px-2 py-1">
+				<ResponsesSummary
+					responses={occurrence.responses}
+					getParticipantName={occState.getParticipantName}
+					availableTypes={occState.masterConfig.availableResponseTypes}
+					onResponseSelect={occState.setResponse}
+					displayMode={viewMode}
+					disabled={occState.isNetworkUnavailable || !canRespond}
+					{currentUserId}
+					{isPastDate}
+				/>
+			</div>
+		{/if}
+
+		{#if occState.inherited.tasks.length > 0}
+			<div class="px-2 py-1">
+				<TaskCompactSummary
+					tasks={occState.inherited.tasks}
+					responses={occurrence.responses}
+					{currentUserId}
+					isSubmitting={occState.isSubmitting}
+					{readOnly}
+					isPastDate={isPast(occurrence.date)}
+					getParticipantName={occState.getParticipantName}
+					onToggle={occState.toggleTask}
+					displayMode={viewMode}
+					disabled={occState.isNetworkUnavailable || !canRespond}
+				/>
+			</div>
+		{/if}
 	</div>
 {/snippet}
 

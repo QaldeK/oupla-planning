@@ -1,6 +1,11 @@
-import type { PlanningOccurrence, PlanningMaster, Participant } from '$lib/types/planning.types';
+import type {
+	PlanningOccurrence,
+	PlanningMaster,
+	Participant,
+	ViewType
+} from '$lib/types/planning.types';
 
-export type ViewType = 'card' | 'compact';
+export type { ViewType };
 
 export interface ViewProps {
 	occurrence: PlanningOccurrence;

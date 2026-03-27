@@ -1,8 +1,7 @@
 <script lang="ts">
-	import type { ResponseType, ParticipantResponse } from '$lib/types/planning.types';
+	import type { ResponseType, ParticipantResponse, ViewType } from '$lib/types/planning.types';
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from '$lib/constants';
-	import { Plus, UserMinus, UserPlus } from 'lucide-svelte';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
+	import { UserPlus } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
@@ -10,7 +9,7 @@
 		getParticipantName: (response: ParticipantResponse) => string;
 		availableTypes?: ResponseType[];
 		onResponseSelect: (type: ResponseType) => void;
-		isCompact?: boolean;
+		displayMode: ViewType;
 		currentUserId?: string;
 		disabled?: boolean;
 		isPastDate?: boolean;
@@ -21,14 +20,15 @@
 		getParticipantName,
 		availableTypes,
 		onResponseSelect,
-		isCompact = false,
+		displayMode,
 		currentUserId,
 		disabled = false,
 		isPastDate = false
 	}: Props = $props();
 
 	const types = $derived(availableTypes || AVAILABLE_RESPONSE_TYPES);
-	const isCompactDisplay = $derived(mediaQuery.isMobile || isCompact);
+	const isCompactDisplay = $derived(displayMode === 'compact');
+	const isMinimalDisplay = $derived(displayMode === 'minimal');
 	const currentUserResponseType = $derived(
 		currentUserId ? responses.find((r) => r.participantId === currentUserId)?.response : null
 	);
@@ -116,10 +116,10 @@
 				>{config.label}</span
 			>
 		</div>
-		<div class="min-w-20">
+		<div class="flex min-w-20 flex-wrap justify-start gap-1 p-2">
 			{#each typeResponses as response (response.participantId)}
 				<div
-					class="badge m-1.5 {config.bgClass} {response.participantId === currentUserId
+					class="badge {config.bgClass} {response.participantId === currentUserId
 						? `border-2 ${config.borderClass} font-bold`
 						: 'font-medium'}"
 				>
@@ -140,23 +140,83 @@
 	</button>
 {/snippet}
 
-{#if types.length > 0}
-	<fieldset
-		{disabled}
-		class="flex w-full flex-wrap gap-3 {disabled && 'opacity-80 grayscale-50'} {isPastDate &&
-			'bg-base-200/30'}"
-	>
+{#snippet responseMinimal()}
+	<!-- Boutons pour répondre -->
+	<div class="flex flex-wrap gap-1">
 		{#each types as type (type)}
 			{@const config = RESPONSE_TYPE_CONFIG[type]}
 			{@const typeResponses = responsesByType[type]}
 			{@const Icon = config.icon}
-			{#if isCompactDisplay}
-				{@render responseCompact(type, config, typeResponses, Icon)}
-			{:else}
-				{@render responseRegular(type, config, typeResponses, Icon)}
-			{/if}
+			{@const isCurrentUserResponse = typeResponses.some((r) => r.participantId === currentUserId)}
+			<button
+				class={[
+					'btn btn-sm  hover:ring-1 hover:ring-slate-400',
+
+					config.bgClass,
+					isCurrentUserResponse && `ring-2 ${config.ringClass}`
+				]}
+				onclick={() => !isPastDate && onResponseSelect(type)}
+				disabled={disabled || isPastDate}
+			>
+				<Icon size={14} />
+				<span class="truncate">{config.label}</span>
+			</button>
 		{/each}
-	</fieldset>
-{:else if !isCompactDisplay}
+	</div>
+
+	<!-- Badges des participants (triés par type: present, if_needed, maybe, absent) -->
+	<div class="mt-1.5 flex flex-wrap gap-1">
+		{#each AVAILABLE_RESPONSE_TYPES as type (type)}
+			{@const config = RESPONSE_TYPE_CONFIG[type]}
+			{@const Icon = config.icon}
+			{#each responsesByType[type] as response (response.participantId)}
+				<div class="tooltip" data-tip={config.label}>
+					<div
+						class={[
+							'badge gap-1',
+							config.bgClass,
+							response.participantId === currentUserId && `border-2 ${config.borderClass} font-bold`
+						]}
+						transition:slide
+					>
+						<Icon size={10} />
+						{getParticipantName(response)}
+					</div>
+				</div>
+			{/each}
+		{/each}
+		{#if responses.length === 0}
+			<div class="text-xs italic opacity-40">Aucune réponse pour le moment</div>
+		{/if}
+	</div>
+{/snippet}
+
+{#if types.length > 0}
+	{#if isMinimalDisplay}
+		<fieldset
+			{disabled}
+			class="w-full {disabled && 'opacity-80 grayscale-50'} {isPastDate && 'bg-base-200/30'}"
+		>
+			{@render responseMinimal()}
+		</fieldset>
+	{:else}
+		<fieldset
+			{disabled}
+			class="flex w-full flex-wrap gap-3 {disabled && 'opacity-80 grayscale-50'} {isPastDate &&
+				'bg-base-200/30'}"
+		>
+			{#each types as type (type)}
+				{@const config = RESPONSE_TYPE_CONFIG[type]}
+				{@const typeResponses = responsesByType[type]}
+				{@const Icon = config.icon}
+				{#if isCompactDisplay}
+					{@render responseCompact(type, config, typeResponses, Icon)}
+				{:else}
+					{@render responseRegular(type, config, typeResponses, Icon)}
+				{/if}
+			{/each}
+		</fieldset>
+	{/if}
+{:else if !isCompactDisplay && !isMinimalDisplay}
 	<p class="text-base-content/70 text-sm">Aucune réponse pour le moment</p>
 {/if}

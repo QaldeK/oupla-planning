@@ -58,11 +58,14 @@ class UserStore {
 		if (savedPrefs) {
 			this.appPreferences = {
 				theme: savedPrefs.theme || 'my',
-				occurrenceView: mediaQuery.isMobile ? 'compact' : savedPrefs.occurrenceView || 'compact'
+				occurrenceView: savedPrefs.occurrenceView || (mediaQuery.isMobile ? 'minimal' : 'compact')
 			};
 		} else {
-			// Valeurs par défaut
-			this.appPreferences.occurrenceView = mediaQuery.isMobile ? 'compact' : 'compact';
+			// Valeurs par défaut intelligentes par device
+			this.appPreferences = {
+				theme: 'my',
+				occurrenceView: mediaQuery.isMobile ? 'minimal' : 'compact'
+			};
 		}
 
 		this.isReady = true;
