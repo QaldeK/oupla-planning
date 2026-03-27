@@ -141,8 +141,15 @@
 {/snippet}
 
 {#snippet responseMinimal()}
-	<!-- Boutons pour répondre -->
-	<div class="flex flex-wrap gap-1">
+	<!-- Grid de boutons pour répondre -->
+	<legend class="mb-1 text-xs opacity-60">Votre réponse: </legend>
+	<div
+		class="response-grid mb-4 grid overflow-hidden rounded-lg {types.length === 2
+			? 'grid-cols-2'
+			: types.length === 3
+				? 'grid-cols-3'
+				: 'grid-cols-4'}"
+	>
 		{#each types as type (type)}
 			{@const config = RESPONSE_TYPE_CONFIG[type]}
 			{@const typeResponses = responsesByType[type]}
@@ -150,15 +157,19 @@
 			{@const isCurrentUserResponse = typeResponses.some((r) => r.participantId === currentUserId)}
 			<button
 				class={[
-					'btn btn-sm  hover:ring-1 hover:ring-slate-400',
+					'response-cell text-base-content flex items-center justify-center gap-1.5 px-2 py-2 text-sm  transition-all ',
 
-					config.bgClass,
-					isCurrentUserResponse && `ring-2 ${config.ringClass}`
+					!disabled && !isPastDate && `hover:cursor-pointer hover:brightness-110`,
+					config.bgClass10,
+					isCurrentUserResponse
+						? ` rounded-lg ring-2 ring-inset ${config.ringClass} font-bold`
+						: 'font-medium'
 				]}
 				onclick={() => !isPastDate && onResponseSelect(type)}
 				disabled={disabled || isPastDate}
+				title={config.label}
 			>
-				<Icon size={14} />
+				<span class="response-icon"><Icon size={14} /></span>
 				<span class="truncate">{config.label}</span>
 			</button>
 		{/each}
@@ -170,18 +181,16 @@
 			{@const config = RESPONSE_TYPE_CONFIG[type]}
 			{@const Icon = config.icon}
 			{#each responsesByType[type] as response (response.participantId)}
-				<div class="tooltip" data-tip={config.label}>
-					<div
-						class={[
-							'badge gap-1',
-							config.bgClass,
-							response.participantId === currentUserId && `border-2 ${config.borderClass} font-bold`
-						]}
-						transition:slide
-					>
-						<Icon size={10} />
-						{getParticipantName(response)}
-					</div>
+				<div
+					class={[
+						'badge badge-lg gap-1',
+						config.bgClass,
+						response.participantId === currentUserId && `border-2 ${config.borderClass} font-bold`
+					]}
+					in:slide
+				>
+					<Icon size={16} />
+					{getParticipantName(response)}
 				</div>
 			{/each}
 		{/each}
@@ -220,3 +229,15 @@
 {:else if !isCompactDisplay && !isMinimalDisplay}
 	<p class="text-base-content/70 text-sm">Aucune réponse pour le moment</p>
 {/if}
+
+<style>
+	.response-cell {
+		container-type: inline-size;
+	}
+
+	@container (max-width: 80px) {
+		.response-icon {
+			display: none;
+		}
+	}
+</style>
