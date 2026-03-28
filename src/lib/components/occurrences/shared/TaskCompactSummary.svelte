@@ -231,11 +231,10 @@
 			isInTask ? 'border-accent border-3' : 'border-accent/50'
 		]}
 	>
-		<div class="text-sm">
-			<Icon size={16} class="me-2 inline shrink-0" />{task.name}
-			<span class="text-xs opacity-70">({config.label})</span>
+		<div class="flex flex-col items-start justify-start px-1">
+			<span class="truncate text-start text-sm text-wrap">{task.name}</span>
+			<div class="text-xs opacity-70">{config.label}</div>
 		</div>
-
 		<div class="w-min-1/3 mx-2 ms-auto flex items-center justify-between gap-3">
 			<!-- Badge inscrit/requis -->
 			<div
@@ -295,6 +294,9 @@
 			{disabled}
 			class="flex w-full flex-wrap gap-3 {disabled && 'opacity-70 grayscale-50'}"
 		>
+			{#if isCompactDisplay}
+				<legend class="mb-1 text-xs opacity-60">Liste des tâches: </legend>
+			{/if}
 			{#each tasks as task (task.id)}
 				{@const config = TASK_TYPE_CONFIG[task.type]}
 				{@const Icon = config.icon}

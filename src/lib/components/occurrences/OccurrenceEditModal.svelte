@@ -441,7 +441,12 @@
 
 {#snippet actions()}
 	<button type="button" class="btn" onclick={onClose}>Annuler</button>
-	<button type="submit" class="btn btn-primary px-8" disabled={isSubmitting}>
+	<button
+		type="submit"
+		form="occurrence-edit-form"
+		class="btn btn-primary px-8"
+		disabled={isSubmitting}
+	>
 		{#if isSubmitting}
 			<span class="loading loading-spinner loading-sm"></span>
 		{/if}
@@ -452,6 +457,7 @@
 <Modal {open} {onClose} {actions} title=" Modifier l'occurrence" size="lg">
 	<NetworkAlert message="Modifications impossibles - Serveur indisponible" />
 	<form
+		id="occurrence-edit-form"
 		onsubmit={(e) => {
 			e.preventDefault();
 			handleSubmit();
@@ -692,12 +698,12 @@
 					</h4>
 					<div class="flex flex-wrap items-center gap-2">
 						{#if isTasksModified}
-							<span class="badge badge-warning badge-soft font-medium"
-								><CircleAlert class="size-4" /> Tâches spécifiques à cette date</span
+							<span class="badge badge-warning h-auto font-medium"
+								><CircleAlert class="size-4" /> Certaines tâches sont spécifiques à cette date</span
 							>
 							<button
 								type="button"
-								class="btn btn-ghost btn-sm sm:btn-xs text-error"
+								class="btn btn-soft btn-error btn-sm sm:btn-xs"
 								onclick={resetToMasterTasks}
 							>
 								<RefreshCcw class="size-3" />
@@ -715,12 +721,12 @@
 					{#each tasks as task (task.id)}
 						{@const taskVolunteers = getTaskVolunteers(task.id)}
 						<div
-							class="bg-base-200 flex flex-col gap-2 rounded-lg p-3 {editingTaskId === task.id
+							class="bg-base-200 flex gap-3 rounded-lg p-3 {editingTaskId === task.id
 								? 'ring-primary ring-2 ring-offset-2'
 								: ''}"
 						>
-							<div class="flex items-center gap-3">
-								<div class="flex flex-1 flex-wrap items-center gap-3">
+							<div class="min-w-0 flex-1">
+								<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
 									<div class="text-sm font-medium">{task.name}</div>
 									<div class="text-sm opacity-60">
 										{task.requiredVolunteers} pers. • {task.type === 'beforeEvent'
@@ -729,56 +735,57 @@
 												? 'Pendant'
 												: 'Après'}
 									</div>
-									<button
-										type="button"
-										class="btn btn-ghost sm:btn-sm btn-circle text-error"
-										title="Supprimer cette tâche pour cet événement"
-										onclick={() => removeTask(task.id)}
-									>
-										<Trash2 size={14} />
-									</button>
 								</div>
-								<div class="flex gap-1">
-									<button
-										type="button"
-										class="btn btn-ghost sm:btn-sm btn-circle"
-										title="Modifier cette tâche"
-										onclick={() => editTask(task)}
-									>
-										<Pencil size={14} />
-									</button>
+
+								<!-- Badges des participants inscrits -->
+								<div class="mt-2 flex flex-wrap items-center gap-2 pl-1">
+									{#if taskVolunteers.length > 0}
+										{#each taskVolunteers as volunteer (volunteer.participantId)}
+											<div class="badge md:badge-lg bg-accent flex items-center gap-1 pe-0.5">
+												{volunteer.name}
+												<button
+													type="button"
+													class="btn btn-error btn-sm sm:btn-xs btn-soft btn-circle m-1 ml-2 size-4"
+													onclick={() =>
+														handleRemoveVolunteerFromTask(task.id, volunteer.participantId)}
+													aria-label="Retirer {volunteer.name} de cette tâche"
+												>
+													<X class="size-4" />
+												</button>
+											</div>
+										{/each}
+									{/if}
+									<!-- Bouton pour ajouter/gérer des participants -->
+									<div class="pl-1">
+										<button
+											type="button"
+											class="btn btn-outline btn-sm sm:btn-xs gap-1"
+											onclick={() => openVolunteerModal(task)}
+										>
+											<Users size={12} />
+											{taskVolunteers.length > 0 ? 'Gérer les inscrits' : 'Ajouter'}
+										</button>
+									</div>
 								</div>
 							</div>
-
-							<!-- Badges des participants inscrits -->
-							<div class="flex flex-wrap items-center gap-2 pl-1">
-								{#if taskVolunteers.length > 0}
-									{#each taskVolunteers as volunteer (volunteer.participantId)}
-										<div class="badge md:badge-lg bg-accent flex items-center gap-1 pe-0.5">
-											{volunteer.name}
-											<button
-												type="button"
-												class="btn btn-error btn-sm sm:btn-xs btn-soft btn-circle m-1 ml-2 size-4"
-												onclick={() =>
-													handleRemoveVolunteerFromTask(task.id, volunteer.participantId)}
-												aria-label="Retirer {volunteer.name} de cette tâche"
-											>
-												<X class="size-4" />
-											</button>
-										</div>
-									{/each}
-								{/if}
-								<!-- Bouton pour ajouter/gérer des participants -->
-								<div class="pl-1">
-									<button
-										type="button"
-										class="btn btn-outline btn-sm sm:btn-xs gap-1"
-										onclick={() => openVolunteerModal(task)}
-									>
-										<Users size={12} />
-										{taskVolunteers.length > 0 ? 'Gérer les inscrits' : 'Ajouter'}
-									</button>
-								</div>
+							<!-- Boutons d'action alignés à droite -->
+							<div class="flex shrink-0 flex-col justify-between">
+								<button
+									type="button"
+									class="btn btn-ghost sm:btn-sm btn-circle"
+									title="Modifier cette tâche"
+									onclick={() => editTask(task)}
+								>
+									<Pencil size={14} />
+								</button>
+								<button
+									type="button"
+									class="btn btn-ghost sm:btn-sm btn-circle text-error"
+									title="Supprimer cette tâche pour cet événement"
+									onclick={() => removeTask(task.id)}
+								>
+									<Trash2 size={14} />
+								</button>
 							</div>
 						</div>
 					{/each}

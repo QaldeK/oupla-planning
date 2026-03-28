@@ -242,7 +242,7 @@
 	<div class=" bg-base-100 border-b-4 border-neutral-300 py-2">
 		<!-- Line 1: Header -->
 		<div class="mb-2 flex items-center justify-between gap-2 px-2">
-			<div class="flex items-center gap-2 text-sm sm:gap-6">
+			<div class="flex flex-1 items-center justify-between gap-2 text-sm sm:gap-6">
 				<!-- Date & Time -->
 				<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0">
 					<div class="flex items-center gap-1 text-lg font-semibold">
@@ -265,7 +265,7 @@
 					{/if}
 				</div>
 
-				<div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+				<div class="me-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
 					{@render statusBadge('sm')}
 
 					<!-- Min present badge -->
@@ -345,13 +345,15 @@
 						</div>
 					{/if}
 					{@render statusBadge('md')}
+				</div>
+				<div class="flex flex-wrap items-center justify-end gap-2">
 					{#if occState.inherited.minPresentRequired}
 						{@const ratio = Math.min(
 							100,
 							(occState.stats.present / occState.inherited.minPresentRequired) * 100
 						)}
 						<div
-							class="badge flex items-center gap-2 border {ratio >= 100
+							class=" badge me-2 flex items-center gap-2 border {ratio >= 100
 								? 'border-success'
 								: 'border-warning'}"
 						>
@@ -368,9 +370,7 @@
 							</span>
 						</div>
 					{/if}
-				</div>
-				{#if isAdmin}
-					<div class="flex flex-wrap items-center justify-end gap-2">
+					{#if isAdmin}
 						{#if showQuickConfirm}
 							<button class="btn sm:btn-sm" onclick={toggleConfirm} title="Confirmer la tenue">
 								<CalendarCheck size={20} />
@@ -395,8 +395,8 @@
 						>
 							<Pencil size={18} />
 						</button>
-					</div>
-				{/if}
+					{/if}
+				</div>
 			</div>
 
 			{#if occState.masterConfig.allowResponses}
@@ -472,7 +472,6 @@
 
 			<!-- Spacer -->
 			<div class="flex-1"></div>
-
 			<!-- Min present badge -->
 			{#if occState.inherited.minPresentRequired}
 				<ResponseBadge
@@ -480,47 +479,50 @@
 					required={occState.inherited.minPresentRequired}
 				/>
 			{/if}
-			<!-- Comments -->
-			<button
-				class="btn btn-ghost btn-sm gap-0.5"
-				onclick={openCommentDrawer}
-				aria-label="Voir les commentaires"
-			>
-				<MessageSquare size={16} />
-				<span class="text-sm">{occurrence.comments.length}</span>
-			</button>
 
-			<!-- Admin actions -->
-			{#if isAdmin}
-				{#if showQuickConfirm}
-					<button
-						class="btn btn-ghost btn-sm"
-						onclick={toggleConfirm}
-						disabled={occState.isNetworkUnavailable}
-						title="Confirmer la tenue"
-					>
-						<CalendarCheckIcon size={16} />
-					</button>
-				{/if}
-				{#if showQuickRestore}
-					<button
-						class="btn btn-ghost btn-sm"
-						onclick={restoreEvent}
-						title="Rétablir l'événement"
-						disabled={occState.isNetworkUnavailable}
-					>
-						<CalendarSyncIcon size={16} />
-					</button>
-				{/if}
+			<div class="ms-auto flex items-center gap-3">
+				<!-- Comments -->
 				<button
-					class="btn btn-ghost btn-sm btn-circle"
-					aria-label="Modifier"
-					onclick={() => (showEditModal = true)}
-					disabled={occState.isNetworkUnavailable}
+					class="btn btn-ghost btn-sm gap-0.5"
+					onclick={openCommentDrawer}
+					aria-label="Voir les commentaires"
 				>
-					<Pencil size={16} />
+					<MessageSquare size={16} />
+					<span class="text-sm">{occurrence.comments.length}</span>
 				</button>
-			{/if}
+
+				<!-- Admin actions -->
+				{#if isAdmin}
+					{#if showQuickConfirm}
+						<button
+							class="btn btn-ghost btn-sm"
+							onclick={toggleConfirm}
+							disabled={occState.isNetworkUnavailable}
+							title="Confirmer la tenue"
+						>
+							<CalendarCheckIcon size={16} />
+						</button>
+					{/if}
+					{#if showQuickRestore}
+						<button
+							class="btn btn-ghost btn-sm"
+							onclick={restoreEvent}
+							title="Rétablir l'événement"
+							disabled={occState.isNetworkUnavailable}
+						>
+							<CalendarSyncIcon size={16} />
+						</button>
+					{/if}
+					<button
+						class="btn btn-ghost btn-sm btn-circle"
+						aria-label="Modifier"
+						onclick={() => (showEditModal = true)}
+						disabled={occState.isNetworkUnavailable}
+					>
+						<Pencil size={16} />
+					</button>
+				{/if}
+			</div>
 		</div>
 
 		<!-- Actions section -->

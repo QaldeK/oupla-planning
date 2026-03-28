@@ -17,8 +17,8 @@
 
 	function getLabel(view: ViewType): string {
 		if (view === 'card') return 'Cartes';
-		if (view === 'compact') return 'Normal';
-		return 'Minimal';
+		if (view === 'compact') return 'Compact';
+		return 'Mobile';
 	}
 
 	function getIcon(view: ViewType) {

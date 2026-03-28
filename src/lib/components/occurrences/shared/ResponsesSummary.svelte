@@ -108,35 +108,41 @@
 			'hover:cursor-pointer hover:ring-2'} max-sm:w-full {config.ringClass} {config.borderClass}"
 		onclick={() => !isPastDate && onResponseSelect(type)}
 	>
-		<div
-			class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium opacity-80 {config.bgClass}"
-		>
-			<Icon size={16} />
-			<span class={typeResponses.some((r) => r.participantId === currentUserId) ? 'font-bold' : ''}
-				>{config.label}</span
+		<div class="flex min-w-20 flex-1 flex-wrap items-center justify-start gap-1">
+			<div
+				class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium opacity-80 {config.bgClass}"
 			>
-		</div>
-		<div class="flex min-w-20 flex-wrap justify-start gap-1 p-2">
-			{#each typeResponses as response (response.participantId)}
-				<div
-					class="badge {config.bgClass} {response.participantId === currentUserId
-						? `border-2 ${config.borderClass} font-bold`
-						: 'font-medium'}"
+				<Icon size={16} />
+				<span
+					class={typeResponses.some((r) => r.participantId === currentUserId) ? 'font-bold' : ''}
+					>{config.label}</span
 				>
-					{getParticipantName(response)}
-				</div>
-			{/each}
-		</div>
-		{#if currentUserResponseType !== type}
-			<div class="ms-auto flex items-center p-1.5">
-				<div
-					class="badge opacity-70 {!disabled &&
-						'group-hover:scale-110'} {config.badgeClass} {config.borderClass}"
-				>
-					<UserPlus class="size-5 stroke-2" />
-				</div>
 			</div>
-		{/if}
+			{#if typeResponses.length > 0}
+				{#each typeResponses as response (response.participantId)}
+					<div
+						class="badge m-1 {config.bgClass} {response.participantId === currentUserId
+							? `border-2 ${config.borderClass} font-bold`
+							: 'font-medium'}"
+					>
+						{getParticipantName(response)}
+					</div>
+				{/each}
+			{:else}
+				<p class="my-auto px-4 text-xs opacity-70">...</p>
+			{/if}
+			{#if currentUserResponseType !== type}
+				<!-- <div class="flex-1"></div> -->
+				<div class="ms-auto flex items-center self-end p-1">
+					<div
+						class="badge opacity-70 {!disabled &&
+							'group-hover:scale-110'} {config.badgeClass} {config.borderClass}"
+					>
+						<UserPlus class="size-5 stroke-2" />
+					</div>
+				</div>
+			{/if}
+		</div>
 	</button>
 {/snippet}
 

@@ -340,67 +340,6 @@
 				</div>
 			{/if}
 
-			<!-- Card 2: config user -->
-			<div class="card card-sm bg-base-200 border-base-content/5 border shadow-sm">
-				<div class="card-body">
-					<div class="flex flex-wrap items-start gap-4 gap-y-4 max-sm:flex-col">
-						<!-- Identification (en premier) -->
-						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-center gap-2">
-							<div class="min-w-0 flex-1">
-								{#if !currentIdentity}
-									<p class="text-sm font-medium">Non identifié</p>
-									<button class="btn btn-primary btn-xs mt-1" onclick={openIdentifyModal}>
-										S'identifier
-									</button>
-								{:else}
-									<div class="flex items-start gap-x-2">
-										<User size={18} class="text-primary mt-0.5 shrink-0" />
-										<div class="flex items-center justify-between gap-x-2">
-											<span class="text-sm leading-4 font-medium">
-												Vous êtes identifié comme
-												<span class="text-primary-content font-semibold underline"
-													>{currentIdentity.name}</span
-												>
-												sur ce planning.
-											</span>
-											<button
-												class="btn btn-xs btn-primary btn-outline ms-auto text-end"
-												onclick={openIdentifyModal}
-											>
-												Changer
-											</button>
-										</div>
-									</div>
-								{/if}
-							</div>
-						</div>
-
-						<!-- Notifications  -->
-						<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-start gap-2">
-							<Bell size={18} class="text-primary mt-0.5 shrink-0" />
-							<div class="min-w-0 flex-1">
-								<div class="mb-1 flex flex-wrap items-center justify-between gap-x-2">
-									<div class="text-sm font-medium">Notifications :</div>
-									<button
-										class="btn btn-xs btn-primary btn-outline font-semibold"
-										onclick={() =>
-											userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
-									>
-										Configurer
-									</button>
-								</div>
-								{#if !userStore.isLoggedIn}
-									<p class="text-base-content/70 mb-2 text-xs">
-										Un compte est requis pour recevoir des alertes email ou notifications push sur
-										mobile (rappel de vos inscription, alerte annulation, nombre d'inscrit
-										insuffisant, nouveaux messages)
-									</p>
-								{/if}
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
 			<!-- Zone de partage -->
 			{#if !mediaQuery.isMobile}
 				<div class="card card-sm bg-base-300 border-primary/10 my-8 border-2 shadow-md">
@@ -437,9 +376,17 @@
 		</div>
 
 		<!-- Liste des occurrences -->
-		<div class="space-y-4">
-			<div class="flex justify-end">
-				<a href="/p/{token}/archive" class="btn btn-soft gap-2">
+		<div class="">
+			<div class="flex flex-wrap justify-end gap-4">
+				<button
+					class="btn btn-primary btn-outline font-semibold"
+					onclick={() =>
+						userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
+				>
+					<Bell size={18} class="text-primary mt-0.5 shrink-0" />
+					Configurer les notifications
+				</button>
+				<a href="/p/{token}/archive" class="btn btn-soft mb-2 gap-2">
 					Voir les événements passés
 					<ArrowRightFromLine size={18} />
 				</a>
