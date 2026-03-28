@@ -133,7 +133,7 @@
 					class="badge opacity-70 {!disabled &&
 						'group-hover:scale-110'} {config.badgeClass} {config.borderClass}"
 				>
-					<UserPlus class="size-5 stroke-2   " />
+					<UserPlus class="size-5 stroke-2" />
 				</div>
 			</div>
 		{/if}
@@ -141,63 +141,73 @@
 {/snippet}
 
 {#snippet responseMinimal()}
-	<!-- Grid de boutons pour répondre -->
-	<legend class="mb-1 text-xs opacity-60">Votre réponse: </legend>
-	<div
-		class="response-grid mb-4 grid overflow-hidden rounded-lg {types.length === 2
-			? 'grid-cols-2'
-			: types.length === 3
-				? 'grid-cols-3'
-				: 'grid-cols-4'}"
-	>
-		{#each types as type (type)}
-			{@const config = RESPONSE_TYPE_CONFIG[type]}
-			{@const typeResponses = responsesByType[type]}
-			{@const Icon = config.icon}
-			{@const isCurrentUserResponse = typeResponses.some((r) => r.participantId === currentUserId)}
-			<button
-				class={[
-					'response-cell text-base-content flex items-center justify-center gap-1.5 px-2 py-2 text-sm  transition-all ',
-
-					!disabled && !isPastDate && `hover:cursor-pointer hover:brightness-120`,
-
-					isCurrentUserResponse
-						? ` rounded-lg ring-3 ring-inset ${config.ringClass} ${config.bgClass} font-bold`
-						: `font-medium ${config.bgClass10}`
-				]}
-				onclick={() => !isPastDate && onResponseSelect(type)}
-				disabled={disabled || isPastDate}
-				title={config.label}
+	<div class="flex flex-wrap gap-x-6 gap-y-2">
+		<div class="flex w-full flex-col sm:flex-1">
+			<!-- Grid de boutons pour répondre -->
+			<legend class="mb-1 text-xs opacity-60">Votre réponse: </legend>
+			<div
+				class="grid w-full overflow-hidden rounded-lg {types.length === 2
+					? 'grid-cols-2'
+					: types.length === 3
+						? 'grid-cols-3'
+						: 'grid-cols-4'}"
 			>
-				<span class="response-icon"><Icon size={14} /></span>
-				<span class="truncate">{config.label}</span>
-			</button>
-		{/each}
-	</div>
+				{#each types as type (type)}
+					{@const config = RESPONSE_TYPE_CONFIG[type]}
+					{@const typeResponses = responsesByType[type]}
+					{@const Icon = config.icon}
+					{@const isCurrentUserResponse = typeResponses.some(
+						(r) => r.participantId === currentUserId
+					)}
+					<button
+						class={[
+							'response-cell text-base-content flex items-center justify-center gap-1.5 px-2 py-2 text-sm  transition-all ',
 
-	<!-- Badges des participants (triés par type: present, if_needed, maybe, absent) -->
-	<div class="mt-1.5 flex flex-wrap gap-1">
-		{#each AVAILABLE_RESPONSE_TYPES as type (type)}
-			{@const config = RESPONSE_TYPE_CONFIG[type]}
-			{@const Icon = config.icon}
-			{#each responsesByType[type] as response (response.participantId)}
-				<div
-					class={[
-						'badge  gap-1',
-						config.bgClass,
-						response.participantId === currentUserId &&
-							`border-3 ${config.borderClass} font-semibold`
-					]}
-					in:slide
-				>
-					<Icon size={16} />
-					{getParticipantName(response)}
-				</div>
-			{/each}
-		{/each}
-		{#if responses.length === 0}
-			<div class="text-xs italic opacity-40">Aucune réponse pour le moment</div>
-		{/if}
+							!disabled && !isPastDate && `hover:cursor-pointer hover:brightness-120`,
+
+							isCurrentUserResponse
+								? ` rounded-lg ring-3 ring-inset ${config.ringClass} ${config.bgClass} font-bold`
+								: `font-medium ${config.bgClass10}`
+						]}
+						onclick={() => !isPastDate && onResponseSelect(type)}
+						disabled={disabled || isPastDate}
+						title={config.label}
+					>
+						<span class="response-icon"><Icon size={14} /></span>
+						<span class="truncate">{config.label}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		<!-- Badges des participants (triés par type: present, if_needed, maybe, absent) -->
+		<div class="flex flex-col sm:flex-1">
+			<legend class="mb-1 text-xs opacity-60">Toutes les réponses: </legend>
+
+			<div class="flex flex-wrap gap-1">
+				{#each AVAILABLE_RESPONSE_TYPES as type (type)}
+					{@const config = RESPONSE_TYPE_CONFIG[type]}
+					{@const Icon = config.icon}
+					{#each responsesByType[type] as response (response.participantId)}
+						<div
+							class={[
+								'badge gap-1',
+								config.bgClass,
+								response.participantId === currentUserId &&
+									`border-3 ${config.borderClass} font-semibold`
+							]}
+							in:slide
+						>
+							<Icon size={16} />
+							{getParticipantName(response)}
+						</div>
+					{/each}
+				{/each}
+				{#if responses.length === 0}
+					<div class="text-xs italic opacity-40">Aucune réponse pour le moment</div>
+				{/if}
+			</div>
+		</div>
 	</div>
 {/snippet}
 

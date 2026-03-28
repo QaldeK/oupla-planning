@@ -19,12 +19,12 @@ export const RESPONSE_TYPE_CONFIG = {
 	if_needed: {
 		label: 'Si besoin',
 		icon: Info,
-		badgeClass: 'badge-warning',
-		bgClass: 'bg-warning/20',
-		bgClass10: 'bg-warning/10',
-		btnClass: 'btn-warning btn-soft',
-		ringClass: 'ring-warning',
-		borderClass: 'border border-warning'
+		badgeClass: 'badge-info',
+		bgClass: 'bg-info/20',
+		bgClass10: 'bg-info/10',
+		btnClass: 'btn-info btn-soft',
+		ringClass: 'ring-info',
+		borderClass: 'border border-info'
 	},
 	maybe: {
 		label: 'Peut-être',

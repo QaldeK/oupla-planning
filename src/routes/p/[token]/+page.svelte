@@ -39,6 +39,7 @@
 	let occurrences = $derived(planningStore.occurrences);
 	let isLoading = $derived(planningStore.isLoading);
 	let displayCount = $state(10);
+	let showAllParticipants = $state(false);
 	let showNotifModal = $state(false);
 	let showAccountModal = $state(false);
 	let accountModalMode = $state<'login' | 'register'>('register');
@@ -173,6 +174,11 @@
 
 		return currentUser ? [currentUser, ...otherParticipants] : master.participants;
 	});
+
+	const visibleParticipants = $derived(
+		showAllParticipants ? sortedParticipants : sortedParticipants.slice(0, 10)
+	);
+	const hasMoreParticipants = $derived(!showAllParticipants && sortedParticipants.length > 10);
 </script>
 
 {#snippet shareContent()}
@@ -294,7 +300,7 @@
 									{master.participants.length > 1 ? 's' : ''}
 								</div>
 								<div class="flex flex-wrap gap-1.5">
-									{#each sortedParticipants as p (p.id)}
+									{#each visibleParticipants as p (p.id)}
 										{#if currentIdentity && p.id === currentIdentity.id}
 											<!-- Utilisateur actuel en badge-info avec bouton changer -->
 											<span class="badge badge-info gap-1">
@@ -311,6 +317,15 @@
 											<span class="badge badge-soft">{p.name}</span>
 										{/if}
 									{/each}
+									{#if hasMoreParticipants}
+										<button
+											class="btn btn-link btn-xs"
+											type="button"
+											onclick={() => (showAllParticipants = true)}
+										>
+											Tout afficher ({sortedParticipants.length})
+										</button>
+									{/if}
 								</div>
 							</div>
 							<!-- Description (conditionnel) -->

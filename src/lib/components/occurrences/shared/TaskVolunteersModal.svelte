@@ -66,14 +66,16 @@
 <Modal bind:open={localOpen} onClose={handleClose} title={task.name} size="sm">
 	<div class="flex flex-col gap-3">
 		<!-- Info tâche -->
-		<div class="flex items-center gap-2 text-sm opacity-70">
-			<Icon size={16} class="shrink-0" />
-			<span>{config.label}</span>
-		</div>
+		<div class="flex flex-wrap justify-between gap-4">
+			<div class="flex items-center gap-2 text-sm opacity-70">
+				<Icon size={16} class="shrink-0" />
+				<span>{config.label}</span>
+			</div>
 
-		<!-- Badge requis -->
-		<div class="badge badge-lg font-semibold {isComplete ? 'badge-success' : 'badge-warning'} px-3">
-			{volunteers}/{task.requiredVolunteers} bénévoles
+			<!-- Badge requis -->
+			<div class="badge font-semibold {isComplete ? 'badge-success' : 'badge-warning'} px-3">
+				{volunteers}/{task.requiredVolunteers} inscrits
+			</div>
 		</div>
 
 		<!-- Liste des inscrits -->
@@ -81,7 +83,7 @@
 			{#if volunteers > 0}
 				{#each inscribed as response (response.participantId)}
 					<div
-						class="badge badge-lg bg-accent/60 {response.participantId === currentUserId
+						class="badge bg-accent/60 {response.participantId === currentUserId
 							? 'border-accent border-2 font-bold'
 							: 'font-medium'}"
 						transition:slide
@@ -101,13 +103,15 @@
 </Modal>
 
 {#snippet actions()}
-	<button class="btn btn-primary gap-2" onclick={handleSubscribe} disabled={isSubmitting}>
-		{#if isInTask}
-			<UserMinus size={18} />
-			Se désinscrire
-		{:else}
-			<UserPlus size={18} />
-			S'inscrire
-		{/if}
-	</button>
+	<div class="mt-4 flex justify-end">
+		<button class="btn btn-primary gap-2" onclick={handleSubscribe} disabled={isSubmitting}>
+			{#if isInTask}
+				<UserMinus size={18} />
+				Se désinscrire
+			{:else}
+				<UserPlus size={18} />
+				S'inscrire
+			{/if}
+		</button>
+	</div>
 {/snippet}

@@ -217,6 +217,27 @@
 	</div>
 {/snippet}
 
+{#snippet statusBadge(size: 'xs' | 'sm' | 'md')}
+	{@const cls = size === 'xs' ? 'badge-sm gap-0.5 text-xs' : size === 'sm' ? 'badge-sm gap-1' : ''}
+	{@const iconSize = size === 'xs' ? 10 : size === 'sm' ? 12 : 16}
+	{#if master.toConfirm && occurrence.isConfirmed}
+		<span class="badge {cls} bg-success/40 font-medium">
+			<CheckCircle size={iconSize} />
+			Confirmé
+		</span>
+	{:else if occurrence.isCanceled}
+		<span class="badge {cls} badge-error">
+			<XCircle size={iconSize} />
+			Annulé
+		</span>
+	{:else if master.toConfirm && !occurrence.isConfirmed}
+		<span class="badge {cls} bg-warning/40 font-medium">
+			<CircleQuestionMark size={iconSize} />
+			à confirmer
+		</span>
+	{/if}
+{/snippet}
+
 {#snippet rowLayout()}
 	<div class=" bg-base-100 border-b-4 border-neutral-300 py-2">
 		<!-- Line 1: Header -->
@@ -245,22 +266,7 @@
 				</div>
 
 				<div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
-					<!-- Status badges -->
-					{#if master.toConfirm && occurrence.isConfirmed}
-						<span class="badge badge-sm bg-success/40 gap-1 font-medium">
-							<CheckCircle size={12} />
-							Confirmé
-						</span>
-					{:else if occurrence.isCanceled}
-						<span class="badge badge-sm badge-error gap-1">
-							<XCircle size={12} />
-							Annulé
-						</span>
-					{:else if master.toConfirm && !occurrence.isConfirmed}
-						<span class="badge badge-sm bg-warning/40 gap-1 font-medium"
-							><CircleQuestionMark size={12} /> à confirmer</span
-						>
-					{/if}
+					{@render statusBadge('sm')}
 
 					<!-- Min present badge -->
 					{#if occState.inherited.minPresentRequired}
@@ -338,26 +344,7 @@
 							{occState.inherited.place}
 						</div>
 					{/if}
-					{#if master.toConfirm && occurrence.isConfirmed}
-						<span
-							class="badge bg-success/40 font-medium"
-							title="La tenue de l'évenement a été confirmé "
-						>
-							<CheckCircle size={16} />
-							Confirmé
-						</span>
-					{:else if occurrence.isCanceled}
-						<span class="badge badge-error font-medium">
-							<XCircle size={16} />
-							Annulé
-						</span>
-					{:else if master.toConfirm && !occurrence.isConfirmed}
-						<span
-							class="badge bg-warning/40 font-medium"
-							title="L'évenement n'a pas encore été confirmé par un·e administrateur·ice"
-							><CircleQuestionMark size={16} /> à confirmer</span
-						>
-					{/if}
+					{@render statusBadge('md')}
 					{#if occState.inherited.minPresentRequired}
 						{@const ratio = Math.min(
 							100,
@@ -481,23 +468,7 @@
 				</div>
 			{/if}
 
-			<!-- Status badges -->
-			{#if master.toConfirm && occurrence.isConfirmed}
-				<span class="badge badge-sm bg-success/40 gap-0.5 text-xs">
-					<CheckCircle size={10} />
-					Confirmé
-				</span>
-			{:else if occurrence.isCanceled}
-				<span class="badge badge-sm badge-error gap-0.5 text-xs">
-					<XCircle size={10} />
-					Annulé
-				</span>
-			{:else if master.toConfirm && !occurrence.isConfirmed}
-				<span class="badge badge-sm bg-warning/40 gap-0.5 text-xs">
-					<CircleQuestionMark size={10} />
-					à confirmer
-				</span>
-			{/if}
+			{@render statusBadge('xs')}
 
 			<!-- Spacer -->
 			<div class="flex-1"></div>

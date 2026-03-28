@@ -1154,7 +1154,7 @@
 				{#each tasks as task (task.id)}
 					{@const isEditing = editingTaskId === task.id}
 					<div
-						class="bg-base-200/50 group flex items-center gap-4 rounded-lg p-3 {isEditing
+						class="bg-accent/20 group flex items-center gap-4 rounded-lg px-3 py-2 {isEditing
 							? 'ring-primary ring-2 ring-offset-2'
 							: ''}"
 					>
@@ -1265,7 +1265,7 @@
 						disabled={isSubmitting}
 					></textarea> -->
 						<!-- Boutons d'action -->
-						<div class="flex gap-2">
+						<div class="flex justify-end gap-2">
 							{#if !isEditingTask && newTaskName.trim().length > 0}
 								<button
 									type="button"
@@ -1283,7 +1283,7 @@
 							{/if}
 							<button
 								type="button"
-								class="btn sm:btn-sm btn-primary grow"
+								class="btn sm:btn-sm btn-primary"
 								onclick={addTask}
 								disabled={isSubmitting ||
 									newTaskName.trim().length === 0 ||
@@ -1303,13 +1303,13 @@
 	>
 		<button
 			type="button"
-			class="btn btn-ghost sm:btn-sm"
+			class="btn btn-ghost"
 			onclick={() => history.back()}
 			disabled={isSubmitting}
 		>
 			Annuler
 		</button>
-		<button type="submit" class="btn sm:btn-sm btn-primary px-8" disabled={isSubmitting}>
+		<button type="submit" class="btn btn-primary px-8" disabled={isSubmitting}>
 			{#if isSubmitting}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}

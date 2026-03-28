@@ -38,7 +38,6 @@
 		disabled = false
 	}: Props = $props();
 
-	const isCardDisplay = $derived(displayMode === 'card');
 	const isCompactDisplay = $derived(displayMode === 'compact');
 	const isMinimalDisplay = $derived(displayMode === 'minimal');
 
@@ -65,7 +64,7 @@
 	}
 </script>
 
-{#if isCardDisplay}
+{#if displayMode === 'card'}
 	<div class="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
 		<div class="flex items-center gap-2 opacity-70">
 			<ClipboardCheck size={16} class="shrink-0" />
@@ -80,21 +79,18 @@
 {/if}
 
 {#snippet btnSubscribe(isInTask: boolean, taskId: string)}
-	<div
+	<button
 		class="badge opacity-70 {!disabled && 'group-hover:scale-110'} {isInTask
 			? 'badge-error border-error'
 			: 'badge-accent'}"
 		onclick={() => onToggle(taskId)}
-		onkeydown={(e) => e.key === 'Enter' && onToggle(taskId)}
-		role="button"
-		tabindex="0"
 	>
 		{#if isInTask}
 			<UserMinus class="size-5 stroke-2" />
 		{:else}
 			<UserPlus class="size-5 stroke-2" />
 		{/if}
-	</div>
+	</button>
 {/snippet}
 
 {#snippet taskRegular(
@@ -229,51 +225,61 @@
 	isComplete: boolean,
 	isInTask: boolean
 )}
-	<div class="badge badge-lg border-accent/30 bg-accent/10 flex items-center gap-2 border">
-		<Icon size={14} class="shrink-0" />
-		<span class="text-sm">{task.name}</span>
-		<span class="text-xs opacity-70">({config.label})</span>
-
-		<!-- Badge inscrit/requis -->
-		<div
-			class="badge badge-sm font-semibold {isComplete ? 'badge-success' : 'badge-warning'} px-1"
-			title="Nombre de personnes requises pour la tâche {task.name}"
-		>
-			{volunteers}/{task.requiredVolunteers}
+	<div
+		class={[
+			'rounded-box bg-accent/20 flex  items-center gap-2 border p-2 max-sm:w-full ',
+			isInTask ? 'border-accent border-3' : 'border-accent/50'
+		]}
+	>
+		<div class="text-sm">
+			<Icon size={16} class="me-2 inline shrink-0" />{task.name}
+			<span class="text-xs opacity-70">({config.label})</span>
 		</div>
 
-		<!-- Spacer -->
-		<div class="flex-1"></div>
-
-		<!-- Bouton Eyes pour voir les inscrits -->
-		<button
-			class="btn btn-ghost btn-xs btn-circle"
-			onclick={() => (modalTaskId = task.id)}
-			title="Voir les inscrits"
-		>
-			<Eye size={14} />
-		</button>
-
-		<!-- Bouton inscription rapide -->
-		{#if !readOnly && !isPastDate}
-			<button
-				class="btn btn-ghost btn-xs btn-circle"
-				onclick={() => onToggle(task.id)}
-				title={isInTask ? 'Se désinscrire' : "S'inscrire"}
+		<div class="w-min-1/3 mx-2 ms-auto flex items-center justify-between gap-3">
+			<!-- Badge inscrit/requis -->
+			<div
+				class="badge badge-sm font-semibold {isComplete ? 'badge-success' : 'badge-warning'} px-1"
+				title="Nombre de personnes requises pour la tâche {task.name}"
 			>
-				{#if isInTask}
-					<UserMinus size={14} class="text-error" />
-				{:else}
-					<UserPlus size={14} class="text-accent" />
-				{/if}
+				{volunteers}/{task.requiredVolunteers}
+			</div>
+
+			<!-- Bouton Eyes pour voir les inscrits -->
+			<button
+				class="btn btn-ghost btn-sm btn-circle"
+				onclick={() => (modalTaskId = task.id)}
+				title="Voir les inscrits"
+			>
+				<Eye size={16} />
 			</button>
-		{/if}
+
+			<!-- Bouton inscription rapide -->
+			{#if !readOnly && !isPastDate}
+				<button
+					class="btn btn-sm btn-square {isInTask ? 'btn-error' : 'btn-accent'}"
+					onclick={() => onToggle(task.id)}
+					title={isInTask ? 'Se désinscrire' : "S'inscrire"}
+				>
+					{#if isInTask}
+						<UserMinus size={16} />
+					{:else}
+						<UserPlus size={16} />
+					{/if}
+				</button>
+			{/if}
+		</div>
 	</div>
 {/snippet}
 
 {#if tasks && tasks.length > 0}
 	{#if isMinimalDisplay}
-		<fieldset {disabled} class="flex w-full flex-col gap-2 {disabled && 'opacity-70 grayscale-50'}">
+		<fieldset
+			{disabled}
+			class="my-1 flex w-full flex-wrap gap-2 {disabled && 'opacity-70 grayscale-50'}"
+		>
+			<legend class="mb-1 text-xs opacity-60">Liste des tâches: </legend>
+
 			{#each tasks as task (task.id)}
 				{@const config = TASK_TYPE_CONFIG[task.type]}
 				{@const Icon = config.icon}
