@@ -4,48 +4,56 @@ import { pb } from '$lib/pocketbase/pb';
 class PwaStore {
 	isInstalled = $state(false);
 	canInstall = $state(false);
-	deferredPrompt = $state<any>(null);
+	deferredPrompt: BeforeInstallPromptEvent | null = $state(null);
+	// true sur mobile non-Chrome : on ne peut pas déclencher beforeinstallprompt,
+	// mais on veut orienter l'utilisateur vers le menu natif du browser
+	readonly showNativeHint = $derived(!this.isInstalled && !this.canInstall);
 	#initialized = false;
 
-	async init() {
+	constructor() {
+		// beforeinstallprompt peut se déclencher avant onMount → écoute immédiate
+		if (typeof window !== 'undefined') {
+			on(window, 'beforeinstallprompt', (e) => {
+				e.preventDefault();
+				this.canInstall = true;
+				this.deferredPrompt = e as BeforeInstallPromptEvent;
+			});
+		}
+	}
+
+	init() {
 		if (typeof window === 'undefined') return;
 		if (this.#initialized) return;
 		this.#initialized = true;
 
-		// 1. Détection client uniquement (display-mode, navigator.standalone)
+		// 1. Détection client (display-mode, navigator.standalone)
 		this.isInstalled =
 			window.matchMedia('(display-mode: standalone)').matches ||
 			(window.navigator as any).standalone === true;
 
-		// 2. Écouter beforeinstallprompt
-		on(window, 'beforeinstallprompt', (e) => {
-			e.preventDefault();
-			this.canInstall = true;
-			this.deferredPrompt = e;
-		});
-
-		// 3. Écouter appinstalled (analytics one-shot)
+		// 2. appinstalled (analytics one-shot)
 		on(window, 'appinstalled', () => {
 			this.isInstalled = true;
 			this.canInstall = false;
 			this.deferredPrompt = null;
-			this.#recordInstallationToPB(); // Analytics : enregistrer l'installation
+			this.#recordInstallationToPB();
 		});
 
-		// 4. Écouter changements display-mode
+		// 3. Changements display-mode
 		on(window.matchMedia('(display-mode: standalone)'), 'change', (e) => {
 			this.isInstalled = e.matches;
 		});
 	}
 
-	async install() {
-		if (!this.deferredPrompt) return;
+	async install(): Promise<'accepted' | 'dismissed' | null> {
+		if (!this.deferredPrompt) return null;
 		this.deferredPrompt.prompt();
 		const { outcome } = await this.deferredPrompt.userChoice;
 		if (outcome === 'accepted') {
 			this.canInstall = false;
 			this.deferredPrompt = null;
 		}
+		return outcome;
 	}
 
 	async #recordInstallationToPB() {

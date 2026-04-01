@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
-	import CopyLinksButtons from '$lib/components/CopyLinksButtons.svelte';
 	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
 	import { OccurrenceView } from '$lib/components/occurrences/index';
 	import ViewTabs from '$lib/components/occurrences/ViewTabs.svelte';
+	import ParticipantFAB from '$lib/components/ParticipantFAB.svelte';
+	import PlanningErrorStates from '$lib/components/PlanningErrorStates.svelte';
+	import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
+	import ShareSection from '$lib/components/ShareSection.svelte';
 	import { PlanningSkeleton } from '$lib/components/ui/skeletons';
 	import { addParticipant, updateParticipant } from '$lib/services/planningActions';
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
@@ -18,22 +21,15 @@
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import {
-		ArrowRightFromLine,
 		Bell,
 		Calendar,
-		EllipsisVertical,
 		History,
 		Info,
 		InfoIcon,
 		ListFilter,
 		MapPin,
-		RefreshCw,
 		Settings,
-		Share2,
-		Trash2,
-		User,
-		Users,
-		WifiOff
+		Users
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -151,10 +147,6 @@
 
 	const canNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
 
-	function closeFab() {
-		(document.activeElement as HTMLElement)?.blur();
-	}
-
 	async function shareLink(url: string, label: string) {
 		try {
 			if (canNativeShare) {
@@ -192,51 +184,6 @@
 	);
 	const hasMoreParticipants = $derived(!showAllParticipants && sortedParticipants.length > 10);
 </script>
-
-{#snippet shareContent()}
-	<div class="grid gap-8 md:grid-cols-2">
-		<!-- Lien Public -->
-		<div class="flex flex-col justify-between gap-4">
-			<div class="space-y-2">
-				<div class="text-content-primary flex items-center gap-2 font-bold">
-					<Users size={18} />
-					Lien Public
-				</div>
-				<p class="text-sm leading-relaxed opacity-80">
-					Partagez ce lien avec les participants pour qu'ils puissent
-					{#if master?.allowResponses}déclarer leur présence,{/if}
-					{#if master?.tasks?.length ?? 0 > 0}s'inscrire aux tâches,{/if}
-					et ajouter des commentaires.
-				</p>
-			</div>
-			<CopyLinksButtons size="md" participantToken={token} />
-		</div>
-
-		<!-- Lien Admin -->
-		<div
-			class="border-base-content/10 flex flex-col justify-between gap-4 border-t pt-6 md:border-t-0 md:border-l md:pt-0 md:pl-8"
-		>
-			<div class="space-y-2">
-				<div class="text-content-warning flex items-center gap-2 font-bold">
-					<Settings size={18} />
-					Lien Administrateur
-				</div>
-				<p class="text-sm leading-relaxed opacity-80">
-					Permet la modification du planning et des occurrences, ainsi que la confirmation ou
-					l'annulation des événements.
-				</p>
-			</div>
-			{#if isAdmin}
-				<CopyLinksButtons size="md" adminToken={adminToken ?? undefined} />
-			{:else}
-				<div class="alert alert-info alert-soft text-xs">
-					<Info size={14} />
-					<span>Seuls les administrateurs ont accès à ce lien de gestion.</span>
-				</div>
-			{/if}
-		</div>
-	</div>
-{/snippet}
 
 <svelte:head>
 	<title>{master?.title || 'Planning'}</title>
@@ -354,17 +301,17 @@
 
 			<!-- Zone de partage -->
 			{#if !mediaQuery.isMobile}
-				<div class="card card-sm bg-base-300 border-primary/10 my-8 border-2 shadow-md">
-					<div class="card-body">
-						<h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
-							<Share2 size={22} class="text-primary" />
-							Partager ce planning
-						</h3>
-
-						{@render shareContent()}
-					</div>
-				</div>
+				<ShareSection
+					{isAdmin}
+					{adminToken}
+					{token}
+					allowResponses={master?.allowResponses}
+					tasksCount={master?.tasks?.length ?? 0}
+				/>
 			{/if}
+
+			<!-- Installation PWA (compact) -->
+			<PwaInstallCard compact />
 
 			<!-- Identification manquante -->
 			{#if !currentIdentity}
@@ -425,109 +372,29 @@
 
 	<!-- FAB Speed Dial - mobile only -->
 	{#if mediaQuery.isMobile}
-		<div class="fab">
-			<div tabindex="0" role="button" class="btn btn-lg btn-circle btn-primary shadow-lg">
-				<EllipsisVertical size={24} class="opacity-70" />
-			</div>
-			<div class="fab-close">
-				<span class="btn btn-circle btn-lg">✕</span>
-			</div>
-			<div>
-				<div class="badge badge-info">Partager</div>
-				<button
-					class="btn btn-lg btn-circle btn-info shadow-md"
-					onclick={() => {
-						closeFab();
-						shareLink(`${window.location.origin}/p/${token}`, 'Lien public');
-					}}
-				>
-					<Share2 size={20} />
-				</button>
-			</div>
-			{#if isAdmin}
-				<div>
-					<div class="badge badge-warning">Lien admin</div>
-					<button
-						class="btn btn-lg btn-circle btn-warning shadow-md"
-						onclick={() => {
-							closeFab();
-							shareLink(`${window.location.origin}/p/${adminToken}`, 'Lien admin');
-						}}
-					>
-						<Share2 size={20} />
-					</button>
-				</div>
-			{/if}
-			<div>
-				<div class="badge badge-success">Notifications</div>
-				<button
-					class="btn btn-lg btn-circle btn-success shadow-md"
-					onclick={() => {
-						closeFab();
-						if (userStore.isLoggedIn) {
-							showNotifModal = true;
-						} else {
-							showAccountModal = true;
-						}
-					}}
-				>
-					<Bell size={20} />
-				</button>
-			</div>
-			{#if isAdmin}
-				<div>
-					<div class="badge badge-accent">Modifier</div>
-					<a href="/admin/{adminToken}" class="btn btn-lg btn-circle btn-accent shadow-md">
-						<Settings size={20} />
-					</a>
-				</div>
-			{/if}
-		</div>
+		<ParticipantFAB
+			{isAdmin}
+			{adminToken}
+			{token}
+			onShare={shareLink}
+			onNotifClick={() => {
+				if (userStore.isLoggedIn) {
+					showNotifModal = true;
+				} else {
+					showAccountModal = true;
+				}
+			}}
+		/>
 	{/if}
 {:else if !networkStore.online || planningStore.error?.type === 'network'}
-	{@const errorMessage = !networkStore.online
-		? 'Vous êtes hors ligne. Vérifiez votre connexion internet.'
-		: 'Le serveur est inaccessible. Réessayez dans quelques instants.'}
-	<div class="flex min-h-[50vh] items-center justify-center">
-		<div class="max-w-md text-center">
-			<div class="alert alert-error alert-soft">
-				<WifiOff size={24} />
-				<div>
-					<h3 class="font-bold">Connexion impossible</h3>
-					<div class="text-xs">
-						<p>{errorMessage}</p>
-					</div>
-				</div>
-			</div>
-			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
-				<RefreshCw size={16} />
-				Réessayer
-			</button>
-		</div>
-	</div>
+	<PlanningErrorStates
+		errorType={planningStore.error?.type === 'network' ? 'network' : null}
+		isOffline={!networkStore.online}
+	/>
 {:else if planningStore.error?.type === 'deleted'}
-	<div class="flex min-h-[50vh] items-center justify-center">
-		<div class="max-w-md text-center">
-			<div
-				class="bg-warning/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full p-4"
-			>
-				<Trash2 size={40} class="text-warning" />
-			</div>
-			<h2 class="mb-2 text-2xl font-bold">Planning supprimé</h2>
-			<p class="text-base-content/70 mb-6">
-				Ce planning a été supprimé par son administrateur. Les données locales ont été nettoyées.
-			</p>
-			<a href="/" class="btn btn-primary">Retour à l'accueil</a>
-		</div>
-	</div>
+	<PlanningErrorStates errorType="deleted" isOffline={false} />
 {:else}
-	<div class="flex min-h-[50vh] items-center justify-center">
-		<div class="text-center">
-			<h2 class="mb-2 text-2xl font-bold">Planning introuvable</h2>
-			<p class="text-base-content/70">Le lien que vous avez utilisé n'est pas valide</p>
-			<a href="/" class="btn btn-primary mt-4">Retour à l'accueil</a>
-		</div>
-	</div>
+	<PlanningErrorStates errorType="not-found" isOffline={false} />
 {/if}
 
 <NotificationModal

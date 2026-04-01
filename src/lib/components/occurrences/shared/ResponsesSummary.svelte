@@ -229,8 +229,8 @@
 	{:else}
 		<fieldset
 			{disabled}
-			class="flex w-full flex-wrap gap-3 {disabled && 'opacity-80 grayscale-50'} {isPastDate &&
-				'bg-base-200/30'}"
+			class="flex w-full flex-wrap gap-x-3 gap-y-2 sm:gap-3 {disabled &&
+				'opacity-80 grayscale-50'} {isPastDate && 'bg-base-200/30'}"
 		>
 			{#each types as type (type)}
 				{@const config = RESPONSE_TYPE_CONFIG[type]}

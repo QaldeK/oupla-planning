@@ -13,7 +13,7 @@
 				<div class="flex items-start gap-3">
 					<Smartphone size={20} class="text-info shrink-0" />
 
-					<p class="opacity-90">
+					<p>
 						<strong>Retrouvez vos plannings partout :</strong> Synchronisez sur mobile, tablette et ordinateur.
 						Vos données sont toujours accessibles.
 					</p>
@@ -22,7 +22,7 @@
 
 				<div class="flex items-start gap-2">
 					<Mail size={16} class="text-info/70 mt-0.5 shrink-0" />
-					<p class="opacity-90">
+					<p>
 						<strong>Notifications par email</strong> pour les annulations, inscriptions, etc.
 					</p>
 				</div>
@@ -31,14 +31,14 @@
 
 				<div class="flex items-start gap-2">
 					<HatGlasses size={16} class="text-info/70 mt-0.5 shrink-0" />
-					<p class="opacity-90">
+					<p>
 						<strong>Respecte votre vie privée</strong> : aucune collecte de données personnelles inutiles.
 					</p>
 				</div>
 
 				<div class="divider my-2"></div>
 
-				<p class="text-[10px] opacity-70">
+				<p class="text-[10px] opacity-90">
 					Vous pouvez continuer sans compte, mais gardez une trace des URLs pour ne pas perdre vos
 					plannings.
 				</p>

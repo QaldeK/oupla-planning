@@ -38,7 +38,7 @@
 	</div>
 
 	<!-- PWA Installation Card (always visible, handles own display logic) -->
-	<PwaInstallCard />
+	<div class="mb-8"><PwaInstallCard /></div>
 
 	<!-- Auth Section (only if not authenticated on PocketBase) -->
 	{#if !userStore.isLoggedIn}

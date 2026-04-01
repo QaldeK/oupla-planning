@@ -69,8 +69,8 @@
 	<title>Nouveau Planning</title>
 </svelte:head>
 
-<div class="mx-auto max-w-4xl px-4 py-8">
-	<div class="mb-12 flex items-center gap-4">
+<div class="mx-auto max-w-4xl sm:px-4 sm:py-8">
+	<div class="mb-6 flex items-center gap-4 sm:mb-12">
 		<div class="bg-primary/10 inline-flex rounded-full p-4">
 			<Calendar size={28} class="text-primary" />
 		</div>
