@@ -123,3 +123,31 @@
 		margin-right: 0;
 	}
 }
+
+/* ── DaisyUI soft variants text fix ── */
+/* Le texte des variantes -soft est trop pâle par défaut. */
+/* On l'assombrit en le mixant avec base-content. */
+
+.alert-soft {
+	color: color-mix(
+		in oklab,
+		var(--alert-color, var(--color-base-content)) 65%,
+		var(--color-base-content)
+	);
+}
+
+.btn-soft {
+	--btn-fg: color-mix(
+		in oklab,
+		var(--btn-color, var(--color-base-content)) 65%,
+		var(--color-base-content)
+	);
+}
+
+.badge-soft {
+	color: color-mix(
+		in oklab,
+		var(--badge-color, var(--color-base-content)) 65%,
+		var(--color-base-content)
+	);
+}

@@ -28,6 +28,7 @@
 	import ResponseBadge from '../shared/ResponseBadge.svelte';
 	import ResponsesSummary from '../shared/ResponsesSummary.svelte';
 	import TaskCompactSummary from '../shared/TaskCompactSummary.svelte';
+	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 
 	let { occurrence, master, currentUserId, isAdmin, readOnly = false }: ViewProps = $props();
 
@@ -162,13 +163,15 @@
 	);
 </script>
 
-{#if viewMode === 'card'}
-	{@render cardLayout()}
-{:else if viewMode === 'minimal'}
-	{@render rowLayoutMinimal()}
-{:else}
-	{@render rowLayout()}
-{/if}
+<div class="my-4">
+	{#if viewMode === 'card'}
+		{@render cardLayout()}
+	{:else if viewMode === 'minimal'}
+		{@render rowLayoutMinimal()}
+	{:else}
+		{@render rowLayout()}
+	{/if}
+</div>
 
 {#snippet actionCompact()}
 	<div class="flex items-center justify-end gap-2">
@@ -231,9 +234,9 @@
 
 {#snippet statusBadge(size: 'xs' | 'sm' | 'md')}
 	{@const cls = size === 'xs' ? 'badge-sm gap-0.5 text-xs' : size === 'sm' ? 'badge-sm gap-1' : ''}
-	{@const iconSize = size === 'xs' ? 10 : size === 'sm' ? 12 : 16}
+	{@const iconSize = size === 'xs' ? 12 : size === 'sm' ? 12 : 16}
 	{#if master.toConfirm && occurrence.isConfirmed}
-		<span class="badge {cls} bg-success/40 font-medium">
+		<span class="badge {cls} bg-success/40 text-success-content font-medium">
 			<CheckCircle size={iconSize} />
 			Confirmé
 		</span>
@@ -243,7 +246,7 @@
 			Annulé
 		</span>
 	{:else if master.toConfirm && !occurrence.isConfirmed}
-		<span class="badge {cls} bg-warning/40 font-medium">
+		<span class="badge {cls} bg-warning/40 text-warning-content font-medium">
 			<CircleQuestionMark size={iconSize} />
 			à confirmer
 		</span>
@@ -462,7 +465,7 @@
 
 {#snippet rowLayoutMinimal()}
 	<div class="bg-base-100 border-neutral/30 border-b-2 py-1.5">
-		<div class="mb-1 flex flex-wrap items-center gap-2 px-2">
+		<div class="mb-1 flex flex-wrap items-center gap-x-2 px-2">
 			<!-- Date -->
 			<div class="flex items-center gap-1 font-semibold">
 				<Calendar size={14} />
@@ -485,23 +488,22 @@
 				</div>
 			{/if}
 
-			{@render statusBadge('xs')}
+			<div class="ms-auto flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+				{@render statusBadge('sm')}
 
-			<!-- Spacer -->
-			<div class="flex-1"></div>
-			<!-- Min present badge -->
-			{#if occState.inherited.minPresentRequired}
-				<ResponseBadge
-					present={occState.stats.present}
-					required={occState.inherited.minPresentRequired}
-				/>
-			{/if}
-
-			<div class="ms-auto flex items-center gap-3">
-				<div class="max-sm:hidden">
+				<!-- Min present badge -->
+				{#if occState.inherited.minPresentRequired}
+					<ResponseBadge
+						present={occState.stats.present}
+						required={occState.inherited.minPresentRequired}
+					/>
+				{/if}
+			</div>
+			{#if !mediaQuery.isMobile}
+				<div class="ms-auto flex items-center gap-3">
 					{@render actionCompact()}
 				</div>
-			</div>
+			{/if}
 		</div>
 
 		<!-- Actions section -->

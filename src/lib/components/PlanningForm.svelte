@@ -106,6 +106,25 @@
 	let customDates = $state<string[]>(initRecType === 'CUSTOM' ? initRecDates || [] : []); // Dates pour le mode CUSTOM
 	let showArbitraryDatePicker = $state(false); // Afficher le picker inline pour dates arbitraires
 
+	// Dates générées par la récurrence — déclaré avant les $derived qui le référencent
+	// (nécessaire pour le prerender SSR, sinon TDZ "Cannot access before initialization")
+	const allGeneratedDates = $derived.by(() => {
+		if (recurrenceType === 'CUSTOM') return [];
+		if (!firstDate || !lastDate || !recurrenceType) return [];
+
+		const generated = generateRecurrenceDates({
+			type: recurrenceType,
+			firstDate,
+			lastDate,
+			monthlyByDayOccurrences:
+				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined
+		});
+
+		// Limiter à 100 dates futures maximum
+		const today = format(new Date(), 'yyyy-MM-dd');
+		return generated.filter((d) => d >= today).slice(0, 100);
+	});
+
 	// Calculer les dates arbitraires (dates ajoutées manuellement hors du cycle généré)
 	const arbitraryDates = $derived.by(() => {
 		if (recurrenceType === 'CUSTOM') return [];
@@ -580,23 +599,6 @@
 			isSubmitting = false;
 		}
 	}
-
-	const allGeneratedDates = $derived.by(() => {
-		if (recurrenceType === 'CUSTOM') return []; // Pas de génération automatique en mode CUSTOM
-		if (!firstDate || !lastDate || !recurrenceType) return [];
-
-		const generated = generateRecurrenceDates({
-			type: recurrenceType,
-			firstDate,
-			lastDate,
-			monthlyByDayOccurrences:
-				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined
-		});
-
-		// Limiter à 100 dates futures maximum
-		const today = format(new Date(), 'yyyy-MM-dd');
-		return generated.filter((d) => d >= today).slice(0, 100);
-	});
 
 	const recurrenceLabel = $derived.by(() => {
 		// Mode CUSTOM : afficher le nombre de dates définies

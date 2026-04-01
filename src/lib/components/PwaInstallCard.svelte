@@ -3,6 +3,7 @@
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { Download, Bell, Users, CalendarX, Share, X } from 'lucide-svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
 
 	interface Props {
 		isDismissible?: boolean;
@@ -12,6 +13,7 @@
 
 	let { isDismissible = true, compact = false }: Props = $props();
 	let dismissed = $state(false);
+	let showInstallModal = $state(false);
 
 	// Détection iOS pour les instructions spécifiques (Safari = Partage → Écran d'accueil)
 	let isIos = $derived(
@@ -32,11 +34,52 @@
 	}
 </script>
 
+{#snippet installBenefits()}
+	<ul class="space-y-1 text-sm">
+		<li class="flex items-center gap-2">
+			<Bell size={14} class="text-success/70" />
+			<span class="opacity-70">Nouveaux messages et commentaires</span>
+		</li>
+		<li class="flex items-center gap-2">
+			<Users size={14} class="text-success/70" />
+			<span class="opacity-70">Alertes participants manquants</span>
+		</li>
+		<li class="flex items-center gap-2">
+			<CalendarX size={14} class="text-success/70" />
+			<span class="opacity-70">Annulations et changements</span>
+		</li>
+	</ul>
+	<p class="text-xs opacity-60">
+		Personnalisez vos préférences de notification dans les paramètres du planning.
+	</p>
+{/snippet}
+
+{#snippet manualInstallInstructions()}
+	{#if isIos}
+		<ol class="space-y-1 text-sm">
+			<li class="flex items-center gap-2">
+				<span class="badge badge-info badge-sm">1</span>
+				Appuyez sur le bouton <Share size={14} class="text-info inline" /> Partage
+			</li>
+			<li class="flex items-center gap-2">
+				<span class="badge badge-info badge-sm">2</span>
+				Faites défiler et sélectionnez « Sur l'écran d'accueil »
+			</li>
+		</ol>
+	{:else}
+		<p class="text-sm opacity-80">
+			Appuyez sur le menu <strong>&#8942;</strong> de votre navigateur puis sur
+			<strong>« Installer l'application »</strong> ou
+			<strong>« Ajouter à l'écran d'accueil »</strong>.
+		</p>
+	{/if}
+{/snippet}
+
 {#if showCard}
 	{#if pwaStore.canInstall}
 		<!-- Chromium : prompt natif disponible -->
 		{#if compact}
-			<div class="alert alert-success alert-soft py-2">
+			<div class="alert alert-success alert-soft">
 				<Download size={16} class="text-success shrink-0" />
 				<span class="text-sm">Activez les notifications sur votre téléphone</span>
 				<button class="btn btn-success btn-sm" onclick={handleInstall}>Installer</button>
@@ -61,24 +104,7 @@
 							important.
 						</p>
 
-						<ul class="space-y-1 text-sm">
-							<li class="flex items-center gap-2">
-								<Bell size={14} class="text-success/70" />
-								<span class="opacity-70">Nouveaux messages et commentaires</span>
-							</li>
-							<li class="flex items-center gap-2">
-								<Users size={14} class="text-success/70" />
-								<span class="opacity-70">Alertes participants manquants</span>
-							</li>
-							<li class="flex items-center gap-2">
-								<CalendarX size={14} class="text-success/70" />
-								<span class="opacity-70">Annulations et changements</span>
-							</li>
-						</ul>
-
-						<p class="text-xs opacity-60">
-							Personnalisez vos préférences de notification dans les paramètres du planning.
-						</p>
+						{@render installBenefits()}
 					</div>
 
 					<div class="flex shrink-0 flex-col gap-2">
@@ -99,7 +125,7 @@
 	{:else}
 		<!-- Non-Chrome mobile : instructions manuelles -->
 		{#if compact}
-			<div class="alert alert-info alert-soft py-2">
+			<div class="alert alert-info alert-soft border-info/60 py-2">
 				<Download size={16} class="text-info shrink-0" />
 				{#if isIos}
 					<span class="text-sm"
@@ -108,8 +134,11 @@
 				{:else}
 					<span class="text-sm">Installez l'app depuis le menu de votre navigateur</span>
 				{/if}
+				<button class="btn btn-link btn-xs" onclick={() => (showInstallModal = true)}>
+					Comment ?
+				</button>
 				{#if isDismissible}
-					<button class="btn btn-ghost btn-xs" onclick={() => (dismissed = true)}>
+					<button class="btn btn-ghost btn-xs btn-circle" onclick={() => (dismissed = true)}>
 						<X size={14} />
 					</button>
 				{/if}
@@ -129,25 +158,7 @@
 							important.
 						</p>
 
-						{#if isIos}
-							<ol class="space-y-1 text-sm">
-								<li class="flex items-center gap-2">
-									<span class="badge badge-info badge-sm">1</span>
-									Appuyez sur le bouton <Share size={14} class="text-info inline" />
-									Partage
-								</li>
-								<li class="flex items-center gap-2">
-									<span class="badge badge-info badge-sm">2</span>
-									Faites défiler et sélectionnez « Sur l'écran d'accueil »
-								</li>
-							</ol>
-						{:else}
-							<p class="text-sm opacity-80">
-								Appuyez sur le menu <strong>&#8942;</strong> de votre navigateur puis sur
-								<strong>« Installer l'application »</strong> ou
-								<strong>« Ajouter à l'écran d'accueil »</strong>.
-							</p>
-						{/if}
+						{@render manualInstallInstructions()}
 					</div>
 
 					{#if isDismissible}
@@ -162,3 +173,18 @@
 		{/if}
 	{/if}
 {/if}
+
+<Modal
+	open={showInstallModal}
+	onClose={() => (showInstallModal = false)}
+	title="Installer l'application"
+	size="sm"
+>
+	<div class="space-y-3">
+		<p class="text-sm opacity-80">
+			Recevez des notifications push sur votre téléphone pour ne jamais manquer un événement
+			important.
+		</p>
+		{@render manualInstallInstructions()}
+	</div>
+</Modal>

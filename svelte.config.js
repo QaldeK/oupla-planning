@@ -5,9 +5,9 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	kit: {
 		adapter: adapter({
-			// fallback: 'index.html' est crucial pour les Single Page Applications (SPA)
-			// car il redirige toutes les routes vers l'index pour que SvelteKit gère le routage.
-			fallback: 'index.html',
+			// 200.html comme fallback SPA : évite le conflit avec les pages prérenderées
+			// (qui génèrent leur propre index.html). Cloudflare Pages le sert via _redirects.
+			fallback: '200.html',
 			pages: 'build',
 			assets: 'build',
 			precompress: false,

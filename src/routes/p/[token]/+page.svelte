@@ -361,7 +361,7 @@
 			{/each}
 
 			{#if hasMore}
-				<div class="text-center">
+				<div class="my-4 text-center">
 					<button class="btn btn-outline" onclick={loadMore}>
 						Afficher plus ({occurrences.length - displayCount} restantes)
 					</button>

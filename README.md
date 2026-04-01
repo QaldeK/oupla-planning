@@ -1,42 +1,91 @@
-# sv
+# Oupla Planning
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+<p align="center">
+  <img src="static/logo.svg" alt="Oupla Planning" width="120" />
+</p>
 
-## Creating a project
+<p align="center">
+  Planifiez et suivez vos activités récurrentes — simple, gratuit, sans inscription.
+</p>
 
-If you're seeing this, you've probably already done this step. Congrats!
+<p align="center">
+  <a href="https://svelte.dev"><img src="https://img.shields.io/badge/SvelteKit-5-ff3e00?logo=svelte" alt="SvelteKit 5" /></a>
+  <a href="https://pocketbase.io"><img src="https://img.shields.io/badge/PocketBase-0.36-b8dde6?logo=pocketbase" alt="PocketBase 0.36" /></a>
+  <a href="https://web.dev/progressive-web-apps/"><img src="https://img.shields.io/badge/PWA-yes-5a0fc8" alt="PWA" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue" alt="AGPL-3.0" /></a>
+</p>
 
-```sh
-# create a new project
-npx sv create my-app
-```
+---
 
-To recreate this project with the same configuration:
+## Qu'est-ce que c'est ?
 
-```sh
-# recreate this project
-bun x sv create --template minimal --types ts --add prettier eslint tailwindcss="plugins:none" sveltekit-adapter="adapter:cloudflare+cfTarget:workers" mcp="ide:claude-code+setup:local" --install bun planing
-```
+Oupla est une application web progressive (PWA) pour gérer les présences et la coordination de tâches lors d'événements récurrents. Elle fonctionne sans inscription : il suffit d'un nom pour participer, et d'un lien pour créer un planning.
 
-## Developing
+### Comment ça marche
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+1. **Créez votre planning** — Définissez la récurrence (quotidien, hebdomadaire, mensuel…), les horaires et les tâches à pourvoir.
+2. **Partagez le lien** — Envoyez le lien participant à votre groupe. Aucune inscription n'est requise pour répondre.
+3. **Suivez les réponses** — Voyez qui sera présent·e, qui s'occupe de quoi, et communiquez via les commentaires en temps réel.
 
-```sh
-npm run dev
+---
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
+## Fonctionnalités
 
-## Building
+### Gestion des présences
 
-To create a production version of your app:
+Chaque participant·e indique sa disponibilité (présent·e, si besoin, peut-être, absent·e). Les administrateur·ices peuvent activer/désactiver chaque type de réponse indépendamment. Un indicateur de quorum montre en temps réel le nombre de présent·es par rapport au minimum requis.
 
-```sh
-npm run build
-```
+### Tâches et bénévolat
 
-You can preview the production build with `npm run preview`.
+Créez des tâches avec un nombre de volontaires requis, catégorisées par moment (avant, pendant, après l'événement). Les participant·es s'inscrivent librement. L'inscription à une tâche « pendant l'événement » marque automatiquement le participant·e comme présent·e. Les admin·es peuvent aussi assigner manuellement des volontaires.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+### Récurrence flexible
+
+6 modes de génération de dates : quotidien, hebdomadaire, bihebdomadaire, mensuel par date, mensuel par jour (ex. « 3ᵉ vendredi »), et mode libre avec sélection manuelle. Chaque occurrence peut être modifiée individuellement (horaire, lieu, tâches, description).
+
+### Commentaires
+
+Fil de discussion intégré à chaque événement, avec suivi des messages non lus (indicateur visuel dans la sidebar). Les conversations passées sont en lecture seule.
+
+### Notifications
+
+Alertes push (Web Push API) et email, configurables par planning : rappels de participation, alertes d'absent·es, notifications de changement d'horaire, d'annulation et de nouveaux messages.
+
+### Confirmation d'événements
+
+Mode « à confirmer » : les événements nécessitent une validation explicite de l'admin avant d'être considérés comme actifs. L'admin est alerté·e si le quorum n'est pas atteint ou si des tâches manquent de volontaires.
+
+---
+
+## Pour qui ?
+
+Oupla s'adresse à tout groupe ayant besoin de coordonner des présences et des rôles sur des créneaux récurrents : associations, clubs sportifs, groupes musicaux, équipes bénévoles, comités…
+
+---
+
+## Pourquoi Oupla
+
+- **Sans inscription** — Participez simplement avec votre nom. Créez un planning sans créer de compte.
+- **Installable** — Ajoutez l'app à votre écran d'accueil pour une expérience native avec notifications push.
+- **Rapide** — Stockage local pour un affichage instantané, synchronisation automatique avec le serveur.
+
+---
+
+## Stack technique
+
+| Couche          | Technologie                                   |
+| --------------- | --------------------------------------------- |
+| Frontend        | Svelte 5 (runes), SvelteKit 2, TypeScript     |
+| Backend         | PocketBase 0.36                               |
+| Stockage local  | Dexie (IndexedDB)                             |
+| Synchronisation | pb-sync (couche custom avec merge strategies) |
+| Desktop         | Tauri 2                                       |
+| Déploiement     | Cloudflare Pages                              |
+| Styles          | Tailwind CSS 4 + DaisyUI 5                    |
+| Icônes          | lucide-svelte                                 |
+
+---
+
+## Licence
+
+Ce projet est distribué sous licence [AGPL-3.0](LICENSE).
