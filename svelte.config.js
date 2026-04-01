@@ -5,9 +5,9 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	kit: {
 		adapter: adapter({
-			// 200.html comme fallback SPA : évite le conflit avec les pages prérenderées
-			// (qui génèrent leur propre index.html).
-			fallback: '200.html',
+			// index.html comme fallback SPA pour Cloudflare Pages
+			// CF Pages gère nativement le fallback sans _redirects
+			fallback: 'index.html',
 			pages: 'build',
 			assets: 'build',
 			precompress: false,
