@@ -14,19 +14,19 @@
 			icon: Share2,
 			title: 'Partagez le lien',
 			description:
-				"Envoyez le lien participant à votre groupe. Aucune inscription n'est requise pour répondre."
+				"Partagez le lien à votre groupe. Aucune inscription n'est requise pour répondre."
 		},
 		{
 			num: '3',
 			icon: Eye,
 			title: 'Suivez les réponses',
 			description:
-				"Voyez qui sera présent, qui s'occupe de quoi, et communiquez via les commentaires en temps réel."
+				"Chacun·e peut voir qui sera présent, qui s'occupe de quoi, et communiquer via les commentaires en temps réel."
 		}
 	];
 </script>
 
-<section class="py-10">
+<section class=" py-10">
 	<h2 class="mb-8 text-center text-2xl font-bold">Comment ça marche</h2>
 
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -37,7 +37,6 @@
 					<div class="bg-primary text-primary-content rounded-full p-3">
 						<Icon size={28} />
 					</div>
-					<div class="badge badge-outline badge-sm mt-2">{step.num}</div>
 					<h3 class="card-title mt-2">{step.title}</h3>
 					<p class="text-base-content/70 text-sm">{step.description}</p>
 				</div>

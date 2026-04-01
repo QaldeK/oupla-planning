@@ -79,7 +79,7 @@
 	{#if pwaStore.canInstall}
 		<!-- Chromium : prompt natif disponible -->
 		{#if compact}
-			<div class="alert alert-success alert-soft">
+			<div class="alert alert-success alert-soft alert-vertical">
 				<Download size={16} class="text-success shrink-0" />
 				<span class="text-sm">Activez les notifications sur votre téléphone</span>
 				<button class="btn btn-success btn-sm" onclick={handleInstall}>Installer</button>
@@ -125,7 +125,7 @@
 	{:else}
 		<!-- Non-Chrome mobile : instructions manuelles -->
 		{#if compact}
-			<div class="alert alert-info alert-soft border-info/60 py-2">
+			<div class="alert alert-info alert-soft border-info/60 alert-vertical py-2">
 				<Download size={16} class="text-info shrink-0" />
 				{#if isIos}
 					<span class="text-sm"

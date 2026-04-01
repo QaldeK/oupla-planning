@@ -40,6 +40,24 @@
 		name="twitter:description"
 		content="Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise."
 	/>
+
+	<!-- Structured Data (JSON-LD) -->
+	{@html `<script type="application/ld+json">${JSON.stringify({
+		'@context': 'https://schema.org',
+		'@type': 'WebApplication',
+		name: 'Oupla Planning',
+		url: 'https://planning.oupla.net/',
+		description:
+			'Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise.',
+		applicationCategory: 'LifestyleApplication',
+		operatingSystem: 'Web',
+		inLanguage: 'fr',
+		offers: {
+			'@type': 'Offer',
+			price: '0',
+			priceCurrency: 'EUR'
+		}
+	})}</script>`}
 </svelte:head>
 
 <div class="mx-auto max-w-4xl pb-10">
@@ -47,7 +65,7 @@
 	<div class="mb-8 flex min-h-[30vh] flex-col items-center justify-center space-y-6 text-center">
 		<div class="space-y-4">
 			<img src="/logo.svg" class="mx-auto size-48 sm:size-54" alt="Oupla planning" />
-			<h1 class="text-6xl font-black">Oupla planning</h1>
+			<h1 class="text-6xl font-black max-sm:hidden">Oupla planning</h1>
 			<p class="text-base-content/70 max-w-md text-lg">
 				Gérez les présences et les tâches de vos activités récurrentes.
 			</p>
@@ -56,7 +74,7 @@
 
 	<!-- Actions rapides -->
 	<div class="mb-8 flex justify-center">
-		<button onclick={() => goto('/new')} class="btn btn-primary btn-lg gap-3">
+		<button onclick={() => goto('/new')} class="btn btn-primary btn-lg gap-3 shadow-lg">
 			<Plus size={24} />
 			Créer un nouveau planning
 		</button>
@@ -132,7 +150,7 @@
 	<!-- SEO Content Sections -->
 	<HowItWorks />
 	<FeaturesGrid />
-	<UseCases />
+	<!-- <UseCases /> -->
 	<BenefitsBanner />
 
 	<!-- Auth Section (only if not authenticated on PocketBase) -->

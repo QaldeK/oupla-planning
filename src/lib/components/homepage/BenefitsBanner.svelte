@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { UserX, WifiOff, Smartphone } from 'lucide-svelte';
+	import { UserX, HatGlasses, Smartphone } from 'lucide-svelte';
 
 	const benefits = [
 		{
@@ -8,9 +8,9 @@
 			description: 'Participez simplement avec votre nom. Créez un planning sans créer de compte.'
 		},
 		{
-			icon: WifiOff,
-			title: 'Fonctionne hors ligne',
-			description: 'Vos données sont synchronisées automatiquement quand la connexion revient.'
+			icon: HatGlasses,
+			title: 'Open source',
+			description: '...et sans pub, ni tracking, ni collecte de donnée'
 		},
 		{
 			icon: Smartphone,
@@ -22,7 +22,7 @@
 </script>
 
 <section class="py-10">
-	<h2 class="mb-8 text-center text-2xl font-bold">Pourquoi Oupla</h2>
+	<!-- <h2 class="mb-8 text-center text-2xl font-bold">Pourquoi Oupla</h2> -->
 
 	<div class="grid grid-cols-1 gap-5 md:grid-cols-3">
 		{#each benefits as benefit (benefit.icon)}

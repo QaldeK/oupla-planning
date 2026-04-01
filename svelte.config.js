@@ -6,7 +6,7 @@ const config = {
 	kit: {
 		adapter: adapter({
 			// 200.html comme fallback SPA : évite le conflit avec les pages prérenderées
-			// (qui génèrent leur propre index.html). Cloudflare Pages le sert via _redirects.
+			// (qui génèrent leur propre index.html). Cloudflare Pages le sert via functions/[[path]].js.
 			fallback: '200.html',
 			pages: 'build',
 			assets: 'build',
