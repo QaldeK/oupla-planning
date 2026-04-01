@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { Menu, PanelLeftClose, User } from 'lucide-svelte';
 	import type { PlanningMaster } from '$lib/types/planning.types';
@@ -73,14 +72,14 @@
 		}
 	}
 
-	onMount(() => {
+	$effect(() => {
 		lastScrollY = window.scrollY;
 		window.addEventListener('scroll', handleScroll, { passive: true });
-	});
 
-	onDestroy(() => {
-		window.removeEventListener('scroll', handleScroll);
-		clearTimeout(scrollTimeout);
+		return () => {
+			window.removeEventListener('scroll', handleScroll);
+			clearTimeout(scrollTimeout);
+		};
 	});
 </script>
 

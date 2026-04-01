@@ -15,14 +15,9 @@
 
 	const today = $derived(new Date().toISOString().split('T')[0]);
 	const occurrences = $derived(allOccurrences.filter((o) => o.date < today));
-	let currentUserId = $state<string | undefined>(undefined);
-
-	// Récupérer l'identité de l'utilisateur pour ce planning
-	$effect(() => {
-		if (!master) return;
-		const identity = userStore.getIdentityForPlanning(master.id);
-		currentUserId = identity?.id;
-	});
+	const currentUserId = $derived(
+		master ? userStore.getIdentityForPlanning(master.id)?.id : undefined
+	);
 
 	// Nom du participant pour l'affichage (depuis le store local)
 	const currentParticipantName = $derived.by(() => {

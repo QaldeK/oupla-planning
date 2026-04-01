@@ -32,16 +32,7 @@
 		onToggle
 	}: Props = $props();
 
-	// Local state for modal binding
-	let localOpen = $state(false);
-
-	// Sync local state with prop
-	$effect(() => {
-		localOpen = open;
-	});
-
 	function handleClose() {
-		localOpen = false;
 		onClose();
 	}
 
@@ -64,7 +55,7 @@
 	}
 </script>
 
-<Modal bind:open={localOpen} onClose={handleClose} title={task.name} size="sm">
+<Modal bind:open onClose={handleClose} title={task.name} size="sm">
 	<div class="flex flex-col gap-3">
 		<!-- Info tâche -->
 		<div class="flex flex-wrap justify-between gap-4">

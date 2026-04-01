@@ -28,6 +28,7 @@
 	import { format, parse, compareAsc, addWeeks, addMonths } from 'date-fns';
 	import { fr } from 'date-fns/locale';
 	import { untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import NetworkAlert from './NetworkAlert.svelte';
 	import { fade, slide } from 'svelte/transition';
 
@@ -185,7 +186,7 @@
 	// automatiquement si firstDate ou recurrenceType change. Comportement acceptable pour KISS.
 	let lastDateWasManuallySet = $state(!!(() => master)());
 
-	$effect(() => {
+	onMount(() => {
 		isMounted = true;
 	});
 
