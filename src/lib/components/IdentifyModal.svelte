@@ -39,6 +39,18 @@
 	// État pour la revendication d'identité protégée
 	let claimedIdentity = $state<Participant | null>(null);
 
+	function resetForm() {
+		name = '';
+		email = '';
+		claimedIdentity = null;
+		authMode = 'register';
+	}
+
+	function closeModal() {
+		resetForm();
+		onClose();
+	}
+
 	// Focus auto à l'ouverture et préremplissage du nom
 	$effect(() => {
 		if (open && !claimedIdentity) {
@@ -50,16 +62,6 @@
 			if (inputRef) {
 				setTimeout(() => inputRef?.focus(), 50);
 			}
-		}
-	});
-
-	// Réinitialiser les champs à la fermeture
-	$effect(() => {
-		if (!open) {
-			name = '';
-			email = '';
-			claimedIdentity = null;
-			authMode = 'register';
 		}
 	});
 
@@ -82,7 +84,7 @@
 			}
 
 			toast.success(`Bienvenue, ${participant.name} !`);
-			onClose();
+			closeModal();
 		} catch (error) {
 			console.error('Error identifying as participant:', error);
 			toast.error("Erreur lors de l'identification");
@@ -115,7 +117,7 @@
 			};
 
 			await onPlanningIdentify(newIdentity, isNewParticipant);
-			onClose();
+			closeModal();
 			return;
 		}
 
@@ -127,11 +129,11 @@
 	function handleAuthSuccess() {
 		// L'identification sur le planning sera gérée par la page parente
 		// via la réactivité de userStore.isLoggedIn
-		onClose();
+		closeModal();
 	}
 </script>
 
-<Modal {open} {onClose} title="Identification" size="md">
+<Modal {open} onClose={closeModal} title="Identification" size="md">
 	<div class="space-y-6">
 		<!-- Alerte pour identité protégée -->
 		{#if claimedIdentity}

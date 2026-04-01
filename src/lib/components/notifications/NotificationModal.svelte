@@ -10,6 +10,7 @@
 	import { getParticipantPrefs, updateParticipantPrefs } from '$lib/services/planningParticipants';
 	import { Bell, Mail, Smartphone, Save, LoaderCircle } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
+	import { untrack } from 'svelte';
 
 	interface Props {
 		open: boolean;
@@ -27,7 +28,11 @@
 	let initialPushState = $state(false); // Track l'état initial pour éviter les désinscriptions inutiles
 
 	$effect(() => {
-		if (open && pb.authStore.isValid && pb.authStore.record) {
+		if (!open) return;
+
+		untrack(() => {
+			if (!pb.authStore.isValid || !pb.authStore.record) return;
+
 			pushSupported = 'serviceWorker' in navigator && 'PushManager' in window;
 
 			// Charger les préférences par planning
@@ -45,7 +50,7 @@
 					prefs = { ...defaultPlanningPrefs } as PlanningParticipantPrefs;
 					initialPushState = prefs.push;
 				});
-		}
+		});
 	});
 
 	async function handleSave() {

@@ -50,22 +50,17 @@
 		}
 	});
 
-	// Validation en temps réel
-	$effect(() => {
-		// Reset erreurs quand l'utilisateur tape
-		if (emailError && email) emailError = '';
-		if (passwordError && password) passwordError = '';
-		if (passwordConfirmError && passwordConfirm) passwordConfirmError = '';
-	});
+	function clearErrors() {
+		if (emailError) emailError = '';
+		if (passwordError) passwordError = '';
+		if (passwordConfirmError) passwordConfirmError = '';
+	}
 
-	// Valider automatiquement la confirmation en register
-	$effect(() => {
-		if (mode === 'register' && passwordConfirm && password) {
-			if (passwordConfirmError && password === passwordConfirm) {
-				passwordConfirmError = '';
-			}
+	function clearPasswordConfirmError() {
+		if (passwordConfirmError && password === passwordConfirm) {
+			passwordConfirmError = '';
 		}
-	});
+	}
 
 	function validateEmail(): boolean {
 		if (!email) {
@@ -200,6 +195,7 @@
 				autocomplete="email"
 				disabled={isSubmitting}
 				onblur={validateEmail}
+				oninput={clearErrors}
 			/>
 		</label>
 		{#if emailError}
@@ -223,6 +219,7 @@
 				autocomplete={mode === 'register' ? 'new-password' : 'current-password'}
 				disabled={isSubmitting}
 				onblur={validatePassword}
+				oninput={clearErrors}
 			/>
 		</label>
 		{#if passwordError}
@@ -247,6 +244,7 @@
 					autocomplete="new-password"
 					disabled={isSubmitting}
 					onblur={validatePasswordConfirm}
+					oninput={clearPasswordConfirmError}
 				/>
 			</label>
 			{#if passwordConfirmError}
