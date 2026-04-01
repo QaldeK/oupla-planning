@@ -13,7 +13,9 @@
  */
 
 onRecordAfterUpdateSuccess((e) => {
-	const { sendPushNotification, sendGroupedEmail } = require(`${__hooks}/notify-utils.js`);
+	const { sendPushNotification, sendGroupedEmail, formatDateFR } = require(
+		`${__hooks}/notify-utils.js`
+	);
 
 	const rec = e.record;
 	const orig = rec.original();
@@ -60,15 +62,14 @@ onRecordAfterUpdateSuccess((e) => {
 
 	const notifUrl = `/p/${master.getString('participantToken')}`;
 	const masterTitle = master.getString('title');
-	const occDate = rec.getString('date');
-	const occTime = rec.getString('startTime');
+	const occDate = formatDateFR(rec.getString('date'));
 
 	// Déterminer le type de notification
 	const [notifTitle, notifBody, relevantField] = wasCanceled
 		? [`Annulation — ${masterTitle}`, `L'occurrence du ${occDate} a été annulée.`, 'onCancellation']
 		: [
-				`Changement d'horaire — ${masterTitle}`,
-				`L'occurrence du ${occDate} est maintenant à ${occTime}.`,
+				`Changement — ${masterTitle}`,
+				`La date ou l'horaire d'un événement a été modifié.`,
 				'onTimeChange'
 			];
 
@@ -87,25 +88,17 @@ onRecordAfterUpdateSuccess((e) => {
 		if (p.getBool('email')) emailUsers.push(user);
 	}
 
-	// Envoyer les notifications
-	if (pushUsers.length > 0) {
-		const pushPromises = pushUsers.map((user) =>
-			sendPushNotification(e.app, user, notifTitle, notifBody, notifUrl)
-		);
-		Promise.all(pushPromises).catch((err) => {
-			e.app
-				.logger()
-				.error(
-					'[Notification] Occurrence update push error',
-					err?.message || err,
-					'users',
-					pushUsers.length
-				);
-		});
-	}
+	// Envoyer les notifications (JSVM synchrone — boucle simple, pas Promise.all)
+	try {
+		for (const user of pushUsers) {
+			sendPushNotification(e.app, user, notifTitle, notifBody, notifUrl);
+		}
 
-	if (emailUsers.length > 0) {
-		sendGroupedEmail(e.app, emailUsers, notifTitle, notifBody, notifUrl);
+		if (emailUsers.length > 0) {
+			sendGroupedEmail(e.app, emailUsers, notifTitle, notifBody, notifUrl);
+		}
+	} catch (err) {
+		e.app.logger().error('[Notification] Occurrence update error', err?.message || err);
 	}
 
 	e.next();

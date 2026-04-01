@@ -197,6 +197,7 @@
 							placeholder="Votre nom ou pseudo"
 							required
 							disabled={isSubmitting}
+							maxlength="36"
 						/>
 					</label>
 					<div class="fieldset-label p-1 text-xs">

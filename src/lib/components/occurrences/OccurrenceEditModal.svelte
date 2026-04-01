@@ -6,7 +6,6 @@
 		submitResponse,
 		updateOccurrence
 	} from '$lib/services/planningActions';
-	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { classifyError } from '$lib/utils/errorHandler';
@@ -201,7 +200,6 @@
 				occurrence
 			);
 			occurrence = updated;
-			planningStore.updateOccurrenceLocally(updated);
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);
@@ -221,7 +219,6 @@
 
 		// Mettre à jour master localement pour réactivité
 		master = updatedMaster;
-		planningStore.updateMaster(updatedMaster);
 
 		return updatedMaster.participants.find((p) => p.name === name)!;
 	}
@@ -263,7 +260,6 @@
 				occurrence
 			);
 			occurrence = updated;
-			planningStore.updateOccurrenceLocally(updated);
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);
@@ -330,7 +326,6 @@
 				occurrence
 			);
 			occurrence = updated;
-			planningStore.updateOccurrenceLocally(updated);
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);
@@ -363,7 +358,6 @@
 
 			// Mise à jour manuelle du store pour garantir la réactivité immédiate
 			occurrence = updated;
-			planningStore.updateOccurrenceLocally(updated);
 
 			toast.success('Occurrence mise à jour');
 			onClose();

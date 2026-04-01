@@ -44,7 +44,7 @@ if (browser) {
 
 	// Polling pour détecter la remontée
 	setInterval(() => {
-		// On ne poll le realtime que si on a une souscription active
+		// Cas 1 : Reconnexion realtime avec subscription active
 		if (status.hasActiveSubscription && pb.realtime.isConnected && !status.realtimeConnected) {
 			console.log('🟢 Realtime reconnecté (polling)');
 			status.realtimeConnected = true;
@@ -53,10 +53,17 @@ if (browser) {
 
 			// Re-sync après reconnexion
 			if (pb.authStore.record) {
-				syncService.sync(userStore.savedPlannings);
+				syncService.sync();
 			} else if (planningStore.activeMasterId) {
 				planningStore.refreshActive();
 			}
+		}
+
+		// Cas 2 : PB était down mais revient (même sans subscription active)
+		if (!status.pocketbaseReachable && status.online && pb.realtime.isConnected) {
+			console.log('🟢 Serveur PocketBase de nouveau joignable');
+			status.pocketbaseReachable = true;
+			status.lastError = null;
 		}
 	}, 2000);
 }
@@ -96,10 +103,6 @@ export const networkStore = {
 	get lastError() {
 		return status.lastError;
 	},
-	/**
-	 * Combine les indicateurs pour savoir si l'édition est possible.
-	 * Si aucune souscription realtime n'est active, on ne bloque pas sur realtimeConnected.
-	 */
 	get isNetworkOk() {
 		return (
 			status.online &&
@@ -109,7 +112,6 @@ export const networkStore = {
 	},
 	setHasActiveSubscription(value: boolean) {
 		status.hasActiveSubscription = value;
-		// Si on active une souscription, on assume que le realtime est OK au départ
 		if (value) status.realtimeConnected = true;
 	}
 };

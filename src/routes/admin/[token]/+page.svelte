@@ -9,7 +9,7 @@
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { fade } from 'svelte/transition';
 
-	import { ArrowLeft, Calendar, CalendarCog, RefreshCw, WifiOff } from 'lucide-svelte';
+	import { ArrowLeft, Calendar, CalendarCog, RefreshCw, Trash2, WifiOff } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	let token = $derived($page.params.token as string);
@@ -23,7 +23,7 @@
 		if (!master) return;
 
 		// Si l'utilisateur n'a pas les droits admin sur ce planning, rediriger
-		if (!userStore.hasAdminAccess(master.id)) {
+		if (!planningStore.hasAdminAccess(master.id)) {
 			goto(`/p/${master.participantToken}`);
 		}
 	});
@@ -40,7 +40,6 @@
 				master.participantToken as string,
 				master.updated // Optimistic locking
 			);
-			planningStore.updateMaster(updatedMaster);
 			toast.success('Planning mis à jour avec succès');
 
 			// Rediriger vers la vue participant après sauvegarde réussie
@@ -140,6 +139,19 @@
 				<RefreshCw size={16} />
 				Réessayer
 			</button>
+		</div>
+	</div>
+{:else if planningStore.error?.type === 'deleted'}
+	<div class="flex min-h-[50vh] items-center justify-center p-4">
+		<div class="max-w-sm text-center">
+			<div
+				class="bg-warning/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full p-4"
+			>
+				<Trash2 size={40} class="text-warning" />
+			</div>
+			<h2 class="mb-3 text-3xl font-semibold">Planning supprimé</h2>
+			<p class="text-base-content/60 mb-8">Ce planning a été supprimé par son administrateur.</p>
+			<a href="/" class="btn btn-primary btn-wide">Retour à l'accueil</a>
 		</div>
 	</div>
 {:else}

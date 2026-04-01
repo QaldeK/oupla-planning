@@ -2,6 +2,7 @@
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { addComment, deleteComment } from '$lib/services/planningActions';
+	import { commentStateService } from '$lib/services/commentStateService';
 	import { formatDate } from '$lib/utils/date';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { classifyError } from '$lib/utils/errorHandler';
@@ -40,12 +41,19 @@
 		}
 	});
 
+	$effect(() => {
+		if (occurrence && drawerStore.open) {
+			commentStateService.markConversationAsRead(occurrence.id, occurrence.master);
+		}
+	});
+
 	async function handleSubmit() {
 		if (!newComment.trim() || !occurrence || !master || !currentUserId || !token) return;
 
 		isSubmitting = true;
 		try {
 			await addComment(occurrence.id, currentUserId, newComment.trim(), token, occurrence);
+			commentStateService.markConversationAsRead(occurrence.id, occurrence.master, true);
 			newComment = '';
 		} catch (error) {
 			const { message } = classifyError(error);
@@ -115,7 +123,8 @@
 									: 'bg-base-300 text-base-content'}"
 							>
 								<p class="leading-relaxed whitespace-pre-wrap">{comment.content}</p>
-								{#if isCurrentUser || isAdmin}
+								<!-- FIXIT -->
+								<!-- {#if isCurrentUser || isAdmin}
 									<button
 										class="btn btn-circle btn-error btn-outline btn-xs absolute -top-2 {isCurrentUser
 											? '-left-6'
@@ -124,7 +133,7 @@
 									>
 										<Trash2 size={12} />
 									</button>
-								{/if}
+								{/if} -->
 							</div>
 						</div>
 					{/each}

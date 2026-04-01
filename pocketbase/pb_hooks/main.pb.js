@@ -67,7 +67,6 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 
 	const body = e.requestInfo().body;
 	const localTokens = body?.tokens || [];
-	const includeOccurrences = body?.includeOccurrences === true;
 
 	const user = $app.findRecordById('users', e.auth.id);
 	const currentMasterIds = new Set(user.get('masterId') || []);
@@ -129,79 +128,9 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 		$app.save(user);
 	}
 
-	// Récupérer TOUS les masters de l'utilisateur
-	const allMasters =
-		currentMasterIds.size > 0
-			? $app.findRecordsByIds('planning_masters', Array.from(currentMasterIds))
-			: [];
-
-	// Si includeOccurrences, récupérer les occurrences pour chaque master
-	let occurrences = {};
-	if (includeOccurrences && currentMasterIds.size > 0) {
-		const masterIds = Array.from(currentMasterIds);
-		const masterParams = {};
-		masterIds.forEach((id, i) => {
-			masterParams[`m_${i}`] = id;
-		});
-		const masterFilter = masterIds.map((_, i) => `master = {:m_${i}}`).join(' || ');
-
-		const allOccurrences = $app.findRecordsByFilter(
-			'planning_occurrences',
-			masterFilter,
-			'+date',
-			1000,
-			0,
-			masterParams
-		);
-
-		// Grouper les occurrences par masterId
-		for (const occ of allOccurrences) {
-			const masterId = occ.get('master');
-			if (!occurrences[masterId]) {
-				occurrences[masterId] = [];
-			}
-			occurrences[masterId].push({
-				id: occ.id,
-				master: masterId,
-				date: occ.get('date'),
-				startTime: occ.get('startTime'),
-				endTime: occ.get('endTime'),
-				isConfirmed: occ.get('isConfirmed'),
-				isCanceled: occ.get('isCanceled'),
-				tasks: occ.get('tasks'),
-				responses: occ.get('responses'),
-				comments: occ.get('comments'),
-				created: occ.get('created'),
-				updated: occ.get('updated')
-			});
-		}
-	}
 	return e.json(200, {
 		success: true,
-		syncedIds: Array.from(currentMasterIds),
-		masters: allMasters.map((m) => {
-			const masterAdminToken = m.get('adminToken');
-			const shouldShowAdminToken = adminOf[m.id] === masterAdminToken;
-			return {
-				id: m.id,
-				title: m.get('title'),
-				description: m.get('description'),
-				place: m.get('place'),
-				defaultStartTime: m.get('defaultStartTime'),
-				defaultEndTime: m.get('defaultEndTime'),
-				recurrence: m.get('recurrence'),
-				tasks: m.get('tasks'),
-				participantToken: m.get('participantToken'),
-				adminToken: shouldShowAdminToken ? masterAdminToken : undefined,
-				participants: m.get('participants'),
-				allowResponses: m.get('allowResponses'),
-				minPresentRequired: m.get('minPresentRequired'),
-				availableResponseTypes: m.get('availableResponseTypes'),
-				created: m.get('created'),
-				updated: m.get('updated')
-			};
-		}),
-		occurrences: includeOccurrences ? occurrences : undefined
+		syncedIds: Array.from(currentMasterIds)
 	});
 });
 
@@ -320,25 +249,6 @@ onRecordUpdateRequest((e) => {
 	const isAdmin = token === adminToken;
 	const isParticipant = token === participantToken;
 
-	// Auth user sans token → vérifier adminOf
-	if (!isAdmin && !isParticipant && e.auth) {
-		try {
-			const user = e.app.findRecordById('users', e.auth.id);
-			const raw = user.getString('adminOf');
-			let adminOf = {};
-			if (raw && raw !== 'null') {
-				try {
-					adminOf = JSON.parse(raw);
-				} catch {
-					adminOf = {};
-				}
-			}
-			if (adminOf[e.record.id] === adminToken) {
-				return e.next(); // Admin auth → accès complet
-			}
-		} catch {}
-	}
-
 	if (!isAdmin && !isParticipant) {
 		throw new ApiError(403, 'Invalid token');
 	}
@@ -353,19 +263,16 @@ onRecordUpdateRequest((e) => {
 	}
 
 	// === RESTRICTION DES CHAMPS PAR RÔLE ===
-	// NOTE: API Rules gèrent déjà l'autorisation. Ce code est une protection supplémentaire.
-	// Décommenter si nécessaire (cf. Option B dans l'analyse du bug)
-	// if (isParticipant) {
-	// 	const original = e.record.original();
-	// 	const protectedFields = ['title', 'description', 'place', 'recurrence', 'tasks',
-	// 		'minPresentRequired', 'allowResponses', 'toConfirm', 'availableResponseTypes',
-	// 		'adminToken', 'participantToken'];
-	// 	for (const field of protectedFields) {
-	// 		if (JSON.stringify(e.record.get(field)) !== JSON.stringify(original.get(field))) {
-	// 			throw new ApiError(403, 'Participants can only update the participants field');
-	// 		}
-	// 	}
-	// }
+	// API Rules autorisent tout token valide → ce hook restreint les champs selon le rôle
+	if (isParticipant) {
+		const body = e.requestInfo().body || {};
+		const allowedFields = ['participants', 'lastModifiedBy', 'updated'];
+		for (const field of Object.keys(body)) {
+			if (!allowedFields.includes(field)) {
+				throw new ApiError(403, 'Participants can only update participants field');
+			}
+		}
+	}
 	// isAdmin → pas de restriction sur les champs
 
 	e.next();
@@ -426,43 +333,39 @@ routerAdd('GET', '/api/has-account/{id}', (e) => {
  * Masquer le champ adminToken dans tous les records enrichis
  * onRecordEnrich est exécuté pour les API ET les messages realtime
  */
-onRecordEnrich(
-	(e) => {
-		const isAuthAdmin = e.requestInfo?.auth?.collectionName === '_superusers';
-		if (isAuthAdmin) return e.next();
+onRecordEnrich((e) => {
+	const isAuthAdmin = e.requestInfo?.auth?.collectionName === '_superusers';
+	if (isAuthAdmin) return e.next();
 
-		const adminToken = e.record.get('adminToken');
-		const authUser = e.requestInfo?.auth;
-		const queryToken = e.requestInfo?.query?._token;
+	const adminToken = e.record.get('adminToken');
+	const authUser = e.requestInfo?.auth;
+	const queryToken = e.requestInfo?.query?._token;
 
-		// 1. User connecté : vérifier adminOf
-		if (authUser && adminToken) {
-			try {
-				const user = e.app.findRecordById('users', authUser.id);
-				let adminOf = {};
-				const raw = user.getString('adminOf');
-				if (raw && raw !== 'null') {
-					try {
-						adminOf = JSON.parse(raw);
-					} catch {
-						adminOf = {};
-					}
+	// 1. User connecté : vérifier adminOf
+	if (authUser && adminToken) {
+		try {
+			const user = e.app.findRecordById('users', authUser.id);
+			let adminOf = {};
+			const raw = user.getString('adminOf');
+			if (raw && raw !== 'null') {
+				try {
+					adminOf = JSON.parse(raw);
+				} catch {
+					adminOf = {};
 				}
-				if (adminOf[e.record.id] === adminToken) return e.next();
-			} catch (err) {
-				// Non-bloquant
 			}
+			if (adminOf[e.record.id] === adminToken) return e.next();
+		} catch (err) {
+			// Non-bloquant
 		}
+	}
 
-		// 2. Token query param (guest realtime) : vérifier si c'est l'adminToken
-		if (queryToken && queryToken === adminToken) {
-			return e.next();
-		}
+	// 2. Token query param (guest realtime) : vérifier si c'est l'adminToken
+	if (queryToken && queryToken === adminToken) {
+		return e.next();
+	}
 
-		// Sinon masquer
-		e.record.hide('adminToken');
-		e.next();
-	},
-	'planning_masters',
-	'planning_occurrences'
-);
+	// Sinon masquer
+	e.record.hide('adminToken');
+	e.next();
+}, 'planning_masters');

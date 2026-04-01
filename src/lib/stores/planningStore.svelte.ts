@@ -1,12 +1,59 @@
-import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
-import { getPlanningByToken, getOccurrencesByMaster } from '$lib/services/planningActions';
-import { syncService } from '$lib/services/syncService';
-import { realtimeService } from '$lib/services/realtime.svelte';
+import type {
+	PlanningMaster,
+	PlanningOccurrence,
+	Participant,
+	Task,
+	ParticipantResponse,
+	OccurrenceComment
+} from '$lib/types/planning.types';
+import { getPlanningByToken } from '$lib/services/planningActions';
+import { commentStateService } from '$lib/services/commentStateService';
 import { userStore } from '$lib/stores/userStore.svelte';
-import { SvelteMap } from 'svelte/reactivity';
+import { networkStore } from '$lib/stores/networkStore.svelte';
 import { pb } from '$lib/pocketbase/pb';
+import { createSyncCollection, mergeByKey } from '$lib/pb-sync/collection';
+import { db } from '$lib/pb-sync/db';
+import { liveQuery } from 'dexie';
+import type { Subscription } from 'dexie';
 
-// Type de retour pour getOrFetchMaster (en dehors de la classe)
+// Compteur de subscriptions actives pour networkStore
+let activeSubscriptionCount = 0;
+
+function notifySubscriptionChange(active: boolean) {
+	activeSubscriptionCount += active ? 1 : -1;
+	if (activeSubscriptionCount < 0) activeSubscriptionCount = 0;
+	networkStore.setHasActiveSubscription(activeSubscriptionCount > 0);
+}
+
+// pb-sync collections avec merge strategies pour la résolution de conflits
+export const mastersCollection = createSyncCollection<PlanningMaster>(
+	pb,
+	db.masters,
+	'planning_masters',
+	{
+		mergeStrategies: {
+			participants: mergeByKey<Participant>('id'),
+			tasks: mergeByKey<Task>('id')
+		},
+		onSubscriptionChange: notifySubscriptionChange
+	}
+);
+
+export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
+	pb,
+	db.occurrences,
+	'planning_occurrences',
+	{
+		mergeStrategies: {
+			responses: mergeByKey<ParticipantResponse>('participantId'),
+			comments: mergeByKey<OccurrenceComment>('id'),
+			tasks: mergeByKey<Task>('id')
+		},
+		onSubscriptionChange: notifySubscriptionChange
+	}
+);
+
+// Type de retour pour getOrFetchMaster
 type GetOrFetchMasterResult = PlanningMaster | { error: 'network' | 'not_found' };
 
 class PlanningStore {
@@ -15,77 +62,215 @@ class PlanningStore {
 	// Mapping pour l'invalidation : masterId → Set<tokens>
 	#masterTokens = new Map<string, Set<string>>();
 
-	#masters = new SvelteMap<string, PlanningMaster>();
-	#occurrences = new SvelteMap<string, PlanningOccurrence[]>();
 	// État page-scoped (planning actif, guest ou connecté)
 	#activeMasterId = $state<string | null>(null);
-
+	#currentToken = $state<string | null>(null);
 	#selectedOccurrenceId = $state<string | null>(null);
-
 	#isLoading = $state(false);
-	// Type d'erreur pour distinguer réseau vs 404
 	#error = $state<{
-		type: 'network' | 'not_found';
+		type: 'network' | 'not_found' | 'deleted';
 		message: string;
 	} | null>(null);
 
-	constructor() {
-		// Enregistrement unique des handlers — realtimeService ne connaît plus planningStore
-		realtimeService.registerHandlers({
-			onMasterChange: (action, record) => this.#handleMasterEvent(action, record),
-			onOccurrenceChange: (action, record) => this.#handleOccurrenceEvent(action, record)
-		});
+	// Dexie-backed reactive state — mis à jour par liveQuery subscriptions
+	#master = $state<PlanningMaster | null>(null);
+	#occurrences = $state<PlanningOccurrence[]>([]);
+	#masterSub: Subscription | null = null;
+	#occurrencesSub: Subscription | null = null;
+
+	// LiveQuery global pour sidebar/homepage
+	#allMasters = $state<PlanningMaster[]>([]);
+	#allMastersSub: Subscription | null = null;
+
+	// Masters dont l'existence sur le serveur a été vérifiée ce session
+	#verifiedMasterIds = new Set<string>();
+
+	// === Getters page-scoped ===
+
+	get master(): PlanningMaster | null {
+		return this.#master;
+	}
+	get occurrences(): PlanningOccurrence[] {
+		return this.#occurrences;
 	}
 
-	// Getters dérivés pour la page active
-	get master() {
-		return this.#activeMasterId ? (this.#masters.get(this.#activeMasterId) ?? null) : null;
-	}
-	get occurrences() {
-		return this.#activeMasterId ? (this.#occurrences.get(this.#activeMasterId) ?? []) : [];
-	}
-
-	get currentOccurrence() {
+	get currentOccurrence(): PlanningOccurrence | null {
 		return this.occurrences.find((o) => o.id === this.#selectedOccurrenceId) ?? null;
 	}
 
-	get selectedOccurrenceId() {
+	get selectedOccurrenceId(): string | null {
 		return this.#selectedOccurrenceId;
 	}
-
-	get activeMasterId() {
+	get activeMasterId(): string | null {
 		return this.#activeMasterId;
 	}
-
-	get isLoading() {
+	get isLoading(): boolean {
 		return this.#isLoading;
 	}
-
 	get error() {
 		return this.#error;
 	}
 
-	// Flag pour éviter les re-fetchs lors de navigations rapides
-	#currentToken = $state<string | null>(null);
+	// === Getters globaux (sidebar/homepage) ===
+
+	/** Masters actifs (non supprimés), triés par titre */
+	get activeMasters(): PlanningMaster[] {
+		return this.#allMasters
+			.filter((m) => !m.deleted)
+			.sort((a, b) => a.title.localeCompare(b.title));
+	}
+
+	/** Masters supprimés détectés */
+	get deletedMasters(): PlanningMaster[] {
+		return this.#allMasters.filter((m) => m.deleted === true);
+	}
+
+	// === Helpers ===
+
+	hasAdminAccess(masterId: string): boolean {
+		const master = this.#allMasters.find((m) => m.id === masterId);
+		return !!master && !!master.adminToken;
+	}
+
+	getAdminToken(masterId: string): string | undefined {
+		return this.#allMasters.find((m) => m.id === masterId)?.adminToken;
+	}
+
+	// === Initialisation ===
+
+	/**
+	 * Initialise le liveQuery global sur db.masters (sidebar/homepage).
+	 * Appelé depuis userStore.init() une fois l'auth prête.
+	 */
+	initGlobalSync() {
+		if (this.#allMastersSub) return; // Déjà initialisé
+		this.#allMastersSub = liveQuery(() => db.masters.toArray()).subscribe({
+			next: (val) => {
+				this.#allMasters = val;
+			}
+		});
+	}
+
+	#destroyGlobalSync() {
+		this.#allMastersSub?.unsubscribe();
+		this.#allMastersSub = null;
+		this.#allMasters = [];
+	}
+
+	// === LiveQuery page-scoped ===
+
+	/**
+	 * Subscribe aux liveQuery Dexie pour le master et ses occurrences.
+	 * Les $state #master et #occurrences se mettent à jour automatiquement.
+	 */
+	#subscribeDexieQueries(masterId: string) {
+		this.#masterSub?.unsubscribe();
+		this.#occurrencesSub?.unsubscribe();
+		this.#master = null;
+		this.#occurrences = [];
+
+		this.#masterSub = liveQuery(() => db.masters.get(masterId)).subscribe({
+			next: (val) => {
+				this.#master = val ?? null;
+			}
+		});
+
+		this.#occurrencesSub = liveQuery(() =>
+			db.occurrences.where('master').equals(masterId).sortBy('date')
+		).subscribe({
+			next: (val) => {
+				this.#occurrences = val;
+			}
+		});
+	}
+
+	#unsubscribeDexieQueries() {
+		this.#masterSub?.unsubscribe();
+		this.#masterSub = null;
+		this.#occurrencesSub?.unsubscribe();
+		this.#occurrencesSub = null;
+		this.#master = null;
+		this.#occurrences = [];
+	}
+
+	// === Suppression détectée ===
+
+	/**
+	 * Marque un master et ses occurrences comme deleted en local.
+	 * Le flag deleted: true dans masters sert de source de vérité pour l'UI.
+	 */
+	async #markAsDeleted(masterId: string): Promise<void> {
+		const master = await db.masters.get(masterId);
+		if (master) {
+			await db.masters.put({ ...master, deleted: true } as PlanningMaster);
+		}
+
+		const occs = await db.occurrences.where('master').equals(masterId).toArray();
+		if (occs.length > 0) {
+			await db.occurrences.bulkPut(
+				occs.map((o) => ({ ...o, deleted: true }) as PlanningOccurrence)
+			);
+		}
+
+		const tokens = this.#masterTokens.get(masterId);
+		if (tokens) {
+			for (const t of tokens) this.#tokenCache.delete(t);
+			this.#masterTokens.delete(masterId);
+		}
+	}
+
+	/**
+	 * Supprime définitivement les masters marqués deleted et leurs données associées.
+	 */
+	async cleanDeletedPlannings(): Promise<void> {
+		const deletedIds = this.#allMasters.filter((m) => m.deleted === true).map((m) => m.id);
+
+		if (deletedIds.length === 0) return;
+
+		await db.masters.bulkDelete(deletedIds);
+
+		const allOccIds: string[] = [];
+		for (const id of deletedIds) {
+			const occs = await db.occurrences.where('master').equals(id).toArray();
+			allOccIds.push(...occs.map((o) => o.id));
+		}
+		if (allOccIds.length > 0) await db.occurrences.bulkDelete(allOccIds);
+
+		// Nettoyer les localMeta orphelins (identités guest pour plannings supprimés)
+		for (const id of deletedIds) {
+			await db.localMeta.delete(id);
+		}
+	}
+
+	// === Résolution de token ===
+
+	/**
+	 * Résout un token en PlanningMaster depuis Dexie (sans réseau).
+	 * participantToken et adminToken sont indexés dans la table masters.
+	 * Retourne null si pas trouvé localement.
+	 */
+	async #resolveMasterFromDexie(token: string): Promise<PlanningMaster | null> {
+		let master = await db.masters.where('participantToken').equals(token).first();
+		if (master) return master;
+		master = await db.masters.where('adminToken').equals(token).first();
+		return master ?? null;
+	}
+
+	// === Activation de planning ===
 
 	/**
 	 * Active un planning à partir de son token (participant ou admin).
-	 * Cette méthode est appelée par le layout qui observe $page.params.token.
-	 *
-	 * @param token - Le token du planning (participantToken ou adminToken)
-	 * @param dateFilter - Optionnel : 'future' (défaut), 'past', ou 'all'
+	 * Appelé par le layout qui observe $page.params.token.
 	 */
 	async setActiveToken(
 		token: string | undefined,
-		dateFilter: 'future' | 'past' | 'all' = 'future'
+		_dateFilter: 'future' | 'past' | 'all' = 'future'
 	): Promise<void> {
-		// Cas 1: pas de token → désactiver le planning actif
 		if (!token) {
 			this.#deactivate();
 			return;
 		}
 
-		// Éviter les re-fetchs si même token
 		if (this.#currentToken === token) return;
 
 		this.#isLoading = true;
@@ -93,62 +278,11 @@ class PlanningStore {
 		this.#currentToken = token;
 
 		try {
-			// Cas 2: résoudre token → masterId
-			const result = await this.getOrFetchMaster(token);
-
-			// Erreur typée (réseau ou not_found)
-			if ('error' in result) {
-				this.#error = {
-					type: result.error,
-					message: result.error === 'network' ? 'Connexion impossible' : 'Planning introuvable'
-				};
-				this.#activeMasterId = null;
-				return;
+			if (userStore.isLoggedIn) {
+				await this.#setActiveAuth(token);
+			} else {
+				await this.#setActiveGuest(token);
 			}
-
-			// result est maintenant de type PlanningMaster (le type guard a fonctionné)
-			const master = result;
-
-			// Cas 3: masterId inchangé → NOP (optimisation)
-			if (this.#activeMasterId === master.id) {
-				return;
-			}
-
-			// Cas 4: nouveau master
-			this.#activeMasterId = master.id;
-			this.#masters.set(master.id, master);
-
-			// Charger occurrences avec le bon filtre
-			const occs = await getOccurrencesByMaster(master.id, token, { dateFilter });
-			this.#occurrences.set(master.id, occs);
-
-			// Sauvegarder dans savedPlannings
-			const identity = userStore.getPlanningIdentity(master.id);
-			const isAdmin = token.length === 64;
-			await userStore.savePlanning({
-				masterId: master.id,
-				title: master.title!,
-				participantToken: master.participantToken!,
-				...(isAdmin ? { adminToken: token } : {}),
-				lastAccessed: new Date().toISOString(),
-				currentUser: identity || undefined,
-				isSync: userStore.isLoggedIn ? false : undefined
-			});
-
-			// Synchronisation PocketBase (seulement si pas déjà sync)
-			if (userStore.isLoggedIn && !this.#isAlreadySynced(master.id)) {
-				await syncService.sync(userStore.savedPlannings);
-			}
-
-			// Realtime (guest uniquement - guard déjà présent dans realtimeService)
-			if (!userStore.isLoggedIn) {
-				try {
-					await realtimeService.subscribeToMaster(master.id, token);
-				} catch (err) {
-					console.warn('Realtime subscription failed (non-blocking):', err);
-				}
-			}
-			// console.log(this.activeMasterId);
 		} catch (err) {
 			console.error('PlanningStore setActiveToken error:', err);
 			this.#error = { type: 'network', message: 'Erreur lors du chargement' };
@@ -158,195 +292,127 @@ class PlanningStore {
 	}
 
 	/**
-	 * Désactive le planning actif (appelé quand on quitte une page planning).
-	 * Nettoie les souscriptions realtime et reset l'état.
+	 * Auth fast path : résout le master depuis Dexie, vérifie son existence sur le serveur,
+	 * puis branche les liveQuery.
 	 */
+	async #setActiveAuth(token: string): Promise<void> {
+		const master = await this.#resolveMasterFromDexie(token);
+
+		if (!master) {
+			// Pas encore en Dexie — sync en cours ou planning nouvellement partagé.
+			// Fallback sur le chemin réseau.
+			console.info('[PlanningStore] Master not in Dexie, fallback to network fetch');
+			return this.#setActiveGuest(token);
+		}
+
+		// Déjà marqué supprimé localement (détection précédente)
+		if (master.deleted) {
+			this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
+			return;
+		}
+
+		// Vérifier l'existence sur le serveur (une seule fois par session)
+		if (!this.#verifiedMasterIds.has(master.id)) {
+			try {
+				await pb.collection('planning_masters').getOne(master.id, {
+					fields: 'id',
+					requestKey: null
+				});
+				this.#verifiedMasterIds.add(master.id);
+			} catch (err: any) {
+				if (err?.status === 404) {
+					await this.#markAsDeleted(master.id);
+					this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
+					return;
+				}
+				// Erreur réseau → non-bloquant, on affiche les données locales (potentiellement obsolètes)
+				console.warn('[PlanningStore] Could not verify master existence:', err?.message);
+			}
+		}
+
+		if (this.#activeMasterId === master.id) return;
+
+		this.#activeMasterId = master.id;
+		this.#subscribeDexieQueries(master.id);
+	}
+
+	/**
+	 * Guest full path : fetch réseau → stockage Dexie → abonnement pb-sync realtime.
+	 * Utilisé aussi comme fallback pour les users auth si le master n'est pas en Dexie.
+	 */
+	async #setActiveGuest(token: string): Promise<void> {
+		const result = await this.getOrFetchMaster(token);
+
+		if ('error' in result) {
+			if (result.error === 'not_found') {
+				// Vérifier si on a des données locales → planning supprimé sur le serveur
+				const localMaster = await this.#resolveMasterFromDexie(token);
+				if (localMaster) {
+					await this.#markAsDeleted(localMaster.id);
+					this.#error = {
+						type: 'deleted',
+						message: 'Ce planning a été supprimé par son administrateur'
+					};
+				} else {
+					this.#error = { type: 'not_found', message: 'Planning introuvable' };
+				}
+			} else {
+				this.#error = { type: result.error, message: 'Connexion impossible' };
+			}
+			this.#activeMasterId = null;
+			this.#unsubscribeDexieQueries();
+			return;
+		}
+
+		const master = result;
+
+		if (this.#activeMasterId === master.id) return;
+
+		// update() merge les champs — préserve les champs locaux non présents dans le fetch PB
+		// (ex: adminToken masqué par onRecordEnrich). put() si le record n'existe pas encore.
+		const existing = await db.masters.get(master.id);
+		if (existing) {
+			await db.masters.update(master.id, master as any);
+		} else {
+			await db.masters.put(master);
+		}
+		this.#activeMasterId = master.id;
+
+		// Fetch occurrences (delta sync incrémental via updated > since)
+		await occurrencesCollection.initialFetch({
+			filter: ['master = {:masterId}', { masterId: master.id }],
+			query: { _token: token }
+		});
+
+		this.#subscribeDexieQueries(master.id);
+
+		const identity = userStore.getIdentityForPlanning(master.id);
+		if (identity) {
+			const occs = await db.occurrences.where('master').equals(master.id).toArray();
+			commentStateService.backfillCommentState(master.id, occs, identity.id);
+		}
+
+		// Realtime via pb-sync (guest uniquement)
+		if (!userStore.isLoggedIn) {
+			try {
+				mastersCollection.subscribe({ record: master.id, query: { _token: token } });
+				occurrencesCollection.subscribe({
+					filter: ['master = {:masterId}', { masterId: master.id }],
+					query: { _token: token }
+				});
+			} catch (err) {
+				console.warn('pb-sync subscription failed (non-blocking):', err);
+			}
+		}
+	}
+
 	#deactivate(): void {
-		realtimeService.unsubscribe();
+		this.#unsubscribeDexieQueries();
+		mastersCollection.unsubscribeAll();
+		occurrencesCollection.unsubscribeAll();
 		this.#activeMasterId = null;
 		this.#selectedOccurrenceId = null;
 		this.#currentToken = null;
-	}
-
-	/**
-	 * Vérifie si un planning est déjà synchronisé avec PocketBase.
-	 * Un planning est considéré sync si son masterId est dans pb.authStore.record.masterId[]
-	 * ou s'il est une clé de pb.authStore.record.adminOf.
-	 */
-	#isAlreadySynced(masterId: string): boolean {
-		const record = pb.authStore.record;
-		if (!record) return false;
-
-		const masterIds = record.masterId || [];
-		const adminOfKeys = Object.keys(record.adminOf || {});
-
-		return masterIds.includes(masterId) || adminOfKeys.includes(masterId);
-	}
-
-	/**
-	 * @deprecated Utiliser setActiveToken() à la place. Cette méthode est conservée
-	 * pour compatibilité mais ne devrait plus être appelée directement par les pages.
-	 */
-	async init(
-		token: string,
-		options: { dateFilter: 'future' | 'past' | 'all' } = { dateFilter: 'future' }
-	) {
-		this.#isLoading = true;
-		this.#error = null;
-
-		try {
-			// Utiliser le cache si disponible
-			const result = await this.getOrFetchMaster(token);
-
-			// Erreur typée (réseau ou not_found)
-			if ('error' in result) {
-				this.#error = {
-					type: result.error,
-					message: result.error === 'network' ? 'Connexion impossible' : 'Planning introuvable'
-				};
-				return null;
-			}
-
-			const master = result;
-
-			// Mettre en cache dans la Map
-			this.#masters.set(master.id, master);
-			this.#activeMasterId = master.id;
-
-			// Déterminer si l'utilisateur est admin (basé sur la longueur car adminToken est masqué)
-			const isAdmin = token.length === 64;
-
-			// Toujours re-fetcher les occurrences pour la page active (sauf si déjà chargées globalement par sync)
-			// On ne se fie plus uniquement à .has() car le sync initial peut être partiel
-			const occs = await getOccurrencesByMaster(master.id, token, options);
-			this.#occurrences.set(master.id, occs);
-			// Sauvegarde
-			const identity = userStore.getPlanningIdentity(master.id);
-			await userStore.savePlanning({
-				masterId: master.id,
-				title: master.title!,
-				participantToken: master.participantToken!,
-				...(isAdmin ? { adminToken: token } : {}),
-				lastAccessed: new Date().toISOString(),
-				currentUser: identity || undefined,
-				isSync: userStore.isLoggedIn ? false : undefined // false si auth, undefined si guest
-			});
-
-			// Déclencher la synchronisation si l'utilisateur est connecté pour assurer masterId/adminOf
-			// TOCHEK : est-ce que l'on ne pourrait/devrait pas verifier pb.authStore avant, pour savoir si ce planning est déjà synchronisé avec le backend (users.masterId et users.adminOf si tokenAdmin) ??
-			if (userStore.isLoggedIn) {
-				await syncService.sync(userStore.savedPlannings);
-			}
-
-			// Guest uniquement — auth est couvert par subscribeGlobally() dans le layout
-			try {
-				await realtimeService.subscribeToMaster(master.id, token);
-			} catch (err) {
-				console.warn('Realtime subscription failed (non-blocking):', err);
-			}
-
-			return { master, isAdmin };
-		} catch (err) {
-			console.error('PlanningStore init error:', err);
-			this.#error = { type: 'network', message: 'Erreur lors du chargement' };
-			return null;
-		} finally {
-			this.#isLoading = false;
-		}
-	}
-
-	#handleMasterEvent(action: string, record: any) {
-		// Guard : ignorer les events qui ne concernent pas un master connu
-		if (!this.#masters.has(record.id) && action !== 'create') return;
-
-		if (action === 'update') {
-			// Dédoublonner les participants par ID
-			const participants = record.participants || [];
-			const uniqueParticipants = Array.from(
-				new Map(participants.map((p: any) => [p.id, p])).values()
-			);
-			const updated: PlanningMaster = {
-				...record,
-				tasks: record.tasks || [],
-				participants: uniqueParticipants || []
-			};
-			this.#masters.set(record.id, updated);
-
-			userStore.savePlanning({
-				masterId: updated.id,
-				title: updated.title!,
-				participantToken: updated.participantToken!,
-				lastAccessed: new Date().toISOString()
-			});
-
-			// ✅ Propager au tokenCache pour éviter de servir des données stales
-			const tokens = this.#masterTokens.get(updated.id);
-			if (tokens) {
-				for (const t of tokens) {
-					this.#tokenCache.set(t, updated);
-				}
-			}
-		} else if (action === 'delete') {
-			this.#masters.delete(record.id);
-			this.#occurrences.delete(record.id);
-		}
-	}
-
-	#handleOccurrenceEvent(action: string, record: any) {
-		const masterId = record.master;
-		if (!masterId) return;
-
-		const current = this.#occurrences.get(masterId) ?? [];
-
-		const occurrence: PlanningOccurrence = {
-			...record,
-			tasks: record.tasks || [],
-			responses: record.responses || [],
-			comments: record.comments || []
-		};
-
-		switch (action) {
-			case 'create':
-			case 'update':
-				// UPSERT : Si existe → update, sinon → create
-				// Toujours garantir l'unicité par ID
-				this.#occurrences.set(
-					masterId,
-					[
-						...current.filter((o) => o.id !== occurrence.id), // Supprimer l'ancienne version si existe
-						occurrence // Ajouter la nouvelle version
-					].sort((a, b) => a.date.localeCompare(b.date)) // Garder le tri
-				);
-				break;
-			case 'delete':
-				this.#occurrences.set(
-					masterId,
-					current.filter((o) => o.id !== occurrence.id)
-				);
-				break;
-		}
-	}
-
-	async refreshActive(): Promise<void> {
-		if (!this.#activeMasterId) return;
-		const saved = userStore.savedPlannings.find((p) => p.masterId === this.#activeMasterId);
-		if (!saved) return;
-
-		const token = saved.adminToken ?? saved.participantToken;
-		const occs = await getOccurrencesByMaster(this.#activeMasterId, token, {
-			dateFilter: 'future'
-		});
-		this.#occurrences.set(this.#activeMasterId, occs);
-	}
-
-	/**
-	 * Stocker les occurrences retournées par l'API sync
-	 * Utilisé lors de la synchronisation initiale et de la reconnexion réseau
-	 */
-	setOccurrencesForMasters(occurrencesMap: Record<string, PlanningOccurrence[]>): void {
-		for (const [masterId, occs] of Object.entries(occurrencesMap)) {
-			this.#occurrences.set(masterId, occs);
-		}
 	}
 
 	// --- Cache ---
@@ -356,7 +422,6 @@ class PlanningStore {
 
 		const result = await getPlanningByToken(token);
 
-		// Propager l'erreur typée
 		if ('error' in result) {
 			return { error: result.error };
 		}
@@ -375,53 +440,34 @@ class PlanningStore {
 		this.#masterTokens.clear();
 	}
 
-	// --- Cleanup ---
-
-	/**
-	 * @deprecated Cette méthode ne devrait plus être appelée directement.
-	 * Le layout gère maintenant l'activation/désactivation via setActiveToken().
-	 * Conservée pour compatibilité éventuelle.
-	 */
-	cleanup() {
-		this.#deactivate();
-	}
-
-	// --- Setters ---
+	// --- Actions ---
 
 	setSelectedOccurrenceId(id: string | null) {
 		this.#selectedOccurrenceId = id;
 	}
-	setOccurrences(occs: PlanningOccurrence[]) {
-		if (this.#activeMasterId) this.#occurrences.set(this.#activeMasterId, occs);
-	}
 
-	updateOccurrenceLocally(occurrence: PlanningOccurrence) {
+	async refreshActive(): Promise<void> {
 		if (!this.#activeMasterId) return;
-		const current = this.#occurrences.get(this.#activeMasterId) ?? [];
-		this.#occurrences.set(
-			this.#activeMasterId,
-			[...current.filter((o) => o.id !== occurrence.id), occurrence].sort((a, b) =>
-				a.date.localeCompare(b.date)
-			)
-		);
+		const master = await db.masters.get(this.#activeMasterId);
+		if (!master) return;
+
+		const token = master.adminToken ?? master.participantToken;
+		if (!token) return;
+
+		await occurrencesCollection.initialFetch({
+			filter: ['master = {:masterId}', { masterId: this.#activeMasterId }],
+			query: { _token: token }
+		});
 	}
 
-	updateParticipants(participants: PlanningMaster['participants']) {
-		if (!this.#activeMasterId) return;
-		const master = this.#masters.get(this.#activeMasterId);
-		if (master) this.#masters.set(this.#activeMasterId, { ...master, participants });
-	}
-
-	updateMaster(master: PlanningMaster) {
-		this.#masters.set(master.id, master);
-
-		// ✅ Propager au tokenCache
-		const tokens = this.#masterTokens.get(master.id);
-		if (tokens) {
-			for (const t of tokens) {
-				this.#tokenCache.set(t, master);
-			}
-		}
+	/**
+	 * Détruit tout : utilisé par logout/clearAll.
+	 */
+	destroy() {
+		this.#deactivate();
+		this.#destroyGlobalSync();
+		this.invalidateAll();
+		this.#verifiedMasterIds.clear();
 	}
 }
 

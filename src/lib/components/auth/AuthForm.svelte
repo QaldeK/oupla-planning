@@ -134,14 +134,14 @@
 				// Authentification auto
 				await pb.collection('users').authWithPassword(email, password);
 
-				// La synchronisation des plannings est gérée par syncService dans le layout
+				// La synchronisation des plannings est gérée par userStore via pb.authStore.onChange
 
 				toast.success('Compte créé avec succès !');
 			} else {
 				// Mode Login
 				await pb.collection('users').authWithPassword(email, password);
 
-				// La synchronisation des plannings est gérée par syncService dans le layout
+				// La synchronisation des plannings est gérée par userStore via pb.authStore.onChange
 
 				toast.success('Connexion réussie !');
 			}
@@ -178,6 +178,7 @@
 					required
 					autocomplete="name"
 					disabled={isSubmitting}
+					maxlength="36"
 				/>
 			</label>
 		</fieldset>

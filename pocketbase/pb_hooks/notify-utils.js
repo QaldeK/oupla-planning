@@ -7,6 +7,27 @@
 
 module.exports = {
 	// ============================================================================
+	// FORMATTAGE
+	// ============================================================================
+
+	/**
+	 * Formater une date ISO en format court français.
+	 * "2026-03-31" → "mar. 31 mars"
+	 */
+	formatDateFR(dateStr) {
+		try {
+			const date = new Date(dateStr + 'T00:00:00Z');
+			return date.toLocaleDateString('fr-FR', {
+				weekday: 'short',
+				day: 'numeric',
+				month: 'short'
+			});
+		} catch {
+			return dateStr;
+		}
+	},
+
+	// ============================================================================
 	// ENVOI DE NOTIFICATIONS
 	// ============================================================================
 

@@ -11,6 +11,7 @@
 	import { goto } from '$app/navigation';
 	import { syncService } from '$lib/services/syncService';
 	import type { Participant } from '$lib/types/planning.types';
+	import { pb } from '$lib/pocketbase/pb';
 
 	let isSubmitting = $state(false);
 
@@ -40,19 +41,18 @@
 				participantToken
 			);
 
-			// Sauvegarder dans le localStorage
-			await userStore.savePlanning({
-				masterId: master.id,
-				title: master.title,
-				adminToken: adminToken,
-				participantToken: participantToken,
-				lastAccessed: new Date().toISOString()
-			});
-
-			// Déclencher la synchronisation si l'utilisateur est connecté
+			// Peupler adminOf + masterId sur le user auth
 			if (userStore.isLoggedIn) {
-				await syncService.sync(userStore.savedPlannings);
+				pb.send('/api/claim-admin', {
+					method: 'POST',
+					body: { token: adminToken }
+				})
+					.then(() => pb.collection('users').authRefresh())
+					.catch(() => {});
 			}
+
+			// Déclencher la synchronisation (lit les tokens depuis db.masters)
+			await syncService.sync();
 
 			toast.success('Planning créé avec succès !');
 

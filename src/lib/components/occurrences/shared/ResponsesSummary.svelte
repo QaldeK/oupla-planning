@@ -108,9 +108,9 @@
 			'hover:cursor-pointer hover:ring-2'} max-sm:w-full {config.ringClass} {config.borderClass}"
 		onclick={() => !isPastDate && onResponseSelect(type)}
 	>
-		<div class="flex min-w-20 flex-1 flex-wrap items-center justify-start gap-1">
+		<div class="flex min-w-20 flex-1 flex-wrap items-center gap-1">
 			<div
-				class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium opacity-80 {config.bgClass}"
+				class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium opacity-80 {config.bgClass}"
 			>
 				<Icon size={16} />
 				<span
@@ -133,7 +133,7 @@
 			{/if}
 			{#if currentUserResponseType !== type}
 				<!-- <div class="flex-1"></div> -->
-				<div class="ms-auto flex items-center self-end p-1">
+				<div class="ms-auto flex items-center px-2 py-1">
 					<div
 						class="badge opacity-70 {!disabled &&
 							'group-hover:scale-110'} {config.badgeClass} {config.borderClass}"
@@ -148,7 +148,7 @@
 
 {#snippet responseMinimal()}
 	<div class="flex flex-wrap gap-x-6 gap-y-2">
-		<div class="flex w-full flex-col sm:flex-1">
+		<div class="flex w-full max-w-md flex-col sm:flex-1">
 			<!-- Grid de boutons pour répondre -->
 			<legend class="mb-1 text-xs opacity-60">Votre réponse: </legend>
 			<div
@@ -188,8 +188,9 @@
 
 		<!-- Badges des participants (triés par type: present, if_needed, maybe, absent) -->
 		<div class="flex flex-col sm:flex-1">
-			<legend class="mb-1 text-xs opacity-60">Toutes les réponses: </legend>
-
+			<legend class="mb-1 text-xs opacity-60 {responses.length === 0 && 'hidden'}"
+				>Toutes les réponses:
+			</legend>
 			<div class="flex flex-wrap gap-1">
 				{#each AVAILABLE_RESPONSE_TYPES as type (type)}
 					{@const config = RESPONSE_TYPE_CONFIG[type]}

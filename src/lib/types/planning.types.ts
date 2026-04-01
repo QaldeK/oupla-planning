@@ -100,9 +100,8 @@ export interface PlanningMaster {
 	lastModifiedBy?: string; // ID de l'utilisateur ayant fait la dernière modif
 	created: string;
 	updated: string;
+	deleted?: boolean; // Flag local Dexie (planning supprimé côté serveur)
 }
-
-// === View Types ===
 
 export type ViewType = 'card' | 'compact' | 'minimal';
 export type ThemeType = 'my' | 'nord-dark';
@@ -125,10 +124,14 @@ export interface PlanningIdentity {
 
 export interface SavedPlanning {
 	masterId: string;
-	title: string;
-	adminToken?: string;
-	participantToken: string;
-	lastAccessed: string;
-	currentUser?: PlanningIdentity; // Identité de l'user sur CE planning
-	isSync?: boolean; // false par défaut, true après sync réussie avec le serveur
+	currentUser?: PlanningIdentity;
+}
+
+// === Comment State (local-only, Dexie) ===
+
+export interface CommentState {
+	occurrenceId: string;
+	masterId: string;
+	isUserInConversation: boolean;
+	lastReadAt: string;
 }

@@ -60,6 +60,7 @@
 		if (!readOnly && !isPastDate && !isSubmitting) {
 			onToggle();
 		}
+		handleClose();
 	}
 </script>
 

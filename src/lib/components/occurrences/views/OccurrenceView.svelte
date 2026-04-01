@@ -1,6 +1,9 @@
 <script lang="ts">
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import { updateOccurrence } from '$lib/services/planningActions';
+	import { commentStateService } from '$lib/services/commentStateService';
+	import { db } from '$lib/pb-sync/db';
+	import { useLiveQuery } from '$lib/pb-sync/use-live-query.svelte';
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
@@ -29,9 +32,7 @@
 	let { occurrence, master, currentUserId, isAdmin, readOnly = false }: ViewProps = $props();
 
 	let showEditModal = $state(false);
-	const token = $derived(
-		isAdmin ? userStore.getAdminToken(master.id) || master.adminToken : master.participantToken
-	)!;
+	const token = $derived(isAdmin ? master.adminToken : master.participantToken)!;
 	const viewMode = $derived(userStore.appPreferences.occurrenceView);
 
 	// Logique de confirmation/annulation basées sur le master pour toConfirm
@@ -87,7 +88,6 @@
 				token,
 				occurrence
 			);
-			planningStore.updateOccurrenceLocally(updated);
 			toast.success(updated.isConfirmed ? 'Événement confirmé' : 'Confirmation annulée');
 		} catch (_error) {
 			toast.error('Erreur lors de la confirmation');
@@ -103,7 +103,6 @@
 				token,
 				occurrence
 			);
-			planningStore.updateOccurrenceLocally(updated);
 			toast.success('Événement rétabli');
 		} catch (_error) {
 			toast.error('Erreur lors du rétablissement');
@@ -153,6 +152,14 @@
 	});
 
 	const needsConfirmationWarning = $derived(missingPresences > 0 || incompleteTasks.length > 0);
+
+	const commentStateQuery = useLiveQuery(
+		() => db.commentState.get(occurrence.id),
+		() => [occurrence.id]
+	);
+	const hasUnread = $derived(
+		commentStateService.hasUnreadComments(occurrence, commentStateQuery.current)
+	);
 </script>
 
 {#if viewMode === 'card'}
@@ -165,16 +172,6 @@
 
 {#snippet actionCompact()}
 	<div class="flex items-center justify-end gap-2">
-		<!-- Comment button -->
-		<button
-			class="btn btn-ghost sm:btn-sm gap-1"
-			onclick={openCommentDrawer}
-			aria-label="Voir les commentaires"
-		>
-			<MessageSquare size={16} />
-			<span class="text-sm">{occurrence.comments.length}</span>
-		</button>
-
 		<!-- Admin quick actions -->
 		{#if isAdmin}
 			<div class="flex gap-1">
@@ -214,6 +211,21 @@
 				<Pencil size={16} />
 			</button>
 		{/if}
+
+		<!-- Comment button -->
+		<button
+			class="btn btn-ghost sm:btn-sm gap-1"
+			onclick={openCommentDrawer}
+			aria-label="Voir les commentaires"
+		>
+			<span class="relative">
+				<MessageSquare size={16} />
+				{#if hasUnread}
+					<span class="bg-primary absolute -top-1 -right-1 size-2 rounded-full"></span>
+				{/if}
+			</span>
+			<span class="text-sm">{occurrence.comments.length}</span>
+		</button>
 	</div>
 {/snippet}
 
@@ -436,7 +448,12 @@
 
 			<!-- Commentaires -->
 			<button class="btn btn-ghost mt-3 self-end" onclick={openCommentDrawer}>
-				<MessageSquare class="mr-1 inline h-4 w-4" />
+				<span class="relative mr-1 inline">
+					<MessageSquare class="h-4 w-4" />
+					{#if hasUnread}
+						<span class="bg-primary absolute -top-1 -right-1 size-2 rounded-full"></span>
+					{/if}
+				</span>
 				Afficher les commentaires ({occurrence.comments.length})
 			</button>
 		</div>
@@ -481,47 +498,9 @@
 			{/if}
 
 			<div class="ms-auto flex items-center gap-3">
-				<!-- Comments -->
-				<button
-					class="btn btn-ghost btn-sm gap-0.5"
-					onclick={openCommentDrawer}
-					aria-label="Voir les commentaires"
-				>
-					<MessageSquare size={16} />
-					<span class="text-sm">{occurrence.comments.length}</span>
-				</button>
-
-				<!-- Admin actions -->
-				{#if isAdmin}
-					{#if showQuickConfirm}
-						<button
-							class="btn btn-ghost btn-sm"
-							onclick={toggleConfirm}
-							disabled={occState.isNetworkUnavailable}
-							title="Confirmer la tenue"
-						>
-							<CalendarCheckIcon size={16} />
-						</button>
-					{/if}
-					{#if showQuickRestore}
-						<button
-							class="btn btn-ghost btn-sm"
-							onclick={restoreEvent}
-							title="Rétablir l'événement"
-							disabled={occState.isNetworkUnavailable}
-						>
-							<CalendarSyncIcon size={16} />
-						</button>
-					{/if}
-					<button
-						class="btn btn-ghost btn-sm btn-circle"
-						aria-label="Modifier"
-						onclick={() => (showEditModal = true)}
-						disabled={occState.isNetworkUnavailable}
-					>
-						<Pencil size={16} />
-					</button>
-				{/if}
+				<div class="max-sm:hidden">
+					{@render actionCompact()}
+				</div>
 			</div>
 		</div>
 
@@ -557,6 +536,9 @@
 				/>
 			</div>
 		{/if}
+		<div class="sm:hidden">
+			{@render actionCompact()}
+		</div>
 	</div>
 {/snippet}
 

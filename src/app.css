@@ -49,11 +49,12 @@
 	--color-primary-content: oklch(25.33% 0.022 252.3);
 	--color-secondary: oklch(65.71% 0.067 229.07);
 	--color-secondary-content: oklch(25.33% 0.022 252.3);
-	--color-accent: oklch(74.65% 0.046 186.29);
+	--color-accent: oklch(0.4891 0.1235 293.571);
 	--color-accent-content: oklch(25.33% 0.022 252.3);
 	--color-neutral: oklch(40.45% 0.031 254.12);
 	--color-neutral-content: oklch(93.88% 0.006 255.45);
-	--color-info: oklch(52.75% 0.089 253.93);
+	--color-info: oklch(0.567 0.089 253.93);
+	--color-info-content: oklch(0.9432 0.0335 229.695);
 	--color-success: oklch(74.52% 0.076 142.16);
 	--color-warning: oklch(82.69% 0.099 87.56);
 	--color-error: oklch(58.9% 0.142 22.11);
@@ -70,15 +71,8 @@
 }
 
 @layer base {
-	/* Desktop haute densité (Retina, 4K compact) */
-	@media (min-width: 769px) and (min-resolution: 130dpi) {
-		html {
-			font-size: clamp(14px, 0.9vw, 16px);
-		}
-	}
-
 	/* Desktop densité standard (1080p sur laptops) */
-	@media (min-width: 769px) and (min-resolution: 110dpi) and (max-resolution: 129dpi) {
+	@media (min-width: 769px) and (min-resolution: 110dpi) and (max-resolution: 139dpi) {
 		html {
 			font-size: clamp(14px, 1vw, 16px);
 		}
@@ -87,11 +81,18 @@
 	/* Desktop basse densité (grands écrans 1080p/1440p) */
 	@media (min-width: 769px) and (max-resolution: 109dpi) {
 		html {
-			font-size: clamp(15px, 1.2vw, 18px);
+			font-size: clamp(15px, 1.1vw, 18px);
+		}
+
+		/*/* Desktop haute densité (Retina, 4K compact) */
+		@media (min-width: 769px) and (min-resolution: 140dpi) {
+			html {
+				font-size: clamp(14px, 0.9vw, 16px);
+			}
 		}
 	}
 
-	html {
+	*/ html {
 		height: 100%;
 		margin: 0;
 		padding: 0;

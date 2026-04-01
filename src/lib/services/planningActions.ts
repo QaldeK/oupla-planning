@@ -1,6 +1,7 @@
 import { pb } from '$lib/pocketbase/pb';
 import { generateRecurrenceDates } from '$lib/utils/recurrence';
-import { userStore } from '$lib/stores/userStore.svelte';
+import { mastersCollection, occurrencesCollection } from '$lib/stores/planningStore.svelte';
+import { commentStateService } from '$lib/services/commentStateService';
 import { format } from 'date-fns';
 import type {
 	PlanningMaster,
@@ -80,9 +81,9 @@ export async function createPlanning(
 	const finalAdminToken = adminToken || generateAdminToken();
 	const finalParticipantToken = participantToken || generateParticipantToken();
 
-	return await pb.collection('planning_masters').create<PlanningMaster>({
+	return await mastersCollection.create({
 		...data,
-		tasks: sortTasks(data.tasks),
+		tasks: sortTasks(data.tasks) ?? [],
 		adminToken: finalAdminToken,
 		participantToken: finalParticipantToken,
 		participants: data.participants || [],
@@ -102,15 +103,15 @@ export async function createPlanningWithOccurrences(
 	const finalAdminToken = adminToken || generateAdminToken();
 	const finalParticipantToken = participantToken || generateParticipantToken();
 
-	// 1. Créer le planning master d'abord (pour avoir son ID)
-	const master = await pb.collection('planning_masters').create<PlanningMaster>({
+	// 1. Créer le planning master via pb-sync (PB create + Dexie put)
+	const master = await mastersCollection.create({
 		title: data.title,
 		description: data.description,
 		place: data.place,
 		defaultStartTime: data.defaultStartTime,
 		defaultEndTime: data.defaultEndTime,
 		recurrence: data.recurrence,
-		tasks: sortTasks(data.tasks),
+		tasks: sortTasks(data.tasks) ?? [],
 		minPresentRequired: data.minPresentRequired,
 		allowResponses: data.allowResponses,
 		toConfirm: data.toConfirm,
@@ -124,25 +125,24 @@ export async function createPlanningWithOccurrences(
 	// 2. Générer les dates de récurrence
 	const dates = data.recurrence.recurrenceDates || generateRecurrenceDates(data.recurrence);
 
-	// 3. Créer toutes les occurrences dans un batch
-	const batch = pb.createBatch();
-	for (const date of dates) {
-		batch.collection('planning_occurrences').create({
-			master: master.id,
-			date,
-			startTime: data.defaultStartTime,
-			endTime: data.defaultEndTime,
-			responses: [],
-			comments: [],
-			isConfirmed: false,
-			isCanceled: false,
-			adminToken: finalAdminToken,
-			participantToken: finalParticipantToken,
-			lastModifiedBy: pb.authStore.record?.id
-		});
+	// 3. Créer toutes les occurrences via pb-sync batch (PB batch + Dexie puts)
+	if (dates.length > 0) {
+		const batch = occurrencesCollection.createBatch();
+		for (const date of dates) {
+			batch.create({
+				master: master.id,
+				date,
+				startTime: data.defaultStartTime,
+				endTime: data.defaultEndTime,
+				responses: [],
+				comments: [],
+				isConfirmed: false,
+				isCanceled: false,
+				lastModifiedBy: pb.authStore.record?.id
+			});
+		}
+		await batch.send();
 	}
-
-	await batch.send();
 
 	return master;
 }
@@ -204,22 +204,16 @@ export async function updatePlanning(
 	masterId: string,
 	updates: Partial<PlanningMaster>,
 	token: string,
-	currentMaster?: PlanningMaster
+	_currentMaster?: PlanningMaster
 ): Promise<PlanningMaster> {
-	return runAtomicUpdate<PlanningMaster>(
-		'planning_masters',
-		masterId,
-		token,
-		(current) => {
-			const updateData = { ...updates, lastModifiedBy: pb.authStore.record?.id };
-			if (updateData.tasks) {
-				const sorted = sortTasks(updateData.tasks);
-				if (sorted) updateData.tasks = sorted;
-			}
-			return updateData;
-		},
-		currentMaster
-	);
+	const updateData = { ...updates, lastModifiedBy: pb.authStore.record?.id };
+	if (updateData.tasks) {
+		const sorted = sortTasks(updateData.tasks);
+		if (sorted) updateData.tasks = sorted;
+	}
+	return await mastersCollection.update(masterId, updateData, {
+		query: { _token: token }
+	});
 }
 
 /**
@@ -290,8 +284,6 @@ export async function updatePlanningWithOccurrences(
 			const updateData: any = {
 				startTime: data.defaultStartTime,
 				endTime: data.defaultEndTime,
-				adminToken,
-				participantToken,
 				lastModifiedBy: pb.authStore.record?.id
 			};
 			if (data.forceTaskRefresh) updateData.tasks = sortTasks(data.tasks);
@@ -309,8 +301,6 @@ export async function updatePlanningWithOccurrences(
 					comments: [],
 					isConfirmed: false,
 					isCanceled: false,
-					adminToken,
-					participantToken,
 					lastModifiedBy: pb.authStore.record?.id
 				},
 				{ query: { _token: adminToken } }
@@ -332,82 +322,7 @@ export async function updatePlanningWithOccurrences(
 }
 
 export async function deletePlanning(masterId: string, token: string): Promise<void> {
-	await pb.collection('planning_masters').delete(masterId, { query: { _token: token } });
-}
-
-// ============================================
-// Utilitaires de mise à jour atomique (Optimistic Locking)
-// ============================================
-
-/**
-
- * Exécute une mise à jour atomique avec retry transparent en cas de conflit.
-
- * Pattern: Try Update(local version) -> If 409 -> Fetch -> Modify -> Update
-
- */
-
-async function runAtomicUpdate<T extends { id: string; updated: string }>(
-	collection: string,
-
-	recordId: string,
-
-	token: string,
-
-	transform: (current: T) => Partial<T>,
-
-	initialData?: T,
-
-	maxRetries = 3
-): Promise<T> {
-	let lastError: any;
-
-	let current = initialData;
-
-	for (let i = 0; i < maxRetries; i++) {
-		try {
-			// 1. Fetch de la version actuelle uniquement si on ne l'a pas déjà
-
-			if (!current) {
-				current = await pb.collection(collection).getOne<T>(recordId, {
-					query: { _token: token }
-				});
-			}
-
-			// 2. Application de la transformation
-
-			const updates = transform(current);
-
-			// 3. Tentative de mise à jour avec vérification de version
-
-			return await pb.collection(collection).update<T>(recordId, updates, {
-				query: {
-					_token: token,
-					_version: current.updated
-				}
-			});
-		} catch (error: any) {
-			lastError = error;
-
-			// Si erreur 409 (Conflict), on vide le cache local et on continue la boucle pour re-fetcher
-
-			if (error.status === 409) {
-				console.warn(
-					`Atomic update conflict for ${recordId}, retrying (${i + 1}/${maxRetries})...`
-				);
-
-				current = undefined;
-
-				continue;
-			}
-
-			// Pour les autres erreurs, on propage immédiatement
-
-			throw error;
-		}
-	}
-
-	throw lastError;
+	await mastersCollection.remove(masterId, { query: { _token: token } });
 }
 
 // ============================================
@@ -419,21 +334,27 @@ export async function addParticipant(
 	participant: Omit<Participant, 'id' | 'createdAt'> & { id?: string },
 	token: string
 ): Promise<PlanningMaster> {
-	return runAtomicUpdate<PlanningMaster>('planning_masters', masterId, token, (current) => {
-		const newParticipant: Participant = {
-			...participant,
-			id: participant.id || generateParticipantId(),
-			createdAt: new Date().toISOString()
-		};
-		return {
-			// Filtrer les doublons potentiels par ID avant d'ajouter
+	const newParticipant: Participant = {
+		...participant,
+		id: participant.id || generateParticipantId(),
+		createdAt: new Date().toISOString()
+	};
+
+	// Lire le master depuis Dexie pour calculer la nouvelle liste
+	const current = await mastersCollection.getTable().get(masterId);
+	if (!current) throw new Error(`Master ${masterId} not found in local DB`);
+
+	return await mastersCollection.update(
+		masterId,
+		{
 			participants: [
 				...(current.participants || []).filter((p) => p.id !== newParticipant.id),
 				newParticipant
 			],
 			lastModifiedBy: pb.authStore.record?.id
-		};
-	});
+		},
+		{ query: { _token: token } }
+	);
 }
 
 export async function updateParticipant(
@@ -443,20 +364,17 @@ export async function updateParticipant(
 	token: string,
 	currentMaster?: PlanningMaster
 ): Promise<PlanningMaster> {
-	return runAtomicUpdate<PlanningMaster>(
-		'planning_masters',
+	const current = currentMaster ?? (await mastersCollection.getTable().get(masterId));
+	if (!current) throw new Error(`Master ${masterId} not found in local DB`);
+
+	const updatedParticipants = (current.participants || []).map((p) =>
+		p.id === participantId ? { ...p, ...updates } : p
+	);
+
+	return await mastersCollection.update(
 		masterId,
-		token,
-		(current) => {
-			const updatedParticipants = (current.participants || []).map((p) =>
-				p.id === participantId ? { ...p, ...updates } : p
-			);
-			return {
-				participants: updatedParticipants,
-				lastModifiedBy: pb.authStore.record?.id
-			};
-		},
-		currentMaster
+		{ participants: updatedParticipants, lastModifiedBy: pb.authStore.record?.id },
+		{ query: { _token: token } }
 	);
 }
 
@@ -466,20 +384,16 @@ export async function removeParticipant(
 	token: string,
 	currentMaster?: PlanningMaster
 ): Promise<PlanningMaster> {
-	return runAtomicUpdate<PlanningMaster>(
-		'planning_masters',
+	const current = currentMaster ?? (await mastersCollection.getTable().get(masterId));
+	if (!current) throw new Error(`Master ${masterId} not found in local DB`);
+
+	return await mastersCollection.update(
 		masterId,
-		token,
-		(current) => {
-			const updatedParticipants = (current.participants || []).filter(
-				(p) => p.id !== participantId
-			);
-			return {
-				participants: updatedParticipants,
-				lastModifiedBy: pb.authStore.record?.id
-			};
+		{
+			participants: (current.participants || []).filter((p) => p.id !== participantId),
+			lastModifiedBy: pb.authStore.record?.id
 		},
-		currentMaster
+		{ query: { _token: token } }
 	);
 }
 
@@ -492,7 +406,7 @@ export async function createOccurrence(
 	adminToken: string,
 	participantToken: string
 ): Promise<PlanningOccurrence> {
-	return await pb.collection('planning_occurrences').create<PlanningOccurrence>({
+	return await occurrencesCollection.create({
 		...data,
 		master: data.masterId,
 		tasks: sortTasks(data.tasks),
@@ -500,32 +414,7 @@ export async function createOccurrence(
 		comments: [],
 		isConfirmed: false,
 		isCanceled: false,
-		adminToken,
-		participantToken,
 		lastModifiedBy: pb.authStore.record?.id
-	});
-}
-
-export async function getOccurrencesByMaster(
-	masterId: string,
-	token: string,
-	options?: { limit?: number; offset?: number; dateFilter?: 'future' | 'past' | 'all' }
-): Promise<PlanningOccurrence[]> {
-	let filter = `master = "${masterId}"`;
-	if (options?.dateFilter && options.dateFilter !== 'all') {
-		const yesterday = new Date();
-		yesterday.setDate(yesterday.getDate() - 1);
-		yesterday.setHours(0, 0, 0, 0);
-		const dateStr = yesterday.toISOString().split('T')[0];
-		filter +=
-			options.dateFilter === 'future' ? ` && date >= "${dateStr}"` : ` && date < "${dateStr}"`;
-	}
-
-	return await pb.collection('planning_occurrences').getFullList<PlanningOccurrence>({
-		filter,
-		sort: options?.dateFilter === 'past' ? '-date' : 'date',
-		...options,
-		query: { _token: token }
 	});
 }
 
@@ -533,23 +422,17 @@ export async function updateOccurrence(
 	occurrenceId: string,
 	updates: Partial<PlanningOccurrence>,
 	token: string,
-	currentOccurrence?: PlanningOccurrence
+	_currentOccurrence?: PlanningOccurrence
 ): Promise<PlanningOccurrence> {
-	return runAtomicUpdate<PlanningOccurrence>(
-		'planning_occurrences',
-		occurrenceId,
-		token,
-		(current) => {
-			const updateData = { ...updates, lastModifiedBy: pb.authStore.record?.id };
-			if (updateData.tasks !== undefined) updateData.tasks = sortTasks(updateData.tasks);
-			return updateData;
-		},
-		currentOccurrence
-	);
+	const updateData = { ...updates, lastModifiedBy: pb.authStore.record?.id };
+	if (updateData.tasks !== undefined) updateData.tasks = sortTasks(updateData.tasks);
+	return await occurrencesCollection.update(occurrenceId, updateData, {
+		query: { _token: token }
+	});
 }
 
 export async function deleteOccurrence(occurrenceId: string, token: string): Promise<void> {
-	await pb.collection('planning_occurrences').delete(occurrenceId, { query: { _token: token } });
+	await occurrencesCollection.remove(occurrenceId, { query: { _token: token } });
 }
 
 // ============================================
@@ -563,29 +446,23 @@ export async function submitResponse(
 	token: string,
 	currentOccurrence?: PlanningOccurrence
 ): Promise<PlanningOccurrence> {
-	return runAtomicUpdate<PlanningOccurrence>(
-		'planning_occurrences',
+	const current = currentOccurrence ?? (await occurrencesCollection.getTable().get(occurrenceId));
+	if (!current) throw new Error(`Occurrence ${occurrenceId} not found in local DB`);
+
+	const existingIdx = (current.responses || []).findIndex((r) => r.participantId === participantId);
+
+	let updatedResponses: ParticipantResponse[];
+	if (existingIdx >= 0) {
+		updatedResponses = [...current.responses!];
+		updatedResponses[existingIdx] = { ...response, participantId };
+	} else {
+		updatedResponses = [...(current.responses || []), { ...response, participantId }];
+	}
+
+	return await occurrencesCollection.update(
 		occurrenceId,
-		token,
-		(current) => {
-			const existingIdx = (current.responses || []).findIndex(
-				(r) => r.participantId === participantId
-			);
-
-			let updatedResponses: ParticipantResponse[];
-			if (existingIdx >= 0) {
-				updatedResponses = [...current.responses];
-				updatedResponses[existingIdx] = { ...response, participantId };
-			} else {
-				updatedResponses = [...(current.responses || []), { ...response, participantId }];
-			}
-
-			return {
-				responses: updatedResponses,
-				lastModifiedBy: pb.authStore.record?.id
-			};
-		},
-		currentOccurrence
+		{ responses: updatedResponses, lastModifiedBy: pb.authStore.record?.id },
+		{ query: { _token: token } }
 	);
 }
 
@@ -597,17 +474,16 @@ export async function removeResponse(
 	token: string,
 	currentOccurrence?: PlanningOccurrence
 ): Promise<PlanningOccurrence> {
-	return runAtomicUpdate<PlanningOccurrence>(
-		'planning_occurrences',
+	const current = currentOccurrence ?? (await occurrencesCollection.getTable().get(occurrenceId));
+	if (!current) throw new Error(`Occurrence ${occurrenceId} not found in local DB`);
+
+	return await occurrencesCollection.update(
 		occurrenceId,
-		token,
-		(current) => {
-			return {
-				responses: (current.responses || []).filter((r) => r.participantId !== participantId),
-				lastModifiedBy: pb.authStore.record?.id
-			};
+		{
+			responses: (current.responses || []).filter((r) => r.participantId !== participantId),
+			lastModifiedBy: pb.authStore.record?.id
 		},
-		currentOccurrence
+		{ query: { _token: token } }
 	);
 }
 
@@ -622,24 +498,27 @@ export async function addComment(
 	token: string,
 	currentOccurrence?: PlanningOccurrence
 ): Promise<PlanningOccurrence> {
-	return runAtomicUpdate<PlanningOccurrence>(
-		'planning_occurrences',
+	const current = currentOccurrence ?? (await occurrencesCollection.getTable().get(occurrenceId));
+	if (!current) throw new Error(`Occurrence ${occurrenceId} not found in local DB`);
+
+	const newComment: OccurrenceComment = {
+		id: generateParticipantId(),
+		participantId,
+		content,
+		createdAt: new Date().toISOString()
+	};
+
+	const confirmed = await occurrencesCollection.update(
 		occurrenceId,
-		token,
-		(current) => {
-			const newComment = {
-				id: generateParticipantId(),
-				participantId,
-				content,
-				createdAt: new Date().toISOString()
-			};
-			return {
-				comments: [...(current.comments || []), newComment],
-				lastModifiedBy: pb.authStore.record?.id
-			};
+		{
+			comments: [...(current.comments || []), newComment],
+			lastModifiedBy: pb.authStore.record?.id
 		},
-		currentOccurrence
+		{ query: { _token: token } }
 	);
+
+	commentStateService.markConversationAsRead(occurrenceId, current.master, true);
+	return confirmed;
 }
 
 export async function deleteComment(
@@ -648,16 +527,15 @@ export async function deleteComment(
 	token: string,
 	currentOccurrence?: PlanningOccurrence
 ): Promise<PlanningOccurrence> {
-	return runAtomicUpdate<PlanningOccurrence>(
-		'planning_occurrences',
+	const current = currentOccurrence ?? (await occurrencesCollection.getTable().get(occurrenceId));
+	if (!current) throw new Error(`Occurrence ${occurrenceId} not found in local DB`);
+
+	return await occurrencesCollection.update(
 		occurrenceId,
-		token,
-		(current) => {
-			return {
-				comments: (current.comments || []).filter((c) => c.id !== commentId),
-				lastModifiedBy: pb.authStore.record?.id
-			};
+		{
+			comments: (current.comments || []).filter((c) => c.id !== commentId),
+			lastModifiedBy: pb.authStore.record?.id
 		},
-		currentOccurrence
+		{ query: { _token: token } }
 	);
 }

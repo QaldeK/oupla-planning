@@ -9,10 +9,16 @@ import type {
 import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 import { storage } from '$lib/utils/storage';
 import { pb } from '$lib/pocketbase/pb';
-import { planningStore } from '$lib/stores/planningStore.svelte';
+import {
+	planningStore,
+	mastersCollection,
+	occurrencesCollection
+} from '$lib/stores/planningStore.svelte';
+import { db } from '$lib/pb-sync/db';
+import { syncService } from '$lib/services/syncService';
+import { commentStateService } from '$lib/services/commentStateService';
 import { goto } from '$app/navigation';
 
-const PLANNINGS_KEY = 'planning_saved';
 const APP_PREFS_KEY = 'app_preferences';
 
 interface AuthModalState {
@@ -26,6 +32,7 @@ interface AuthModalState {
 }
 
 class UserStore {
+	/** Identités guest par planning — { masterId, currentUser? } */
 	savedPlannings = $state<SavedPlanning[]>([]);
 	authModal = $state<AuthModalState>({ open: false });
 	appPreferences = $state<AppPreferences>({
@@ -34,7 +41,6 @@ class UserStore {
 	});
 	isReady = $state(false);
 	isLoggedIn = $state();
-	hasSyncedThisSession = $state(false); // évite les appels multiples au sync
 
 	async init() {
 		// Synchro authStore
@@ -43,17 +49,19 @@ class UserStore {
 			const wasLoggedIn = this.isLoggedIn;
 			this.isLoggedIn = pb.authStore.isValid;
 
-			// Reset le flag au changement d'état d'auth
+			// Guest → Auth : déclencher la transition
 			if (!wasLoggedIn && this.isLoggedIn) {
-				this.hasSyncedThisSession = false;
+				this.onAuthTransition();
 			}
 		});
 
-		// 1. Plannings - TOUJOURS en localStorage (persist: true)
-		this.savedPlannings =
-			(await storage.getItem<SavedPlanning[]>(PLANNINGS_KEY, { persist: true })) || [];
+		// 1. Identités — charger depuis Dexie localMeta
+		this.savedPlannings = await db.localMeta.toArray();
 
-		// 2. Préférences de l'application (thème, vue)
+		// 2. Initialiser le liveQuery global de planningStore (sidebar/homepage)
+		planningStore.initGlobalSync();
+
+		// 3. Préférences de l'application (thème, vue)
 		const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 		const defaultTheme: ThemeType = prefersDark ? 'nord-dark' : 'my';
 
@@ -71,7 +79,58 @@ class UserStore {
 			};
 		}
 
+		// Si déjà auth au chargement → données déjà en Dexie, delta fetch + subscribe
+		if (this.isLoggedIn) {
+			this.#subscribeAuth();
+		}
+
 		this.isReady = true;
+	}
+
+	/**
+	 * Delta fetch + subscribe realtime global pour un user auth.
+	 * Les données sont déjà en Dexie (persistées), on ne fait que rattraper le delta
+	 * et s'abonner aux mises à jour temps réel (API Rules filtrent automatiquement).
+	 */
+	async #subscribeAuth() {
+		try {
+			await mastersCollection.initialFetch();
+			await occurrencesCollection.initialFetch();
+		} catch (err) {
+			console.error('Delta sync failed:', err);
+		}
+		mastersCollection.subscribe();
+		occurrencesCollection.subscribe();
+		await commentStateService.syncCommentReadState();
+	}
+
+	/**
+	 * Transition guest → auth : clear les données guest, sync les données auth.
+	 * Appelé par pb.authStore.onChange lors du changement d'état.
+	 */
+	async onAuthTransition() {
+		// Unsubscribe guest realtime
+		mastersCollection.unsubscribeAll();
+		occurrencesCollection.unsubscribeAll();
+
+		// Clear Dexie (PAS localMeta — les identités guest sont nettoyées ci-dessous)
+		await Promise.all([db.masters.clear(), db.occurrences.clear(), db.commentState.clear()]);
+
+		// Clear les identités guest (inutiles pour un user auth)
+		this.savedPlannings = [];
+		await db.localMeta.clear();
+
+		// Sync via syncService (register tokens depuis masters + fetch)
+		try {
+			await syncService.authTransition();
+		} catch (err) {
+			console.error('Auth transition sync failed:', err);
+		}
+
+		// Subscribe realtime global
+		mastersCollection.subscribe();
+		occurrencesCollection.subscribe();
+		await commentStateService.syncCommentReadState();
 	}
 
 	async setOccurrenceView(view: ViewType) {
@@ -88,11 +147,13 @@ class UserStore {
 		await storage.setItem(APP_PREFS_KEY, this.appPreferences, { persist: true });
 	}
 
-	// === Gestion de l'identité par planning ===
+	// === Persistance identités → Dexie localMeta ===
 
-	getPlanningIdentity(masterId: string): PlanningIdentity | null {
-		return this.savedPlannings.find((p) => p.masterId === masterId)?.currentUser || null;
+	async #persistIdentities() {
+		await db.localMeta.bulkPut(this.savedPlannings);
 	}
+
+	// === Gestion de l'identité par planning ===
 
 	/**
 	 * Récupère l'identité pour un planning donné.
@@ -114,71 +175,50 @@ class UserStore {
 		return planning?.currentUser ?? null;
 	}
 
+	/**
+	 * Définit l'identité guest pour un planning.
+	 * Ne fait rien si l'utilisateur est connecté (l'identité vient de pb.authStore).
+	 */
 	async setPlanningIdentity(masterId: string, identity: PlanningIdentity) {
+		if (this.isLoggedIn) return;
+
 		const idx = this.savedPlannings.findIndex((p) => p.masterId === masterId);
 		if (idx >= 0) {
-			this.savedPlannings[idx].currentUser = identity;
-			await this.savePlanningsLocal();
+			this.savedPlannings[idx] = { ...this.savedPlannings[idx], currentUser: identity };
 		} else {
-			// Créer une entrée minimale (sera complétée par savePlanning plus tard)
-			this.savedPlannings.push({
-				masterId,
-				title: '', // sera mis à jour par savePlanning
-				participantToken: '',
-				adminToken: '',
-				lastAccessed: new Date().toISOString(),
-				currentUser: identity
-			});
-			await this.savePlanningsLocal();
+			this.savedPlannings.push({ masterId, currentUser: identity });
 		}
+		await this.#persistIdentities();
 	}
 
-	// === Gestion des Plannings ===
-
-	async savePlanning(planning: SavedPlanning) {
-		const idx = this.savedPlannings.findIndex((p) => p.masterId === planning.masterId);
-
-		if (idx >= 0) {
-			this.savedPlannings[idx] = {
-				...this.savedPlannings[idx],
-				...planning,
-				adminToken: planning.adminToken || this.savedPlannings[idx].adminToken,
-				participantToken: planning.participantToken || this.savedPlannings[idx].participantToken,
-				currentUser: planning.currentUser || this.savedPlannings[idx].currentUser
-			};
-		} else {
-			this.savedPlannings.push(planning);
-		}
-		await this.savePlanningsLocal();
-	}
-
-	async savePlanningsLocal() {
-		// TOUJOURS localStorage (persist: true)
-		await storage.setItem(PLANNINGS_KEY, this.savedPlannings, { persist: true });
-	}
-
-	async removePlanning(masterId: string) {
+	/**
+	 * Supprime l'identité locale pour un planning.
+	 */
+	async removeIdentity(masterId: string) {
 		this.savedPlannings = this.savedPlannings.filter((p) => p.masterId !== masterId);
-		await this.savePlanningsLocal();
+		await db.localMeta.delete(masterId);
 	}
 
-	async clearSavedPlannings() {
-		this.savedPlannings = [];
-		await storage.removeItem(PLANNINGS_KEY);
-	}
+	// === Auth ===
 
 	async logout() {
 		goto('/');
 		this.savedPlannings = [];
-		await storage.removeItem(PLANNINGS_KEY);
 		pb.authStore.clear();
 
-		// Clear planningStore cache on logout
-		planningStore.invalidateAll();
+		// Unsubscribe pb-sync and clear Dexie
+		mastersCollection.unsubscribeAll();
+		occurrencesCollection.unsubscribeAll();
+		await db.masters.clear();
+		await db.occurrences.clear();
+		await db.commentState.clear();
+		await db.localMeta.clear();
+
+		// Clear planningStore
+		planningStore.destroy();
 	}
 
 	async clearUser() {
-		// Alias pour compatibilité - même comportement que logout()
 		await this.logout();
 	}
 
@@ -188,14 +228,19 @@ class UserStore {
 	async clearAllLocalData() {
 		const wasLoggedIn = this.isLoggedIn;
 
-		// Supprimer TOUTES les données locales
 		this.savedPlannings = [];
 		this.appPreferences = { theme: 'my', occurrenceView: 'compact' };
-		await storage.removeItem(PLANNINGS_KEY);
 		await storage.removeItem(APP_PREFS_KEY);
 
-		// Clear planningStore cache
-		planningStore.invalidateAll();
+		mastersCollection.unsubscribeAll();
+		occurrencesCollection.unsubscribeAll();
+		await db.masters.clear();
+		await db.occurrences.clear();
+		await db.commentState.clear();
+		await db.localMeta.clear();
+
+		// Clear planningStore
+		planningStore.destroy();
 
 		// Recharger la page pour nettoyer l'état en mémoire
 		if (wasLoggedIn) {
@@ -204,19 +249,6 @@ class UserStore {
 			this.isReady = false;
 			await this.init();
 		}
-	}
-
-	hasAdminAccess(masterId: string): boolean {
-		const planning = this.savedPlannings.find((p) => p.masterId === masterId);
-		return !!planning && !!planning.adminToken;
-	}
-
-	getAdminToken(masterId: string): string | undefined {
-		return this.savedPlannings.find((p) => p.masterId === masterId)?.adminToken;
-	}
-
-	getSavedPlanning(masterId: string): SavedPlanning | undefined {
-		return this.savedPlannings.find((p) => p.masterId === masterId);
 	}
 
 	get pbUser(): { id: string; name: string; email: string } | null {

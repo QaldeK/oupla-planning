@@ -21,6 +21,8 @@
 		ArrowRightFromLine,
 		Bell,
 		Calendar,
+		EllipsisVertical,
+		History,
 		Info,
 		InfoIcon,
 		ListFilter,
@@ -28,6 +30,7 @@
 		RefreshCw,
 		Settings,
 		Share2,
+		Trash2,
 		User,
 		Users,
 		WifiOff
@@ -36,7 +39,9 @@
 
 	let token = $derived($page.params.token as string);
 	let master = $derived(planningStore.master);
-	let occurrences = $derived(planningStore.occurrences);
+	let allOccurrences = $derived(planningStore.occurrences);
+	const today = $derived(new Date().toISOString().split('T')[0]);
+	const occurrences = $derived(allOccurrences.filter((o) => o.date >= today));
 	let isLoading = $derived(planningStore.isLoading);
 	let displayCount = $state(10);
 	let showAllParticipants = $state(false);
@@ -48,7 +53,7 @@
 		if (!master) return;
 
 		// Déjà identifié sur ce planning — ne rien faire
-		if (userStore.getPlanningIdentity(master.id)) return;
+		if (userStore.getIdentityForPlanning(master.id)) return;
 
 		if (userStore.isLoggedIn && userStore.pbUser) {
 			const pbUser = userStore.pbUser;
@@ -97,7 +102,6 @@
 					},
 					token
 				);
-				planningStore.updateMaster(updated);
 			} else if (existing && existing.name !== identity.name) {
 				const updated = await updateParticipant(
 					master.id,
@@ -105,7 +109,6 @@
 					{ name: identity.name },
 					token
 				);
-				planningStore.updateMaster(updated);
 			}
 
 			if (userStore.isLoggedIn) {
@@ -117,18 +120,6 @@
 			}
 
 			await userStore.setPlanningIdentity(master.id, identity);
-
-			const isAdminToken = token.length === 64;
-			const savedPlanning = {
-				masterId: master.id,
-				title: master.title!,
-				participantToken: isAdminToken ? master.participantToken! : token,
-				adminToken: isAdminToken ? token : userStore.getAdminToken(master.id) || '',
-				lastAccessed: new Date().toISOString(),
-				currentUser: identity,
-				isSync: userStore.isLoggedIn ? false : undefined
-			};
-			await userStore.savePlanning(savedPlanning);
 
 			userStore.authModal = { ...userStore.authModal, open: false };
 		} catch (error) {
@@ -158,8 +149,29 @@
 		};
 	}
 
-	const isAdmin = $derived(master ? userStore.hasAdminAccess(master.id) : false);
-	const adminToken = $derived(master && isAdmin ? userStore.getAdminToken(master.id) : null);
+	const canNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
+
+	function closeFab() {
+		(document.activeElement as HTMLElement)?.blur();
+	}
+
+	async function shareLink(url: string, label: string) {
+		try {
+			if (canNativeShare) {
+				await navigator.share({ title: 'Oupla - Planning', text: `Participe à ${label}`, url });
+			} else {
+				await navigator.clipboard.writeText(url);
+				toast.success(`${label} copié !`);
+			}
+		} catch (error) {
+			if ((error as Error).name !== 'AbortError') {
+				toast.error('Erreur lors du partage');
+			}
+		}
+	}
+
+	const isAdmin = $derived(master ? !!master.adminToken : false);
+	const adminToken = $derived(master?.adminToken ?? null);
 
 	const displayedOccurrences = $derived(occurrences.slice(0, displayCount));
 	const hasMore = $derived(displayCount < occurrences.length);
@@ -352,15 +364,6 @@
 						{@render shareContent()}
 					</div>
 				</div>
-			{:else}
-				<!-- Boutons d'action mobile : Configurer + Partage direct -->
-				<div class="p-4">
-					<CopyLinksButtons
-						size="sm"
-						participantToken={token}
-						adminToken={adminToken ?? undefined}
-					/>
-				</div>
 			{/if}
 
 			<!-- Identification manquante -->
@@ -377,19 +380,21 @@
 
 		<!-- Liste des occurrences -->
 		<div class="">
-			<div class="flex flex-wrap justify-end gap-4">
-				<button
-					class="btn btn-primary btn-outline font-semibold"
-					onclick={() =>
-						userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
-				>
-					<Bell size={18} class="text-primary mt-0.5 shrink-0" />
-					Configurer les notifications
-				</button>
-				<a href="/p/{token}/archive" class="btn btn-soft mb-2 gap-2">
+			<div class="flex flex-wrap justify-between gap-4">
+				<a href="/p/{token}/archive" class="btn btn-sm btn-soft mb-2 gap-2">
+					<History size={18} />
 					Voir les événements passés
-					<ArrowRightFromLine size={18} />
 				</a>
+				{#if !mediaQuery.isMobile}
+					<button
+						class="btn btn-primary btn-sm"
+						onclick={() =>
+							userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
+					>
+						<Bell size={18} class="shrink-0" />
+						Configurer les notifications
+					</button>
+				{/if}
 			</div>
 			<!-- Header avec tabs -->
 			<div class="flex flex-wrap items-center justify-between gap-4">
@@ -417,6 +422,68 @@
 			{/if}
 		</div>
 	</div>
+
+	<!-- FAB Speed Dial - mobile only -->
+	{#if mediaQuery.isMobile}
+		<div class="fab">
+			<div tabindex="0" role="button" class="btn btn-lg btn-circle btn-primary shadow-lg">
+				<EllipsisVertical size={24} class="opacity-70" />
+			</div>
+			<div class="fab-close">
+				<span class="btn btn-circle btn-lg">✕</span>
+			</div>
+			<div>
+				<div class="badge badge-info">Partager</div>
+				<button
+					class="btn btn-lg btn-circle btn-info shadow-md"
+					onclick={() => {
+						closeFab();
+						shareLink(`${window.location.origin}/p/${token}`, 'Lien public');
+					}}
+				>
+					<Share2 size={20} />
+				</button>
+			</div>
+			{#if isAdmin}
+				<div>
+					<div class="badge badge-warning">Lien admin</div>
+					<button
+						class="btn btn-lg btn-circle btn-warning shadow-md"
+						onclick={() => {
+							closeFab();
+							shareLink(`${window.location.origin}/p/${adminToken}`, 'Lien admin');
+						}}
+					>
+						<Share2 size={20} />
+					</button>
+				</div>
+			{/if}
+			<div>
+				<div class="badge badge-success">Notifications</div>
+				<button
+					class="btn btn-lg btn-circle btn-success shadow-md"
+					onclick={() => {
+						closeFab();
+						if (userStore.isLoggedIn) {
+							showNotifModal = true;
+						} else {
+							showAccountModal = true;
+						}
+					}}
+				>
+					<Bell size={20} />
+				</button>
+			</div>
+			{#if isAdmin}
+				<div>
+					<div class="badge badge-accent">Modifier</div>
+					<a href="/admin/{adminToken}" class="btn btn-lg btn-circle btn-accent shadow-md">
+						<Settings size={20} />
+					</a>
+				</div>
+			{/if}
+		</div>
+	{/if}
 {:else if !networkStore.online || planningStore.error?.type === 'network'}
 	{@const errorMessage = !networkStore.online
 		? 'Vous êtes hors ligne. Vérifiez votre connexion internet.'
@@ -436,6 +503,21 @@
 				<RefreshCw size={16} />
 				Réessayer
 			</button>
+		</div>
+	</div>
+{:else if planningStore.error?.type === 'deleted'}
+	<div class="flex min-h-[50vh] items-center justify-center">
+		<div class="max-w-md text-center">
+			<div
+				class="bg-warning/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full p-4"
+			>
+				<Trash2 size={40} class="text-warning" />
+			</div>
+			<h2 class="mb-2 text-2xl font-bold">Planning supprimé</h2>
+			<p class="text-base-content/70 mb-6">
+				Ce planning a été supprimé par son administrateur. Les données locales ont été nettoyées.
+			</p>
+			<a href="/" class="btn btn-primary">Retour à l'accueil</a>
 		</div>
 	</div>
 {:else}

@@ -7,7 +7,7 @@
 	const activeView = $derived(userStore.appPreferences.occurrenceView);
 
 	// Options disponibles par device
-	const mobileViews: ViewType[] = ['minimal', 'compact'];
+	const mobileViews: ViewType[] = ['compact', 'minimal'];
 	const desktopViews: ViewType[] = ['card', 'compact', 'minimal'];
 	const availableViews = $derived(mediaQuery.isMobile ? mobileViews : desktopViews);
 
@@ -18,7 +18,7 @@
 	function getLabel(view: ViewType): string {
 		if (view === 'card') return 'Cartes';
 		if (view === 'compact') return 'Compact';
-		return 'Mobile';
+		return 'Minimal';
 	}
 
 	function getIcon(view: ViewType) {

@@ -172,10 +172,10 @@
 		<div
 			class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium opacity-80 {config.bgClass}"
 		>
-			<Icon size={18} class="shrink-0" />
+			<!-- <Icon size={18} class="shrink-0" /> -->
 			<div class="flex flex-col items-start justify-start">
-				<span class="truncate text-start text-wrap">{task.name}</span>
 				<div class="text-xs opacity-70">{config.label}</div>
+				<div class="truncate text-start leading-none text-wrap">{task.name}</div>
 			</div>
 		</div>
 		{#if volunteers > 0}
@@ -225,50 +225,40 @@
 	isComplete: boolean,
 	isInTask: boolean
 )}
-	<div
+	<button
 		class={[
-			'rounded-box bg-accent/20 flex  items-center gap-2 border p-2 max-sm:w-full ',
+			'bg-accent/20 relative flex items-center  gap-2 rounded-md border px-2  hover:cursor-pointer max-sm:w-full',
 			isInTask ? 'border-accent border-3' : 'border-accent/50'
 		]}
+		title="Nombre de personnes requises pour la tâche {task.name}"
+		onclick={() => (modalTaskId = task.id)}
+		role="button"
+		aria-label={isInTask ? 'Se désinscrire' : "S'inscrire"}
 	>
-		<div class="flex flex-col items-start justify-start px-1">
-			<span class="truncate text-start text-sm text-wrap">{task.name}</span>
-			<div class="text-xs opacity-70">{config.label}</div>
+		<div class="flex max-w-52 flex-col justify-start gap-x-1 px-1">
+			<span class="text-start text-xs opacity-60">{config.label}</span>
+			<span class="truncate text-start text-sm/tight">{task.name}</span>
 		</div>
-		<div class="w-min-1/3 mx-2 ms-auto flex items-center justify-between gap-3">
-			<!-- Badge inscrit/requis -->
+		<div class="ms-auto">
 			<div
-				class="badge badge-sm font-semibold {isComplete ? 'badge-success' : 'badge-warning'} px-1"
-				title="Nombre de personnes requises pour la tâche {task.name}"
+				class="badge badge-sm ms-5 font-semibold hover:cursor-pointer {isComplete
+					? 'badge-success'
+					: 'badge-warning'} px-1"
 			>
 				{volunteers}/{task.requiredVolunteers}
 			</div>
-
-			<!-- Bouton Eyes pour voir les inscrits -->
-			<button
-				class="btn btn-ghost btn-sm btn-circle"
-				onclick={() => (modalTaskId = task.id)}
-				title="Voir les inscrits"
-			>
-				<Eye size={16} />
-			</button>
-
 			<!-- Bouton inscription rapide -->
 			{#if !readOnly && !isPastDate}
-				<button
-					class="btn btn-sm btn-square {isInTask ? 'btn-error' : 'btn-accent'}"
-					onclick={() => onToggle(task.id)}
-					title={isInTask ? 'Se désinscrire' : "S'inscrire"}
-				>
+				<div class="badge {isInTask ? 'badge-error' : 'badge-accent'}">
 					{#if isInTask}
 						<UserMinus size={16} />
 					{:else}
 						<UserPlus size={16} />
 					{/if}
-				</button>
+				</div>
 			{/if}
 		</div>
-	</div>
+	</button>
 {/snippet}
 
 {#if tasks && tasks.length > 0}

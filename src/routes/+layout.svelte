@@ -6,8 +6,7 @@
 	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
 	import MobileHeader from '$lib/components/MobileHeader.svelte';
 	import NetworkIndicator from '$lib/components/NetworkIndicator.svelte';
-	import { realtimeService } from '$lib/services/realtime.svelte';
-	import { syncService } from '$lib/services/syncService';
+	import { commentStateStore } from '$lib/stores/commentStateStore.svelte';
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { modalStore } from '$lib/stores/modalStore.svelte';
@@ -15,7 +14,17 @@
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { Drawer, DrawerContent, DrawerOverlay } from '@abhivarde/svelte-drawer';
-	import { CalendarPlus, Download, Github, LogOut, Moon, Settings, Sun } from 'lucide-svelte';
+	import {
+		CalendarPlus,
+		Download,
+		Github,
+		LogOut,
+		MessageSquareWarning,
+		Moon,
+		Settings,
+		Sun,
+		Trash2
+	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { Toaster } from 'svelte-sonner';
 
@@ -40,43 +49,12 @@
 		userStore.init();
 		mediaQuery.init();
 		pwaStore.init();
+		commentStateStore.start();
 	});
 
 	// Fermer le drawer des commentaires lors des changements de route
 	afterNavigate(() => {
 		drawerStore.close();
-	});
-
-	$effect(() => {
-		// Attendre que init() ait fini de charger savedPlannings depuis le localStorage
-		if (!userStore.isReady) return;
-
-		if (!userStore.isLoggedIn) {
-			// Reset le flag au logout
-			userStore.hasSyncedThisSession = false;
-			return;
-		}
-
-		// Éviter les appels multiples
-		if (userStore.hasSyncedThisSession) return;
-
-		userStore.hasSyncedThisSession = true;
-
-		// Uniquement nettoyer les souscriptions guest, pas le state du planning actif
-		// (l'utilisateur peut être sur une page /p/[token] et rester sur cette page)
-		realtimeService.unsubscribe();
-
-		// Ordre important : sync → fetch → realtime
-		syncService
-			.sync(userStore.savedPlannings)
-			.then(() => {
-				realtimeService.subscribeGlobally();
-			})
-			.catch((err) => {
-				console.error('Layout sync failed:', err);
-				// Ne PAS reset le flag ici pour éviter la boucle infinie
-				// L'utilisateur pourra réessayer en rechargeant la page
-			});
 	});
 
 	$effect(() => {
@@ -179,31 +157,57 @@
 				</a>
 
 				<!-- Plannings sauvegardés - UNIQUEMENT si connecté -->
-				{#if userStore.isLoggedIn && userStore.savedPlannings.length > 0}
+				{#if userStore.isLoggedIn && planningStore.activeMasters.length > 0}
 					<div class="divider"></div>
 					<p class="text-base-content/60 px-2 text-sm font-semibold">Plannings sauvegardés</p>
 					<div class="space-y-2">
-						{#each userStore.savedPlannings as planning (planning.masterId)}
+						{#each planningStore.activeMasters as master (master.id)}
 							<button
-								class="btn w-full justify-start {planningStore.activeMasterId === planning.masterId
+								class="btn w-full justify-start {planningStore.activeMasterId === master.id
 									? 'ring-primary ring-2'
 									: ''}"
 								onclick={() => {
 									modalStore.closeNavDrawer();
-									goto(`/p/${planning.participantToken}`);
+									goto(`/p/${master.participantToken}`);
 								}}
 							>
-								<span class="truncate">{planning.title}</span>
-								{#if userStore.hasAdminAccess(planning.masterId)}
-									<span class="badge badge-primary badge-xs ms-auto">Admin</span>
-								{/if}
+								<span class="truncate">{master.title}</span>
+								<div class="ms-auto flex items-center gap-1">
+									{#if commentStateStore.getUnreadCount(master.id) > 0}
+										<div class="bg-info/20 rounded-full">
+											<MessageSquareWarning size={20} class="p-1 opacity-70" />
+										</div>
+									{/if}
+									{#if master.adminToken}
+										<span class="badge badge-primary badge-xs">Admin</span>
+									{/if}
+								</div>
 							</button>
 						{/each}
 					</div>
 				{/if}
+				{#if userStore.isLoggedIn && planningStore.deletedMasters.length > 0}
+					<div class="divider"></div>
+					<p class="text-base-content/50 px-2 text-sm font-semibold">Supprimés / introuvables</p>
+					<div class="space-y-1">
+						{#each planningStore.deletedMasters as master (master.id)}
+							<button class="btn btn-sm btn-ghost w-full justify-start" disabled>
+								<span class="text-base-content/70 truncate line-through">{master.title}</span>
+								<span class="badge badge-error badge-soft badge-xs ms-auto">Supprimé</span>
+							</button>
+						{/each}
+					</div>
+					<button
+						class="btn btn-ghost btn-sm mt-1 w-full text-xs"
+						onclick={() => planningStore.cleanDeletedPlannings()}
+					>
+						<Trash2 size={14} />
+						Nettoyer les plannings supprimés
+					</button>
+				{/if}
 			</nav>
 
-			<!-- Footer -->
+			<!-- Footer sidebar -->
 			<div>
 				{#if userStore.isLoggedIn && userStore.pbUser}
 					<!-- User authentifié → lien vers /settings + déconnexion -->
