@@ -4,6 +4,10 @@
 	import { commentStateStore } from '$lib/stores/commentStateStore.svelte';
 	import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
 	import AuthSection from '$lib/components/homepage/AuthSection.svelte';
+	import HowItWorks from '$lib/components/homepage/HowItWorks.svelte';
+	import FeaturesGrid from '$lib/components/homepage/FeaturesGrid.svelte';
+	import UseCases from '$lib/components/homepage/UseCases.svelte';
+	import BenefitsBanner from '$lib/components/homepage/BenefitsBanner.svelte';
 
 	import { goto } from '$app/navigation';
 	import { MessageSquareWarning, Plus, Trash2 } from 'lucide-svelte';
@@ -14,7 +18,28 @@
 </script>
 
 <svelte:head>
-	<title>Mes Plannings</title>
+	<title>Oupla - Planifiez et suivez vos activités récurrentes</title>
+	<meta
+		name="description"
+		content="Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise."
+	/>
+
+	<!-- Open Graph -->
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Oupla - Planifiez et suivez vos activités récurrentes" />
+	<meta
+		property="og:description"
+		content="Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise."
+	/>
+	<meta property="og:image" content="/icon-512.png" />
+
+	<!-- Twitter Card -->
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Oupla - Planifiez et suivez vos activités récurrentes" />
+	<meta
+		name="twitter:description"
+		content="Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise."
+	/>
 </svelte:head>
 
 <div class="mx-auto max-w-4xl pb-10">
@@ -37,17 +62,9 @@
 		</button>
 	</div>
 
-	<!-- PWA Installation Card (always visible, handles own display logic) -->
-	<div class="mb-8"><PwaInstallCard /></div>
-
-	<!-- Auth Section (only if not authenticated on PocketBase) -->
-	{#if !userStore.isLoggedIn}
-		<AuthSection />
-	{/if}
-
-	<!-- Saved Plannings List - UNIQUEMENT si connecté -->
+	<!-- Saved Plannings List - UNIQUEMENT si connecté (en haut car concerne les user·es connecté·es) -->
 	{#if userStore.isLoggedIn && planningStore.activeMasters.length > 0}
-		<div class="mt-8">
+		<div class="mb-8">
 			<h2 class="mb-4 text-xl font-semibold">Vos plannings</h2>
 			<div class="space-y-3">
 				{#each planningStore.activeMasters as master (master.id)}
@@ -83,7 +100,7 @@
 		</div>
 	{/if}
 	{#if userStore.isLoggedIn && planningStore.deletedMasters.length > 0}
-		<div class="mt-8 opacity-70">
+		<div class="mb-8 opacity-70">
 			<h2 class="mb-4 font-semibold">Plannings supprimés</h2>
 			<div class="space-y-1">
 				{#each planningStore.deletedMasters as master (master.id)}
@@ -107,5 +124,19 @@
 				Nettoyer les plannings supprimés
 			</button>
 		</div>
+	{/if}
+
+	<!-- PWA Installation Card (always visible, handles own display logic) -->
+	<div class="mb-8"><PwaInstallCard /></div>
+
+	<!-- SEO Content Sections -->
+	<HowItWorks />
+	<FeaturesGrid />
+	<UseCases />
+	<BenefitsBanner />
+
+	<!-- Auth Section (only if not authenticated on PocketBase) -->
+	{#if !userStore.isLoggedIn}
+		<AuthSection />
 	{/if}
 </div>
