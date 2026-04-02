@@ -1,5 +1,6 @@
 <script lang="ts">
 	import PlanningForm, { type PlanningFormData } from '$lib/components/PlanningForm.svelte';
+	import AccountModal from '$lib/components/auth/AccountModal.svelte';
 	import {
 		createPlanningWithOccurrences,
 		generateAdminToken,
@@ -7,13 +8,14 @@
 	} from '$lib/services/planningActions';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { toast } from 'svelte-sonner';
-	import { Calendar } from 'lucide-svelte';
+	import { Calendar, UserPlus } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { syncService } from '$lib/services/syncService';
 	import type { Participant } from '$lib/types/planning.types';
 	import { pb } from '$lib/pocketbase/pb';
 
 	let isSubmitting = $state(false);
+	let showAccountModal = $state(false);
 
 	async function handleCreatePlanning(data: PlanningFormData) {
 		try {
@@ -80,7 +82,28 @@
 		</p> -->
 	</div>
 
+	{#if !userStore.isLoggedIn}
+		<div class="alert alert-info alert-soft mb-6">
+			<UserPlus size={18} class="text-info shrink-0" />
+			<span class="text-sm">
+				Créez un compte pour retrouver vos plannings partout et ne jamais les perdre.
+			</span>
+			<button class="btn btn-info btn-sm" onclick={() => (showAccountModal = true)}>
+				Créer un compte
+			</button>
+		</div>
+	{/if}
+
 	<div class="bg-base-200/30 rounded-3xl p-1">
 		<PlanningForm onSubmit={handleCreatePlanning} bind:isSubmitting />
 	</div>
 </div>
+
+<AccountModal
+	bind:open={showAccountModal}
+	onClose={() => (showAccountModal = false)}
+	onSuccess={() => {
+		showAccountModal = false;
+	}}
+	defaultMode="register"
+/>

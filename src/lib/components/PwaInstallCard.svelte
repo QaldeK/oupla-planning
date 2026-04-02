@@ -1,7 +1,7 @@
 <!-- src/lib/components/PwaInstallCard.svelte -->
 <script lang="ts">
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
-	import { Download, Bell, Users, CalendarX, Share, X } from 'lucide-svelte';
+	import { Download, Bell, Users, CalendarX, Share, X, EllipsisVerticalIcon } from 'lucide-svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 
@@ -29,6 +29,8 @@
 			(pwaStore.canInstall || (mediaQuery.isMobile && pwaStore.showNativeHint))
 	);
 
+	const whyInstall =
+		'Activez les notifications 	sur votre téléphone, ne perdez jamais vos plannings, et retrouvez les sur tous vos appareils';
 	async function handleInstall() {
 		await pwaStore.install();
 	}
@@ -59,7 +61,10 @@
 		<ol class="space-y-1 text-sm">
 			<li class="flex items-center gap-2">
 				<span class="badge badge-info badge-sm">1</span>
-				Appuyez sur le bouton <Share size={14} class="text-info inline" /> Partage
+				Appuyez sur le bouton <Share
+					size={14}
+					class="text-info bg-base-300 mx-1 inline size-4 rounded-full"
+				/> Partage
 			</li>
 			<li class="flex items-center gap-2">
 				<span class="badge badge-info badge-sm">2</span>
@@ -68,7 +73,9 @@
 		</ol>
 	{:else}
 		<p class="text-sm opacity-80">
-			Appuyez sur le menu <strong>&#8942;</strong> de votre navigateur puis sur
+			Appuyez sur le menu <EllipsisVerticalIcon
+				class="bg-base-300 mx-1 inline size-4 rounded-full"
+			/> de votre navigateur puis sur
 			<strong>« Installer l'application »</strong> ou
 			<strong>« Ajouter à l'écran d'accueil »</strong>.
 		</p>
@@ -80,14 +87,15 @@
 		<!-- Chromium : prompt natif disponible -->
 		{#if compact}
 			<div class="alert alert-success alert-soft alert-vertical">
-				<Download size={16} class="text-success shrink-0" />
-				<span class="text-sm">Activez les notifications sur votre téléphone</span>
+				<span class="text-sm">
+					<Download size={16} class="text-success me-2 inline shrink-0" />{whyInstall}</span
+				>
 				<button class="btn btn-success btn-sm" onclick={handleInstall}>Installer</button>
-				{#if isDismissible}
+				<!-- {#if isDismissible}
 					<button class="btn btn-ghost btn-xs" onclick={() => (dismissed = true)}>
 						<X size={14} />
 					</button>
-				{/if}
+				{/if} -->
 			</div>
 		{:else}
 			<div class="alert alert-success alert-soft shadow-md">
@@ -97,7 +105,7 @@
 					</div>
 
 					<div class="flex-1 space-y-2">
-						<h3 class="text-base font-bold">Installez l'application pour rester informé</h3>
+						<h3 class="text-base font-bold">Installez l'application</h3>
 
 						<p class="text-sm leading-relaxed opacity-80">
 							Recevez des notifications push sur votre téléphone pour ne jamais manquer un événement
@@ -126,22 +134,28 @@
 		<!-- Non-Chrome mobile : instructions manuelles -->
 		{#if compact}
 			<div class="alert alert-info alert-soft border-info/60 alert-vertical py-2">
-				<Download size={16} class="text-info shrink-0" />
 				{#if isIos}
-					<span class="text-sm"
-						>Appuyez sur <Share size={14} class="inline" /> puis « Sur l'écran d'accueil »</span
+					<span class="text-sm">
+						<Download size={16} class="text-info me-2 inline shrink-0" /> Appuyez sur <Share
+							size={14}
+							class="inline"
+						/> puis « Sur l'écran d'accueil »</span
 					>
 				{:else}
-					<span class="text-sm">Installez l'app depuis le menu de votre navigateur</span>
+					<span class="text-sm"
+						><Download size={16} class="text-info me-2 inline shrink-0" /> Installez l'app depuis le menu
+						de votre navigateur.
+						<button class="btn btn-link btn-xs" onclick={() => (showInstallModal = true)}>
+							Comment ?
+						</button></span
+					>
 				{/if}
-				<button class="btn btn-link btn-xs" onclick={() => (showInstallModal = true)}>
-					Comment ?
-				</button>
-				{#if isDismissible}
+
+				<!-- {#if isDismissible}
 					<button class="btn btn-ghost btn-xs btn-circle" onclick={() => (dismissed = true)}>
 						<X size={14} />
 					</button>
-				{/if}
+				{/if} -->
 			</div>
 		{:else}
 			<div class="alert alert-info alert-soft shadow-md">
@@ -182,8 +196,7 @@
 >
 	<div class="space-y-3">
 		<p class="text-sm opacity-80">
-			Recevez des notifications push sur votre téléphone pour ne jamais manquer un événement
-			important.
+			{whyInstall}
 		</p>
 		{@render manualInstallInstructions()}
 	</div>

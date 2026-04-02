@@ -1,5 +1,6 @@
 import { on } from 'svelte/events';
 import { pb } from '$lib/pocketbase/pb';
+import { storage } from '$lib/utils/storage';
 
 class PwaStore {
 	isInstalled = $state(false);
@@ -8,6 +9,7 @@ class PwaStore {
 	// true sur mobile non-Chrome : on ne peut pas déclencher beforeinstallprompt,
 	// mais on veut orienter l'utilisateur vers le menu natif du browser
 	readonly showNativeHint = $derived(!this.isInstalled && !this.canInstall);
+	hasSeenWelcome = $state(false);
 	#initialized = false;
 
 	constructor() {
@@ -21,7 +23,7 @@ class PwaStore {
 		}
 	}
 
-	init() {
+	async init() {
 		if (typeof window === 'undefined') return;
 		if (this.#initialized) return;
 		this.#initialized = true;
@@ -43,6 +45,14 @@ class PwaStore {
 		on(window.matchMedia('(display-mode: standalone)'), 'change', (e) => {
 			this.isInstalled = e.matches;
 		});
+
+		// 4. Charger le flag de bienvenue
+		this.hasSeenWelcome = (await storage.getItem<boolean>('pwa_welcome_seen')) ?? false;
+	}
+
+	markWelcomeSeen() {
+		this.hasSeenWelcome = true;
+		storage.setItem('pwa_welcome_seen', true, { persist: true });
 	}
 
 	async install(): Promise<'accepted' | 'dismissed' | null> {

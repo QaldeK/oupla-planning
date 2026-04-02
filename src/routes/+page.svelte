@@ -2,6 +2,7 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { commentStateStore } from '$lib/stores/commentStateStore.svelte';
+	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
 	import AuthSection from '$lib/components/homepage/AuthSection.svelte';
 	import HowItWorks from '$lib/components/homepage/HowItWorks.svelte';
@@ -147,14 +148,19 @@
 	<!-- PWA Installation Card (always visible, handles own display logic) -->
 	<div class="mb-8"><PwaInstallCard /></div>
 
+	<!-- Auth Section en haut pour PWA + guest -->
+	{#if pwaStore.isInstalled && !userStore.isLoggedIn}
+		<div class="mb-8"><AuthSection /></div>
+	{/if}
+
 	<!-- SEO Content Sections -->
 	<HowItWorks />
 	<FeaturesGrid />
 	<!-- <UseCases /> -->
 	<BenefitsBanner />
 
-	<!-- Auth Section (only if not authenticated on PocketBase) -->
-	{#if !userStore.isLoggedIn}
+	<!-- Auth Section en bas uniquement pour web non-PWA -->
+	{#if !userStore.isLoggedIn && !pwaStore.isInstalled}
 		<AuthSection />
 	{/if}
 </div>

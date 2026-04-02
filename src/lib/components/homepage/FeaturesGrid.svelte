@@ -17,15 +17,14 @@
 		},
 		{
 			icon: ClipboardList,
-			title: 'Tâches et bénévolat',
+			title: 'Tâches',
 			description:
-				"Créez des tâches (avant, pendant, après l'événement) et laissez les participant·es s'inscrire librement."
+				"Ajouter des tâches à se répartir (à réaliser avant, pendant, après l'événement)."
 		},
 		{
 			icon: Repeat2,
 			title: 'Récurrence flexible',
-			description:
-				'Quotidien, hebdomadaire, bihebdomadaire, mensuel ou dates libres. Adaptez chaque occurrence individuellement.'
+			description: 'Quotidien, hebdomadaire, bihebdomadaire, mensuel ou dates libres.'
 		},
 		{
 			icon: MessageSquareText,
@@ -43,7 +42,7 @@
 			icon: ShieldCheck,
 			title: "Confirmation d'événements",
 			description:
-				"Activez le mode de confirmation pour valider chaque occurrence avant qu'elle n'ait lieu."
+				"Activez le mode de confirmation pour valider chaque événement avant qu'il n'ait lieu."
 		}
 	];
 </script>
@@ -57,7 +56,7 @@
 			<div class="card bg-base-100 shadow-md transition hover:shadow-lg">
 				<div class="card-body">
 					<h3 class="card-title text-base">
-						<Icon size={18} class="text-primary shrink-0" />
+						<Icon size={18} class="text-primary  shrink-0 stroke-3" />
 						{feature.title}
 					</h3>
 					<p class="text-base-content/70 text-sm">{feature.description}</p>

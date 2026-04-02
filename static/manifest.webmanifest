@@ -1,6 +1,6 @@
 {
 	"name": "Oupla Planning",
-	"short_name": "Oupla",
+	"short_name": "OuPlanning",
 	"description": "Gestion de plannings d'événements — invitations, réponses, notifications.",
 	"start_url": "/",
 	"display": "standalone",

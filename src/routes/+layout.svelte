@@ -44,6 +44,7 @@
 	});
 
 	let showAccountModal = $state(false);
+	let showWelcomeModal = $state(false);
 
 	onMount(() => {
 		userStore.init();
@@ -51,6 +52,20 @@
 		pwaStore.init();
 		commentStateStore.start();
 	});
+
+	// Ouvrir le modal de bienvenue au premier lancement PWA
+	$effect(() => {
+		if (
+			userStore.isReady &&
+			pwaStore.isInstalled &&
+			!pwaStore.hasSeenWelcome &&
+			!userStore.isLoggedIn
+		) {
+			showWelcomeModal = true;
+			pwaStore.markWelcomeSeen();
+		}
+	});
+
 
 	// Fermer le drawer des commentaires lors des changements de route
 	afterNavigate(() => {
@@ -271,6 +286,16 @@
 		showAccountModal = false;
 	}}
 	defaultMode="register"
+/>
+
+<AccountModal
+	bind:open={showWelcomeModal}
+	onClose={() => (showWelcomeModal = false)}
+	onSuccess={() => {
+		showWelcomeModal = false;
+	}}
+	defaultMode="register"
+	welcomeMode
 />
 
 <Toaster position="bottom-right" />
