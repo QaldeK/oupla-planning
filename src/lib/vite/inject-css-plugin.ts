@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { Plugin } from 'vite';
 
@@ -6,7 +6,7 @@ export function injectRootCss(): Plugin {
 	return {
 		name: 'inject-root-css',
 		enforce: 'post',
-		writeBundle() {
+		async closeBundle() {
 			const root = process.cwd();
 
 			const manifestPath = join(root, '.svelte-kit/output/client/.vite/manifest.json');
@@ -21,6 +21,19 @@ export function injectRootCss(): Plugin {
 			}
 
 			const htmlPath = join(root, 'build/index.html');
+
+			// Attendre que l'adapter-static ait fini d'écrire le fichier
+			let attempts = 0;
+			while (!existsSync(htmlPath) && attempts < 20) {
+				await new Promise((r) => setTimeout(r, 100));
+				attempts++;
+			}
+
+			if (!existsSync(htmlPath)) {
+				console.warn(`[inject-root-css] ${htmlPath} introuvable après ${attempts} tentatives`);
+				return;
+			}
+
 			let html = readFileSync(htmlPath, 'utf-8');
 
 			if (!html.includes(`href="/${rootCss}"`)) {
