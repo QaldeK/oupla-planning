@@ -19,7 +19,7 @@
 
 ## Qu'est-ce que c'est ?
 
-Oupla est une application web progressive (PWA) pour gérer les présences et la coordination de tâches lors d'événements récurrents. Elle fonctionne sans inscription : il suffit d'un nom pour participer, et d'un lien pour créer un planning.
+Oupla est une application web progressive (PWA) pour gérer les présences et la coordination de tâches lors d'événements récurrents. Elle fonctionne sans inscription : il suffit d'un nom pour participer, et d'un lien pour créer un planning. Visiter le site: https://planning.oupla.net/
 
 ### Comment ça marche
 
