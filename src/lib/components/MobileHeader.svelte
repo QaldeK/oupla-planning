@@ -57,21 +57,6 @@
 		}, 100);
 	}
 
-	// Ouvrir le modal d'identification
-	function openUserModal() {
-		// Ouvrir AccountModal pour les non-connectés
-		// Pour les users connectés, ils vont sur /settings
-		goto('/settings');
-	}
-
-	function handleUserBtnClick() {
-		if (userStore.isLoggedIn) {
-			goto('/settings');
-		} else {
-			openUserModal();
-		}
-	}
-
 	$effect(() => {
 		lastScrollY = window.scrollY;
 		window.addEventListener('scroll', handleScroll, { passive: true });
@@ -117,13 +102,15 @@
 			</span>
 
 			<!-- Bouton User -->
-			<button
-				class="btn btn-ghost btn-sm btn-circle"
-				onclick={handleUserBtnClick}
-				aria-label="Ouvrir le profil utilisateur"
-			>
-				<User size={18} />
-			</button>
+			{#if userStore.isLoggedIn}
+				<button
+					class="btn btn-ghost btn-sm btn-circle"
+					onclick={() => goto('/settings')}
+					aria-label="Ouvrir le profil utilisateur"
+				>
+					<User size={18} />
+				</button>
+			{/if}
 		</div>
 	</nav>
 </header>

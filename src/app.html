@@ -3,15 +3,29 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		%sveltekit.head%
 
-		<!-- Préchargement des Google Fonts -->
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap"
-			rel="stylesheet"
-		/>
+		<!-- Critical CSS — élimine le flash avant chargement du bundle CSS -->
+		<style>
+			html {
+				background-color: oklch(98% 0.003 247.858);
+				color: oklch(20% 0.042 265.755);
+				font-family: 'Nunito', sans-serif;
+			}
+			body {
+				margin: 0;
+				min-height: 100vh;
+			}
+			h1,
+			h2,
+			h3,
+			h4,
+			h5,
+			h6 {
+				font-family: 'Fredoka', sans-serif;
+			}
+		</style>
+
+		%sveltekit.head%
 
 		<!-- Favicon -->
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />

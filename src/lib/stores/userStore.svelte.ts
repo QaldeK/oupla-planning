@@ -199,6 +199,16 @@ class UserStore {
 		await db.localMeta.delete(masterId);
 	}
 
+	/**
+	 * Supprime l'identité pour un planning (wrapper pour le flow "quitter").
+	 * Pour les guests : supprime l'identité locale.
+	 * Pour les users auth : ne fait rien (l'identité vient de pb.authStore).
+	 */
+	async removePlanningIdentity(masterId: string) {
+		if (this.isLoggedIn) return;
+		await this.removeIdentity(masterId);
+	}
+
 	// === Auth ===
 
 	async logout() {

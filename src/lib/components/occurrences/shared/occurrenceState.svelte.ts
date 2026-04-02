@@ -33,6 +33,7 @@ interface OccurrenceState {
 		availableResponseTypes: ResponseType[];
 	};
 	currentResponse: ParticipantResponse | undefined;
+	quitParticipantIds: Set<string>;
 	setResponse: (response: ResponseType) => void;
 	toggleTask: (taskId: string) => void;
 	getParticipantName: (response: ParticipantResponse | string) => string;
@@ -49,12 +50,22 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		options.occurrence.responses.find((r) => r.participantId === options.currentUserId)
 	);
 
+	const activeParticipants = $derived(options.master.participants.filter((p) => !p.hasQuit));
+
+	const quitParticipantIds = $derived(
+		new Set(options.master.participants.filter((p) => p.hasQuit).map((p) => p.id))
+	);
+
+	const activeResponses = $derived(
+		options.occurrence.responses.filter((r) => !quitParticipantIds.has(r.participantId))
+	);
+
 	const stats = $derived({
-		present: options.occurrence.responses.filter((r) => r.response === 'present').length,
-		ifNeeded: options.occurrence.responses.filter((r) => r.response === 'if_needed').length,
-		maybe: options.occurrence.responses.filter((r) => r.response === 'maybe').length,
-		absent: options.occurrence.responses.filter((r) => r.response === 'absent').length,
-		noResponse: options.master.participants.length - options.occurrence.responses.length
+		present: activeResponses.filter((r) => r.response === 'present').length,
+		ifNeeded: activeResponses.filter((r) => r.response === 'if_needed').length,
+		maybe: activeResponses.filter((r) => r.response === 'maybe').length,
+		absent: activeResponses.filter((r) => r.response === 'absent').length,
+		noResponse: activeParticipants.length - activeResponses.length
 	});
 
 	const inherited = $derived.by(() => {
@@ -208,6 +219,9 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		},
 		get currentResponse() {
 			return currentResponse;
+		},
+		get quitParticipantIds() {
+			return quitParticipantIds;
 		},
 		setResponse,
 		toggleTask,

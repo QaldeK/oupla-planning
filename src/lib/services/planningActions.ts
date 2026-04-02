@@ -378,6 +378,26 @@ export async function updateParticipant(
 	);
 }
 
+export async function quitPlanning(
+	masterId: string,
+	participantId: string,
+	token: string,
+	currentMaster?: PlanningMaster
+): Promise<PlanningMaster> {
+	const current = currentMaster ?? (await mastersCollection.getTable().get(masterId));
+	if (!current) throw new Error(`Master ${masterId} not found in local DB`);
+
+	const updatedParticipants = (current.participants || []).map((p) =>
+		p.id === participantId ? { ...p, hasQuit: true } : p
+	);
+
+	return await mastersCollection.update(
+		masterId,
+		{ participants: updatedParticipants, lastModifiedBy: pb.authStore.record?.id },
+		{ query: { _token: token } }
+	);
+}
+
 export async function removeParticipant(
 	masterId: string,
 	participantId: string,

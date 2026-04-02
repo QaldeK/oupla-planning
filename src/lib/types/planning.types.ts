@@ -8,6 +8,7 @@ export interface Participant {
 	email?: string;
 	isAdmin: boolean;
 	createdAt: string;
+	hasQuit?: boolean;
 }
 
 // === Réponse par occurrence ===

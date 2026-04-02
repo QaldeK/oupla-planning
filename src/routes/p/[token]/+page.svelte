@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
+	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
 	import { OccurrenceView } from '$lib/components/occurrences/index';
 	import ViewTabs from '$lib/components/occurrences/ViewTabs.svelte';
@@ -9,7 +10,7 @@
 	import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
 	import ShareSection from '$lib/components/ShareSection.svelte';
 	import { PlanningSkeleton } from '$lib/components/ui/skeletons';
-	import { addParticipant, updateParticipant } from '$lib/services/planningActions';
+	import { addParticipant, updateParticipant, quitPlanning } from '$lib/services/planningActions';
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
@@ -29,9 +30,11 @@
 		ListFilter,
 		MapPin,
 		Settings,
-		Users
+		Users,
+		LogOut
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
+	import { goto } from '$app/navigation';
 
 	let token = $derived($page.params.token as string);
 	let master = $derived(planningStore.master);
@@ -43,6 +46,7 @@
 	let showAllParticipants = $state(false);
 	let showNotifModal = $state(false);
 	let showAccountModal = $state(false);
+	let showQuitModal = $state(false);
 	let accountModalMode = $state<'login' | 'register'>('register');
 
 	$effect(() => {
@@ -170,6 +174,20 @@
 	const isAdmin = $derived(master ? !!master.adminToken : false);
 	const adminToken = $derived(master?.adminToken ?? null);
 
+	async function handleQuit() {
+		if (!master || !currentIdentity) return;
+		try {
+			await quitPlanning(master.id, currentIdentity.id, token);
+			await userStore.removePlanningIdentity(master.id);
+			toast.success('Vous avez quitté le planning');
+			showQuitModal = false;
+			goto('/');
+		} catch (err) {
+			console.error('Error quitting planning:', err);
+			toast.error('Erreur lors de la sortie du planning');
+		}
+	}
+
 	const displayedOccurrences = $derived(occurrences.slice(0, displayCount));
 	const hasMore = $derived(displayCount < occurrences.length);
 	const currentIdentity = $derived(master ? userStore.getIdentityForPlanning(master.id) : null);
@@ -263,6 +281,7 @@
 									{master.participants.length} participant
 									{master.participants.length > 1 ? 's' : ''}
 								</div>
+
 								<div class="flex flex-wrap gap-1.5">
 									{#each visibleParticipants as p (p.id)}
 										{#if currentIdentity && p.id === currentIdentity.id}
@@ -290,6 +309,14 @@
 											Tout afficher ({sortedParticipants.length})
 										</button>
 									{/if}
+									<button
+										class="btn btn-error btn-xs ms-auto gap-1"
+										onclick={() => (showQuitModal = true)}
+										title="Quitter ce planning"
+									>
+										<LogOut size={16} />
+										<span>Quitter ce planning</span>
+									</button>
 								</div>
 							</div>
 							<!-- Description (conditionnel) -->
@@ -332,21 +359,31 @@
 
 		<!-- Liste des occurrences -->
 		<div class="">
-			<div class="flex flex-wrap justify-between gap-4">
+			<div class="flex flex-wrap justify-between gap-x-4">
 				<a href="/p/{token}/archive" class="btn btn-sm btn-soft mb-2 gap-2">
 					<History size={18} />
 					Voir les événements passés
 				</a>
-				{#if !mediaQuery.isMobile}
+				<div class="mx-2 flex gap-4">
+					{#if mediaQuery.isMobile && isAdmin}
+						<button
+							class="btn btn-accent btn-circle btn-sm"
+							onclick={() => goto(`/admin/${adminToken}`)}
+						>
+							<Settings size={18} class="shrink-0" />
+						</button>
+					{/if}
 					<button
-						class="btn btn-primary btn-sm"
+						class="btn btn-primary btn-sm {mediaQuery.isMobile ? 'btn-circle' : ''}"
 						onclick={() =>
 							userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
 					>
 						<Bell size={18} class="shrink-0" />
-						Configurer les notifications
+						{#if !mediaQuery.isMobile}
+							Configurer les notifications
+						{/if}
 					</button>
-				{/if}
+				</div>
 			</div>
 			<!-- Header avec tabs -->
 			<div class="flex flex-wrap items-center justify-between gap-4">
@@ -417,4 +454,15 @@
 		showNotifModal = true;
 	}}
 	defaultMode={accountModalMode}
+/>
+
+<ConfirmModal
+	bind:open={showQuitModal}
+	onClose={() => (showQuitModal = false)}
+	onConfirm={handleQuit}
+	title="Quitter ce planning ?"
+	message="Êtes-vous sûr de vouloir quitter ce planning ?"
+	description="Vous pourrez retrouver ce planning si vous concerver son url."
+	confirmLabel="Quitter"
+	variant="warning"
 />

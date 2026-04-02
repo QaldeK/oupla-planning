@@ -310,6 +310,7 @@
 					disabled={occState.isNetworkUnavailable || !canRespond}
 					{currentUserId}
 					{isPastDate}
+					quitParticipantIds={occState.quitParticipantIds}
 				/>
 			{/if}
 
@@ -326,6 +327,7 @@
 					onToggle={occState.toggleTask}
 					displayMode={viewMode}
 					disabled={occState.isNetworkUnavailable || !canRespond}
+					quitParticipantIds={occState.quitParticipantIds}
 				/>
 			{/if}
 		</div>
@@ -426,6 +428,7 @@
 							{currentUserId}
 							disabled={occState.isNetworkUnavailable || !canRespond}
 							{isPastDate}
+							quitParticipantIds={occState.quitParticipantIds}
 						/>
 					</div>
 				</div>
@@ -446,6 +449,7 @@
 					onToggle={occState.toggleTask}
 					displayMode={viewMode}
 					disabled={occState.isNetworkUnavailable || !canRespond}
+					quitParticipantIds={occState.quitParticipantIds}
 				/>
 			{/if}
 
@@ -518,6 +522,7 @@
 					disabled={occState.isNetworkUnavailable || !canRespond}
 					{currentUserId}
 					{isPastDate}
+					quitParticipantIds={occState.quitParticipantIds}
 				/>
 			</div>
 		{/if}
@@ -535,6 +540,7 @@
 					onToggle={occState.toggleTask}
 					displayMode={viewMode}
 					disabled={occState.isNetworkUnavailable || !canRespond}
+					quitParticipantIds={occState.quitParticipantIds}
 				/>
 			</div>
 		{/if}

@@ -16,6 +16,7 @@
 		isPastDate: boolean;
 		getParticipantName: (response: ParticipantResponse) => string;
 		onToggle: () => void;
+		quitParticipantIds?: Set<string>;
 	}
 
 	let {
@@ -29,7 +30,8 @@
 		readOnly,
 		isPastDate,
 		getParticipantName,
-		onToggle
+		onToggle,
+		quitParticipantIds = new Set()
 	}: Props = $props();
 
 	function handleClose() {
@@ -74,10 +76,11 @@
 		<div class="flex flex-wrap gap-2">
 			{#if volunteers > 0}
 				{#each inscribed as response (response.participantId)}
+					{@const isQuit = quitParticipantIds.has(response.participantId)}
 					<div
 						class="badge bg-accent/60 {response.participantId === currentUserId
 							? 'border-accent border-2 font-bold'
-							: 'font-medium'}"
+							: 'font-medium'} {isQuit ? 'line-through opacity-40' : ''}"
 						transition:slide
 					>
 						{getParticipantName(response)}

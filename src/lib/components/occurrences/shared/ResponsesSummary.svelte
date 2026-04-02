@@ -13,6 +13,7 @@
 		currentUserId?: string;
 		disabled?: boolean;
 		isPastDate?: boolean;
+		quitParticipantIds?: Set<string>;
 	}
 
 	let {
@@ -23,7 +24,8 @@
 		displayMode,
 		currentUserId,
 		disabled = false,
-		isPastDate = false
+		isPastDate = false,
+		quitParticipantIds = new Set()
 	}: Props = $props();
 
 	const types = $derived(availableTypes || AVAILABLE_RESPONSE_TYPES);
@@ -81,10 +83,11 @@
 		</div>
 		<div class="flex min-h-6 flex-1 flex-wrap items-start gap-2 p-4 px-3">
 			{#each typeResponses as response (response.participantId)}
+				{@const isQuit = quitParticipantIds.has(response.participantId)}
 				<div
 					class="badge badge-lg {config.bgClass} {response.participantId === currentUserId
 						? `border-2 ${config.borderClass} font-bold`
-						: 'font-medium'}"
+						: 'font-medium'} {isQuit ? 'line-through opacity-40' : ''}"
 					transition:slide
 				>
 					{getParticipantName(response)}
@@ -120,10 +123,11 @@
 			</div>
 			{#if typeResponses.length > 0}
 				{#each typeResponses as response (response.participantId)}
+					{@const isQuit = quitParticipantIds.has(response.participantId)}
 					<div
 						class="badge m-1 {config.bgClass} {response.participantId === currentUserId
 							? `border-2 ${config.borderClass} font-bold`
-							: 'font-medium'}"
+							: 'font-medium'} {isQuit ? 'line-through opacity-40' : ''}"
 					>
 						{getParticipantName(response)}
 					</div>
@@ -196,12 +200,14 @@
 					{@const config = RESPONSE_TYPE_CONFIG[type]}
 					{@const Icon = config.icon}
 					{#each responsesByType[type] as response (response.participantId)}
+						{@const isQuit = quitParticipantIds.has(response.participantId)}
 						<div
 							class={[
 								'badge gap-1',
 								config.bgClass,
 								response.participantId === currentUserId &&
-									`border-3 ${config.borderClass} font-semibold`
+									`border-3 ${config.borderClass} font-semibold`,
+								isQuit && 'line-through opacity-40'
 							]}
 							in:slide
 						>

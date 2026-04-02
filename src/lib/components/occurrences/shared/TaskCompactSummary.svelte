@@ -23,6 +23,7 @@
 		getParticipantName: (response: ParticipantResponse) => string;
 		onToggle: (taskId: string) => void;
 		disabled?: boolean;
+		quitParticipantIds?: Set<string>;
 	}
 
 	let {
@@ -35,7 +36,8 @@
 		displayMode,
 		getParticipantName,
 		onToggle,
-		disabled = false
+		disabled = false,
+		quitParticipantIds = new Set()
 	}: Props = $props();
 
 	const isCompactDisplay = $derived(displayMode === 'compact');
@@ -137,10 +139,11 @@
 		<div class="flex flex-1 flex-wrap items-center gap-1.5 p-3">
 			{#if volunteers > 0}
 				{#each inscribed as response (response.participantId)}
+					{@const isQuit = quitParticipantIds.has(response.participantId)}
 					<div
 						class="badge md:badge-lg bg-accent/60 {response.participantId === currentUserId
 							? 'border-accent border-2 font-bold'
-							: 'font-medium'}"
+							: 'font-medium'} {isQuit ? 'line-through opacity-40' : ''}"
 						transition:slide
 					>
 						{getParticipantName(response)}
@@ -181,10 +184,11 @@
 		{#if volunteers > 0}
 			{@const displayInscribed = inscribed.slice(0, 6)}
 			{#each displayInscribed as response (response.participantId)}
+				{@const isQuit = quitParticipantIds.has(response.participantId)}
 				<div
 					class="badge bg-accent/60 m-1.5 {response.participantId === currentUserId
 						? 'border-accent border-2 font-bold'
-						: 'font-medium'}"
+						: 'font-medium'} {isQuit ? 'line-through opacity-40' : ''}"
 					transition:slide
 				>
 					{getParticipantName(response)}
@@ -317,5 +321,6 @@
 		{isPastDate}
 		{getParticipantName}
 		onToggle={() => onToggle(modalTask.id)}
+		{quitParticipantIds}
 	/>
 {/if}
