@@ -6,7 +6,7 @@ export function injectRootCss(): Plugin {
 	return {
 		name: 'inject-root-css',
 		enforce: 'post',
-		closeBundle() {
+		writeBundle() {
 			const root = process.cwd();
 
 			const manifestPath = join(root, '.svelte-kit/output/client/.vite/manifest.json');
