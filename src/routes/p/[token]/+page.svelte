@@ -48,14 +48,13 @@
 	$effect(() => {
 		if (!master) return;
 
-		// Déjà identifié sur ce planning — ne rien faire
-		if (userStore.getIdentityForPlanning(master.id)) return;
-
+		// === Utilisateur authentifié ===
 		if (userStore.isLoggedIn && userStore.pbUser) {
 			const pbUser = userStore.pbUser;
 			const existingParticipant = master.participants.find((p) => p.id === pbUser.id);
 
 			if (existingParticipant) {
+				// Déjà participant — synchroniser l'identité
 				handlePlanningIdentify(
 					{
 						id: existingParticipant.id,
@@ -67,19 +66,25 @@
 				return;
 			}
 
+			// Pas encore participant — vérifier le conflit de nom
 			const hasConflict = master.participants.some(
 				(p) => p.name.toLowerCase() === pbUser.name.toLowerCase() && p.id !== pbUser.id
 			);
 
 			if (!hasConflict) {
+				// Pas de conflit → ajouter automatiquement
 				handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true);
 			} else {
+				// Conflit → ouvrir le modal pour choisir un autre nom
 				openIdentifyModal();
 			}
 			return;
 		}
 
-		openIdentifyModal();
+		// === Guest ===
+		if (!userStore.getIdentityForPlanning(master.id)) {
+			openIdentifyModal();
+		}
 	});
 
 	async function handlePlanningIdentify(identity: PlanningIdentity, isNewParticipant: boolean) {
