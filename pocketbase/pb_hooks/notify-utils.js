@@ -1,3 +1,5 @@
+// @ts-nocheck — Fichier JSVM PocketBase, les globaux ($http, MailerMessage, etc.) sont injectés par le runtime
+
 /**
  * Utilitaires partagés pour les notifications
  *
