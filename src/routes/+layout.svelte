@@ -175,7 +175,7 @@
 					<div class="divider"></div>
 					<p class="text-base-content/60 px-2 text-sm font-semibold">Plannings sauvegardés</p>
 					<div class="space-y-2">
-						{#each planningStore.activeMasters.filter((m) => !m.participants.some((p) => p.id === userStore.pbUser?.id && p.hasQuit)) as master (master.id)}
+						{#each planningStore.activeMasters.filter((m) => !m.participants.some((p) => p.userId === userStore.pbUser?.id && p.hasQuit)) as master (master.id)}
 							<button
 								class="btn w-full justify-start {planningStore.activeMasterId === master.id
 									? 'ring-primary ring-2'

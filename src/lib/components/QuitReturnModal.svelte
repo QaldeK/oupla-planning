@@ -1,0 +1,96 @@
+<script lang="ts">
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import { updateParticipant } from '$lib/services/planningActions';
+	import { userStore } from '$lib/stores/userStore.svelte';
+	import { goto } from '$app/navigation';
+	import { LogIn, LogOut } from 'lucide-svelte';
+	import { toast } from 'svelte-sonner';
+	import type { PlanningMaster } from '$lib/types/planning.types';
+
+	interface Props {
+		open: boolean;
+		onClose: () => void;
+		master: PlanningMaster;
+		token: string;
+		/** ID du participant quit à restaurer */
+		quitParticipantId: string;
+		/** Callback après rejoindre réussi */
+		onRejoined?: () => void;
+	}
+
+	let {
+		open = $bindable(false),
+		onClose,
+		master,
+		token,
+		quitParticipantId,
+		onRejoined
+	}: Props = $props();
+
+	let isSubmitting = $state(false);
+
+	/**
+	 * Rejoindre le planning : retire le flag hasQuit sur le participant.
+	 * Pour les guests, réinitialise aussi l'identité locale dans localMeta.
+	 * Après l'appel, pb-sync / realtime mettra Dexie à jour et le
+	 * $effect de la page détectera le changement.
+	 */
+	async function handleRejoin() {
+		isSubmitting = true;
+		try {
+			await updateParticipant(master.id, quitParticipantId, { hasQuit: false }, token);
+
+			// Guest : réinitialiser l'identité locale
+			const participant = master.participants.find((p) => p.id === quitParticipantId);
+			if (participant && !userStore.isLoggedIn) {
+				await userStore.setPlanningIdentity(master.id, {
+					id: participant.id,
+					name: participant.name
+				});
+			}
+
+			toast.success('Vous avez rejoint le planning');
+			onRejoined?.();
+			open = false;
+		} catch (err) {
+			console.error('Error rejoining:', err);
+			toast.error('Erreur lors de la réinscription');
+		} finally {
+			isSubmitting = false;
+		}
+	}
+
+	/**
+	 * Quitter définitivement : redirige vers l'accueil.
+	 * Le flag hasQuit: true est déjà côté serveur (inchangé).
+	 */
+	function handleDefinitiveQuit() {
+		goto('/');
+	}
+</script>
+
+<Modal {open} {onClose} title="Planning quitté" size="sm" closable={false}>
+	<div class="space-y-4">
+		<p class="text-sm">Vous avez précédemment quitté ce planning.</p>
+		<p class="text-sm opacity-80">Souhaitez-vous le rejoindre à nouveau ?</p>
+		<div class="modal-action">
+			<button
+				type="button"
+				class="btn btn-ghost gap-2"
+				onclick={handleDefinitiveQuit}
+				disabled={isSubmitting}
+			>
+				Non
+			</button>
+			<button
+				type="button"
+				class="btn btn-primary gap-2"
+				onclick={handleRejoin}
+				disabled={isSubmitting}
+			>
+				<LogIn size={18} />
+				Rejoindre
+			</button>
+		</div>
+	</div>
+</Modal>

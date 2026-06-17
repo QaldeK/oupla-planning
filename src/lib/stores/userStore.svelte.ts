@@ -262,13 +262,32 @@ class UserStore {
 	}
 
 	/**
-	 * Supprime l'identité pour un planning (wrapper pour le flow "quitter").
+	 * Supprime l'identité pour un planning (wrapper pour le flux "quitter").
 	 * Pour les guests : supprime l'identité locale.
 	 * Pour les users auth : ne fait rien (l'identité vient de pb.authStore).
 	 */
 	async removePlanningIdentity(masterId: string) {
 		if (this.isLoggedIn) return;
 		await this.removeIdentity(masterId);
+	}
+
+	/**
+	 * Marque l'identité guest comme ayant quitté le planning (au lieu de la
+	 * supprimer). Permet la détection du retour après quit pour ouvrir le
+	 * modal de reconnexion.
+	 *
+	 * Ne fait rien si l'utilisateur est connecté (l'identité vient de pb.authStore).
+	 */
+	async markPlanningAsQuit(masterId: string) {
+		if (this.isLoggedIn) return;
+
+		const idx = this.savedPlannings.findIndex((p) => p.masterId === masterId);
+		if (idx >= 0) {
+			this.savedPlannings[idx] = { ...this.savedPlannings[idx], hasQuit: true };
+		} else {
+			this.savedPlannings.push({ masterId, hasQuit: true });
+		}
+		await this.#persistIdentities();
 	}
 
 	// === Auth ===

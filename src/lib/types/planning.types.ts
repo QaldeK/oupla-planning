@@ -141,6 +141,8 @@ export interface PlanningIdentity {
 export interface SavedPlanning {
 	masterId: string;
 	currentUser?: PlanningIdentity;
+	/** true si l'identité guest a quitté ce planning (localMeta uniquement) */
+	hasQuit?: boolean;
 }
 
 // === Comment State (local-only, Dexie) ===

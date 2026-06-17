@@ -9,6 +9,7 @@
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { fade } from 'svelte/transition';
 
+	import QuitReturnModal from '$lib/components/QuitReturnModal.svelte';
 	import { ArrowLeft, Calendar, CalendarCog, RefreshCw, Trash2, WifiOff } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -18,9 +19,33 @@
 	let isLoading = $derived(planningStore.isLoading);
 	let isSubmitting = $state(false);
 
+	// === Détection retour après quit ===
+	let showQuitReturnModal = $state(false);
+
+	const quitParticipantId = $derived.by(() => {
+		if (!master) return null;
+		if (userStore.isLoggedIn && userStore.pbUser) {
+			return (
+				master.participants.find((p) => p.userId === userStore.pbUser!.id && p.hasQuit)?.id ?? null
+			);
+		}
+		const sp = userStore.savedPlannings.find((p) => p.masterId === master.id);
+		if (sp?.hasQuit && sp?.currentUser) {
+			return master.participants.find((p) => p.id === sp.currentUser!.id && p.hasQuit)?.id ?? null;
+		}
+		return null;
+	});
+	const hasQuitThisPlanning = $derived(quitParticipantId !== null);
+
 	// Logique de redirection admin → participant
 	$effect(() => {
 		if (!master) return;
+
+		// PRIORITÉ : retour après quit
+		if (hasQuitThisPlanning) {
+			if (!showQuitReturnModal) showQuitReturnModal = true;
+			return;
+		}
 
 		// Si l'utilisateur n'a pas les droits admin sur ce planning, rediriger
 		if (!planningStore.hasAdminAccess(master.id)) {
@@ -169,4 +194,15 @@
 			<a href="/" class="btn btn-primary btn-wide">Retour à l'accueil</a>
 		</div>
 	</div>
+{/if}
+
+{#if master && quitParticipantId}
+	<QuitReturnModal
+		bind:open={showQuitReturnModal}
+		onClose={() => (showQuitReturnModal = false)}
+		{master}
+		{token}
+		quitParticipantId={quitParticipantId!}
+		onRejoined={() => (showQuitReturnModal = false)}
+	/>
 {/if}

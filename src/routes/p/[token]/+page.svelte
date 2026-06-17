@@ -12,6 +12,7 @@
 	import ShareSection from '$lib/components/ShareSection.svelte';
 	import { PlanningSkeleton } from '$lib/components/ui/skeletons';
 	import { addParticipant, updateParticipant, quitPlanning } from '$lib/services/planningActions';
+	import QuitReturnModal from '$lib/components/QuitReturnModal.svelte';
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
@@ -51,6 +52,7 @@
 	let showAccountModal = $state(false);
 	let showQuitModal = $state(false);
 	let showClaimModal = $state(false);
+	let showQuitReturnModal = $state(false);
 	let accountModalMode = $state<'login' | 'register'>('register');
 
 	// Mémorise les masters pour lesquels on a déjà fait un auto-add silencieux (CAS C)
@@ -91,6 +93,24 @@
 			: null
 	);
 
+	// === Détection retour après quit ===
+	// Pour l'auth : participant avec userId + hasQuit
+	// Pour le guest : localMeta.hasQuit + currentUser.id match
+	const quitParticipantId = $derived.by(() => {
+		if (!master) return null;
+		if (userStore.isLoggedIn && userStore.pbUser) {
+			return (
+				master.participants.find((p) => p.userId === userStore.pbUser!.id && p.hasQuit)?.id ?? null
+			);
+		}
+		const sp = userStore.savedPlannings.find((p) => p.masterId === master.id);
+		if (sp?.hasQuit && sp?.currentUser) {
+			return master.participants.find((p) => p.id === sp.currentUser!.id && p.hasQuit)?.id ?? null;
+		}
+		return null;
+	});
+	const hasQuitThisPlanning = $derived(quitParticipantId !== null);
+
 	// Participants non-liés que l'user auth peut revendiquer (sans userId, sans hasQuit)
 	const claimableParticipants = $derived(
 		master
@@ -108,6 +128,15 @@
 		// Sans ça, l'$effect verrait un état intermédiaire (master cleared,
 		// userId pas encore posé) et déclencherait un CAS B/C intempestif.
 		if (userStore.isTransitioning) return;
+
+		// === PRIORITÉ : retour après quit ===
+		// L'utilisateur a déjà quitté ce planning. On ouvre un modal de
+		// confirmation pour qu'il choisisse de rejoindre ou quitter définitivement.
+		// Ce guard bloque CAS A/B/C tant que le choix n'est pas fait.
+		if (hasQuitThisPlanning) {
+			if (!showQuitReturnModal) showQuitReturnModal = true;
+			return;
+		}
 
 		// === Utilisateur authentifié ===
 		if (userStore.isLoggedIn && userStore.pbUser) {
@@ -247,7 +276,7 @@
 		if (!master || !currentIdentity) return;
 		try {
 			await quitPlanning(master.id, currentIdentity.id, token);
-			await userStore.removePlanningIdentity(master.id);
+			await userStore.markPlanningAsQuit(master.id);
 			toast.success('Vous avez quitté le planning');
 			showQuitModal = false;
 			goto('/');
@@ -364,7 +393,7 @@
 													Changer
 												</button>
 											</span>
-										{:else}
+										{:else if !p.hasQuit}
 											<span class="badge badge-info badge-outline">{p.name}</span>
 										{/if}
 									{/each}
@@ -432,14 +461,20 @@
 					<div class="alert alert-warning mt-4">
 						<Lock size={18} />
 						<div>
-							<p class="font-medium">Cette identité est désormais liée à un compte</p>
+							<p class="font-medium">
+								Cette identité "<strong>{myParticipant?.name}</strong>" est désormais liée à un
+								compte
+							</p>
 							<p class="text-sm opacity-80">
 								Pour continuer à participer en tant que {myParticipant?.name ?? 'cette identité'},
 								vous devez vous connecter au compte associé.
 							</p>
 						</div>
 						<div class="flex gap-2">
-							<button class="btn btn-primary" onclick={() => (showAccountModal = true)}>
+							<button
+								class="btn btn-primary"
+								onclick={() => ((accountModalMode = 'login'), (showAccountModal = true))}
+							>
 								Se connecter
 							</button>
 						</div>
@@ -581,5 +616,16 @@
 		{token}
 		occurrences={allOccurrences}
 		onIdentityChanged={handleIdentityChanged}
+	/>
+{/if}
+
+{#if master && quitParticipantId}
+	<QuitReturnModal
+		bind:open={showQuitReturnModal}
+		onClose={() => (showQuitReturnModal = false)}
+		{master}
+		{token}
+		quitParticipantId={quitParticipantId!}
+		onRejoined={() => (showQuitReturnModal = false)}
 	/>
 {/if}

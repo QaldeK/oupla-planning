@@ -86,7 +86,7 @@
 		<div class="mb-8">
 			<h2 class="mb-4 text-xl font-semibold">Vos plannings</h2>
 			<div class="space-y-3">
-				{#each planningStore.activeMasters.filter((m) => !m.participants.some((p) => p.id === userStore.pbUser?.id && p.hasQuit)) as master (master.id)}
+				{#each planningStore.activeMasters.filter((m) => !m.participants.some((p) => p.userId === userStore.pbUser?.id && p.hasQuit)) as master (master.id)}
 					<button
 						class="card bg-base-100 w-full shadow-md transition hover:cursor-pointer hover:shadow-lg"
 						onclick={() => navigateToPlanning(master.participantToken!)}
