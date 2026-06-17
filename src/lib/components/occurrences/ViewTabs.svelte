@@ -37,7 +37,7 @@
 			onclick={() => setView(view)}
 			aria-selected={activeView === view}
 		>
-			<Icon size={16} />
+			<Icon size={18} />
 			<span class="hidden sm:inline">{getLabel(view)}</span>
 		</button>
 	{/each}

@@ -494,8 +494,8 @@
 
 			<!-- Place -->
 			{#if occurrence.place}
-				<div class="flex items-center gap-1 text-xs opacity-70">
-					<MapPin size={12} />
+				<div class="flex items-center gap-1 text-sm font-medium opacity-80">
+					<MapPin size={14} />
 					{occurrence.place}
 				</div>
 			{/if}
@@ -510,12 +510,12 @@
 						required={occState.inherited.minPresentRequired}
 					/>
 				{/if}
+				{#if !mediaQuery.isMobile}
+					<div class="ms-auto flex items-center gap-3">
+						{@render actionCompact()}
+					</div>
+				{/if}
 			</div>
-			{#if !mediaQuery.isMobile}
-				<div class="ms-auto flex items-center gap-3">
-					{@render actionCompact()}
-				</div>
-			{/if}
 		</div>
 
 		<!-- Actions section -->

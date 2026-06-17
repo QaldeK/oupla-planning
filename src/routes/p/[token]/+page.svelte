@@ -438,21 +438,18 @@
 		<!-- Liste des occurrences -->
 		<div class="">
 			<div class="flex flex-wrap justify-between gap-x-4">
-				<a href="/p/{token}/archive" class="btn btn-sm btn-soft mb-2 gap-2">
+				<a href="/p/{token}/archive" class="btn btn-soft mb-2 gap-2">
 					<History size={18} />
 					Voir les événements passés
 				</a>
 				<div class="mx-2 flex gap-4">
 					{#if mediaQuery.isMobile && isAdmin}
-						<button
-							class="btn btn-accent btn-circle btn-sm"
-							onclick={() => goto(`/admin/${adminToken}`)}
-						>
+						<button class="btn btn-accent btn-circle" onclick={() => goto(`/admin/${adminToken}`)}>
 							<Settings size={18} class="shrink-0" />
 						</button>
 					{/if}
 					<button
-						class="btn btn-primary btn-sm {mediaQuery.isMobile ? 'btn-circle' : ''}"
+						class="btn btn-primary {mediaQuery.isMobile ? 'btn-circle' : ''}"
 						onclick={() =>
 							userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
 					>

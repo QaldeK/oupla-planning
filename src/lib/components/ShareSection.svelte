@@ -15,7 +15,7 @@
 
 <div class="card card-sm bg-base-300 border-primary/10 my-8 border-2 shadow-md">
 	<div class="card-body">
-		<h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
+		<h3 class="mb-4 flex items-center gap-2 text-base font-semibold">
 			<Share2 size={22} class="text-primary" />
 			Partager ce planning
 		</h3>
@@ -28,7 +28,7 @@
 						<Users size={18} />
 						Lien Public
 					</div>
-					<p class="text-sm leading-relaxed opacity-80">
+					<p class="text-sm opacity-80">
 						Partagez ce lien avec les participants pour qu'ils puissent
 						{#if allowResponses}déclarer leur présence,{/if}
 						{#if tasksCount > 0}s'inscrire aux tâches,{/if}
@@ -47,7 +47,7 @@
 						<Settings size={18} />
 						Lien Administrateur
 					</div>
-					<p class="text-sm leading-relaxed opacity-80">
+					<p class="text-sm opacity-80">
 						Permet la modification du planning et des occurrences, ainsi que la confirmation ou
 						l'annulation des événements.
 					</p>
