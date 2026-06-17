@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
+	import IdentityClaimModal from '$lib/components/IdentityClaimModal.svelte';
 	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
 	import { OccurrenceView } from '$lib/components/occurrences/index';
 	import ViewTabs from '$lib/components/occurrences/ViewTabs.svelte';
@@ -14,7 +15,7 @@
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
-	import type { PlanningIdentity } from '$lib/types/planning.types';
+	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
 	import { formatDateShort } from '$lib/utils/date';
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { fade } from 'svelte/transition';
@@ -31,7 +32,8 @@
 		MapPin,
 		Settings,
 		Users,
-		LogOut
+		LogOut,
+		UserCheck
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
@@ -47,40 +49,86 @@
 	let showNotifModal = $state(false);
 	let showAccountModal = $state(false);
 	let showQuitModal = $state(false);
+	let showClaimModal = $state(false);
 	let accountModalMode = $state<'login' | 'register'>('register');
+
+	// Mémorise les masters pour lesquels on a déjà fait un auto-add silencieux (CAS C)
+	// afin d'éviter les déclenchements multiples avant que l'update Dexie ne se propage
+	const autoAddedMasterIds = new Set<string>();
+
+	// Participant lié à l'utilisateur courant sur ce planning
+	// - Auth : recherche par `userId` (le participant peut avoir un id différent de pbUser.id)
+	// - Guest : recherche par `currentIdentity.id`
+	const myParticipant = $derived.by(() => {
+		if (!master) return null;
+		if (userStore.isLoggedIn && userStore.pbUser) {
+			return (
+				master.participants.find((p) => p.userId === userStore.pbUser!.id && !p.hasQuit) ?? null
+			);
+		}
+		const identity = userStore.getIdentityForPlanning(master.id);
+		if (identity) {
+			return master.participants.find((p) => p.id === identity.id && !p.hasQuit) ?? null;
+		}
+		return null;
+	});
+
+	const currentIdentity = $derived(
+		myParticipant
+			? {
+					id: myParticipant.id,
+					name: myParticipant.name,
+					email: userStore.pbUser?.email
+				}
+			: null
+	);
+
+	// Participants non-liés que l'user auth peut revendiquer (sans userId, sans hasQuit)
+	const claimableParticipants = $derived(
+		master
+			? master.participants.filter((p) => !p.userId && !p.hasQuit && p.id !== myParticipant?.id)
+			: []
+	);
+
+	// Mode du IdentityClaimModal selon que l'user est déjà participant ou non
+	const claimModalMode = $derived(myParticipant ? 'manage' : 'new');
 
 	$effect(() => {
 		if (!master) return;
 
+		// Guard : ne rien faire pendant la transition guest → auth.
+		// Sans ça, l'$effect verrait un état intermédiaire (master cleared,
+		// userId pas encore posé) et déclencherait un CAS B/C intempestif.
+		if (userStore.isTransitioning) return;
+
 		// === Utilisateur authentifié ===
 		if (userStore.isLoggedIn && userStore.pbUser) {
 			const pbUser = userStore.pbUser;
-			const existingParticipant = master.participants.find((p) => p.id === pbUser.id);
 
-			if (existingParticipant) {
-				// Déjà participant — synchroniser l'identité
-				handlePlanningIdentify(
-					{
-						id: existingParticipant.id,
-						name: existingParticipant.name,
-						email: existingParticipant.email
-					},
-					false
+			// CAS A : déjà participant via userId → sync silencieuse (sans renommer, préserve l'indépendance nom-par-planning)
+			if (myParticipant) {
+				ensurePlanningParticipant(master.id, pbUser.id).catch((err) =>
+					console.error('ensurePlanningParticipant failed:', err)
 				);
 				return;
 			}
 
-			// Pas encore participant — vérifier le conflit de nom
-			const hasConflict = master.participants.some(
-				(p) => p.name.toLowerCase() === pbUser.name.toLowerCase() && p.id !== pbUser.id
+			// CAS B : name match avec un participant non-lié sans hasQuit → ouvrir IdentityClaimModal
+			const nameMatch = master.participants.find(
+				(p) => !p.userId && !p.hasQuit && p.name.toLowerCase() === pbUser.name.toLowerCase()
 			);
+			if (nameMatch && !showClaimModal) {
+				openIdentityClaimModal();
+				return;
+			}
 
-			if (!hasConflict) {
-				// Pas de conflit → ajouter automatiquement
-				handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true);
-			} else {
-				// Conflit → ouvrir le modal pour choisir un autre nom
-				openIdentifyModal();
+			// CAS C : pas de match → auto-add silencieux avec userId
+			// Garde de sécurité : ne pas re-déclencher si déjà fait pour ce master
+			if (!autoAddedMasterIds.has(master.id)) {
+				autoAddedMasterIds.add(master.id);
+				handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true, {
+					userId: pbUser.id
+				});
 			}
 			return;
 		}
@@ -91,29 +139,29 @@
 		}
 	});
 
-	async function handlePlanningIdentify(identity: PlanningIdentity, isNewParticipant: boolean) {
+	async function handlePlanningIdentify(
+		identity: PlanningIdentity,
+		isNewParticipant: boolean,
+		additionalFields?: Partial<Participant>
+	) {
 		if (!master) return;
 
 		try {
 			const existing = master.participants.find((p) => p.id === identity.id);
 
 			if (isNewParticipant && !existing) {
-				const updated = await addParticipant(
+				await addParticipant(
 					master.id,
 					{
 						id: identity.id,
 						name: identity.name,
-						isAdmin: false
+						isAdmin: false,
+						...additionalFields
 					},
 					token
 				);
 			} else if (existing && existing.name !== identity.name) {
-				const updated = await updateParticipant(
-					master.id,
-					identity.id,
-					{ name: identity.name },
-					token
-				);
+				await updateParticipant(master.id, identity.id, { name: identity.name }, token);
 			}
 
 			if (userStore.isLoggedIn) {
@@ -133,6 +181,16 @@
 		}
 	}
 
+	/** Callback invoqué par IdentityClaimModal après un changement d'identité réussi */
+	function handleIdentityChanged(identity: PlanningIdentity) {
+		// setPlanningIdentity est no-op pour les auth, mais on l'appelle pour les guests
+		userStore
+			.setPlanningIdentity(master!.id, identity)
+			.catch((err) => console.error('setPlanningIdentity failed:', err));
+		// Le refresh des données vient automatiquement via realtime (pb-sync → Dexie → liveQuery)
+		showClaimModal = false;
+	}
+
 	function loadMore() {
 		displayCount += 10;
 	}
@@ -142,7 +200,6 @@
 
 		const identityName = currentIdentity?.name || userStore.pbUser?.name || '';
 
-		// Pour les users authentifiés : préremplir le nom et cacher la liste des participants
 		userStore.authModal = {
 			open: true,
 			masterId: master.id,
@@ -152,6 +209,10 @@
 			hideExistingParticipants: userStore.isLoggedIn ? true : undefined,
 			currentIdentity: currentIdentity
 		};
+	}
+
+	function openIdentityClaimModal() {
+		showClaimModal = true;
 	}
 
 	const canNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
@@ -190,16 +251,14 @@
 
 	const displayedOccurrences = $derived(occurrences.slice(0, displayCount));
 	const hasMore = $derived(displayCount < occurrences.length);
-	const currentIdentity = $derived(master ? userStore.getIdentityForPlanning(master.id) : null);
 
 	// Liste des participants avec l'utilisateur actuel en premier
 	const sortedParticipants = $derived.by(() => {
-		if (!master || !currentIdentity) return master?.participants ?? [];
+		if (!master || !myParticipant) return master?.participants ?? [];
 
-		const currentUser = master.participants.find((p) => p.id === currentIdentity.id);
-		const otherParticipants = master.participants.filter((p) => p.id !== currentIdentity.id);
+		const otherParticipants = master.participants.filter((p) => p.id !== myParticipant.id);
 
-		return currentUser ? [currentUser, ...otherParticipants] : master.participants;
+		return [myParticipant, ...otherParticipants];
 	});
 
 	const visibleParticipants = $derived(
@@ -267,7 +326,7 @@
 
 			<!-- Card 1: Infos Planning -->
 			{#if master.description || master.recurrence || master.participants.length > 0}
-				<div class="card card-sm bg-base-200 border-base-content/5 mb-4 border shadow-sm">
+				<div class="card card-sm bg-base-300/20 border-base-content/5 mb-4 border shadow-sm">
 					<div class="card-body">
 						<div class="flex flex-wrap items-start gap-4 max-sm:flex-col">
 							<!-- Participants -->
@@ -284,14 +343,15 @@
 
 								<div class="flex flex-wrap gap-1.5">
 									{#each visibleParticipants as p (p.id)}
-										{#if currentIdentity && p.id === currentIdentity.id}
+										{#if myParticipant && p.id === myParticipant.id}
 											<!-- Utilisateur actuel en badge-info avec bouton changer -->
 											<span class="badge badge-info gap-1">
 												{p.name}
 												<button
 													class="btn btn-soft btn-info btn-xs ms-1 h-4 min-h-0 px-1 text-current"
 													type="button"
-													onclick={openIdentifyModal}
+													onclick={() =>
+														userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
 												>
 													Changer
 												</button>
@@ -318,6 +378,18 @@
 										<span>Quitter ce planning</span>
 									</button>
 								</div>
+
+								<!-- Entry point "Revendiquer une identité existante" pour users auth -->
+								{#if userStore.isLoggedIn && claimableParticipants.length > 0}
+									<button
+										class="btn btn-link btn-xs text-info gap-1"
+										type="button"
+										onclick={openIdentityClaimModal}
+									>
+										<UserCheck size={14} />
+										Revendiquer une identité existante
+									</button>
+								{/if}
 							</div>
 							<!-- Description (conditionnel) -->
 							{#if master.description}
@@ -351,7 +423,13 @@
 					<Info size={18} />
 					<p>Veuillez vous identifier pour répondre aux sondages</p>
 					<div class="flex gap-2">
-						<button class="btn" onclick={openIdentifyModal}>S'identifier</button>
+						<button
+							class="btn"
+							onclick={() =>
+								userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
+						>
+							S'identifier
+						</button>
 					</div>
 				</div>
 			{/if}
@@ -399,6 +477,8 @@
 					participants={master.participants}
 					currentUserId={currentIdentity?.id}
 					{isAdmin}
+					onNeedReidentify={() =>
+						userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
 				/>
 			{/each}
 
@@ -466,3 +546,16 @@
 	confirmLabel="Quitter"
 	variant="warning"
 />
+
+{#if master && userStore.pbUser}
+	<IdentityClaimModal
+		bind:open={showClaimModal}
+		onClose={() => (showClaimModal = false)}
+		mode={claimModalMode}
+		{master}
+		pbUser={userStore.pbUser}
+		{token}
+		occurrences={allOccurrences}
+		onIdentityChanged={handleIdentityChanged}
+	/>
+{/if}

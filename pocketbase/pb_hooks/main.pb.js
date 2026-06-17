@@ -135,6 +135,191 @@ routerAdd('POST', '/api/sync-plannings', (e) => {
 });
 
 // ============================================
+// CLAIM PARTICIPANT IDENTITY (guest → auth migration)
+// ============================================
+
+/**
+ * Permet à un utilisateur authentifié de revendiquer une identité guest existante.
+ *
+ * Logique de merge :
+ * - Pour chaque occurrence du master :
+ *   - Si auth ET guest ont répondu :
+ *     - Même valeur → drop guest (stats.identical)
+ *     - Valeurs divergentes → auth wins, drop guest (stats.conflict)
+ *   - Si seul guest a répondu → migrer vers auth (stats.migrated)
+ *   - Si seul auth a répondu → inchangé
+ * - Comments : re-attribution du participantId vers auth (stats.commentsMigrated)
+ *
+ * Mise à jour master.participants :
+ * - Si auth existait → supprimer guest (ses données sont migrées)
+ * - Sinon → transformer guest en participant auth (ajoute userId)
+ *
+ * Transaction atomique via runInTransaction.
+ * Le realtime est déclenché automatiquement via txApp.save() sur chaque record modifié.
+ */
+routerAdd('POST', '/api/claim-participant-identity', (e) => {
+	if (!e.auth) throw new ApiError(401, 'Auth required');
+
+	const body = e.requestInfo().body;
+	const masterId = body?.masterId;
+	const guestParticipantId = body?.guestParticipantId;
+	const authUserId = e.auth.id;
+
+	if (!masterId || !guestParticipantId) {
+		throw new ApiError(400, 'masterId and guestParticipantId required');
+	}
+
+	const queryToken = e.requestInfo()?.query?.['_token'] || '';
+
+	const stats = { identical: 0, conflict: 0, migrated: 0, commentsMigrated: 0 };
+	let authParticipantId = null;
+
+	e.app.runInTransaction((txApp) => {
+		// 1. Fetch master
+		const master = txApp.findRecordById('planning_masters', masterId);
+
+		// 2. Token validation (participantToken ou adminToken du master)
+		const adminToken = master.getString('adminToken');
+		const participantToken = master.getString('participantToken');
+		if (queryToken !== adminToken && queryToken !== participantToken) {
+			throw new ApiError(403, 'Invalid token');
+		}
+
+		// 3. Parse participants JSON
+		let participants = [];
+		const rawParticipants = master.getString('participants');
+		if (rawParticipants && rawParticipants !== 'null') {
+			try {
+				participants = JSON.parse(rawParticipants);
+			} catch {
+				participants = [];
+			}
+		}
+
+		// 4. Validate guest participant
+		const guest = participants.find((p) => p && p.id === guestParticipantId);
+		if (!guest) throw new ApiError(404, 'Guest participant not found');
+		if (guest.userId) throw new ApiError(409, 'Participant already claimed');
+		if (guest.hasQuit) throw new ApiError(409, 'Cannot claim a quit participant');
+
+		// 5. Find existing auth participant (déjà lié via userId)
+		//     Sert de "source" à migrer vers guest (qui devient la target finale).
+		//     L'utilisateur revendique l'identité guest : c'est elle qui devient l'identité auth.
+		const auth = participants.find((p) => p && p.userId === authUserId);
+		const targetId = guestParticipantId; // guest devient l'identité finale
+		const sourceId = auth ? auth.id : null; // auth sera supprimé (si existait)
+		authParticipantId = targetId; // retourné au client
+
+		// 6. Fetch all occurrences for master
+		const occurrences = txApp.findRecordsByFilter(
+			'planning_occurrences',
+			'master = {:masterId}',
+			'',
+			0,
+			0,
+			{ masterId }
+		);
+
+		// 7. Merge responses + comments per occurrence
+		//    targetId = guest.id (identité finale)
+		//    sourceId = auth.id (à supprimer si existait)
+		//    Règle : auth wins sur conflit (la valeur d'auth est conservée)
+		//            mais re-attribuée à targetId (l'identité guest devient l'identité user)
+		for (const occ of occurrences) {
+			let responses = [];
+			const rawResponses = occ.getString('responses');
+			if (rawResponses && rawResponses !== 'null') {
+				try {
+					responses = JSON.parse(rawResponses);
+				} catch {
+					responses = [];
+				}
+			}
+
+			let comments = [];
+			const rawComments = occ.getString('comments');
+			if (rawComments && rawComments !== 'null') {
+				try {
+					comments = JSON.parse(rawComments);
+				} catch {
+					comments = [];
+				}
+			}
+
+			const guestResp = responses.find((r) => r && r.participantId === targetId);
+			const authResp = sourceId ? responses.find((r) => r && r.participantId === sourceId) : null;
+
+			// Filtrer les responses target ET source (on va ré-insérer la bonne valeur)
+			let newResponses = responses.filter(
+				(r) => !(r && (r.participantId === targetId || r.participantId === sourceId))
+			);
+			let occChanged = false;
+
+			if (authResp && guestResp) {
+				// Les deux ont répondu — auth wins, re-attribué à targetId
+				if (JSON.stringify(guestResp.response) === JSON.stringify(authResp.response)) {
+					stats.identical++;
+				} else {
+					stats.conflict++;
+				}
+				newResponses.push({ ...authResp, participantId: targetId });
+				occChanged = true;
+			} else if (authResp) {
+				// Seul auth a répondu → re-attribuer à targetId (sans stat, c'est un rename d'ownership)
+				newResponses.push({ ...authResp, participantId: targetId });
+				occChanged = true;
+			} else if (guestResp) {
+				// Seul guest a répondu → migré vers l'identité auth (counted as migrated)
+				stats.migrated++;
+				newResponses.push(guestResp); // déjà à targetId
+				occChanged = true;
+			}
+
+			// Re-attribute comments du source vers target (id reste = comment ID)
+			let newComments = comments;
+			if (sourceId) {
+				const hasSourceComments = comments.some((c) => c && c.participantId === sourceId);
+				if (hasSourceComments) {
+					newComments = comments.map((c) => {
+						if (c && c.participantId === sourceId) {
+							stats.commentsMigrated++;
+							return { ...c, participantId: targetId };
+						}
+						return c;
+					});
+					occChanged = true;
+				}
+			}
+
+			if (occChanged) {
+				occ.set('responses', newResponses);
+				occ.set('comments', newComments);
+				txApp.save(occ); // déclenche realtime
+			}
+		}
+
+		// 8. Update master.participants
+		//    - Si auth existait : le supprimer (ses données sont migrées vers guest)
+		//    - Ajouter userId sur guest (devient l'identité auth officielle)
+		let newParticipants;
+		if (auth) {
+			newParticipants = participants
+				.filter((p) => !(p && p.id === sourceId))
+				.map((p) => (p && p.id === targetId ? { ...p, userId: authUserId } : p));
+		} else {
+			newParticipants = participants.map((p) =>
+				p && p.id === targetId ? { ...p, userId: authUserId } : p
+			);
+		}
+
+		master.set('participants', newParticipants);
+		txApp.save(master); // déclenche realtime
+	});
+
+	return e.json(200, { success: true, stats, authParticipantId });
+});
+
+// ============================================
 // PLANNING_OCCURRENCES UPDATE HOOK
 // ============================================
 
@@ -160,7 +345,8 @@ onRecordUpdateRequest((e) => {
 	if (e.collection.name !== 'planning_occurrences') {
 		return e.next();
 	}
-	if (e.admin) {
+	// Superusers bypass (e.admin est déprécié en PB 0.36+, utiliser hasSuperuserAuth())
+	if (e.requestInfo().hasSuperuserAuth()) {
 		return e.next();
 	}
 
@@ -239,7 +425,11 @@ onRecordUpdateRequest((e) => {
 		return e.next();
 	}
 
-	if (e.admin) return e.next();
+	// Superusers bypass (e.admin est déprécié en PB 0.36+)
+	if (e.requestInfo().hasSuperuserAuth()) {
+		e.next();
+		return;
+	}
 
 	const token = e.requestInfo()?.query?.['_token'] || '';
 	if (!token) throw new ApiError(401, 'Missing token');

@@ -29,11 +29,23 @@
 	let passwordConfirm = $state('');
 	let emailInputRef = $state<HTMLInputElement | null>(null);
 
-	// État local pour le nom (sync avec prop car les props sont read-only)
-	let localName = $state(name);
-	// $effect(() => {
-	// 	localName = name;
-	// });
+	// État local pour le nom.
+	// - Si showNameInput=false (cas IdentifyModal) : sync réactif avec la prop `name`
+	//   car l'utilisateur tape dans le champ parent et localName doit suivre.
+	// - Si showNameInput=true (cas AccountModal) : init unique au montage seulement,
+	//   pour ne pas écraser la saisie de l'utilisateur si la prop change.
+	let localName = $state('');
+	let localNameInitialized = false;
+	$effect(() => {
+		if (!showNameInput) {
+			// Sync réactif (champ invisible, l'utilisateur tape ailleurs)
+			localName = name;
+		} else if (!localNameInitialized && name) {
+			// Init unique (champ visible, l'utilisateur tape ici)
+			localName = name;
+			localNameInitialized = true;
+		}
+	});
 
 	let isSubmitting = $state(false);
 	let errorMsg = $state('');

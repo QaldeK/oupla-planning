@@ -341,6 +341,22 @@ class PlanningStore {
 		if (this.#activeMasterId === master.id) return;
 
 		this.#activeMasterId = master.id;
+
+		// Pour un user auth qui arrive sur un planning dont le master est en Dexie
+		// (via initialFetch global) mais dont les occurrences n'ont pas encore été
+		// fetchées spécifiquement, on doit les récupérer. Sinon la liste reste vide.
+		// Pas de _token requis : les API Rules filtrent via user.masterId.
+		const occCount = await db.occurrences.where('master').equals(master.id).count();
+		if (occCount === 0) {
+			try {
+				await occurrencesCollection.initialFetch({
+					filter: ['master = {:masterId}', { masterId: master.id }]
+				});
+			} catch (err) {
+				console.warn('[PlanningStore] Could not fetch occurrences for master:', err);
+			}
+		}
+
 		this.#subscribeDexieQueries(master.id);
 	}
 

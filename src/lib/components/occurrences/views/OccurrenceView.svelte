@@ -30,7 +30,14 @@
 	import TaskCompactSummary from '../shared/TaskCompactSummary.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 
-	let { occurrence, master, currentUserId, isAdmin, readOnly = false }: ViewProps = $props();
+	let {
+		occurrence,
+		master,
+		currentUserId,
+		isAdmin,
+		readOnly = false,
+		onNeedReidentify
+	}: ViewProps = $props();
 
 	let showEditModal = $state(false);
 	const token = $derived(isAdmin ? master.adminToken : master.participantToken)!;
@@ -114,7 +121,8 @@
 	const occState = createOccurrenceState(() => ({
 		occurrence,
 		master,
-		currentUserId
+		currentUserId,
+		onNeedReidentify
 	}));
 
 	// Edit logic: can only modify if user is authenticated and date is not past

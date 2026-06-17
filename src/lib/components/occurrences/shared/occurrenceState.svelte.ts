@@ -14,6 +14,12 @@ interface OccurrenceStateOptions {
 	occurrence: PlanningOccurrence;
 	master: PlanningMaster;
 	currentUserId: string | undefined;
+	/**
+	 * Appelé quand l'utilisateur tente de répondre sans être identifié valide
+	 * (participant introuvable ou sans nom). Remplace le toast d'erreur par
+	 * une ouverture de modal pilotée par le parent.
+	 */
+	onNeedReidentify?: () => void;
 }
 
 interface OccurrenceState {
@@ -109,7 +115,12 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		const participant = options.master.participants.find((p) => p.id === options.currentUserId);
 
 		if (!participant || !participant.name) {
-			toast.error('Nom de participant invalide. Identifiez-vous à nouveau.');
+			// Remplace le toast d'erreur par une ouverture de modal pilotée par le parent
+			if (options.onNeedReidentify) {
+				options.onNeedReidentify();
+			} else {
+				toast.error('Nom de participant invalide. Identifiez-vous à nouveau.');
+			}
 			return;
 		}
 
@@ -143,8 +154,11 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 
 	function setResponse(response: ResponseType) {
 		if (!options.currentUserId) {
-			toast.error('Vous devez être identifié pour répondre');
-			// TODO: Open IdentifyModal - will be handled in OccurrenceView
+			if (options.onNeedReidentify) {
+				options.onNeedReidentify();
+			} else {
+				toast.error('Vous devez être identifié pour répondre');
+			}
 			return;
 		}
 
@@ -155,8 +169,11 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 
 	function toggleTask(taskId: string) {
 		if (!options.currentUserId) {
-			toast.error('Vous devez être identifié pour vous inscrire à une tâche');
-			// TODO: Open IdentifyModal - will be handled in OccurrenceView
+			if (options.onNeedReidentify) {
+				options.onNeedReidentify();
+			} else {
+				toast.error('Vous devez être identifié pour vous inscrire à une tâche');
+			}
 			return;
 		}
 

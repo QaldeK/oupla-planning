@@ -40,6 +40,15 @@ class UserStore {
 	});
 	isReady = $state(false);
 	isLoggedIn = $state();
+	/**
+	 * True pendant onAuthTransition() (guest → auth).
+	 * Utilisé par les $effect des pages pour éviter de déclencher des actions
+	 * (auto-add participant, ouverture de modal) pendant que Dexie est en cours
+	 * de clear + re-fetch. Sans ce guard, l'$effect de /p/[token] peut voir un
+	 * état intermédiaire (master temporairement sans userId) et déclencher un
+	 * CAS B/C intempestif → toast d'erreur / doublon potentiel.
+	 */
+	isTransitioning = $state(false);
 
 	async init() {
 		// Synchro authStore
@@ -53,9 +62,7 @@ class UserStore {
 				// Fire-and-forget — onChange callback ne supporte pas async.
 				// Les erreurs internes sont catchées dans onAuthTransition(),
 				// ce .catch() protège contre d'éventuelles rejections résiduelles.
-				this.onAuthTransition().catch((err) =>
-					console.error('onAuthTransition failed:', err)
-				);
+				this.onAuthTransition().catch((err) => console.error('onAuthTransition failed:', err));
 			}
 		});
 
@@ -117,67 +124,74 @@ class UserStore {
 	 * Le cache Dexie d'un guest est jetable (terminal potentiellement partagé).
 	 */
 	async onAuthTransition() {
-		// 1. Snapshot AVANT clear : token + master actifs
-		const activeToken = planningStore.currentToken;
-		const activeMasterId = planningStore.activeMasterId;
+		// Guard : empêche les $effect des pages de réagir à un état intermédiaire
+		// (master cleared, userId pas encore posé, etc.) pendant la transition.
+		this.isTransitioning = true;
+		try {
+			// 1. Snapshot AVANT clear : token + master actifs
+			const activeToken = planningStore.currentToken;
+			const activeMasterId = planningStore.activeMasterId;
 
-		// Unsubscribe guest realtime
-		mastersCollection.unsubscribeAll();
-		occurrencesCollection.unsubscribeAll();
+			// Unsubscribe guest realtime
+			mastersCollection.unsubscribeAll();
+			occurrencesCollection.unsubscribeAll();
 
-		// 2. Sync PocketBase : UNIQUEMENT le planning courant (si sur /p ou /admin)
-		//    Échec non bloquant — on clear quand même Dexie (données guest orphelines sinon)
-		if (activeToken && activeMasterId) {
-			const activeMaster = await db.masters.get(activeMasterId);
-			if (activeMaster) {
-				try {
-					await pb.send('/api/sync-plannings', {
-						method: 'POST',
-						body: {
-							tokens: [
-								{
-									masterId: activeMaster.id,
-									participantToken: activeMaster.participantToken,
-									adminToken: activeMaster.adminToken
-								}
-							]
-						}
-					});
-				} catch (err) {
-					console.error('Token sync failed:', err);
+			// 2. Sync PocketBase : UNIQUEMENT le planning courant (si sur /p ou /admin)
+			//    Échec non bloquant — on clear quand même Dexie (données guest orphelines sinon)
+			if (activeToken && activeMasterId) {
+				const activeMaster = await db.masters.get(activeMasterId);
+				if (activeMaster) {
+					try {
+						await pb.send('/api/sync-plannings', {
+							method: 'POST',
+							body: {
+								tokens: [
+									{
+										masterId: activeMaster.id,
+										participantToken: activeMaster.participantToken,
+										adminToken: activeMaster.adminToken
+									}
+								]
+							}
+						});
+					} catch (err) {
+						console.error('Token sync failed:', err);
+					}
 				}
 			}
-		}
 
-		// 3. Clear local (cache technique jetable)
-		await Promise.all([db.masters.clear(), db.occurrences.clear(), db.commentState.clear()]);
-		this.savedPlannings = [];
-		await db.localMeta.clear();
+			// 3. Clear local (cache technique jetable)
+			await Promise.all([db.masters.clear(), db.occurrences.clear(), db.commentState.clear()]);
+			this.savedPlannings = [];
+			await db.localMeta.clear();
 
-		// 4. Fetch depuis PB (API Rules filtrent automatiquement via user.masterId)
-		//    - CAS 1 (planning actif) : user.masterId contient le master → retrouvé
-		//    - CAS 2 (homepage) : user.masterId vide → 0 master (cohérent avec UI guest)
-		try {
-			await mastersCollection.initialFetch();
-			await occurrencesCollection.initialFetch();
-		} catch (err) {
-			console.error('Post-login fetch failed:', err);
-		}
+			// 4. Fetch depuis PB (API Rules filtrent automatiquement via user.masterId)
+			//    - CAS 1 (planning actif) : user.masterId contient le master → retrouvé
+			//    - CAS 2 (homepage) : user.masterId vide → 0 master (cohérent avec UI guest)
+			try {
+				await mastersCollection.initialFetch();
+				await occurrencesCollection.initialFetch();
+			} catch (err) {
+				console.error('Post-login fetch failed:', err);
+			}
 
-		// 5. Subscribe realtime global + comment state
-		mastersCollection.subscribe();
-		occurrencesCollection.subscribe();
-		await commentStateService.syncCommentReadState();
+			// 5. Subscribe realtime global + comment state
+			mastersCollection.subscribe();
+			occurrencesCollection.subscribe();
+			await commentStateService.syncCommentReadState();
 
-		// 6. Re-charger le planning courant dans le bon mode (auth)
-		//    - invalidateActiveToken() pour bypasser l'early return de setActiveToken
-		//    - setActiveToken() re-déclenche le cycle auth complet, qui va aussi
-		//      cleaner les anciennes liveQuery guest via #subscribeDexieQueries
-		//    - Le $effect du layout ne se re-déclenche pas seul (URL inchangée),
-		//      donc on doit le faire explicitement ici
-		if (activeToken) {
-			planningStore.invalidateActiveToken();
-			await planningStore.setActiveToken(activeToken);
+			// 6. Re-charger le planning courant dans le bon mode (auth)
+			//    - invalidateActiveToken() pour bypasser l'early return de setActiveToken
+			//    - setActiveToken() re-déclenche le cycle auth complet, qui va aussi
+			//      cleaner les anciennes liveQuery guest via #subscribeDexieQueries
+			//    - Le $effect du layout ne se re-déclenche pas seul (URL inchangée),
+			//      donc on doit le faire explicitement ici
+			if (activeToken) {
+				planningStore.invalidateActiveToken();
+				await planningStore.setActiveToken(activeToken);
+			}
+		} finally {
+			this.isTransitioning = false;
 		}
 	}
 

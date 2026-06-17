@@ -418,6 +418,66 @@ export async function removeParticipant(
 }
 
 // ============================================
+// Migration d'identité guest → auth
+// ============================================
+
+export interface ClaimIdentityStats {
+	/** Réponses identiques entre guest et auth (drop guest, sans impact) */
+	identical: number;
+	/** Réponses divergentes (auth wins, drop guest) */
+	conflict: number;
+	/** Réponses migrées du guest vers l'auth (seul guest avait répondu) */
+	migrated: number;
+	/** Commentaires re-attribués à l'auth */
+	commentsMigrated: number;
+}
+
+export interface ClaimIdentityResult {
+	success: boolean;
+	stats: ClaimIdentityStats;
+	/**
+	 * ID du participant auth final. Peut être différent du guestParticipantId si
+	 * l'auth avait déjà son propre participant (dans ce cas, le guest est supprimé).
+	 */
+	authParticipantId: string;
+}
+
+/**
+ * Permet à un utilisateur authentifié de revendiquer une identité guest existante
+ * sur un planning. L'endpoint PocketBase effectue le merge des réponses et
+ * commentaires de manière atomique (transaction) et déclenche le realtime
+ * automatiquement via `$app.save()`.
+ *
+ * Logique de merge (côté serveur) :
+ * - Conflit sur même occurrence → auth wins
+ * - Réponse identique → drop guest
+ * - Seul guest a répondu → migrate vers auth
+ * - Comments → re-attribution du participantId
+ *
+ * @param masterId ID du planning
+ * @param guestParticipantId ID du participant guest à revendiquer
+ * @param token participantToken ou adminToken du planning
+ * @returns stats du merge + authParticipantId
+ *
+ * @throws 401 si non authentifié
+ * @throws 400 si masterId ou guestParticipantId manquant
+ * @throws 403 si token invalide
+ * @throws 404 si guest participant introuvable
+ * @throws 409 si guest déjà claimé (userId !== null) ou hasQuit
+ */
+export async function claimParticipantIdentity(
+	masterId: string,
+	guestParticipantId: string,
+	token: string
+): Promise<ClaimIdentityResult> {
+	return await pb.send('/api/claim-participant-identity', {
+		method: 'POST',
+		body: { masterId, guestParticipantId },
+		query: { _token: token }
+	});
+}
+
+// ============================================
 // Occurrences
 // ============================================
 

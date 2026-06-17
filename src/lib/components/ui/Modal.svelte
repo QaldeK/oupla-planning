@@ -10,6 +10,12 @@
 		actions?: import('svelte').Snippet;
 		size?: 'sm' | 'md' | 'lg' | 'xl';
 		zIndex?: number;
+		/**
+		 * Si false, masque le bouton de fermeture (X / ArrowLeft) et
+		 * désactive la fermeture par Escape et par clic sur le backdrop.
+		 * Utilisé pour les modals qui exigent un choix explicite de l'utilisateur.
+		 */
+		closable?: boolean;
 	}
 
 	let {
@@ -19,7 +25,8 @@
 		children,
 		actions,
 		size = 'md',
-		zIndex
+		zIndex,
+		closable = true
 	}: Props = $props();
 
 	const sizeClasses = {
@@ -34,12 +41,14 @@
 	);
 
 	function handleBackdropClick(e: MouseEvent) {
+		if (!closable) return;
 		if (e.target === e.currentTarget) {
 			onClose();
 		}
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
+		if (!closable) return;
 		if (e.key === 'Escape') {
 			onClose();
 		}
@@ -65,7 +74,7 @@
 			<div
 				class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between border-b px-4 py-2"
 			>
-				{#if isMobileFullscreen}
+				{#if isMobileFullscreen && closable}
 					<button
 						class="btn btn-circle btn-ghost sm:btn-sm mr-2"
 						onclick={onClose}
@@ -77,11 +86,14 @@
 						<h3 class="flex-1 text-base font-semibold">{title}</h3>
 					{/if}
 					<!-- <button class="btn btn-circle btn-primary btn-sm" onclick={}><Save class="p-1" /></button> -->
-				{:else}
+				{:else if closable}
 					<h3 class="flex-1 text-lg font-semibold">{title}</h3>
 					<button class="btn btn-circle btn-ghost btn-sm" onclick={onClose} aria-label="Fermer">
 						<X size={20} />
 					</button>
+				{:else}
+					<h3 class="flex-1 text-lg font-semibold">{title}</h3>
+					<!-- Pas de bouton de fermeture (modal non-fermable) -->
 				{/if}
 			</div>
 

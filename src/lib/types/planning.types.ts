@@ -9,6 +9,13 @@ export interface Participant {
 	isAdmin: boolean;
 	createdAt: string;
 	hasQuit?: boolean;
+	/**
+	 * ID du compte PocketBase lié à ce participant.
+	 * Présent uniquement si l'utilisateur s'est authentifié et a revendiqué/créé cette identité.
+	 * Permet la migration guest → auth sans doublon.
+	 * Note : c'est une simple string dans le JSON, pas une relation PB.
+	 */
+	userId?: string;
 }
 
 // === Réponse par occurrence ===
