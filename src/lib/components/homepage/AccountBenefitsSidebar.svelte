@@ -38,7 +38,7 @@
 
 				<div class="divider my-2"></div>
 
-				<p class="text-[10px] opacity-90">
+				<p class="text-xs opacity-90">
 					Vous pouvez continuer sans compte, mais gardez une trace des URLs pour ne pas perdre vos
 					plannings.
 				</p>

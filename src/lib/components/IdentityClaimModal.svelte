@@ -549,7 +549,7 @@
 			<!-- Section : Rejoindre une identité existante -->
 			{#if claimableParticipants.length > 0 && !authParticipant?.claimedAt}
 				<div class="divider text-xs tracking-widest uppercase opacity-50">
-					Ou rejoindre une identité existante
+					Vous avez déjà participé au planning ?
 				</div>
 
 				<div class="space-y-3">

@@ -256,7 +256,7 @@
 						<AccountBenefitsSidebar />
 					</div>
 					<button
-						class="btn btn-outline w-full justify-start"
+						class="btn btn-accent w-full justify-start"
 						onclick={() => (showAccountModal = true)}
 					>
 						Créer un compte / Se connecter

@@ -35,6 +35,7 @@
 	let isSubmitting = $state(false);
 	let inputRef = $state<HTMLInputElement | null>(null);
 	let authMode = $state<'login' | 'register'>('register');
+	let showAccountForm = $state(false);
 
 	// État pour la revendication d'identité protégée
 	let claimedIdentity = $state<Participant | null>(null);
@@ -44,6 +45,7 @@
 		email = '';
 		claimedIdentity = null;
 		authMode = 'register';
+		showAccountForm = false;
 	}
 
 	function closeModal() {
@@ -241,31 +243,47 @@
 			<!-- Inscription depuis le IdentifyModal -->
 			{#if !userStore.isLoggedIn}
 				<div class="divider mt-8 text-sm font-medium tracking-widest uppercase opacity-50">
-					.. ou Créez un compte !
+					.. ou associez un compte !
 				</div>
 				<div class="flex w-full flex-col gap-2 leading-tight">
 					<div class="flex items-center gap-2 text-sm opacity-70">
 						<InfoIcon size={20} class="inline shrink-0" />
-						Créez un compte pour retrouver vos planning sur tous vos appareils, et recevoir des notifications
-						par email (et push sur mobile)
+						Associez un compte pour retrouver vos plannings sur tous vos appareils, et recevoir des notifications
+						par email (et push sur mobile).
 					</div>
-					<button
-						class="btn btn-sm btn-outline btn-primary mx-auto"
-						onclick={() => (authMode = authMode === 'register' ? 'login' : 'register')}
-					>
-						{authMode === 'register'
-							? "J'ai déjà un compte - Se connecter"
-							: "Je n'ai pas de compte - Créer un compte"}
-					</button>
-				</div>
-				<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
-					<AuthForm
-						mode={authMode}
-						name={name.trim()}
-						showNameInput={false}
-						compact
-						onSuccess={handleAuthSuccess}
-					/>
+
+					<div class="my-1 flex flex-wrap justify-evenly gap-2">
+						<button
+							class="btn btn-sm {authMode === 'login' ? 'btn-primary' : 'btn-soft btn-primary'}"
+							onclick={() => {
+								authMode = 'login';
+								showAccountForm = true;
+							}}
+						>
+							J'ai déjà un compte — Se connecter
+						</button>
+						<button
+							class="btn btn-sm {authMode === 'register' ? 'btn-primary' : 'btn-soft btn-primary'}"
+							onclick={() => {
+								authMode = 'register';
+								showAccountForm = true;
+							}}
+						>
+							Créer un compte
+						</button>
+					</div>
+
+					{#if showAccountForm}
+						<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
+							<AuthForm
+								mode={authMode}
+								name={name.trim()}
+								showNameInput={false}
+								compact
+								onSuccess={handleAuthSuccess}
+							/>
+						</div>
+					{/if}
 				</div>
 			{/if}
 		{/if}

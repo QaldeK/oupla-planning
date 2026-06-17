@@ -5,7 +5,6 @@
 	import { db } from '$lib/pb-sync/db';
 	import { useLiveQuery } from '$lib/pb-sync/use-live-query.svelte';
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
-	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { formatDateShort, formatDateWithDay, formatTimeRange, isPast } from '$lib/utils/date';
 	import {
@@ -171,15 +170,15 @@
 	);
 </script>
 
-<div class="my-4">
-	{#if viewMode === 'card'}
+{#if viewMode === 'card'}
+	<div class="my-4">
 		{@render cardLayout()}
-	{:else if viewMode === 'minimal'}
-		{@render rowLayoutMinimal()}
-	{:else}
-		{@render rowLayout()}
-	{/if}
-</div>
+	</div>
+{:else if viewMode === 'minimal'}
+	{@render rowLayoutMinimal()}
+{:else}
+	{@render rowLayout()}
+{/if}
 
 {#snippet actionCompact()}
 	<div class="flex items-center justify-end gap-2">
@@ -262,7 +261,7 @@
 {/snippet}
 
 {#snippet rowLayout()}
-	<div class=" bg-base-100 border-b-4 border-neutral-300 py-2">
+	<div class=" bg-base-100 border-neutral/20 border-b-3 py-2">
 		<!-- Line 1: Header -->
 		<div class="mb-2 flex items-center justify-between gap-2 px-2">
 			<div class="flex flex-1 items-center justify-between gap-2 text-sm sm:gap-6">
@@ -476,8 +475,8 @@
 {/snippet}
 
 {#snippet rowLayoutMinimal()}
-	<div class="bg-base-100 border-neutral/30 border-b-2 py-1.5">
-		<div class="mb-1 flex flex-wrap items-center gap-x-2 px-2">
+	<div class="bg-base-100 border-neutral/20 border-b-3 py-1">
+		<div class="flex flex-wrap items-center gap-x-2 px-2">
 			<!-- Date -->
 			<div class="flex items-center gap-1 font-semibold">
 				<Calendar size={14} />
