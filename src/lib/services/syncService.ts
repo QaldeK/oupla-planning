@@ -43,32 +43,6 @@ class SyncService {
 		// Étape 3 : Sync incrémental des occurrences (API Rules auto-filtrent)
 		await occurrencesCollection.initialFetch();
 	}
-
-	/**
-	 * Transition guest → auth : enregistre les tokens, sync les données.
-	 * Appelé par userStore.onAuthTransition() lors du pb.authStore.onChange.
-	 * Les masters Dexie ont déjà été clearés avant cet appel.
-	 */
-	async authTransition(): Promise<void> {
-		// 2. Enregistrer les tokens des masters fraîchement syncés
-		const masters = await db.masters.toArray();
-		const tokens = masters.map((m) => ({
-			masterId: m.id,
-			participantToken: m.participantToken,
-			adminToken: m.adminToken
-		}));
-
-		if (tokens.length > 0) {
-			await pb.send('/api/sync-plannings', {
-				method: 'POST',
-				body: { tokens }
-			});
-		}
-
-		// Sync incrémental des masters et occurrences (API Rules auto-filtrent pour l'user auth)
-		await mastersCollection.initialFetch();
-		await occurrencesCollection.initialFetch();
-	}
 }
 
 export const syncService = new SyncService();

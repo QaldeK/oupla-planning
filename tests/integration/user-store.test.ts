@@ -4,7 +4,7 @@
  * Objectif :
  *   Verifier le pipeline de gestion des identites guest et des transitions auth :
  *     userStore.setPlanningIdentity() -> Dexie localMeta -> getIdentityForPlanning()
- *     userStore.onAuthTransition() -> syncService -> PB + Dexie
+ *     userStore.onAuthTransition() -> /api/sync-plannings -> PB + Dexie
  *     userStore.logout() -> clear Dexie + authStore + planningStore
  *
  * Pipeline teste :
@@ -239,32 +239,27 @@ describe('userStore — identity, auth transitions, logout', () => {
 	// ============================================
 
 	describe('Auth transition — guest to auth', () => {
-		it('sync les tokens guest vers PB et charge les masters', async () => {
+		it('sync le planning courant vers PB via /api/sync-plannings (CAS 1 : sur /p/[token])', async () => {
 			// === SEED ===
-			const { master, participantToken, adminToken } = await seedPlanning({
+			const { master, participantToken } = await seedPlanning({
 				title: 'Transition Test',
 				occurrenceCount: 2
 			});
 
-			// Preparer le user auth avec le masterId (simule /api/sync-plannings)
-			const user = await seedUser(USER_EMAIL, USER_PWD, 'Transition User', {
-				masterIds: [master.id],
-				adminOf: { [master.id]: adminToken }
-			});
+			// User SANS masterIds — c'est /api/sync-plannings qui doit le peupler
+			const user = await seedUser(USER_EMAIL, USER_PWD, 'Transition User');
 			trackIds('users', user.id);
 
-			// Simuler un etat guest : identite dans localMeta + master dans db.masters
-			const guestIdentity: PlanningIdentity = {
-				id: 'guest1',
-				name: 'Guest',
-				email: ''
-			};
-			await userStore.setPlanningIdentity(master.id, guestIdentity);
+			// Simuler une session guest sur /p/[token] :
+			// setActiveToken déclenche #setActiveGuest qui fetch le master et le met en Dexie.
+			await planningStore.setActiveToken(participantToken);
 
-			// Placer le master en Dexie (comme le ferait setActiveToken)
-			await db.masters.put({ ...master });
+			// Pré-requis : master en Dexie + currentToken positionné
+			expect(planningStore.currentToken).toBe(participantToken);
+			const preDexieMaster = await db.masters.get(master.id);
+			expect(preDexieMaster).toBeDefined();
 
-			// Authentifier le user (simule la transition)
+			// === AUTH (simule login) ===
 			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 			userStore.isLoggedIn = true;
@@ -272,7 +267,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 			// === ACTION ===
 			await userStore.onAuthTransition();
 
-			// Attendre que la sync soit completee
+			// Attendre que la sync complète : Dexie clearé puis re-rempli via initialFetch
 			await vi.waitFor(
 				async () => {
 					const dexieMaster = await db.masters.get(master.id);
@@ -287,50 +282,98 @@ describe('userStore — identity, auth transitions, logout', () => {
 			expect(dexieMaster).toBeDefined();
 			expect(dexieMaster!.title).toBe('Transition Test');
 
-			const dexieOccurrences = await db.occurrences
-				.where('master')
-				.equals(master.id)
-				.toArray();
-			expect(dexieOccurrences.length).toBe(2);
+			const dexieOccurrences = await db.occurrences.where('master').equals(master.id).toArray();
+			expect(dexieOccurrences).toHaveLength(2);
 
 			// === VERIFICATION POCKETBASE ===
+			// user.masterId doit contenir master.id VIA LE VRAI ENDPOINT /api/sync-plannings
+			// (pas de pré-remplissage artificiel dans le seed)
 			const adminPb = await authenticateAdmin();
 			const pbUser = await adminPb.collection('users').getOne(user.id);
 			expect(pbUser.masterId).toContain(master.id);
 
-			const pbMaster = await adminPb
-				.collection('planning_masters')
-				.getOne(master.id);
+			// Cohérence croisée : timestamps à jour entre Dexie et PB
+			const pbMaster = await adminPb.collection('planning_masters').getOne(master.id);
 			expect(pbMaster.title).toBe('Transition Test');
 			expect(dexieMaster!.updated).toBe(pbMaster.updated);
 
 			// Cleanup
 			pb.authStore.clear();
 			userStore.isLoggedIn = false;
+			planningStore.destroy();
+		});
+
+		it('ne sync rien si pas de planning actif (CAS 2 : sur homepage /)', async () => {
+			// === SEED ===
+			const { master } = await seedPlanning({
+				title: 'Homepage Login',
+				occurrenceCount: 2
+			});
+
+			// User SANS masterIds
+			const user = await seedUser(USER_EMAIL, USER_PWD, 'Homepage User');
+			trackIds('users', user.id);
+
+			// IMPORTANT : ne pas appeler setActiveToken → simule la homepage /
+			expect(planningStore.currentToken).toBeNull();
+
+			// Placer quand même un master en Dexie (simule un cache résiduel
+			// d'un précédent guest sur ce terminal partagé)
+			await db.masters.put({ ...master });
+			expect(await db.masters.toArray()).toHaveLength(1);
+
+			// === AUTH (simule login depuis /) ===
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+			userStore.isLoggedIn = true;
+
+			// === ACTION ===
+			await userStore.onAuthTransition();
+
+			// === VERIFICATION POCKETBASE ===
+			// user.masterId doit rester VIDE — aucun token n'a été sync
+			const adminPb = await authenticateAdmin();
+			const pbUser = await adminPb.collection('users').getOne(user.id);
+			expect(pbUser.masterId).toEqual([]);
+
+			// === VERIFICATION DEXIE ===
+			// Le master résiduel a été clearé, et comme user.masterId est vide,
+			// initialFetch() retourne 0 → Dexie reste vide.
+			const dexieMasters = await db.masters.toArray();
+			expect(dexieMasters).toHaveLength(0);
+
+			const dexieOccurrences = await db.occurrences.toArray();
+			expect(dexieOccurrences).toHaveLength(0);
+
+			// === VERIFICATION PLANNING STORE ===
+			// currentToken doit rester null (pas de token actif, et pas de re-setActiveToken)
+			expect(planningStore.currentToken).toBeNull();
+
+			// Cleanup
+			pb.authStore.clear();
+			userStore.isLoggedIn = false;
+			planningStore.destroy();
 		});
 
 		it('nettoie les identites guest lors de la transition', async () => {
 			// === SEED ===
-			const { master, adminToken } = await seedPlanning({ title: 'Clear Identity' });
+			const { master, participantToken } = await seedPlanning({ title: 'Clear Identity' });
 
-			// User auth avec masterId (nécessaire pour que le fetch fonctionne)
-			const user = await seedUser(USER_EMAIL, USER_PWD, 'Clear User', {
-				masterIds: [master.id],
-				adminOf: { [master.id]: adminToken }
-			});
+			// User SANS masterIds
+			const user = await seedUser(USER_EMAIL, USER_PWD, 'Clear User');
 			trackIds('users', user.id);
 
-			// Identite guest dans localMeta
+			// Simuler guest sur /p/[token] (pré-requis pour que la sync fonctionne)
+			await planningStore.setActiveToken(participantToken);
+
+			// Identité guest dans localMeta
 			await userStore.setPlanningIdentity(master.id, {
 				id: 'guest1',
 				name: 'Guest',
 				email: ''
 			});
 
-			// Master en Dexie
-			await db.masters.put({ ...master });
-
-			// Transition
+			// === AUTH ===
 			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 			userStore.isLoggedIn = true;
@@ -346,14 +389,14 @@ describe('userStore — identity, auth transitions, logout', () => {
 				{ timeout: 5000 }
 			);
 
-			// === VERIFICATION : localMeta est vide (identites guest effacees) ===
+			// === VERIFICATION : localMeta est vide (identités guest effacées) ===
 			const localMetaEntries = await db.localMeta.toArray();
 			expect(localMetaEntries).toHaveLength(0);
 
 			// savedPlannings est vide
 			expect(userStore.savedPlannings).toHaveLength(0);
 
-			// L'identite pour ce planning est celle du user auth
+			// L'identité pour ce planning est celle du user auth (via pb.authStore)
 			const identity = userStore.getIdentityForPlanning(master.id);
 			expect(identity).not.toBeNull();
 			expect(identity!.id).toBe(user.id);
@@ -361,6 +404,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 			// Cleanup
 			pb.authStore.clear();
 			userStore.isLoggedIn = false;
+			planningStore.destroy();
 		});
 	});
 

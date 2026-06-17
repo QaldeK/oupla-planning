@@ -15,7 +15,6 @@ import {
 	occurrencesCollection
 } from '$lib/stores/planningStore.svelte';
 import { db } from '$lib/pb-sync/db';
-import { syncService } from '$lib/services/syncService';
 import { commentStateService } from '$lib/services/commentStateService';
 import { goto } from '$app/navigation';
 
@@ -51,7 +50,12 @@ class UserStore {
 
 			// Guest → Auth : déclencher la transition
 			if (!wasLoggedIn && this.isLoggedIn) {
-				this.onAuthTransition();
+				// Fire-and-forget — onChange callback ne supporte pas async.
+				// Les erreurs internes sont catchées dans onAuthTransition(),
+				// ce .catch() protège contre d'éventuelles rejections résiduelles.
+				this.onAuthTransition().catch((err) =>
+					console.error('onAuthTransition failed:', err)
+				);
 			}
 		});
 
@@ -107,30 +111,74 @@ class UserStore {
 	/**
 	 * Transition guest → auth : clear les données guest, sync les données auth.
 	 * Appelé par pb.authStore.onChange lors du changement d'état.
+	 *
+	 * Stratégie : sync minimale — seul le planning actuellement consulté
+	 * (si sur /p/[token] ou /admin/[token]) est associé au compte PocketBase.
+	 * Le cache Dexie d'un guest est jetable (terminal potentiellement partagé).
 	 */
 	async onAuthTransition() {
+		// 1. Snapshot AVANT clear : token + master actifs
+		const activeToken = planningStore.currentToken;
+		const activeMasterId = planningStore.activeMasterId;
+
 		// Unsubscribe guest realtime
 		mastersCollection.unsubscribeAll();
 		occurrencesCollection.unsubscribeAll();
 
-		// Clear Dexie (PAS localMeta — les identités guest sont nettoyées ci-dessous)
-		await Promise.all([db.masters.clear(), db.occurrences.clear(), db.commentState.clear()]);
+		// 2. Sync PocketBase : UNIQUEMENT le planning courant (si sur /p ou /admin)
+		//    Échec non bloquant — on clear quand même Dexie (données guest orphelines sinon)
+		if (activeToken && activeMasterId) {
+			const activeMaster = await db.masters.get(activeMasterId);
+			if (activeMaster) {
+				try {
+					await pb.send('/api/sync-plannings', {
+						method: 'POST',
+						body: {
+							tokens: [
+								{
+									masterId: activeMaster.id,
+									participantToken: activeMaster.participantToken,
+									adminToken: activeMaster.adminToken
+								}
+							]
+						}
+					});
+				} catch (err) {
+					console.error('Token sync failed:', err);
+				}
+			}
+		}
 
-		// Clear les identités guest (inutiles pour un user auth)
+		// 3. Clear local (cache technique jetable)
+		await Promise.all([db.masters.clear(), db.occurrences.clear(), db.commentState.clear()]);
 		this.savedPlannings = [];
 		await db.localMeta.clear();
 
-		// Sync via syncService (register tokens depuis masters + fetch)
+		// 4. Fetch depuis PB (API Rules filtrent automatiquement via user.masterId)
+		//    - CAS 1 (planning actif) : user.masterId contient le master → retrouvé
+		//    - CAS 2 (homepage) : user.masterId vide → 0 master (cohérent avec UI guest)
 		try {
-			await syncService.authTransition();
+			await mastersCollection.initialFetch();
+			await occurrencesCollection.initialFetch();
 		} catch (err) {
-			console.error('Auth transition sync failed:', err);
+			console.error('Post-login fetch failed:', err);
 		}
 
-		// Subscribe realtime global
+		// 5. Subscribe realtime global + comment state
 		mastersCollection.subscribe();
 		occurrencesCollection.subscribe();
 		await commentStateService.syncCommentReadState();
+
+		// 6. Re-charger le planning courant dans le bon mode (auth)
+		//    - invalidateActiveToken() pour bypasser l'early return de setActiveToken
+		//    - setActiveToken() re-déclenche le cycle auth complet, qui va aussi
+		//      cleaner les anciennes liveQuery guest via #subscribeDexieQueries
+		//    - Le $effect du layout ne se re-déclenche pas seul (URL inchangée),
+		//      donc on doit le faire explicitement ici
+		if (activeToken) {
+			planningStore.invalidateActiveToken();
+			await planningStore.setActiveToken(activeToken);
+		}
 	}
 
 	async setOccurrenceView(view: ViewType) {

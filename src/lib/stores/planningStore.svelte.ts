@@ -104,6 +104,10 @@ class PlanningStore {
 	get activeMasterId(): string | null {
 		return this.#activeMasterId;
 	}
+	/** Token actuellement actif (participant ou admin) — null si aucune page /p ou /admin ouverte */
+	get currentToken(): string | null {
+		return this.#currentToken;
+	}
 	get isLoading(): boolean {
 		return this.#isLoading;
 	}
@@ -313,9 +317,13 @@ class PlanningStore {
 
 		// Vérifier l'existence sur le serveur (une seule fois par session)
 		if (!this.#verifiedMasterIds.has(master.id)) {
+			// Passer le _token pour satisfaire la ViewRule même si user.masterId
+			// n'est pas encore peuplé (ex: juste après onAuthTransition).
+			const token = master.participantToken ?? master.adminToken;
 			try {
 				await pb.collection('planning_masters').getOne(master.id, {
 					fields: 'id',
+					query: token ? { _token: token } : undefined,
 					requestKey: null
 				});
 				this.#verifiedMasterIds.add(master.id);
@@ -413,6 +421,7 @@ class PlanningStore {
 		this.#activeMasterId = null;
 		this.#selectedOccurrenceId = null;
 		this.#currentToken = null;
+		this.#tokenCache.clear();
 	}
 
 	// --- Cache ---
@@ -438,6 +447,16 @@ class PlanningStore {
 	invalidateAll(): void {
 		this.#tokenCache.clear();
 		this.#masterTokens.clear();
+	}
+
+	/**
+	 * Invalide le token actuellement actif afin que le prochain appel à
+	 * setActiveToken(token) repasse un cycle complet (pas d'early return).
+	 * Utilisé après onAuthTransition() pour forcer le re-chargement du planning
+	 * courant dans le bon mode (guest → auth).
+	 */
+	invalidateActiveToken(): void {
+		this.#currentToken = null;
 	}
 
 	// --- Actions ---
