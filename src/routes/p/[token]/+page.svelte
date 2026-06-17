@@ -27,7 +27,6 @@
 		Bell,
 		Calendar,
 		History,
-		Info,
 		InfoIcon,
 		ListFilter,
 		Lock,
@@ -35,7 +34,9 @@
 		Settings,
 		Users,
 		LogOut,
-		UserCheck
+		User,
+		UserCheck,
+		UserCog
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
@@ -290,19 +291,16 @@
 	const displayedOccurrences = $derived(occurrences.slice(0, displayCount));
 	const hasMore = $derived(displayCount < occurrences.length);
 
-	// Liste des participants avec l'utilisateur actuel en premier
-	const sortedParticipants = $derived.by(() => {
-		if (!master || !myParticipant) return master?.participants ?? [];
-
-		const otherParticipants = master.participants.filter((p) => p.id !== myParticipant.id);
-
-		return [myParticipant, ...otherParticipants];
-	});
-
-	const visibleParticipants = $derived(
-		showAllParticipants ? sortedParticipants : sortedParticipants.slice(0, 10)
+	// Participants autres que l'utilisateur courant (hors ceux ayant quitté).
+	// Couvre les 3 états : identifié/verrouillé (myParticipant exclu, géré par le groupe « Vous »)
+	// ou non identifié (myParticipant null → tous les participants actifs).
+	const otherParticipants = $derived(
+		master ? master.participants.filter((p) => !p.hasQuit && p.id !== myParticipant?.id) : []
 	);
-	const hasMoreParticipants = $derived(!showAllParticipants && sortedParticipants.length > 10);
+	const visibleOtherParticipants = $derived(
+		showAllParticipants ? otherParticipants : otherParticipants.slice(0, 10)
+	);
+	const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length > 10);
 </script>
 
 <svelte:head>
@@ -362,62 +360,36 @@
 				</div>
 			</div>
 
-			<!-- Card 1: Infos Planning -->
-			{#if master.description || master.recurrence || master.participants.length > 0}
-				<div class="card card-sm bg-base-300/20 border-base-content/5 mb-4 border shadow-sm">
-					<div class="card-body">
-						<div class="flex flex-wrap items-start gap-4 max-sm:flex-col">
-							<!-- Participants -->
-							<div
-								class="{master.description
-									? 'min-w-[calc(50%-0.5rem)]'
-									: 'w-full'} flex flex-1 flex-wrap items-center gap-2"
-							>
-								<Users size={18} class="text-primary shrink-0" />
-								<div class="min-w-0 text-sm font-medium">
-									{master.participants.length} participant
-									{master.participants.length > 1 ? 's' : ''}
-								</div>
+			<!-- Description du planning (hors card, fait suite au header) -->
+			{#if master.description}
+				<div class="mb-4 flex items-start gap-2">
+					<InfoIcon size={18} class="text-primary mt-0.5 shrink-0" />
+					<p class="text-base-content/80 text-sm">{master.description}</p>
+				</div>
+			{/if}
 
-								<div class="flex flex-wrap gap-1.5">
-									{#each visibleParticipants as p (p.id)}
-										{#if myParticipant && !identityClaimedByAuth && p.id === myParticipant.id}
-											<!-- Utilisateur actuel en badge-info avec bouton changer -->
-											<span class="badge badge-info gap-1">
-												{p.name}
-												<button
-													class="btn btn-soft btn-info btn-xs ms-1 h-4 min-h-0 px-1 text-current"
-													type="button"
-													onclick={() =>
-														userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
-												>
-													Changer
-												</button>
-											</span>
-										{:else if !p.hasQuit}
-											<span class="badge badge-info badge-outline">{p.name}</span>
-										{/if}
-									{/each}
-									{#if hasMoreParticipants}
-										<button
-											class="btn btn-link btn-xs"
-											type="button"
-											onclick={() => (showAllParticipants = true)}
-										>
-											Tout afficher ({sortedParticipants.length})
-										</button>
-									{/if}
-									<button
-										class="btn btn-error btn-xs ms-auto gap-1"
-										onclick={() => (showQuitModal = true)}
-										title="Quitter ce planning"
-									>
-										<LogOut size={16} />
-										<span>Quitter ce planning</span>
-									</button>
-								</div>
-
-								<!-- Entry point "Revendiquer une identité existante" pour users auth -->
+			<!-- Card : Participants (rendue même si 0 participant) -->
+			<div class="card card-sm bg-base-300/20 border-base-content/5 mb-4 border shadow-sm">
+				<div class="card-body gap-4">
+					<!-- Groupe « Vous » : gestion de l'identité courante -->
+					<div>
+						<div class="text-content-primary mb-2 flex items-center gap-2 text-sm font-semibold">
+							<User size={16} class="shrink-0" />
+							Vous
+						</div>
+						{#if currentIdentity}
+							<!-- Identifié -->
+							<div class="flex flex-wrap items-center gap-2">
+								<span class="badge badge-info gap-1">{currentIdentity.name}</span>
+								<button
+									class="btn btn-soft btn-info btn-xs gap-1"
+									type="button"
+									onclick={() =>
+										userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
+								>
+									<UserCog size={14} />
+									Changer d'identité
+								</button>
 								{#if userStore.isLoggedIn && claimableParticipants.length > 0 && !myParticipant?.claimedAt}
 									<button
 										class="btn btn-link btn-xs text-info gap-1"
@@ -428,18 +400,73 @@
 										Revendiquer une identité existante
 									</button>
 								{/if}
+								<button
+									class="btn btn-ghost btn-error btn-xs ms-auto gap-1"
+									onclick={() => (showQuitModal = true)}
+									title="Quitter ce planning"
+								>
+									<LogOut size={16} />
+									<span>Quitter le planning</span>
+								</button>
 							</div>
-							<!-- Description (conditionnel) -->
-							{#if master.description}
-								<div class="flex min-w-[calc(50%-0.5rem)] flex-1 items-center gap-2">
-									<InfoIcon size={18} class="text-primary shrink-0" />
-									<p class="text-base-content/80 text-sm">{master.description}</p>
-								</div>
-							{/if}
+						{:else if identityClaimedByAuth}
+							<!-- Verrouillé : identité guest revendiquée par un compte ailleurs -->
+							<div class="alert alert-warning alert-soft flex items-center gap-3 py-2">
+								<Lock size={18} class="shrink-0" />
+								<span class="flex-1 text-sm">
+									L'identité « {myParticipant?.name} » est désormais liée à un compte. Connectez-vous
+									pour continuer à participer.
+								</span>
+								<button
+									class="btn btn-primary btn-xs"
+									onclick={() => ((accountModalMode = 'login'), (showAccountModal = true))}
+								>
+									Se connecter
+								</button>
+							</div>
+						{:else}
+							<!-- Non identifié -->
+							<div class="flex flex-wrap items-center gap-3">
+								<span class="text-sm opacity-80">Vous n'êtes pas encore identifié.</span>
+								<button
+									class="btn btn-primary btn-xs"
+									onclick={() =>
+										userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
+								>
+									S'identifier
+								</button>
+							</div>
+						{/if}
+					</div>
+
+					<!-- Groupe « Autres participant·es » -->
+					<div>
+						<div class="text-content-primary mb-2 flex items-center gap-2 text-sm font-semibold">
+							<Users size={16} class="shrink-0" />
+							{otherParticipants.length} autre{otherParticipants.length > 1 ? 's' : ''}
+							participant{otherParticipants.length > 1 ? 's' : ''}
 						</div>
+						{#if otherParticipants.length === 0}
+							<p class="text-sm opacity-60">Pas d'autre participant pour le moment.</p>
+						{:else}
+							<div class="flex flex-wrap gap-1.5">
+								{#each visibleOtherParticipants as p (p.id)}
+									<span class="badge badge-info badge-outline">{p.name}</span>
+								{/each}
+								{#if hasMoreOthers}
+									<button
+										class="btn btn-link btn-xs"
+										type="button"
+										onclick={() => (showAllParticipants = true)}
+									>
+										Tout afficher ({otherParticipants.length})
+									</button>
+								{/if}
+							</div>
+						{/if}
 					</div>
 				</div>
-			{/if}
+			</div>
 
 			<!-- Zone de partage -->
 			{#if !mediaQuery.isMobile}
@@ -454,48 +481,6 @@
 
 			<!-- Installation PWA (compact) -->
 			<PwaInstallCard compact />
-
-			<!-- Identification manquante -->
-			{#if !currentIdentity}
-				{#if identityClaimedByAuth}
-					<!-- Cas cross-device : identité guest revendiquée par un compte ailleurs -->
-					<div class="alert alert-warning mt-4">
-						<Lock size={18} />
-						<div>
-							<p class="font-medium">
-								Cette identité "<strong>{myParticipant?.name}</strong>" est désormais liée à un
-								compte
-							</p>
-							<p class="text-sm opacity-80">
-								Pour continuer à participer en tant que {myParticipant?.name ?? 'cette identité'},
-								vous devez vous connecter au compte associé.
-							</p>
-						</div>
-						<div class="flex gap-2">
-							<button
-								class="btn btn-primary"
-								onclick={() => ((accountModalMode = 'login'), (showAccountModal = true))}
-							>
-								Se connecter
-							</button>
-						</div>
-					</div>
-				{:else}
-					<div class="alert alert-warning mt-4">
-						<Info size={18} />
-						<p>Veuillez vous identifier pour répondre aux sondages</p>
-						<div class="flex gap-2">
-							<button
-								class="btn"
-								onclick={() =>
-									userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
-							>
-								S'identifier
-							</button>
-						</div>
-					</div>
-				{/if}
-			{/if}
 		</div>
 
 		<!-- Liste des occurrences -->

@@ -148,7 +148,7 @@
 					<p class="text-sm font-medium">
 						L'identité <strong>{claimedIdentity.name}</strong> est protégée par un compte.
 					</p>
-					<p class="text-xs opacity-80">Connectez-vous pour revendiquer cette identité.</p>
+					<p class="text-xs opacity-80">Connectez-vous pour vous authentifier..</p>
 				</div>
 			</div>
 			<button
