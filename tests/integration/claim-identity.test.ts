@@ -700,4 +700,125 @@ describe('claimParticipantIdentity — migration guest → auth', () => {
 			expect(participants[0].name).toBe('Multi Guest');
 		});
 	});
+
+	// ============================================
+	// Guard anti multi-revendication (claimedAt)
+	// ============================================
+
+	describe('Guard anti multi-revendication (claimedAt)', () => {
+		it('pose claimedAt sur le guest après une revendication réussie (CAS B)', async () => {
+			const guestParticipant: Participant = {
+				id: 'guest-alice-claimed',
+				name: 'Alice',
+				isAdmin: false,
+				createdAt: new Date().toISOString()
+			};
+			const { master, participantToken } = await seedPlanning({
+				title: 'ClaimedAt Test',
+				participants: [guestParticipant],
+				occurrenceCount: 1
+			});
+
+			const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth User');
+			trackIds('users', user.id);
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+
+			const result = await claimParticipantIdentity(
+				master.id,
+				'guest-alice-claimed',
+				participantToken
+			);
+			expect(result.success).toBe(true);
+
+			const pbMaster = await adminGetMaster(master.id);
+			const participants = pbMaster.participants as Participant[];
+			expect(participants).toHaveLength(1);
+			expect(participants[0].userId).toBe(user.id);
+			expect(participants[0].claimedAt).toBeTruthy();
+			expect(typeof participants[0].claimedAt).toBe('string');
+		});
+
+		it('rejette une seconde revendication par le même auth sur un autre guest (409)', async () => {
+			// === SEED : 2 guests (Alice + Bob) ===
+			const guests: Participant[] = [
+				{ id: 'guest-alice-2', name: 'Alice', isAdmin: false, createdAt: new Date().toISOString() },
+				{ id: 'guest-bob-2', name: 'Bob', isAdmin: false, createdAt: new Date().toISOString() }
+			];
+			const { master, participantToken } = await seedPlanning({
+				title: 'Multi Claim Test',
+				participants: guests,
+				occurrenceCount: 0
+			});
+
+			const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth User');
+			trackIds('users', user.id);
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+
+			// === 1re revendication : Alice (succès) ===
+			const result1 = await claimParticipantIdentity(master.id, 'guest-alice-2', participantToken);
+			expect(result1.success).toBe(true);
+
+			// Alice a maintenant userId + claimedAt ; Bob est toujours non-lié
+			// === 2e revendication : Bob (doit échouer — l'auth a déjà claimedAt) ===
+			await expect(
+				claimParticipantIdentity(master.id, 'guest-bob-2', participantToken)
+			).rejects.toMatchObject({ status: 409 });
+
+			// Bob n'a pas été claimé (toujours pas de userId)
+			const pbMaster = await adminGetMaster(master.id);
+			const participants = pbMaster.participants as Participant[];
+			const bob = participants.find((p) => p.id === 'guest-bob-2');
+			expect(bob?.userId).toBeUndefined();
+			expect(bob?.claimedAt).toBeUndefined();
+		});
+
+		it("autorise la première revendication d'un auth auto-ajouté sans claimedAt (CAS C valide)", async () => {
+			// CAS C : l'auth a déjà un participant lié (userId) MAIS sans claimedAt
+			// (auto-add silencieux). La première revendication doit être autorisée.
+			const guestParticipant: Participant = {
+				id: 'guest-alice-c',
+				name: 'Alice',
+				isAdmin: false,
+				createdAt: new Date().toISOString()
+			};
+			const { master, participantToken } = await seedPlanning({
+				title: 'CAS C Valid Claim',
+				participants: [guestParticipant],
+				occurrenceCount: 0
+			});
+
+			const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth User');
+			trackIds('users', user.id);
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+
+			// Simuler l'auto-add silencieux : ajouter un participant auth sans claimedAt
+			const authParticipant: Participant = {
+				id: 'auth-autoadd',
+				name: 'Auth User',
+				isAdmin: false,
+				createdAt: new Date().toISOString(),
+				userId: user.id
+				// PAS de claimedAt → l'auth peut encore revendiquer
+			};
+			await adminUpdateMaster(master.id, {
+				participants: [guestParticipant, authParticipant]
+			});
+
+			// === Revendication de Alice : doit réussir (le guard ne bloque pas) ===
+			const result = await claimParticipantIdentity(master.id, 'guest-alice-c', participantToken);
+			expect(result.success).toBe(true);
+			expect(result.authParticipantId).toBe('guest-alice-c');
+
+			// L'auth auto-ajouté a été supprimé, Alice a userId + claimedAt
+			const pbMaster = await adminGetMaster(master.id);
+			const participants = pbMaster.participants as Participant[];
+			expect(participants).toHaveLength(1);
+			expect(participants[0].id).toBe('guest-alice-c');
+			expect(participants[0].userId).toBe(user.id);
+			expect(participants[0].claimedAt).toBeTruthy();
+		});
+	});
 });

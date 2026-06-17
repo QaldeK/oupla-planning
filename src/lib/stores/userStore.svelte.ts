@@ -290,6 +290,44 @@ class UserStore {
 		planningStore.destroy();
 	}
 
+	/**
+	 * Déconnexion sans redirection : reste sur le planning courant et le recharge
+	 * en mode guest. Utilisé par le bouton-lien « Se déconnecter pour changer de
+	 * compte » du IdentityClaimModal (l'user veut participer sous un autre compte).
+	 *
+	 * Différences avec logout() :
+	 * - pas de goto('/') — on reste sur /p/[token]
+	 * - re-activation du planning en guest via setActiveToken(token)
+	 *
+	 * Effet de bord attendu : l'$effect de /p/[token] (branche guest) détectera
+	 * l'absence d'identité et ouvrira IdentifyModal automatiquement.
+	 */
+	async logoutAndStayOnPlanning(token: string) {
+		// Guard isTransitioning pour éviter qu'un $effect ne réagisse à un état
+		// intermédiaire (auth cleared, planning pas encore re-activé) pendant le clear.
+		this.isTransitioning = true;
+		try {
+			this.savedPlannings = [];
+			pb.authStore.clear();
+			this.isLoggedIn = false;
+
+			// Unsubscribe pb-sync + clear Dexie
+			mastersCollection.unsubscribeAll();
+			occurrencesCollection.unsubscribeAll();
+			await db.masters.clear();
+			await db.occurrences.clear();
+			await db.commentState.clear();
+			await db.localMeta.clear();
+
+			// Re-activer le planning en guest (setActiveToken route vers #setActiveGuest
+			// car isLoggedIn est false). L'$effect de la page s'occupera d'ouvrir IdentifyModal.
+			planningStore.invalidateActiveToken();
+			await planningStore.setActiveToken(token);
+		} finally {
+			this.isTransitioning = false;
+		}
+	}
+
 	async clearUser() {
 		await this.logout();
 	}

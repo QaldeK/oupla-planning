@@ -16,9 +16,10 @@
 		ResponseType
 	} from '$lib/types/planning.types';
 	import { formatDateShort } from '$lib/utils/date';
-	import { ArrowRight, Check, Info, LoaderCircle, User, Users } from 'lucide-svelte';
+	import { ArrowRight, Check, Info, LoaderCircle, LogOut, User, Users } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { fade, slide } from 'svelte/transition';
+	import { userStore } from '$lib/stores/userStore.svelte';
 
 	interface Props {
 		open: boolean;
@@ -244,6 +245,24 @@
 		pendingMergeStats = null;
 	}
 
+	/**
+	 * Échappatoire : se déconnecter pour participer sous un autre compte.
+	 * Reste sur le planning courant (pas de goto('/')) ; l'$effect de la page
+	 * rouvrira IdentifyModal une fois l'identité absente.
+	 */
+	async function handleLogoutSwitch() {
+		isSubmitting = true;
+		try {
+			await userStore.logoutAndStayOnPlanning(token);
+			onClose();
+		} catch (err) {
+			console.error('logoutAndStayOnPlanning failed:', err);
+			toast.error('Erreur lors de la déconnexion');
+		} finally {
+			isSubmitting = false;
+		}
+	}
+
 	/** Confirmer la revendication (appel endpoint PB) */
 	async function handleConfirmClaim() {
 		if (!pendingClaimParticipant) return;
@@ -318,7 +337,7 @@
 	{onClose}
 	title={mode === 'new' ? 'Votre identité sur ce planning' : 'Changer votre identité'}
 	size="md"
-	closable={false}
+	closable={mode === 'new' ? false : true}
 >
 	<div class="space-y-6">
 		{#if pendingClaimParticipant}
@@ -393,8 +412,9 @@
 						<User size={20} class="shrink-0" />
 						<div class="flex-1 text-sm">
 							<p>
-								Vous allez revendiquer l'identité
-								<strong>{pendingClaimParticipant.name}</strong> sur ce planning.
+								Vous allez fusionner votre compte avec l'identité
+								<strong>{pendingClaimParticipant.name}</strong> sur ce planning. Ses réponses seront associées
+								à votre compte.
 							</p>
 						</div>
 					</div>
@@ -431,6 +451,17 @@
 					</div>
 				{/if}
 
+				<div class="alert alert-error alert-soft">
+					<Info size={20} class="shrink-0" />
+					<div class="flex-1 text-sm">
+						<p class="font-medium">Action irréversible</p>
+						<p class="mt-1 opacity-80">
+							L'identité sera <strong>définitivement liée à votre compte</strong> et fusionnée. Vous ne
+							pourrez pas annuler ni revendiquer une autre identité sur ce planning.
+						</p>
+					</div>
+				</div>
+
 				<div class="modal-action">
 					<button
 						type="button"
@@ -451,7 +482,7 @@
 							Confirmer...
 						{:else}
 							<Check size={18} />
-							Confirmer la revendication
+							Confirmer la fusion
 						{/if}
 					</button>
 				</div>
@@ -462,7 +493,7 @@
 			<div class="space-y-3">
 				<div class="flex items-center gap-2 text-sm font-medium">
 					<User size={16} />
-					<span>Mon nom sur ce planning</span>
+					<span>Votre nom sur ce planning</span>
 				</div>
 
 				<fieldset>
@@ -516,7 +547,7 @@
 			</div>
 
 			<!-- Section : Rejoindre une identité existante -->
-			{#if claimableParticipants.length > 0}
+			{#if claimableParticipants.length > 0 && !authParticipant?.claimedAt}
 				<div class="divider text-xs tracking-widest uppercase opacity-50">
 					Ou rejoindre une identité existante
 				</div>
@@ -581,6 +612,19 @@
 					</ul>
 				</div>
 			{/if}
+
+			<!-- Échappatoire : changer de compte -->
+			<div class="pt-2">
+				<button
+					type="button"
+					class="btn btn-ghost btn-link btn-block gap-1 text-sm opacity-70"
+					onclick={handleLogoutSwitch}
+					disabled={isSubmitting}
+				>
+					<LogOut size={15} />
+					Se déconnecter pour changer de compte
+				</button>
+			</div>
 		{/if}
 	</div>
 </Modal>

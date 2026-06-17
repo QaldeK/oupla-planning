@@ -4,8 +4,9 @@
 	const benefits = [
 		{
 			icon: UserX,
-			title: 'Sans inscription',
-			description: 'Participez simplement avec votre nom. Créez un planning sans créer de compte.'
+			title: "Pas d'inscription obligatoir",
+			description:
+				'Participez simplement avec votre nom. Créez un planning sans créer de compte, ou bien créer en un pour retrouver vos différents planning simplement.'
 		},
 		{
 			icon: HatGlasses,

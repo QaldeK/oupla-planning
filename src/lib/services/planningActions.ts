@@ -463,7 +463,8 @@ export interface ClaimIdentityResult {
  * @throws 400 si masterId ou guestParticipantId manquant
  * @throws 403 si token invalide
  * @throws 404 si guest participant introuvable
- * @throws 409 si guest déjà claimé (userId !== null) ou hasQuit
+ * @throws 409 si guest déjà claimé (userId !== null), hasQuit, ou si l'auth a déjà
+ *         revendiqué une identité sur ce planning (`claimedAt` posé)
  */
 export async function claimParticipantIdentity(
 	masterId: string,

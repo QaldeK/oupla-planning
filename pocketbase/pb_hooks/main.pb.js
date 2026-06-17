@@ -206,6 +206,15 @@ routerAdd('POST', '/api/claim-participant-identity', (e) => {
 		//     Sert de "source" à migrer vers guest (qui devient la target finale).
 		//     L'utilisateur revendique l'identité guest : c'est elle qui devient l'identité auth.
 		const auth = participants.find((p) => p && p.userId === authUserId);
+
+		// Garde anti multi-revendication : un user auth ne peut revendiquer qu'une seule
+		// identité guest par planning. Le marqueur `claimedAt` est posé lors d'une
+		// revendication réussie (cf. étape 8 ci-dessous). Un participant auto-ajouté
+		// (CAS C) n'a pas de `claimedAt`, donc la première revendication reste autorisée.
+		if (auth && auth.claimedAt) {
+			throw new ApiError(409, 'Identity already claimed on this planning');
+		}
+
 		const targetId = guestParticipantId; // guest devient l'identité finale
 		const sourceId = auth ? auth.id : null; // auth sera supprimé (si existait)
 		authParticipantId = targetId; // retourné au client
@@ -300,15 +309,17 @@ routerAdd('POST', '/api/claim-participant-identity', (e) => {
 
 		// 8. Update master.participants
 		//    - Si auth existait : le supprimer (ses données sont migrées vers guest)
-		//    - Ajouter userId sur guest (devient l'identité auth officielle)
+		//    - Ajouter userId + claimedAt sur guest (devient l'identité auth officielle,
+		//      et est marqué « déjà revendiqué » pour bloquer toute nouvelle tentative).
+		const claimedAt = new Date().toISOString();
 		let newParticipants;
 		if (auth) {
 			newParticipants = participants
 				.filter((p) => !(p && p.id === sourceId))
-				.map((p) => (p && p.id === targetId ? { ...p, userId: authUserId } : p));
+				.map((p) => (p && p.id === targetId ? { ...p, userId: authUserId, claimedAt } : p));
 		} else {
 			newParticipants = participants.map((p) =>
-				p && p.id === targetId ? { ...p, userId: authUserId } : p
+				p && p.id === targetId ? { ...p, userId: authUserId, claimedAt } : p
 			);
 		}
 

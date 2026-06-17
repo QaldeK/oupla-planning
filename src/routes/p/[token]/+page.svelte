@@ -29,6 +29,7 @@
 		Info,
 		InfoIcon,
 		ListFilter,
+		Lock,
 		MapPin,
 		Settings,
 		Users,
@@ -73,8 +74,15 @@
 		return null;
 	});
 
+	// Détection cross-device : un guest dont le participant possède un `userId` alors
+	// qu'il n'est pas connecté. Cela signifie que son identité a été revendiquée par
+	// un compte sur un autre terminal (ou qu'il s'est connecté ailleurs). Dans ce
+	// cas, on entre en état « locked » : responses bloquées (currentIdentity null),
+	// bandeau dédié, pas d'auto-open d'IdentifyModal.
+	const identityClaimedByAuth = $derived(!!myParticipant?.userId && !userStore.isLoggedIn);
+
 	const currentIdentity = $derived(
-		myParticipant
+		myParticipant && !identityClaimedByAuth
 			? {
 					id: myParticipant.id,
 					name: myParticipant.name,
@@ -343,7 +351,7 @@
 
 								<div class="flex flex-wrap gap-1.5">
 									{#each visibleParticipants as p (p.id)}
-										{#if myParticipant && p.id === myParticipant.id}
+										{#if myParticipant && !identityClaimedByAuth && p.id === myParticipant.id}
 											<!-- Utilisateur actuel en badge-info avec bouton changer -->
 											<span class="badge badge-info gap-1">
 												{p.name}
@@ -357,7 +365,7 @@
 												</button>
 											</span>
 										{:else}
-											<span class="badge badge-soft">{p.name}</span>
+											<span class="badge badge-info badge-outline">{p.name}</span>
 										{/if}
 									{/each}
 									{#if hasMoreParticipants}
@@ -380,7 +388,7 @@
 								</div>
 
 								<!-- Entry point "Revendiquer une identité existante" pour users auth -->
-								{#if userStore.isLoggedIn && claimableParticipants.length > 0}
+								{#if userStore.isLoggedIn && claimableParticipants.length > 0 && !myParticipant?.claimedAt}
 									<button
 										class="btn btn-link btn-xs text-info gap-1"
 										type="button"
@@ -419,19 +427,38 @@
 
 			<!-- Identification manquante -->
 			{#if !currentIdentity}
-				<div class="alert alert-warning mt-4">
-					<Info size={18} />
-					<p>Veuillez vous identifier pour répondre aux sondages</p>
-					<div class="flex gap-2">
-						<button
-							class="btn"
-							onclick={() =>
-								userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
-						>
-							S'identifier
-						</button>
+				{#if identityClaimedByAuth}
+					<!-- Cas cross-device : identité guest revendiquée par un compte ailleurs -->
+					<div class="alert alert-warning mt-4">
+						<Lock size={18} />
+						<div>
+							<p class="font-medium">Cette identité est désormais liée à un compte</p>
+							<p class="text-sm opacity-80">
+								Pour continuer à participer en tant que {myParticipant?.name ?? 'cette identité'},
+								vous devez vous connecter au compte associé.
+							</p>
+						</div>
+						<div class="flex gap-2">
+							<button class="btn btn-primary" onclick={() => (showAccountModal = true)}>
+								Se connecter
+							</button>
+						</div>
 					</div>
-				</div>
+				{:else}
+					<div class="alert alert-warning mt-4">
+						<Info size={18} />
+						<p>Veuillez vous identifier pour répondre aux sondages</p>
+						<div class="flex gap-2">
+							<button
+								class="btn"
+								onclick={() =>
+									userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
+							>
+								S'identifier
+							</button>
+						</div>
+					</div>
+				{/if}
 			{/if}
 		</div>
 

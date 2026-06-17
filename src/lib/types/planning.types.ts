@@ -16,6 +16,14 @@ export interface Participant {
 	 * Note : c'est une simple string dans le JSON, pas une relation PB.
 	 */
 	userId?: string;
+	/**
+	 * Timestamp ISO du moment où ce participant a été revendiqué par un user auth
+	 * (via /api/claim-participant-identity). Sert de marqueur « une seule revendication
+	 * par planning » : si l'auth possède déjà un participant avec `claimedAt`, toute
+	 * nouvelle revendication est rejetée (409). Absent pour les participants auto-ajoutés
+	 * (CAS C) tant qu'aucune revendication n'a eu lieu.
+	 */
+	claimedAt?: string;
 }
 
 // === Réponse par occurrence ===
