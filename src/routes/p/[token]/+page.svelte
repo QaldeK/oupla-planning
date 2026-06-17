@@ -382,7 +382,7 @@
 							<div class="flex flex-wrap items-center gap-2">
 								<span class="badge badge-info gap-1">{currentIdentity.name}</span>
 								<button
-									class="btn btn-soft btn-info btn-xs gap-1"
+									class="btn btn-soft btn-info btn-sm gap-1"
 									type="button"
 									onclick={() =>
 										userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
@@ -392,7 +392,7 @@
 								</button>
 								{#if userStore.isLoggedIn && claimableParticipants.length > 0 && !myParticipant?.claimedAt}
 									<button
-										class="btn btn-link btn-xs text-info gap-1"
+										class="btn btn-link btn-sm text-info gap-1"
 										type="button"
 										onclick={openIdentityClaimModal}
 									>
@@ -401,7 +401,7 @@
 									</button>
 								{/if}
 								<button
-									class="btn btn-ghost btn-error btn-xs ms-auto gap-1"
+									class="btn btn-ghost btn-error btn-sm ms-auto gap-1"
 									onclick={() => (showQuitModal = true)}
 									title="Quitter ce planning"
 								>
@@ -418,7 +418,7 @@
 									pour continuer à participer.
 								</span>
 								<button
-									class="btn btn-primary btn-xs"
+									class="btn btn-primary btn-sm"
 									onclick={() => ((accountModalMode = 'login'), (showAccountModal = true))}
 								>
 									Se connecter
@@ -429,7 +429,7 @@
 							<div class="flex flex-wrap items-center gap-3">
 								<span class="text-sm opacity-80">Vous n'êtes pas encore identifié.</span>
 								<button
-									class="btn btn-primary btn-xs"
+									class="btn btn-primary btn-sm"
 									onclick={() =>
 										userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
 								>
@@ -587,7 +587,7 @@
 	onConfirm={handleQuit}
 	title="Quitter ce planning ?"
 	message="Êtes-vous sûr de vouloir quitter ce planning ?"
-	description="Vous pourrez retrouver ce planning si vous conservez son url."
+	description="Votre réponses seront supprimées et ne serez plus inscrit comme participant·e. Vous pourrez retrouver ce planning si vous conservez son url."
 	confirmLabel="Quitter"
 	variant="warning"
 />
