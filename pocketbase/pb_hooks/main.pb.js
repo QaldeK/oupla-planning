@@ -203,9 +203,21 @@ routerAdd('POST', '/api/claim-participant-identity', (e) => {
 		if (guest.hasQuit) throw new ApiError(409, 'Cannot claim a quit participant');
 
 		// 5. Find existing auth participant (déjà lié via userId)
-		//     Sert de "source" à migrer vers guest (qui devient la target finale).
-		//     L'utilisateur revendique l'identité guest : c'est elle qui devient l'identité auth.
-		const auth = participants.find((p) => p && p.userId === authUserId);
+		//    Sert de "source" à migrer vers guest (qui devient la target finale).
+		//    L'utilisateur revendique l'identité guest : c'est elle qui devient l'identité auth.
+		//    On filtre `!p.hasQuit` pour rester cohérent avec le client (`myParticipant`),
+		//    et éviter qu'un participant « quitté » soit considéré comme l'identité auth active.
+		const authParticipants = participants.filter((p) => p && p.userId === authUserId && !p.hasQuit);
+
+		// Garde anti multi-participants-actifs-par-userId : ce CAS ne devrait pas
+		// se produire en flux normal (le guard `hasQuitThisPlanning` prioritaire
+		// côté client bloque l'auto-add tant que le choix rejoindre/quit n'est pas fait).
+		// On le rejette explicitement pour se prémunir des race conditions / états Dexie
+		// incohérents (sinon le `find` ci-dessous serait non déterministe).
+		if (authParticipants.length > 1) {
+			throw new ApiError(409, 'Multiple active participants for this user — data inconsistency');
+		}
+		const auth = authParticipants[0];
 
 		// Garde anti multi-revendication : un user auth ne peut revendiquer qu'une seule
 		// identité guest par planning. Le marqueur `claimedAt` est posé lors d'une
@@ -502,11 +514,26 @@ onRecordUpdateRequest((e) => {
 // CHECK IF PARTICIPANT HAS ACCOUNT
 // ============================================
 
-/**
- * Vérifie si un participant a un compte utilisateur
- * Accessible à tous (anonymes et connectés)
- * Utilisé pour l'identification dans IdentifyModal
+/*
+ * DEPRECATED (2026-06-17) — Hook non supprimé mais désactivé.
+ *
+ * Ce endpoint vérifiait si un participant avait un compte en faisant
+ * `findRecordById('users', participantId)`. Cette logique reposait sur
+ * l'ancien invariant `participant.id === participant.userId`, aujourd'hui
+ * cassé par l'introduction du champ `userId` dans `participants[]` :
+ * un guest revendiqué (CAS B) garde son UUID original comme `id` mais
+ * reçoit un `userId` différent. La recherche `users/{participantId}`
+ * renvoyait donc 404 → `{ hasAccount: false }` à tort, permettant à un
+ * guest de « revendiquer » une identité protégée sans s'authentifier.
+ *
+ * La vérification est désormais effectuée côté client directement via
+ * `participant.userId` (cf. NameConflictHandler.attemptIdentifyAs),
+ * ce qui est plus correct, sans latence, et sans surface d'attaque.
+ *
+ * Aucun appelant côté client. Conservé commenté pour mémoire ; suppression
+ * hard possible dans un second temps.
  */
+/*
 routerAdd('GET', '/api/has-account/{id}', (e) => {
 	const participantId = e.request.pathValue('id');
 
@@ -521,6 +548,7 @@ routerAdd('GET', '/api/has-account/{id}', (e) => {
 		return e.json(200, { hasAccount: false });
 	}
 });
+*/
 
 // ============================================
 // MIGRATE PARTICIPANT IDS

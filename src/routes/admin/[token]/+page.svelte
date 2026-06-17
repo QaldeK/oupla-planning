@@ -41,6 +41,11 @@
 	$effect(() => {
 		if (!master) return;
 
+		// Guard : ne rien faire pendant la transition guest → auth, au même
+		// titre que sur /p/[token]. Sans ça, l'$effect verrait un état
+		// intermédiaire (master cleared, participant pas encore posé).
+		if (userStore.isTransitioning) return;
+
 		// PRIORITÉ : retour après quit
 		if (hasQuitThisPlanning) {
 			if (!showQuitReturnModal) showQuitReturnModal = true;

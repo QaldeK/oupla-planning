@@ -133,7 +133,7 @@
 	}
 </script>
 
-<Modal {open} onClose={closeModal} title="Identification" size="md">
+<Modal {open} onClose={closeModal} title="Identification" size="md" closable={!claimedIdentity}>
 	<div class="space-y-6">
 		<!-- Alerte pour identité protégée -->
 		{#if claimedIdentity}

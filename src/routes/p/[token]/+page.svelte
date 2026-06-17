@@ -39,6 +39,7 @@
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	let token = $derived($page.params.token as string);
 	let master = $derived(planningStore.master);
@@ -57,7 +58,7 @@
 
 	// Mémorise les masters pour lesquels on a déjà fait un auto-add silencieux (CAS C)
 	// afin d'éviter les déclenchements multiples avant que l'update Dexie ne se propage
-	const autoAddedMasterIds = new Set<string>();
+	const autoAddedMasterIds = new SvelteSet<string>();
 
 	// Participant lié à l'utilisateur courant sur ce planning
 	// - Auth : recherche par `userId` (le participant peut avoir un id différent de pbUser.id)
@@ -601,7 +602,7 @@
 	onConfirm={handleQuit}
 	title="Quitter ce planning ?"
 	message="Êtes-vous sûr de vouloir quitter ce planning ?"
-	description="Vous pourrez retrouver ce planning si vous concerver son url."
+	description="Vous pourrez retrouver ce planning si vous conservez son url."
 	confirmLabel="Quitter"
 	variant="warning"
 />

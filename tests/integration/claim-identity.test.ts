@@ -577,6 +577,97 @@ describe('claimParticipantIdentity — migration guest → auth', () => {
 				claimParticipantIdentity(master.id, 'guest-noauth', participantToken)
 			).rejects.toMatchObject({ status: 401 });
 		});
+
+		it('rejette les données incohérentes : 2 participants actifs même userId (409)', async () => {
+			// Hardening : ce CAS ne devrait pas se produire en flux normal, mais on
+			// se prémunit des race conditions / états Dexie incohérents. Sans ce guard,
+			// le `find(userId)` serait non déterministe (ordre JSON non garanti).
+			const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth User');
+			trackIds('users', user.id);
+
+			// 2 participants actifs (hasQuit undefined) liés au même userId
+			const authParticipant1: Participant = {
+				id: 'auth-dup-1',
+				name: 'Auth Dup 1',
+				isAdmin: false,
+				createdAt: new Date().toISOString(),
+				userId: user.id
+			};
+			const authParticipant2: Participant = {
+				id: 'auth-dup-2',
+				name: 'Auth Dup 2',
+				isAdmin: false,
+				createdAt: new Date().toISOString(),
+				userId: user.id
+			};
+			const guestParticipant: Participant = {
+				id: 'guest-target',
+				name: 'Guest Target',
+				isAdmin: false,
+				createdAt: new Date().toISOString()
+			};
+			const { master, participantToken } = await seedPlanning({
+				title: 'Dup UserId Test',
+				participants: [authParticipant1, authParticipant2, guestParticipant],
+				occurrenceCount: 0
+			});
+
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+
+			// === ACTION + VERIFICATION ===
+			await expect(
+				claimParticipantIdentity(master.id, 'guest-target', participantToken)
+			).rejects.toMatchObject({ status: 409 });
+		});
+
+		it('ignore un participant hasQuit lors de la détection auth (filtre !hasQuit)', async () => {
+			// Un user auth a un participant hasQuit ET un participant actif : seul
+			// l'actif doit être considéré comme `auth` source (cohérent avec
+			// `myParticipant` côté client qui filtre `!p.hasQuit`).
+			const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth User');
+			trackIds('users', user.id);
+
+			const quitParticipant: Participant = {
+				id: 'auth-quit',
+				name: 'Auth Quit',
+				isAdmin: false,
+				createdAt: new Date().toISOString(),
+				userId: user.id,
+				hasQuit: true
+			};
+			const activeParticipant: Participant = {
+				id: 'auth-active',
+				name: 'Auth Active',
+				isAdmin: false,
+				createdAt: new Date().toISOString(),
+				userId: user.id,
+				claimedAt: new Date().toISOString() // déjà revendiqué → doit déclencher le guard claimedAt
+			};
+			const guestParticipant: Participant = {
+				id: 'guest-new',
+				name: 'Guest New',
+				isAdmin: false,
+				createdAt: new Date().toISOString()
+			};
+			const { master, participantToken } = await seedPlanning({
+				title: 'HasQuit Filter Test',
+				participants: [quitParticipant, activeParticipant, guestParticipant],
+				occurrenceCount: 0
+			});
+
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+
+			// === ACTION + VERIFICATION ===
+			// Sans le filtre !hasQuit, le `find` pourrait retourner le participant
+			// hasQuit (sans claimedAt) et passer le guard, puis le participant actif
+			// (avec claimedAt) ne serait jamais vérifié. Avec le filtre, on détecte
+			// bien l'actif et son claimedAt → 409.
+			await expect(
+				claimParticipantIdentity(master.id, 'guest-new', participantToken)
+			).rejects.toMatchObject({ status: 409 });
+		});
 	});
 
 	// ============================================

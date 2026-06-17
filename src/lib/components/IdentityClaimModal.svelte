@@ -18,6 +18,7 @@
 	import { formatDateShort } from '$lib/utils/date';
 	import { ArrowRight, Check, Info, LoaderCircle, LogOut, User, Users } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
+	import { untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { userStore } from '$lib/stores/userStore.svelte';
 
@@ -51,16 +52,19 @@
 
 	// === Nom saisi dans l'input ===
 	let name = $state('');
-	let nameTouched = $state(false);
 
-	// Re-init quand le modal s'ouvre ou change de mode
+	// Re-init quand le modal s'ouvre. `untrack` sinon
+	// l'$effect dépendrait de `authParticipant` (dérivé de `master.participants`)
+	// et se redéclencherait sur tout push realtime, écrasant la saisie de
+	// l'utilisateur (cf. scénario : un autre participant répond pendant que
+	// l'user tape son nom).
 	$effect(() => {
-		if (open) {
+		if (!open) return;
+		untrack(() => {
 			name = authParticipant?.name ?? pbUser.name ?? '';
-			nameTouched = false;
 			pendingClaimParticipant = null;
 			pendingMergeStats = null;
-		}
+		});
 	});
 
 	// === Liste des participants non-liés à revendiquer ===
@@ -426,19 +430,16 @@
 						<p class="mb-2 text-xs font-medium tracking-wide uppercase opacity-60">
 							Réponses à venir de {pendingClaimParticipant.name} ({pendingClaimPreview.totalCount})
 						</p>
-						<ul class="space-y-1 text-sm">
+						<div class="flex flex-wrap gap-x-4 gap-y-2">
 							{#each pendingClaimPreview.items as item (item.date)}
-								<li class="flex items-center justify-between gap-2">
-									<span class="opacity-80">
-										{formatDateShort(item.date)} · {item.startTime}
-									</span>
-									<span
-										class="badge badge-sm {RESPONSE_TYPE_CONFIG[item.response]
-											.badgeClass} font-medium"
-									>
+								<div class="flex items-center justify-between gap-2">
+									<span class="badge {RESPONSE_TYPE_CONFIG[item.response].badgeClass} font-medium">
+										<span class="opacity-80">
+											{formatDateShort(item.date)} · {item.startTime} |
+										</span>
 										{RESPONSE_TYPE_LABELS[item.response]}
 									</span>
-								</li>
+								</div>
 							{/each}
 							{#if pendingClaimPreview.remaining > 0}
 								<li class="pt-1 text-xs opacity-60">
@@ -447,7 +448,7 @@
 										: ''} réponse{pendingClaimPreview.remaining > 1 ? 's' : ''}
 								</li>
 							{/if}
-						</ul>
+						</div>
 					</div>
 				{/if}
 
@@ -501,7 +502,6 @@
 						<input
 							type="text"
 							bind:value={name}
-							oninput={() => (nameTouched = true)}
 							class="grow"
 							placeholder="Votre nom"
 							maxlength="36"
@@ -575,14 +575,16 @@
 										</div>
 
 										{#if preview.totalCount > 0}
-											<div class="mt-2 text-xs opacity-70">
+											<div class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
 												{#each preview.items.slice(0, 3) as item (item.date)}
-													<div class="mt-0.5 flex items-center gap-2">
-														<span class="w-24">{formatDateShort(item.date)}</span>
+													<div class="flex items-center justify-between gap-2">
 														<span
-															class="badge badge-sm {RESPONSE_TYPE_CONFIG[item.response]
-																.badgeClass}"
+															class="badge {RESPONSE_TYPE_CONFIG[item.response]
+																.badgeClass} font-medium"
 														>
+															<span class="opacity-80">
+																{formatDateShort(item.date)} · {item.startTime} |
+															</span>
 															{RESPONSE_TYPE_LABELS[item.response]}
 														</span>
 													</div>

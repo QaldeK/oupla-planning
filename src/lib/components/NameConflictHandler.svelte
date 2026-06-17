@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { pb } from '$lib/pocketbase/pb';
 	import type { Participant } from '$lib/types/planning.types';
 	import { CircleAlert, InfoIcon } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
@@ -12,7 +11,6 @@
 		allowClaimIdentity: boolean; // true = guest (peut revendiquer), false = auth (ID comparé)
 		onIdentifyAs: (participant: Participant) => Promise<void>;
 		onRequireLogin?: (participant: Participant) => void; // Appelé quand le participant a un compte (avec le participant)
-		onNetworkError?: () => void;
 		hideExistingParticipants?: boolean; // Cacher la liste des participants existants
 	}
 
@@ -24,14 +22,11 @@
 		allowClaimIdentity,
 		onIdentifyAs,
 		onRequireLogin,
-		onNetworkError,
 		hideExistingParticipants = false
 	}: Props = $props();
 
 	// État interne
 	let isSubmitting = $state(false);
-	let networkError = $state(false);
-	let retryingParticipant = $state<Participant | null>(null);
 
 	// === Détection de conflit ===
 
@@ -52,48 +47,25 @@
 
 	// === Actions ===
 
-	async function attemptIdentifyAs(participant: Participant, retryCount = 0) {
-		const RETRY_DELAYS = [300, 600, 1000];
-		const MAX_RETRIES = RETRY_DELAYS.length;
+	async function attemptIdentifyAs(participant: Participant) {
+		// Vérification locale : participant déjà lié à un compte (userId posé).
+		// Remplace l'appel réseau /api/has-account désormais obsolète : celui-ci
+		// ne détectait pas les participants claimés dont l'id ≠ userId (un guest
+		// revendiqué garde son UUID original tout en recevant un userId).
+		if (participant.userId) {
+			onRequireLogin?.(participant);
+			return;
+		}
 
+		// Pas de compte -> identification directe.
+		// Les erreurs réseau sont gérées par le parent (IdentifyModal.handleIdentifyAs).
 		isSubmitting = true;
-		networkError = false;
-		retryingParticipant = participant;
-
 		try {
-			// Vérifier si le participant a un compte protégé via PocketBase
-			const data = await pb.send(`/api/has-account/${participant.id}`, { requestKey: null });
-
-			if (data.hasAccount) {
-				// Le participant a un compte -> notifier le parent pour afficher le login
-				isSubmitting = false;
-				retryingParticipant = null;
-				onRequireLogin?.(participant);
-			} else {
-				// Pas de compte -> identification directe
-				await onIdentifyAs(participant);
-			}
-		} catch (err) {
-			if (retryCount < MAX_RETRIES) {
-				// Retry automatique avec délai progressif
-				await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[retryCount]));
-				return attemptIdentifyAs(participant, retryCount + 1);
-			} else {
-				// Échec après tous les retries -> afficher erreur
-				networkError = true;
-				isSubmitting = false;
-				onNetworkError?.();
-			}
+			await onIdentifyAs(participant);
+		} finally {
+			isSubmitting = false;
 		}
 	}
-
-	function reset() {
-		networkError = false;
-		retryingParticipant = null;
-	}
-
-	// Exposer la méthode de reset pour le parent
-	export { reset };
 </script>
 
 {#if hasConflict && matchedParticipant && !allowClaimIdentity}
@@ -120,7 +92,7 @@
 				{#each existingParticipants as p (p.id)}
 					<button
 						type="button"
-						class="btn btn-accent btn-xs {matchedParticipant?.id === p.id ? 'btn-primary ' : ''}"
+						class="btn btn-accent btn-sm {matchedParticipant?.id === p.id ? 'btn-primary ' : ''}"
 						onclick={() => attemptIdentifyAs(p)}
 						disabled={isSubmitting}
 					>
@@ -136,22 +108,5 @@
 				</p>
 			{/if}
 		</div>
-	</div>
-{/if}
-
-<!-- Erreur réseau -->
-{#if networkError && retryingParticipant}
-	<div class="alert alert-error alert-soft alert-vertical mt-4" transition:slide>
-		<div class="text-sm">
-			<CircleAlert size={20} class="me-2 inline shrink-0" />
-			Impossible de vérifier l'identité. Vérifiez votre connexion.
-		</div>
-		<button
-			type="button"
-			class="btn btn-error btn-sm"
-			onclick={() => attemptIdentifyAs(retryingParticipant!)}
-		>
-			Réessayer
-		</button>
 	</div>
 {/if}
