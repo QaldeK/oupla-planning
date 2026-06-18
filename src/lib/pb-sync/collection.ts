@@ -35,6 +35,7 @@ import type {
 	PbQueryOptions,
 	PbSubscribeOptions,
 	PbListOptions,
+	InitialFetchOptions,
 	SubscriptionRef,
 	SyncCollectionOptions
 } from './types';
@@ -115,9 +116,9 @@ export function createSyncCollection<T extends WithMeta>(
 	>();
 	let subCounter = 0;
 
-	async function initialFetch(params?: PbQueryOptions): Promise<void> {
-		const latest = await table.orderBy('updated').last();
-		const since = latest?.updated ?? '2000-01-01 00:00:00';
+	async function initialFetch(params?: InitialFetchOptions): Promise<void> {
+		const latest = params?.since ? null : await table.orderBy('updated').last();
+		const since = params?.since ?? latest?.updated ?? '2000-01-01 00:00:00';
 
 		// Extraire le template et les vars du filtre utilisateur s'il existe
 		const userFilterTemplate = Array.isArray(params?.filter) ? params.filter[0] : params?.filter;

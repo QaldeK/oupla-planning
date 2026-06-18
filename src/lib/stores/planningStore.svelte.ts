@@ -246,6 +246,21 @@ class PlanningStore {
 		}
 	}
 
+	/** since pour la delta sync : dernier fetch du master, ou epoch si jamais fetché. */
+	async #resolveSince(masterId: string): Promise<string> {
+		const meta = await db.localMeta.get(masterId);
+		return meta?.lastFetchAt ?? '2000-01-01 00:00:00';
+	}
+
+	/** Délègue à userStore.markFetched (source unique de vérité sur localMeta).
+	 *  À appeler AVANT le fetch pour capturer les writes concurrents au prochain cycle.
+	 *  Si le fetch échoue, le delta [previousLastFetchAt, now] sera perdu jusqu'au
+	 *  prochain clear (logout/onAuthTransition) — acceptable car les données locales
+	 *  restent affichées et le realtime rattrape les updates vivantes. */
+	async #markFetched(masterId: string): Promise<void> {
+		await userStore.markFetched(masterId);
+	}
+
 	// === Résolution de token ===
 
 	/**
@@ -342,19 +357,17 @@ class PlanningStore {
 
 		this.#activeMasterId = master.id;
 
-		// Pour un user auth qui arrive sur un planning dont le master est en Dexie
-		// (via initialFetch global) mais dont les occurrences n'ont pas encore été
-		// fetchées spécifiquement, on doit les récupérer. Sinon la liste reste vide.
-		// Pas de _token requis : les API Rules filtrent via user.masterId.
-		const occCount = await db.occurrences.where('master').equals(master.id).count();
-		if (occCount === 0) {
-			try {
-				await occurrencesCollection.initialFetch({
-					filter: ['master = {:masterId}', { masterId: master.id }]
-				});
-			} catch (err) {
-				console.warn('[PlanningStore] Could not fetch occurrences for master:', err);
-			}
+		// Delta sync per-master (API Rules filtrent via user.masterId, pas de _token).
+		// Toujours fetcher (même si cache partiel) pour corriger le bug occCount === 0.
+		const since = await this.#resolveSince(master.id);
+		await this.#markFetched(master.id);
+		try {
+			await occurrencesCollection.initialFetch({
+				filter: ['master = {:masterId}', { masterId: master.id }],
+				since
+			});
+		} catch (err) {
+			console.warn('[PlanningStore] Could not fetch occurrences for master:', err);
 		}
 
 		this.#subscribeDexieQueries(master.id);
@@ -402,10 +415,14 @@ class PlanningStore {
 		}
 		this.#activeMasterId = master.id;
 
-		// Fetch occurrences (delta sync incrémental via updated > since)
+		// Delta sync per-master : since basé sur localMeta.lastFetchAt (évite le bug
+		// du since global incohérent avec un filtre par master).
+		const since = await this.#resolveSince(master.id);
+		await this.#markFetched(master.id);
 		await occurrencesCollection.initialFetch({
 			filter: ['master = {:masterId}', { masterId: master.id }],
-			query: { _token: token }
+			query: { _token: token },
+			since
 		});
 
 		this.#subscribeDexieQueries(master.id);

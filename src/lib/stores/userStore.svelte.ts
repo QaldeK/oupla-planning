@@ -215,6 +215,25 @@ class UserStore {
 		await db.localMeta.bulkPut(this.savedPlannings);
 	}
 
+	/**
+	 * Source unique de vérité pour mettre à jour un SavedPlanning.
+	 * Lit l'existant (in-memory, fallback Dexie pour rattraper les écritures directes
+	 * comme lastFetchAt), merge le patch, met à jour l'in-memory ET Dexie de façon cohérente.
+	 * Préserve les champs existants (lastFetchAt, currentUser, hasQuit...).
+	 */
+	async #upsertSavedPlanning(masterId: string, patch: Partial<SavedPlanning>): Promise<void> {
+		const idx = this.savedPlannings.findIndex((p) => p.masterId === masterId);
+		const existing = idx >= 0 ? this.savedPlannings[idx] : await db.localMeta.get(masterId);
+		const merged: SavedPlanning = { ...(existing as SavedPlanning), masterId, ...patch };
+
+		if (idx >= 0) {
+			this.savedPlannings[idx] = merged;
+		} else {
+			this.savedPlannings.push(merged);
+		}
+		await db.localMeta.put(merged);
+	}
+
 	// === Gestion de l'identité par planning ===
 
 	/**
@@ -243,14 +262,7 @@ class UserStore {
 	 */
 	async setPlanningIdentity(masterId: string, identity: PlanningIdentity) {
 		if (this.isLoggedIn) return;
-
-		const idx = this.savedPlannings.findIndex((p) => p.masterId === masterId);
-		if (idx >= 0) {
-			this.savedPlannings[idx] = { ...this.savedPlannings[idx], currentUser: identity };
-		} else {
-			this.savedPlannings.push({ masterId, currentUser: identity });
-		}
-		await this.#persistIdentities();
+		await this.#upsertSavedPlanning(masterId, { currentUser: identity });
 	}
 
 	/**
@@ -280,14 +292,17 @@ class UserStore {
 	 */
 	async markPlanningAsQuit(masterId: string) {
 		if (this.isLoggedIn) return;
+		await this.#upsertSavedPlanning(masterId, { hasQuit: true });
+	}
 
-		const idx = this.savedPlannings.findIndex((p) => p.masterId === masterId);
-		if (idx >= 0) {
-			this.savedPlannings[idx] = { ...this.savedPlannings[idx], hasQuit: true };
-		} else {
-			this.savedPlannings.push({ masterId, hasQuit: true });
-		}
-		await this.#persistIdentities();
+	/**
+	 * Enregistre le timestamp du dernier fetch réussi pour un master.
+	 * Utilisé par planningStore pour la delta sync per-master (lastFetchAt).
+	 * Passe par #upsertSavedPlanning pour préserver les autres champs et garder
+	 * l'in-memory cohérent avec Dexie.
+	 */
+	async markFetched(masterId: string): Promise<void> {
+		await this.#upsertSavedPlanning(masterId, { lastFetchAt: new Date().toISOString() });
 	}
 
 	// === Auth ===

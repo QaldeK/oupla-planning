@@ -143,6 +143,14 @@ export interface SavedPlanning {
 	currentUser?: PlanningIdentity;
 	/** true si l'identité guest a quitté ce planning (localMeta uniquement) */
 	hasQuit?: boolean;
+	/**
+	 * Timestamp UTC ISO du dernier fetch réussi des occurrences pour ce master.
+	 * Utilisé par `planningStore` comme `since` de la delta sync `initialFetch`,
+	 * pour éviter le bug du `since` global calculé via `table.orderBy('updated').last()`
+	 * qui devient incohérent quand un filtre `master = X` est appliqué.
+	 * Nettoyé automatiquement avec `localMeta.clear()` (logout, transitions).
+	 */
+	lastFetchAt?: string;
 }
 
 // === Comment State (local-only, Dexie) ===

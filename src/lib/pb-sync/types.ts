@@ -21,6 +21,19 @@ export interface PbQueryOptions {
 }
 
 /**
+ * Options pour `initialFetch()`. Étend PbQueryOptions avec un `since` explicite.
+ * Si fourni, `since` remplace le calcul par défaut (`table.orderBy('updated').last()`),
+ * ce qui permet une delta sync cohérente quand un filtre par master est appliqué.
+ */
+export interface InitialFetchOptions extends PbQueryOptions {
+	/**
+	 * Borne inférieure pour le filtre `updated > {:since}`. Format ISO UTC.
+	 * Si absent, `initialFetch` calcule `since` depuis le dernier `updated` local.
+	 */
+	since?: string;
+}
+
+/**
  * Options pour `subscribe()` — étend PbQueryOptions avec le topic realtime.
  */
 export interface PbSubscribeOptions extends PbQueryOptions {
