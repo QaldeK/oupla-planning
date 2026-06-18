@@ -40,6 +40,18 @@
 	// État pour la revendication d'identité protégée
 	let claimedIdentity = $state<Participant | null>(null);
 
+	// Conflit de nom : on ne peut pas créer de participant avec un nom déjà pris
+	// sur ce planning. L'utilisateur doit soit revendiquer l'identité existante
+	// (bouton "C'est moi" du NameConflictHandler), soit choisir un autre nom.
+	// On exclut l'identité courante pour autoriser l'édition sans faux positif.
+	let hasNameConflict = $derived.by(() => {
+		const trimmed = name.trim().toLowerCase();
+		if (!trimmed) return false;
+		return existingParticipants.some(
+			(p) => p.name.toLowerCase() === trimmed && p.id !== currentIdentity?.id
+		);
+	});
+
 	function resetForm() {
 		name = '';
 		email = '';
@@ -103,7 +115,7 @@
 	}
 
 	async function handleSubmit() {
-		if (!name.trim() || isSubmitting) return;
+		if (!name.trim() || isSubmitting || hasNameConflict) return;
 
 		// Cas avec masterId : identification sur un planning
 		if (masterId && onPlanningIdentify) {
@@ -148,7 +160,7 @@
 					<p class="text-sm font-medium">
 						L'identité <strong>{claimedIdentity.name}</strong> est protégée par un compte.
 					</p>
-					<p class="text-xs opacity-80">Connectez-vous pour vous authentifier..</p>
+					<p class="text-xs opacity-80">Connectez-vous pour vous authentifier.</p>
 				</div>
 			</div>
 			<button
@@ -175,8 +187,6 @@
 					onSuccess={handleAuthSuccess}
 				/>
 			</div>
-
-			<!-- Option pour annuler et choisir un autre nom -->
 		{:else}
 			<!-- Formulaire normal -->
 			<form
@@ -213,10 +223,8 @@
 				{#if existingParticipants.length > 0}
 					<NameConflictHandler
 						{name}
-						{initialName}
 						{existingParticipants}
-						currentUserId={userStore.isLoggedIn ? userStore.pbUser?.id : undefined}
-						allowClaimIdentity={!userStore.isLoggedIn}
+						currentIdentityId={currentIdentity?.id}
 						{hideExistingParticipants}
 						onIdentifyAs={handleIdentifyAs}
 						onRequireLogin={handleRequireLogin}
@@ -227,7 +235,7 @@
 					<button
 						type="submit"
 						class="btn btn-primary btn-block gap-2"
-						disabled={isSubmitting || !name.trim()}
+						disabled={isSubmitting || !name.trim() || hasNameConflict}
 					>
 						{#if isSubmitting}
 							<span class="loading loading-spinner loading-xs"></span>

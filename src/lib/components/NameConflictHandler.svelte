@@ -5,21 +5,17 @@
 
 	interface Props {
 		name: string;
-		initialName?: string; // Nom prérempli (pour savoir si l'utilisateur a modifié)
 		existingParticipants: Participant[];
-		currentUserId?: string;
-		allowClaimIdentity: boolean; // true = guest (peut revendiquer), false = auth (ID comparé)
+		currentIdentityId?: string; // ID du participant courant (exclu de la détection de conflit)
 		onIdentifyAs: (participant: Participant) => Promise<void>;
-		onRequireLogin?: (participant: Participant) => void; // Appelé quand le participant a un compte (avec le participant)
+		onRequireLogin?: (participant: Participant) => void; // Appelé quand le participant a un compte
 		hideExistingParticipants?: boolean; // Cacher la liste des participants existants
 	}
 
 	let {
 		name,
-		initialName,
 		existingParticipants,
-		currentUserId,
-		allowClaimIdentity,
+		currentIdentityId,
 		onIdentifyAs,
 		onRequireLogin,
 		hideExistingParticipants = false
@@ -33,17 +29,12 @@
 	let matchedParticipant = $derived(
 		name.trim()
 			? existingParticipants.find(
-					(p) => p.name.toLowerCase() === name.trim().toLowerCase() && p.id !== currentUserId
+					(p) => p.name.toLowerCase() === name.trim().toLowerCase() && p.id !== currentIdentityId
 				)
 			: null
 	);
 
 	let hasConflict = $derived(!!matchedParticipant);
-
-	// Le nom a-t-il été modifié par rapport à la valeur initiale ?
-	let nameHasChanged = $derived(
-		!initialName || name.trim().toLowerCase() !== initialName.trim().toLowerCase()
-	);
 
 	// === Actions ===
 
@@ -68,16 +59,29 @@
 	}
 </script>
 
-{#if hasConflict && matchedParticipant && !allowClaimIdentity}
-	<!-- Auth uniquement : alerte sans possibilité de revendication -->
+{#if hasConflict && matchedParticipant}
+	<!-- Conflit : alerte + bouton "C'est moi" pour revendiquer l'identité existante.
+	     Le bouton submit du formulaire parent est désactivé tant que le conflit
+	     n'est pas résolu (soit revendication, soit changement de nom). -->
 	<div
 		class="alert alert-warning alert-soft text-base-content animate-in fade-in slide-in-from-top-2 mt-4 duration-300"
 		transition:slide
 	>
 		<CircleAlert size={20} class="shrink-0" />
-		<div class="text-sm">
-			Ce nom est déjà utilisé par un autre participant. Veuillez choisir un nom différent.
+		<div class="flex-1 text-sm">
+			<p class="font-medium">« {matchedParticipant.name} » est déjà utilisé sur ce planning.</p>
+			<p class="mt-1 opacity-80">
+				Si c'est vous, cliquez sur « C'est moi ». Sinon, choisissez un autre nom.
+			</p>
 		</div>
+		<button
+			type="button"
+			class="btn btn-primary btn-sm gap-1"
+			onclick={() => attemptIdentifyAs(matchedParticipant)}
+			disabled={isSubmitting}
+		>
+			C'est moi
+		</button>
 	</div>
 {/if}
 
@@ -100,13 +104,6 @@
 					</button>
 				{/each}
 			</div>
-			<!-- Message contextuel si le nom a changé et qu'il y a un match -->
-			{#if hasConflict && matchedParticipant && nameHasChanged}
-				<p class="text-accent-content/80 mt-2 text-center text-xs italic">
-					Ce nom est déjà utilisé sur ce planning. Cliquez sur <strong>continuer</strong>
-					si c'est vous, ou modifiez votre nom.
-				</p>
-			{/if}
 		</div>
 	</div>
 {/if}

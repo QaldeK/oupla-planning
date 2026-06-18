@@ -242,7 +242,7 @@
 		userStore.authModal = {
 			open: true,
 			masterId: master.id,
-			existingParticipants: master.participants,
+			existingParticipants: master.participants.filter((p) => !p.hasQuit),
 			onPlanningIdentify: handlePlanningIdentify,
 			initialName: identityName,
 			hideExistingParticipants: userStore.isLoggedIn ? true : undefined,
