@@ -39,6 +39,7 @@ import type {
 	SubscriptionRef,
 	SyncCollectionOptions
 } from './types';
+import { withRetry } from './retry.utils';
 
 /**
  * Thrown when a PocketBase operation returns 404 — the record was hard-deleted on the server.
@@ -73,15 +74,10 @@ export class RecordDeletedError extends Error {
  *   être ressuscité si notre client le porte encore localement. Cas : un autre client
  *   supprime r2, notre client (stale) renvoie une liste contenant r2 → r2 réapparaît.
  *
- * Contexte applicatif (oupla-planning) : acceptable car les mutations sont majoritairement
- * **additives** (ajout de participant, réponse, commentaire, tâche). Les modifications/
- * suppressions concurrentes sont rares (1 admin + quelques participants par planning).
- *
  * Pour une protection complète, deux alternatives :
  * - Merge côté serveur (pb_hooks) : atomique via SQLite, gère les 3 cas.
- * - Verrouillage optimiste via `_version` (déjà supporté par `main.pb.js` ligne 470,
- *   retourne 409 Conflict) : le client renvoie l'`updated` lu, le serveur reject si
- *   le record a été modifié entre-temps. À combiner avec un retry (R5).
+ * - Verrouillage optimiste via `_version` : le client renvoie l'`updated` lu, le serveur reject si
+ *   le record a été modifié entre-temps. À combiner avec un retry.
  */
 export function mergeByKey<T>(key: keyof T & string): (local: T[], remote: T[]) => T[] {
 	return (local: T[], remote: T[]): T[] => {
@@ -293,9 +289,11 @@ export function createSyncCollection<T extends WithMeta>(
 		data: Omit<T, 'id' | 'updated' | 'created'>,
 		params?: PbQueryOptions
 	): Promise<T> {
-		const confirmed = await pb.collection(collectionName).create<T>(data, {
-			...(params?.query && { query: params.query })
-		});
+		const confirmed = await withRetry(() =>
+			pb.collection(collectionName).create<T>(data, {
+				...(params?.query && { query: params.query })
+			})
+		);
 
 		// onRecordEnrich masque adminToken dans la réponse API — restaurer depuis le payload connu localement
 		if ((data as Record<string, unknown>).adminToken) {
@@ -315,25 +313,27 @@ export function createSyncCollection<T extends WithMeta>(
 		await table.put({ ...current, ...data });
 
 		try {
-			let payload = data;
+			const confirmed = await withRetry(async () => {
+				let payload = data;
 
-			if (mergeStrategies) {
-				const fieldsToMerge = Object.keys(mergeStrategies) as (keyof T)[];
-				const hasConflictableField = fieldsToMerge.some((f) => f in data);
+				if (mergeStrategies) {
+					const fieldsToMerge = Object.keys(mergeStrategies) as (keyof T)[];
+					const hasConflictableField = fieldsToMerge.some((f) => f in data);
 
-				if (hasConflictableField) {
-					const serverRecord = await pb.collection(collectionName).getOne<T>(id, {
-						requestKey: null,
-						...(params?.query && { query: params.query })
-					});
+					if (hasConflictableField) {
+						const serverRecord = await pb.collection(collectionName).getOne<T>(id, {
+							requestKey: null,
+							...(params?.query && { query: params.query })
+						});
 
-					payload = applyMergeStrategies(data, serverRecord, mergeStrategies);
+						payload = applyMergeStrategies(data, serverRecord, mergeStrategies);
+					}
 				}
-			}
 
-			const confirmed = await pb
-				.collection(collectionName)
-				.update<T>(id, payload, { ...(params?.query && { query: params.query }) });
+				return await pb
+					.collection(collectionName)
+					.update<T>(id, payload, { ...(params?.query && { query: params.query }) });
+			});
 			// update() merge — préserve adminToken local masqué par onRecordEnrich
 			await table.update(id, confirmed as unknown as UpdateSpec<T>);
 			return confirmed;
@@ -356,17 +356,19 @@ export function createSyncCollection<T extends WithMeta>(
 			if (softDelete) {
 				await table.put({ ...snapshot, deleted: true } as T);
 
-				const confirmed = await pb
-					.collection(collectionName)
-					.update<T>(id, { deleted: true } as unknown as Partial<T>, {
+				const confirmed = await withRetry(() =>
+					pb.collection(collectionName).update<T>(id, { deleted: true } as unknown as Partial<T>, {
 						...(params?.query && { query: params.query })
-					});
+					})
+				);
 				await table.put(confirmed);
 			} else {
 				await table.delete(id);
-				await pb
-					.collection(collectionName)
-					.delete(id, { ...(params?.query && { query: params.query }) });
+				await withRetry(() =>
+					pb
+						.collection(collectionName)
+						.delete(id, { ...(params?.query && { query: params.query }) })
+				);
 			}
 		} catch (err: any) {
 			if (err?.status === 404) {
@@ -472,7 +474,7 @@ export function createSyncCollection<T extends WithMeta>(
 						}
 					}
 
-					const results = await batch.send();
+					const results = await withRetry(() => batch.send());
 
 					const confirmed = results.map((r) => r.body).filter(Boolean) as T[];
 					if (confirmed.length > 0) {

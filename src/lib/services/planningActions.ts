@@ -2,6 +2,7 @@ import { pb } from '$lib/pocketbase/pb';
 import { generateRecurrenceDates } from '$lib/utils/recurrence';
 import { mastersCollection, occurrencesCollection } from '$lib/stores/planningStore.svelte';
 import { commentStateService } from '$lib/services/commentStateService';
+import { withRetry } from '$lib/pb-sync/retry.utils';
 import { format } from 'date-fns';
 import type {
 	PlanningMaster,
@@ -218,6 +219,7 @@ export async function updatePlanning(
 
 /**
  * Met à jour un planning master et ses occurrences de manière atomique (batch)
+ * Note: hors pb-sync car batch multi-collections (non pris en charge par pb-sync)
  * @param expectedVersion - Optionnel, timestamp `updated` du master pour optimistic locking
  */
 export async function updatePlanningWithOccurrences(
@@ -316,7 +318,7 @@ export async function updatePlanningWithOccurrences(
 	}
 
 	try {
-		await batch.send();
+		await withRetry(() => batch.send());
 	} catch (e: any) {
 		console.error('Batch error detail:', JSON.stringify(e.data, null, 2));
 		console.error('Batch error response:', e.response);
