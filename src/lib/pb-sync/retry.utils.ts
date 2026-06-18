@@ -14,10 +14,9 @@
  *   découplé de `collection.ts` et éviter une dépendance circulaire), et toute
  *   autre erreur métier/programmation par défaut.
  *
- * Le **409 (Conflict)** est intentionnellement non-retryable : un retry naïf
- * ne résoudra pas le conflit de version côté serveur — il échouerait à l'identique.
- * Il sera géré spécifiquement par R5.2 (re-merge serveur avec récupération de
- * l'état distant puis nouvelle tentative).
+ * Le **409 (Conflict)** est non-retryable : un retry naïf échouerait à
+ * l'identique car le payload ne change pas. Il remonte au caller, qui
+ * déclenche le rollback standard.
  *
  * ## Backoff — Full Jitter (AWS)
  *

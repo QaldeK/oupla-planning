@@ -19,11 +19,11 @@ function notifySubscriptionChange(active: boolean) {
 }
 
 // pb-sync collections.
-// R5.2 : le merge des champs additifs (participants/tasks/responses/comments)
-// est désormais effectué côté serveur par `pb_hooks/merge-utils.js` de façon
-// atomique (transaction SQLite). Les `mergeStrategies` côté client ont été
-// retirées : elles introduisaient une fenêtre de course entre le `getOne` et
-// l'`update`, et sont désormais redondantes avec le hook serveur.
+// Le merge des champs additifs (participants/tasks/responses/comments) est
+// effectué côté serveur par `pb_hooks/merge-utils.js` de façon atomique
+// (transaction SQLite). Les `mergeStrategies` côté client ont été retirées :
+// elles introduisaient une fenêtre de course entre le `getOne` et l'update`,
+// et sont redondantes avec le hook serveur.
 export const mastersCollection = createSyncCollection<PlanningMaster>(
 	pb,
 	db.masters,

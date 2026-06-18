@@ -396,7 +396,7 @@ onRecordUpdateRequest((e) => {
 		throw new ApiError(403, 'Invalid token');
 	}
 
-	// === MERGE ATOMIQUE DES CHAMPS ADDITIFS (R5.2) ===
+	// === MERGE ATOMIQUE DES CHAMPS ADDITIFS ===
 	// Les champs tableaux JSON (responses/comments/tasks) sont mergés côté serveur
 	// avec l'état DB AVANT modification, de façon atomique via la transaction SQLite de PB.
 	//
@@ -510,7 +510,7 @@ onRecordUpdateRequest((e) => {
 		throw new ApiError(403, 'Invalid token');
 	}
 
-	// === MERGE ATOMIQUE DES CHAMPS ADDITIFS (R5.2) ===
+	// === MERGE ATOMIQUE DES CHAMPS ADDITIFS ===
 	// Les champs tableaux JSON (participants/tasks) sont mergés côté serveur
 	// avec l'état DB AVANT modification, de façon atomique via la transaction SQLite de PB.
 	//
