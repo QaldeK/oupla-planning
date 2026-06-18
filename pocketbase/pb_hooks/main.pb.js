@@ -396,6 +396,29 @@ onRecordUpdateRequest((e) => {
 		throw new ApiError(403, 'Invalid token');
 	}
 
+	// === MERGE ATOMIQUE DES CHAMPS ADDITIFS (R5.2) ===
+	// Les champs tableaux JSON (responses/comments/tasks) sont mergés côté serveur
+	// avec l'état DB AVANT modification, de façon atomique via la transaction SQLite de PB.
+	//
+	// Comportement PB 0.36 : dans onRecordUpdateRequest, le body a DÉJÀ été appliqué à
+	// e.record (e.record.get('field') = valeur du body). Pour l'état DB précédent, on
+	// utilise e.record.original(). Le résultat mergé est persisté via e.record.set().
+	const { mergeByKey } = require(`${__hooks}/merge-utils.js`);
+	const occBody = e.requestInfo().body || {};
+	const occOriginal = e.record.original();
+	if ('responses' in occBody) {
+		e.record.set(
+			'responses',
+			mergeByKey('participantId', occBody.responses, occOriginal.get('responses') || [])
+		);
+	}
+	if ('comments' in occBody) {
+		e.record.set('comments', mergeByKey('id', occBody.comments, occOriginal.get('comments') || []));
+	}
+	if ('tasks' in occBody) {
+		e.record.set('tasks', mergeByKey('id', occBody.tasks, occOriginal.get('tasks') || []));
+	}
+
 	// === VERROUILLAGE OPTIMISTE ===
 	const version = e.requestInfo()?.query?.['_version'];
 	if (version) {
@@ -464,6 +487,26 @@ onRecordUpdateRequest((e) => {
 
 	if (!isAdmin && !isParticipant) {
 		throw new ApiError(403, 'Invalid token');
+	}
+
+	// === MERGE ATOMIQUE DES CHAMPS ADDITIFS (R5.2) ===
+	// Les champs tableaux JSON (participants/tasks) sont mergés côté serveur
+	// avec l'état DB AVANT modification, de façon atomique via la transaction SQLite de PB.
+	//
+	// Comportement PB 0.36 : dans onRecordUpdateRequest, le body a DÉJÀ été appliqué à
+	// e.record (e.record.get('field') = valeur du body). Pour l'état DB précédent, on
+	// utilise e.record.original(). Le résultat mergé est persisté via e.record.set().
+	const { mergeByKey } = require(`${__hooks}/merge-utils.js`);
+	const masterBody = e.requestInfo().body || {};
+	const masterOriginal = e.record.original();
+	if ('participants' in masterBody) {
+		e.record.set(
+			'participants',
+			mergeByKey('id', masterBody.participants, masterOriginal.get('participants') || [])
+		);
+	}
+	if ('tasks' in masterBody) {
+		e.record.set('tasks', mergeByKey('id', masterBody.tasks, masterOriginal.get('tasks') || []));
 	}
 
 	// === VERROUILLAGE OPTIMISTE ===

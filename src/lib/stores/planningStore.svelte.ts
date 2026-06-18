@@ -1,17 +1,10 @@
-import type {
-	PlanningMaster,
-	PlanningOccurrence,
-	Participant,
-	Task,
-	ParticipantResponse,
-	OccurrenceComment
-} from '$lib/types/planning.types';
+import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
 import { getPlanningByToken } from '$lib/services/planningActions';
 import { commentStateService } from '$lib/services/commentStateService';
 import { userStore } from '$lib/stores/userStore.svelte';
 import { networkStore } from '$lib/stores/networkStore.svelte';
 import { pb } from '$lib/pocketbase/pb';
-import { createSyncCollection, mergeByKey } from '$lib/pb-sync/collection';
+import { createSyncCollection } from '$lib/pb-sync/collection';
 import { db } from '$lib/pb-sync/db';
 import { liveQuery } from 'dexie';
 import type { Subscription } from 'dexie';
@@ -25,16 +18,17 @@ function notifySubscriptionChange(active: boolean) {
 	networkStore.setHasActiveSubscription(activeSubscriptionCount > 0);
 }
 
-// pb-sync collections avec merge strategies pour la résolution de conflits
+// pb-sync collections.
+// R5.2 : le merge des champs additifs (participants/tasks/responses/comments)
+// est désormais effectué côté serveur par `pb_hooks/merge-utils.js` de façon
+// atomique (transaction SQLite). Les `mergeStrategies` côté client ont été
+// retirées : elles introduisaient une fenêtre de course entre le `getOne` et
+// l'`update`, et sont désormais redondantes avec le hook serveur.
 export const mastersCollection = createSyncCollection<PlanningMaster>(
 	pb,
 	db.masters,
 	'planning_masters',
 	{
-		mergeStrategies: {
-			participants: mergeByKey<Participant>('id'),
-			tasks: mergeByKey<Task>('id')
-		},
 		onSubscriptionChange: notifySubscriptionChange
 	}
 );
@@ -44,11 +38,6 @@ export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
 	db.occurrences,
 	'planning_occurrences',
 	{
-		mergeStrategies: {
-			responses: mergeByKey<ParticipantResponse>('participantId'),
-			comments: mergeByKey<OccurrenceComment>('id'),
-			tasks: mergeByKey<Task>('id')
-		},
 		onSubscriptionChange: notifySubscriptionChange
 	}
 );

@@ -78,6 +78,14 @@ export class RecordDeletedError extends Error {
  * - Merge côté serveur (pb_hooks) : atomique via SQLite, gère les 3 cas.
  * - Verrouillage optimiste via `_version` : le client renvoie l'`updated` lu, le serveur reject si
  *   le record a été modifié entre-temps. À combiner avec un retry.
+ *
+ * **Statut post-R5.2** : cette fonction et l'option `mergeStrategies` sont conservées
+ * pour les tests et d'éventuels usages génériques de la lib pb-sync, mais **oupla
+ * ne les active plus** depuis R5.2. Le merge des champs additifs est désormais
+ * effectué côté serveur par `pocketbase/pb_hooks/merge-utils.js` (atomique via
+ * transaction SQLite), ce qui élimine la fenêtre de course du pre-merge client
+ * (entre le `getOne` et l'`update`). Cf. `agent/doc/this-app/network-and-realtime.md`
+ * (section « Merge serveur atomique (R5.2) »).
  */
 export function mergeByKey<T>(key: keyof T & string): (local: T[], remote: T[]) => T[] {
 	return (local: T[], remote: T[]): T[] => {
