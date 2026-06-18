@@ -233,7 +233,7 @@ export async function updatePlanningWithOccurrences(
 	const existingOccurrences = await pb
 		.collection('planning_occurrences')
 		.getFullList<PlanningOccurrence>({
-			filter: `master = "${masterId}" && date >= "${today}"`,
+			filter: `master = "${masterId}" && date >= "${today}" && deleted != true`,
 			query: { _token: adminToken }
 		});
 
@@ -270,10 +270,17 @@ export async function updatePlanningWithOccurrences(
 		{ query: masterQuery }
 	);
 
-	// Supprimer les occurrences futures obsolètes
+	// Soft-delete des occurrences futures obsolètes (champ `deleted: true`)
+	// — préserve la rattrapabilité par le delta sync (updated > since)
 	for (const occ of existingOccurrences) {
 		if (!targetDates.includes(normalizeDate(occ.date))) {
-			batch.collection('planning_occurrences').delete(occ.id, { query: { _token: adminToken } });
+			batch
+				.collection('planning_occurrences')
+				.update(
+					occ.id,
+					{ deleted: true, lastModifiedBy: pb.authStore.record?.id },
+					{ query: { _token: adminToken } }
+				);
 		}
 	}
 

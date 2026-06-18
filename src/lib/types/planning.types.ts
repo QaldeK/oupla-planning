@@ -75,6 +75,7 @@ export interface PlanningOccurrence {
 	lastModifiedBy?: string; // ID de l'utilisateur ayant fait la dernière modif
 	created: string;
 	updated: string;
+	deleted?: boolean; // Flag soft-delete (occurrence retirée du planning par l'admin)
 }
 
 // === Récurrence ===

@@ -40,7 +40,11 @@ class CommentStateStore {
 
 			const [states, occurrences] = await Promise.all([
 				db.commentState.toArray(),
-				db.occurrences.where('date').aboveOrEqual(cutoff).toArray()
+				db.occurrences
+					.where('date')
+					.aboveOrEqual(cutoff)
+					.filter((o) => !o.deleted)
+					.toArray()
 			]);
 
 			const result = new Map<string, number>();

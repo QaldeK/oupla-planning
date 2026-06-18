@@ -209,12 +209,6 @@ class UserStore {
 		await storage.setItem(APP_PREFS_KEY, this.appPreferences, { persist: true });
 	}
 
-	// === Persistance identités → Dexie localMeta ===
-
-	async #persistIdentities() {
-		await db.localMeta.bulkPut(this.savedPlannings);
-	}
-
 	/**
 	 * Source unique de vérité pour mettre à jour un SavedPlanning.
 	 * Lit l'existant (in-memory, fallback Dexie pour rattraper les écritures directes
@@ -300,9 +294,42 @@ class UserStore {
 	 * Utilisé par planningStore pour la delta sync per-master (lastFetchAt).
 	 * Passe par #upsertSavedPlanning pour préserver les autres champs et garder
 	 * l'in-memory cohérent avec Dexie.
+	 *
+	 * Le pattern capture/restore (lire l'ancienne valeur avant écriture) est géré
+	 * côté planningStore via #resolveSince + restoreLastFetchAt.
 	 */
 	async markFetched(masterId: string): Promise<void> {
 		await this.#upsertSavedPlanning(masterId, { lastFetchAt: new Date().toISOString() });
+	}
+
+	/**
+	 * Restaure lastFetchAt à une valeur antérieure après l'échec d'un fetch.
+	 * Permet de ne pas perdre le delta [previous, now] au prochain cycle de sync.
+	 */
+	async restoreLastFetchAt(masterId: string, previousValue: string | null): Promise<void> {
+		if (previousValue) {
+			await this.#upsertSavedPlanning(masterId, { lastFetchAt: previousValue });
+			return;
+		}
+		await this.#clearLastFetchAt(masterId);
+	}
+
+	/**
+	 * Retire le champ lastFetchAt d'un SavedPlanning (in-memory + Dexie),
+	 * en préservant les autres champs (currentUser, hasQuit...).
+	 */
+	async #clearLastFetchAt(masterId: string): Promise<void> {
+		const idx = this.savedPlannings.findIndex((p) => p.masterId === masterId);
+		const target = idx >= 0 ? this.savedPlannings[idx] : await db.localMeta.get(masterId);
+		if (!target) return;
+		const updated = { ...target };
+		delete updated.lastFetchAt;
+		if (idx >= 0) {
+			this.savedPlannings[idx] = updated;
+		} else {
+			this.savedPlannings.push(updated);
+		}
+		await db.localMeta.put(updated);
 	}
 
 	// === Auth ===

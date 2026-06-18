@@ -180,7 +180,11 @@ class PlanningStore {
 		});
 
 		this.#occurrencesSub = liveQuery(() =>
-			db.occurrences.where('master').equals(masterId).sortBy('date')
+			db.occurrences
+				.where('master')
+				.equals(masterId)
+				.filter((o) => !o.deleted)
+				.sortBy('date')
 		).subscribe({
 			next: (val) => {
 				this.#occurrences = val;
@@ -246,19 +250,11 @@ class PlanningStore {
 		}
 	}
 
-	/** since pour la delta sync : dernier fetch du master, ou epoch si jamais fetché. */
-	async #resolveSince(masterId: string): Promise<string> {
+	/** since pour la delta sync : dernier fetch du master (ou null si jamais fetché).
+	 *  Retourne la valeur brute pour permettre le restore en cas d'échec du fetch. */
+	async #resolveSince(masterId: string): Promise<string | null> {
 		const meta = await db.localMeta.get(masterId);
-		return meta?.lastFetchAt ?? '2000-01-01 00:00:00';
-	}
-
-	/** Délègue à userStore.markFetched (source unique de vérité sur localMeta).
-	 *  À appeler AVANT le fetch pour capturer les writes concurrents au prochain cycle.
-	 *  Si le fetch échoue, le delta [previousLastFetchAt, now] sera perdu jusqu'au
-	 *  prochain clear (logout/onAuthTransition) — acceptable car les données locales
-	 *  restent affichées et le realtime rattrape les updates vivantes. */
-	async #markFetched(masterId: string): Promise<void> {
-		await userStore.markFetched(masterId);
+		return meta?.lastFetchAt ?? null;
 	}
 
 	// === Résolution de token ===
@@ -359,14 +355,23 @@ class PlanningStore {
 
 		// Delta sync per-master (API Rules filtrent via user.masterId, pas de _token).
 		// Toujours fetcher (même si cache partiel) pour corriger le bug occCount === 0.
-		const since = await this.#resolveSince(master.id);
-		await this.#markFetched(master.id);
+		// Pattern capture/restore : mark AVANT le fetch (capture les writes concurrentes),
+		// restore en cas d'échec (évite de perdre le delta).
+		const previousLastFetchAt = await this.#resolveSince(master.id);
+		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
+		await userStore.markFetched(master.id);
 		try {
 			await occurrencesCollection.initialFetch({
 				filter: ['master = {:masterId}', { masterId: master.id }],
 				since
 			});
 		} catch (err) {
+			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle
+			try {
+				await userStore.restoreLastFetchAt(master.id, previousLastFetchAt);
+			} catch (restoreErr) {
+				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
+			}
 			console.warn('[PlanningStore] Could not fetch occurrences for master:', err);
 		}
 
@@ -417,13 +422,25 @@ class PlanningStore {
 
 		// Delta sync per-master : since basé sur localMeta.lastFetchAt (évite le bug
 		// du since global incohérent avec un filtre par master).
-		const since = await this.#resolveSince(master.id);
-		await this.#markFetched(master.id);
-		await occurrencesCollection.initialFetch({
-			filter: ['master = {:masterId}', { masterId: master.id }],
-			query: { _token: token },
-			since
-		});
+		// Pattern capture/restore : mark AVANT le fetch, restore en cas d'échec.
+		const previousLastFetchAt = await this.#resolveSince(master.id);
+		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
+		await userStore.markFetched(master.id);
+		try {
+			await occurrencesCollection.initialFetch({
+				filter: ['master = {:masterId}', { masterId: master.id }],
+				query: { _token: token },
+				since
+			});
+		} catch (err) {
+			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle
+			try {
+				await userStore.restoreLastFetchAt(master.id, previousLastFetchAt);
+			} catch (restoreErr) {
+				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
+			}
+			throw err;
+		}
 
 		this.#subscribeDexieQueries(master.id);
 
@@ -506,10 +523,26 @@ class PlanningStore {
 		const token = master.adminToken ?? master.participantToken;
 		if (!token) return;
 
-		await occurrencesCollection.initialFetch({
-			filter: ['master = {:masterId}', { masterId: this.#activeMasterId }],
-			query: { _token: token }
-		});
+		// Delta sync per-master avec capture/restore (cohérent avec #setActiveAuth/#setActiveGuest).
+		// Non bloquant : appelé en fire-and-forget par networkStore (polling de reconnexion).
+		const previousLastFetchAt = await this.#resolveSince(this.#activeMasterId);
+		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
+		await userStore.markFetched(this.#activeMasterId);
+		try {
+			await occurrencesCollection.initialFetch({
+				filter: ['master = {:masterId}', { masterId: this.#activeMasterId }],
+				query: { _token: token },
+				since
+			});
+		} catch (err) {
+			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle
+			try {
+				await userStore.restoreLastFetchAt(this.#activeMasterId, previousLastFetchAt);
+			} catch (restoreErr) {
+				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
+			}
+			console.warn('[PlanningStore] refreshActive failed:', err);
+		}
 	}
 
 	/**
