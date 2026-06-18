@@ -56,6 +56,33 @@ export class RecordDeletedError extends Error {
 	}
 }
 
+/**
+ * Crée une stratégie de merge pour les champs tableaux (JSON) basée sur une clé d'identité.
+ *
+ * Comportement : union par clé, **local écrase remote sur les items communs**.
+ * Ordre d'insertion : remote d'abord, puis local (qui écrase les items de même clé).
+ *
+ * Protection offerte (3 cas de concurrence) :
+ * - ✅ **Additions concurrentes** : safe. Les items serveur non présents localement
+ *   sont préservés (ajoutés par l'union). Cas typique : un autre client ajoute un
+ *   participant/réponse/commentaire → non écrasé par notre update.
+ * - ❌ **Modifications concurrentes** : NON protégé. Sur un item de même clé, la version
+ *   locale gagne (last-writer-wins au niveau item). Cas : un autre client modifie r1,
+ *   notre client (stale) renvoie r1_v1 → la modif distante est perdue.
+ * - ❌ **Suppressions concurrentes** : NON protégé. Un item supprimé côté serveur peut
+ *   être ressuscité si notre client le porte encore localement. Cas : un autre client
+ *   supprime r2, notre client (stale) renvoie une liste contenant r2 → r2 réapparaît.
+ *
+ * Contexte applicatif (oupla-planning) : acceptable car les mutations sont majoritairement
+ * **additives** (ajout de participant, réponse, commentaire, tâche). Les modifications/
+ * suppressions concurrentes sont rares (1 admin + quelques participants par planning).
+ *
+ * Pour une protection complète, deux alternatives :
+ * - Merge côté serveur (pb_hooks) : atomique via SQLite, gère les 3 cas.
+ * - Verrouillage optimiste via `_version` (déjà supporté par `main.pb.js` ligne 470,
+ *   retourne 409 Conflict) : le client renvoie l'`updated` lu, le serveur reject si
+ *   le record a été modifié entre-temps. À combiner avec un retry (R5).
+ */
 export function mergeByKey<T>(key: keyof T & string): (local: T[], remote: T[]) => T[] {
 	return (local: T[], remote: T[]): T[] => {
 		const map = new Map<unknown, T>();
