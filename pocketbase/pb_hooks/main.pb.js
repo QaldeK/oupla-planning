@@ -400,23 +400,44 @@ onRecordUpdateRequest((e) => {
 	// Les champs tableaux JSON (responses/comments/tasks) sont mergés côté serveur
 	// avec l'état DB AVANT modification, de façon atomique via la transaction SQLite de PB.
 	//
-	// Comportement PB 0.36 : dans onRecordUpdateRequest, le body a DÉJÀ été appliqué à
-	// e.record (e.record.get('field') = valeur du body). Pour l'état DB précédent, on
-	// utilise e.record.original(). Le résultat mergé est persisté via e.record.set().
-	const { mergeByKey } = require(`${__hooks}/merge-utils.js`);
+	// Comportement PB 0.36 :
+	//  - Dans onRecordUpdateRequest, le body a DÉJÀ été appliqué à e.record.
+	//  - ⚠️ En JSVM, les champs JSON sont exposés en []byte (octets UTF-8 du JSON
+	//    sérialisé), et ce VAUT AUSSI pour e.requestInfo().body.<field> dans le
+	//    contexte d'un hook (contrairement aux routes custom où le middleware
+	//    parse le JSON). On lit donc les deux côtés via jsonArrayField(), qui
+	//    fait record.getString() (décodage natif des []byte) + JSON.parse().
+	//  - `e.record.getString(field)` = body appliqué (valeur envoyée par le client).
+	//  - `e.record.original().getString(field)` = état DB avant modification.
+	//  - Le résultat mergé est persisté via e.record.set().
+	const { mergeByKey, jsonArrayField } = require(`${__hooks}/merge-utils.js`);
 	const occBody = e.requestInfo().body || {};
 	const occOriginal = e.record.original();
 	if ('responses' in occBody) {
 		e.record.set(
 			'responses',
-			mergeByKey('participantId', occBody.responses, occOriginal.get('responses') || [])
+			mergeByKey(
+				'participantId',
+				jsonArrayField(e.record, 'responses'),
+				jsonArrayField(occOriginal, 'responses')
+			)
 		);
 	}
 	if ('comments' in occBody) {
-		e.record.set('comments', mergeByKey('id', occBody.comments, occOriginal.get('comments') || []));
+		e.record.set(
+			'comments',
+			mergeByKey(
+				'id',
+				jsonArrayField(e.record, 'comments'),
+				jsonArrayField(occOriginal, 'comments')
+			)
+		);
 	}
 	if ('tasks' in occBody) {
-		e.record.set('tasks', mergeByKey('id', occBody.tasks, occOriginal.get('tasks') || []));
+		e.record.set(
+			'tasks',
+			mergeByKey('id', jsonArrayField(e.record, 'tasks'), jsonArrayField(occOriginal, 'tasks'))
+		);
 	}
 
 	// === VERROUILLAGE OPTIMISTE ===
@@ -493,20 +514,34 @@ onRecordUpdateRequest((e) => {
 	// Les champs tableaux JSON (participants/tasks) sont mergés côté serveur
 	// avec l'état DB AVANT modification, de façon atomique via la transaction SQLite de PB.
 	//
-	// Comportement PB 0.36 : dans onRecordUpdateRequest, le body a DÉJÀ été appliqué à
-	// e.record (e.record.get('field') = valeur du body). Pour l'état DB précédent, on
-	// utilise e.record.original(). Le résultat mergé est persisté via e.record.set().
-	const { mergeByKey } = require(`${__hooks}/merge-utils.js`);
+	// Comportement PB 0.36 :
+	//  - Dans onRecordUpdateRequest, le body a DÉJÀ été appliqué à e.record.
+	//  - ⚠️ En JSVM, les champs JSON sont exposés en []byte (octets UTF-8 du JSON
+	//    sérialisé), et ce VAUT AUSSI pour e.requestInfo().body.<field> dans le
+	//    contexte d'un hook (contrairement aux routes custom où le middleware
+	//    parse le JSON). On lit donc les deux côtés via jsonArrayField(), qui
+	//    fait record.getString() (décodage natif des []byte) + JSON.parse().
+	//  - `e.record.getString(field)` = body appliqué (valeur envoyée par le client).
+	//  - `e.record.original().getString(field)` = état DB avant modification.
+	//  - Le résultat mergé est persisté via e.record.set().
+	const { mergeByKey, jsonArrayField } = require(`${__hooks}/merge-utils.js`);
 	const masterBody = e.requestInfo().body || {};
 	const masterOriginal = e.record.original();
 	if ('participants' in masterBody) {
 		e.record.set(
 			'participants',
-			mergeByKey('id', masterBody.participants, masterOriginal.get('participants') || [])
+			mergeByKey(
+				'id',
+				jsonArrayField(e.record, 'participants'),
+				jsonArrayField(masterOriginal, 'participants')
+			)
 		);
 	}
 	if ('tasks' in masterBody) {
-		e.record.set('tasks', mergeByKey('id', masterBody.tasks, masterOriginal.get('tasks') || []));
+		e.record.set(
+			'tasks',
+			mergeByKey('id', jsonArrayField(e.record, 'tasks'), jsonArrayField(masterOriginal, 'tasks'))
+		);
 	}
 
 	// === VERROUILLAGE OPTIMISTE ===
