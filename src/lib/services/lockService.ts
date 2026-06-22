@@ -151,6 +151,14 @@ export async function releaseLock(
  *         avalé et renvoie `null`.
  */
 export async function getLock(masterId: string, adminToken: string): Promise<LockInfo | null> {
+	// Les IDs PocketBase sont alphanumériques (15 char). On valide avant de les
+	// interpoler dans le filtre : le SDK JS n'expose pas de placeholders paramétrés
+	// (contrairement aux hooks JSVM `findRecordsByFilter('{:param}')`), et un ID
+	// malformé ne devrait de toute façon jamais arriver jusqu'ici.
+	if (!/^[a-zA-Z0-9]+$/.test(masterId)) {
+		throw new Error('Invalid masterId');
+	}
+
 	let record: { lockedBy?: string; lockedByName?: string; lockedAt?: string };
 	try {
 		record = await pb.collection('planning_locks').getFirstListItem(`master = "${masterId}"`, {

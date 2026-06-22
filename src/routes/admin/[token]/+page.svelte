@@ -59,21 +59,29 @@
 
 	/**
 	 * Tente d'acquérir le lock. En cas de succès démarre le heartbeat ;
-	 * en cas de conflit (LockHeldError) passe en overlay read-only + polling.
-	 * Utilisée au mount, pendant le polling (lock libéré/expiré) et au retry.
+	 * en cas de conflit (LockHeldError) passe en overlay read-only.
+	 *
+	 * `isStale` court-circuite tout effet de bord après l'await : si l'$effect
+	 * propriétaire a été teardown entre-temps (navigation, master cleared), on
+	 * ne démarre ni le heartbeat ni l'overlay. Sans cette garde, un acquire
+	 * résolvant après le teardown recréerait un interval heartbeat orphelin qui
+	 * re-acquerrait le lock sur une row vidée → lock zombie.
 	 */
 	async function acquireOrBlock(
 		masterId: string,
 		adminToken: string,
 		userId: string,
-		name: string | undefined
+		name: string | undefined,
+		isStale: () => boolean
 	): Promise<void> {
 		try {
 			const info = await acquireLock(masterId, adminToken, userId, name);
+			if (isStale()) return;
 			heldBy = info;
 			lockState = 'editing';
 			startHeartbeat(masterId, adminToken, userId, name);
 		} catch (err) {
+			if (isStale()) return;
 			if (err instanceof LockHeldError) {
 				heldBy = err.info;
 				lockState = 'locked-by-other';
@@ -140,8 +148,14 @@
 		if (!identity) return;
 		const userId = identity.id;
 
+		// Garde d'annulation : invalide toute résolution async (acquire, check de
+		// visibilité) dont l'$effect aurait été teardown entre-temps. Sans elle, un
+		// acquire résolvant après le teardown redémarrerait un heartbeat orphelin
+		// → lock zombie (le heartbeat re-acquiert sur une row vidée par le release).
+		let cancelled = false;
+
 		lockState = 'acquiring';
-		acquireOrBlock(masterId, adminToken, userId, identity.name);
+		acquireOrBlock(masterId, adminToken, userId, identity.name, () => cancelled);
 
 		// pagehide : release via fetch keepalive — releaseLock (pb.send) ne survit
 		// pas à la fermeture de l'onglet, keepalive permet à la requête de partir.
@@ -162,6 +176,7 @@
 			if (lockState !== 'editing') return;
 			getLock(masterId, adminToken)
 				.then((current) => {
+					if (cancelled) return;
 					const lost =
 						!current ||
 						current.lockedBy !== userId ||
@@ -178,6 +193,7 @@
 		const offVisChange = on(document, 'visibilitychange', checkVisibility);
 
 		return () => {
+			cancelled = true;
 			stopHeartbeat();
 			offPageHide();
 			offVisChange();
