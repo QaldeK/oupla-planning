@@ -1,4 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
+// ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7. Pièges projet : agent/doc/memo.md. Voir AGENTS.md § PRÉALABLE POCKETBASE.
 
 /**
  * Hook déclenché après la mise à jour d'une occurrence

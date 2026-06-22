@@ -1,4 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
+// ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7. Pièges projet : agent/doc/memo.md. Voir AGENTS.md § PRÉALABLE POCKETBASE.
 
 /**
  * Hooks PocketBase pour sécuriser l'accès aux plannings via token-based authentication
@@ -340,6 +341,161 @@ routerAdd('POST', '/api/claim-participant-identity', (e) => {
 	});
 
 	return e.json(200, { success: true, stats, authParticipantId });
+});
+
+// ============================================
+// PLANNING EDIT LOCK (R5.3)
+// ============================================
+// Verrouillage d'édition purement UX : aucune restriction d'écriture côté serveur
+// sur planning_masters. Le lock signale l'édition concurrente admin ; _version (OCC)
+// reste le garde-fou data au save. Collection dédiée pour éviter de polluer le
+// realtime master avec les heartbeats (2 min). Helpers dans lock-utils.js.
+
+// Acquire / heartbeat / création lazy. Routes non auth-gated : un admin guest
+// n'a que le token admin en query param, on valide via master.adminToken.
+// lockedBy = identifiant client détenteur (currentUser.id) passé dans le body :
+// permet de distinguer deux sessions partageant la même URL admin (même adminToken).
+routerAdd('POST', '/api/lock/{masterId}', (e) => {
+	const { lockIsActive, lockInfoPayload } = require(`${__hooks}/lock-utils.js`);
+	const masterId = e.request.pathValue('masterId');
+	const token = e.requestInfo()?.query?.['_token'] || '';
+	if (!token) throw new ApiError(401, 'Missing token');
+
+	let masters = [];
+	try {
+		masters = e.app.findRecordsByFilter(
+			'planning_masters',
+			'id = {:masterId} && adminToken = {:token}',
+			'',
+			1,
+			0,
+			{ masterId, token }
+		);
+	} catch (err) {
+		throw new ApiError(403, 'Invalid admin token');
+	}
+	if (!masters.length) throw new ApiError(403, 'Invalid admin token');
+
+	const body = e.requestInfo().body || {};
+	const userId = typeof body.lockedBy === 'string' ? body.lockedBy : '';
+	if (!userId) throw new ApiError(400, 'lockedBy (client user id) required');
+	const lockedByName = typeof body.lockedByName === 'string' ? body.lockedByName : '';
+
+	let locks = [];
+	try {
+		locks = e.app.findRecordsByFilter('planning_locks', 'master = {:masterId}', '', 1, 0, {
+			masterId
+		});
+	} catch (err) {
+		throw new ApiError(500, 'Failed to query lock');
+	}
+
+	let lock = locks.length ? locks[0] : null;
+
+	// Cas 1 — pas de row : création lazy. Un acquire concurrent peut gagner la
+	// course (index unique sur master) : si le save échoue, on relit la row créée
+	// par le gagnant et on retombe sur la logique heartbeat/conflit/expiration.
+	if (!lock) {
+		try {
+			const collection = e.app.findCollectionByNameOrId('planning_locks');
+			const record = new Record(collection);
+			record.set('master', masterId);
+			record.set('lockedBy', userId);
+			record.set('lockedByName', lockedByName);
+			e.app.save(record);
+			return e.json(200, lockInfoPayload(record));
+		} catch (err) {
+			try {
+				const raced = e.app.findRecordsByFilter(
+					'planning_locks',
+					'master = {:masterId}',
+					'',
+					1,
+					0,
+					{ masterId }
+				);
+				lock = raced.length ? raced[0] : null;
+			} catch (e2) {
+				throw new ApiError(500, 'Failed to query lock after race');
+			}
+			if (!lock) throw new ApiError(500, 'Lock creation failed');
+		}
+	}
+
+	// Cas 2 — même détenteur : heartbeat (lockedAt rafraîchi par autodate onUpdate)
+	if (lock.getString('lockedBy') === userId) {
+		lock.set('lockedByName', lockedByName); // force un set pour garantir l'update
+		e.app.save(lock);
+		return e.json(200, lockInfoPayload(lock));
+	}
+
+	// Cas 3 — lock expiré par autrui : ré-acquisition
+	if (!lockIsActive(lock)) {
+		lock.set('lockedBy', userId);
+		lock.set('lockedByName', lockedByName);
+		e.app.save(lock);
+		return e.json(200, lockInfoPayload(lock));
+	}
+
+	// Cas 4 — conflit : lock frais par autrui
+	return e.json(409, {
+		error: 'Lock held by another admin',
+		...lockInfoPayload(lock)
+	});
+});
+
+// Release : clear lockedBy (la row reste permanente, 1 row/master via index unique).
+routerAdd('POST', '/api/unlock/{masterId}', (e) => {
+	const { lockIsActive } = require(`${__hooks}/lock-utils.js`);
+	const masterId = e.request.pathValue('masterId');
+	const token = e.requestInfo()?.query?.['_token'] || '';
+	if (!token) throw new ApiError(401, 'Missing token');
+
+	let masters = [];
+	try {
+		masters = e.app.findRecordsByFilter(
+			'planning_masters',
+			'id = {:masterId} && adminToken = {:token}',
+			'',
+			1,
+			0,
+			{ masterId, token }
+		);
+	} catch (err) {
+		throw new ApiError(403, 'Invalid admin token');
+	}
+	if (!masters.length) throw new ApiError(403, 'Invalid admin token');
+
+	const body = e.requestInfo().body || {};
+	const userId = typeof body.lockedBy === 'string' ? body.lockedBy : '';
+
+	let locks = [];
+	try {
+		locks = e.app.findRecordsByFilter('planning_locks', 'master = {:masterId}', '', 1, 0, {
+			masterId
+		});
+	} catch (err) {
+		throw new ApiError(500, 'Failed to query lock');
+	}
+
+	if (!locks.length) {
+		// Rien à release — idempotent (la row peut ne pas exister si jamais lockée)
+		return e.json(200, { released: true });
+	}
+
+	const lock = locks[0];
+	const currentHolder = lock.getString('lockedBy');
+
+	// Autorisé si détenteur, OU row vide (lockedBy=''), OU lock expiré (zombie).
+	// Sinon (lock frais par autrui) → 403.
+	if (currentHolder === userId || !currentHolder || !lockIsActive(lock)) {
+		lock.set('lockedBy', '');
+		lock.set('lockedByName', '');
+		e.app.save(lock);
+		return e.json(200, { released: true });
+	}
+
+	throw new ApiError(403, 'Cannot release lock held by another admin');
 });
 
 // ============================================

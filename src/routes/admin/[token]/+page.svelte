@@ -1,15 +1,27 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { untrack } from 'svelte';
+	import { on } from 'svelte/events';
 	import PlanningForm, { type PlanningFormData } from '$lib/components/PlanningForm.svelte';
 	import { AdminSkeleton } from '$lib/components/ui/skeletons';
 	import { updatePlanningWithOccurrences } from '$lib/services/planningActions';
+	import {
+		acquireLock,
+		heartbeatLock,
+		releaseLock,
+		getLock,
+		LockHeldError,
+		type LockInfo
+	} from '$lib/services/lockService';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
+	import { pb } from '$lib/pocketbase/pb';
 	import { fade } from 'svelte/transition';
 
 	import QuitReturnModal from '$lib/components/QuitReturnModal.svelte';
+	import LockOverlay from '$lib/components/admin/LockOverlay.svelte';
 	import { ArrowLeft, Calendar, CalendarCog, RefreshCw, Trash2, WifiOff } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -18,6 +30,162 @@
 	let occurrences = $derived(planningStore.occurrences);
 	let isLoading = $derived(planningStore.isLoading);
 	let isSubmitting = $state(false);
+
+	// === Verrouillage d'édition (R5.3) ===
+	// lockState pilote l'affichage de l'overlay : 'editing' = on détient le lock,
+	// 'locked-by-other' = un autre admin édite (overlay read-only), 'lock-lost' =
+	// on a perdu le lock (inactivité / retour d'arrière-plan). La reprise après
+	// blocage est manuelle (bouton « Réessayer » de l'overlay), pas de polling.
+	let lockState = $state<'acquiring' | 'editing' | 'locked-by-other' | 'lock-lost'>('acquiring');
+	let heldBy = $state<LockInfo | null>(null);
+	let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+	// TTL 5 min côté serveur — le heartbeat (2 min) le rafraîchit avant expiration.
+	const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
+
+	const lockReturnUrl = $derived(master ? `/p/${master.participantToken}` : '/');
+
+	// Quand un autre admin édite ou qu'on a perdu la main, on rend le formulaire
+	// inert (non-interactif, retiré du tab order, masqué de l'a11y tree). C'est le
+	// pendant « lecture seule » de l'overlay, qui ne bloquait que la souris.
+	const isFormReadOnly = $derived(lockState === 'locked-by-other' || lockState === 'lock-lost');
+
+	function stopHeartbeat() {
+		if (heartbeatTimer) {
+			clearInterval(heartbeatTimer);
+			heartbeatTimer = null;
+		}
+	}
+
+	/**
+	 * Tente d'acquérir le lock. En cas de succès démarre le heartbeat ;
+	 * en cas de conflit (LockHeldError) passe en overlay read-only + polling.
+	 * Utilisée au mount, pendant le polling (lock libéré/expiré) et au retry.
+	 */
+	async function acquireOrBlock(
+		masterId: string,
+		adminToken: string,
+		userId: string,
+		name: string | undefined
+	): Promise<void> {
+		try {
+			const info = await acquireLock(masterId, adminToken, userId, name);
+			heldBy = info;
+			lockState = 'editing';
+			startHeartbeat(masterId, adminToken, userId, name);
+		} catch (err) {
+			if (err instanceof LockHeldError) {
+				heldBy = err.info;
+				lockState = 'locked-by-other';
+			} else {
+				console.error('[lock] acquire failed:', err);
+				// Dégradation gracieuse : on laisse l'admin éditer (le formulaire reste
+				// actif en 'acquiring'), mais on le prévient qu'il n'est pas protégé.
+				toast.warning(
+					'Verrouillage indisponible (réseau) — édition non protégée contre les conflits.'
+				);
+			}
+		}
+	}
+
+	function startHeartbeat(
+		masterId: string,
+		adminToken: string,
+		userId: string,
+		name: string | undefined
+	): void {
+		stopHeartbeat();
+		heartbeatTimer = setInterval(() => {
+			heartbeatLock(masterId, adminToken, userId, name).catch((err) => {
+				if (err instanceof LockHeldError) {
+					// Le lock a été repris par un autre admin pendant notre édition :
+					// on bascule en read-only. La reprise est manuelle (bouton
+					// « Réessayer » de l'overlay).
+					heldBy = err.info;
+					lockState = 'locked-by-other';
+					stopHeartbeat();
+				} else {
+					console.error('[lock] heartbeat failed:', err);
+				}
+			});
+		}, HEARTBEAT_INTERVAL_MS);
+	}
+
+	/**
+	 * Reprendre l'édition depuis un overlay (clic « Réessayer » /
+	 * « Poursuivre l'édition »). On recharge la page plutôt que de
+	 * ré-acquérir le lock silencieusement : garantit que le formulaire
+	 * reparte du master serveur courant. Sans ça, l'admin reprendrait sur
+	 * un snapshot stale et écraserait les modifs d'un autre admin au save
+	 * (`master.updated` est rafraîchi par realtime, donc l'OCC ne voit pas
+	 * le conflit). Le `$effect` lifecycle ré-acquiert le lock au mount.
+	 */
+	function handleLockRetry(): void {
+		window.location.reload();
+	}
+
+	// Lifecycle du lock : démarre au chargement du master, nettoie au destroy.
+	// Dépend de master?.id (pas de l'objet master) pour ne pas re-déclencher à
+	// chaque update realtime, et de userStore.isReady pour s'assurer que
+	// l'identité (guest) est disponible.
+	$effect(() => {
+		const masterId = master?.id;
+		const ready = userStore.isReady;
+		if (!masterId || !ready) return;
+
+		const adminToken = token;
+		// Identité lue ponctuellement : on ne veut pas redémarrer le cycle lock
+		// quand savedPlannings évolue (markFetched, etc.) pendant l'édition.
+		const identity = untrack(() => userStore.getIdentityForPlanning(masterId));
+		if (!identity) return;
+		const userId = identity.id;
+
+		lockState = 'acquiring';
+		acquireOrBlock(masterId, adminToken, userId, identity.name);
+
+		// pagehide : release via fetch keepalive — releaseLock (pb.send) ne survit
+		// pas à la fermeture de l'onglet, keepalive permet à la requête de partir.
+		const releaseOnHide = () => {
+			const url = `${pb.baseUrl}/api/unlock/${masterId}?_token=${encodeURIComponent(adminToken)}`;
+			fetch(url, {
+				method: 'POST',
+				keepalive: true,
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ lockedBy: userId })
+			}).catch(() => {});
+		};
+
+		// visibilitychange (visible) : vérifier qu'on détient toujours le lock.
+		// Pas de release sur background (le TTL gère l'absence prolongée).
+		const checkVisibility = () => {
+			if (document.visibilityState !== 'visible') return;
+			if (lockState !== 'editing') return;
+			getLock(masterId, adminToken)
+				.then((current) => {
+					const lost =
+						!current ||
+						current.lockedBy !== userId ||
+						Date.now() > new Date(current.expiresAt).getTime();
+					if (lost) {
+						stopHeartbeat();
+						lockState = 'lock-lost';
+					}
+				})
+				.catch((err) => console.error('[lock] visibility check failed:', err));
+		};
+
+		const offPageHide = on(window, 'pagehide', releaseOnHide);
+		const offVisChange = on(document, 'visibilitychange', checkVisibility);
+
+		return () => {
+			stopHeartbeat();
+			offPageHide();
+			offVisChange();
+			// Best-effort pour le cas navigation interne SvelteKit (sans unload).
+			// Le pagehide couvre la fermeture d'onglet via fetch keepalive.
+			releaseLock(masterId, adminToken, userId);
+		};
+	});
 
 	// === Détection retour après quit ===
 	let showQuitReturnModal = $state(false);
@@ -72,6 +240,13 @@
 			);
 			toast.success('Planning mis à jour avec succès');
 
+			// Le save libère le lock : release explicite avant la navigation
+			// (l'$effect teardown relancera aussi releaseLock, idempotent côté serveur).
+			const identity = userStore.getIdentityForPlanning(master.id);
+			if (identity) {
+				await releaseLock(master.id, token, identity.id);
+			}
+
 			// Rediriger vers la vue participant après sauvegarde réussie
 			await goto(`/p/${master.participantToken}`);
 		} catch (error) {
@@ -104,7 +279,11 @@
 {#if isLoading}
 	<AdminSkeleton />
 {:else if master}
-	<div class="mx-auto max-w-6xl py-2 md:px-4 md:py-8" in:fade={{ duration: 300 }}>
+	<div
+		class="mx-auto max-w-6xl py-2 md:px-4 md:py-8"
+		in:fade={{ duration: 300 }}
+		inert={isFormReadOnly}
+	>
 		<div class="mb-4 flex justify-start">
 			<a href="/p/{master.participantToken}" class="btn btn-ghost sm:btn-sm gap-2">
 				<ArrowLeft size={18} />
@@ -125,16 +304,25 @@
 				</p>
 			</div>
 		</div>
-		{#key master.updated}
-			<PlanningForm
-				{master}
-				onSubmit={handleUpdatePlanning}
-				bind:isSubmitting
-				{datesWithData}
-				{datesWithSpecificTasks}
-			/>
-		{/key}
+		<PlanningForm
+			{master}
+			onSubmit={handleUpdatePlanning}
+			bind:isSubmitting
+			{datesWithData}
+			{datesWithSpecificTasks}
+		/>
 	</div>
+
+	{#if lockState === 'locked-by-other'}
+		<LockOverlay
+			mode="locked-by-other"
+			lockInfo={heldBy}
+			returnUrl={lockReturnUrl}
+			onRetry={handleLockRetry}
+		/>
+	{:else if lockState === 'lock-lost'}
+		<LockOverlay mode="lock-lost" returnUrl={lockReturnUrl} onRetry={handleLockRetry} />
+	{/if}
 {:else if !networkStore.online}
 	<div class="flex min-h-[50vh] items-center justify-center p-4">
 		<div class="max-w-sm text-center">

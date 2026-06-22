@@ -11,6 +11,7 @@ export const Collections = {
 	Mfas: "_mfas",
 	Otps: "_otps",
 	Superusers: "_superusers",
+	PlanningLocks: "planning_locks",
 	PlanningMasters: "planning_masters",
 	PlanningOccurrences: "planning_occurrences",
 	PlanningParticipants: "planning_participants",
@@ -96,6 +97,16 @@ export type SuperusersRecord = {
 	verified?: boolean
 }
 
+export type PlanningLocksRecord = {
+	created: IsoAutoDateString
+	id: string
+	lockedAt: IsoAutoDateString
+	lockedBy?: string
+	lockedByName?: string
+	master: RecordIdString
+	updated: IsoAutoDateString
+}
+
 export type PlanningMastersRecord<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown> = {
 	adminToken: string
 	allowResponses?: boolean
@@ -107,6 +118,7 @@ export type PlanningMastersRecord<TavailableResponseTypes = unknown, Tparticipan
 	description?: string
 	id: string
 	lastModifiedBy?: string
+	locked?: boolean
 	minPresentRequired?: number
 	participantToken: string
 	participants?: null | Tparticipants
@@ -176,6 +188,7 @@ export type ExternalauthsResponse<Texpand = unknown> = Required<ExternalauthsRec
 export type MfasResponse<Texpand = unknown> = Required<MfasRecord> & BaseSystemFields<Texpand>
 export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemFields<Texpand>
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
+export type PlanningLocksResponse<Texpand = unknown> = Required<PlanningLocksRecord> & BaseSystemFields<Texpand>
 export type PlanningMastersResponse<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown, Texpand = unknown> = Required<PlanningMastersRecord<TavailableResponseTypes, Tparticipants, Trecurrence, Ttasks>> & BaseSystemFields<Texpand>
 export type PlanningOccurrencesResponse<Tcomments = unknown, Tresponses = unknown, Ttasks = unknown, Texpand = unknown> = Required<PlanningOccurrencesRecord<Tcomments, Tresponses, Ttasks>> & BaseSystemFields<Texpand>
 export type PlanningParticipantsResponse<TcommentReadState = unknown, Texpand = unknown> = Required<PlanningParticipantsRecord<TcommentReadState>> & BaseSystemFields<Texpand>
@@ -189,6 +202,7 @@ export type CollectionRecords = {
 	_mfas: MfasRecord
 	_otps: OtpsRecord
 	_superusers: SuperusersRecord
+	planning_locks: PlanningLocksRecord
 	planning_masters: PlanningMastersRecord
 	planning_occurrences: PlanningOccurrencesRecord
 	planning_participants: PlanningParticipantsRecord
@@ -201,6 +215,7 @@ export type CollectionResponses = {
 	_mfas: MfasResponse
 	_otps: OtpsResponse
 	_superusers: SuperusersResponse
+	planning_locks: PlanningLocksResponse
 	planning_masters: PlanningMastersResponse
 	planning_occurrences: PlanningOccurrencesResponse
 	planning_participants: PlanningParticipantsResponse
