@@ -236,7 +236,6 @@
 		]}
 		title="Nombre de personnes requises pour la tâche {task.name}"
 		onclick={() => (modalTaskId = task.id)}
-		role="button"
 		aria-label={isInTask ? 'Se désinscrire' : "S'inscrire"}
 	>
 		<div class="flex max-w-52 flex-col justify-start gap-x-1 px-1">

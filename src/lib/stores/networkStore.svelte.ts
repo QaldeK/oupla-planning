@@ -39,10 +39,6 @@ const status = $state<NetworkStatus>({
  * - `lastSyncAt` (ce champ, global, éphémère en mémoire) : curseur de THROTTLE (UX).
  *   "Quand a-t-on déclenché une sync ?" Non persisté intentionnellement : au boot,
  *   on veut toujours re-sync.
- *
- * R6 ne modifie PAS `lastFetchAt` ni le pattern capture/restore du commit 18e1bbb.
- * Il intervient en amont : il décide QUAND déclencher (via visibility/pageshow),
- * puis délègue à `refreshActive()`/`syncService.sync()` qui gèrent le delta.
  */
 function triggerResync(): void {
 	status.lastSyncAt = new Date();
