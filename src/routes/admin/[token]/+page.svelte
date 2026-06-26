@@ -236,6 +236,25 @@
 			return;
 		}
 
+		// Guest non identifié : l'identification se fait sur /p (avec l'adminToken
+		// pour préserver isAdmin et le bouton « Configuration »), puis l'user
+		// revient manuellement sur l'admin.
+		if (
+			userStore.isReady &&
+			!userStore.isLoggedIn &&
+			!userStore.getIdentityForPlanning(master.id)
+		) {
+			goto(`/p/${token}`);
+			return;
+		}
+
+		// La page admin requiert l'adminToken (64 chars). Un participantToken (32 chars)
+		// chargerait le master (cache Dexie) mais ferait échouer les routes /api/lock.
+		if (token.length !== 64) {
+			goto(`/p/${token}`);
+			return;
+		}
+
 		// Si l'utilisateur n'a pas les droits admin sur ce planning, rediriger
 		if (!planningStore.hasAdminAccess(master.id)) {
 			goto(`/p/${master.participantToken}`);

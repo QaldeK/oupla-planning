@@ -5,12 +5,12 @@
 	interface Props {
 		isAdmin: boolean;
 		adminToken: string | null;
-		token: string;
+		participantToken?: string;
 		allowResponses: boolean | undefined;
 		tasksCount: number;
 	}
 
-	let { isAdmin, adminToken, token, allowResponses, tasksCount }: Props = $props();
+	let { isAdmin, adminToken, participantToken, allowResponses, tasksCount }: Props = $props();
 </script>
 
 {#if !isAdmin}
@@ -25,7 +25,7 @@
 				et ajouter des commentaires, en leur partageance le lien du planning.
 			</span>
 		</div>
-		<CopyLinksButtons participantToken={token} />
+		<CopyLinksButtons {participantToken} />
 	</div>
 {:else}
 	<div class="card card-sm bg-base-300 border-primary/10 my-8 border-2 shadow-md">
@@ -50,7 +50,7 @@
 							et ajouter des commentaires.
 						</p>
 					</div>
-					<CopyLinksButtons size="md" participantToken={token} />
+					<CopyLinksButtons size="md" {participantToken} />
 				</div>
 
 				<!-- Lien Admin -->

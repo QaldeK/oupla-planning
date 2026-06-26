@@ -473,7 +473,7 @@
 				<ShareSection
 					{isAdmin}
 					{adminToken}
-					{token}
+					participantToken={master.participantToken}
 					allowResponses={master?.allowResponses}
 					tasksCount={master?.tasks?.length ?? 0}
 				/>
