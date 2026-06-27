@@ -6,16 +6,14 @@ import { planningStore } from './planningStore.svelte';
 
 interface NetworkStatus {
 	online: boolean;
-	pocketbaseReachable: boolean;
-	realtimeConnected: boolean;
-	hasActiveSubscription: boolean; // ✅ Nouveau : vrai si au moins un canal est souscrit
+	realtimeConnected: boolean; // debounced (DISCONNECT_DEBOUNCE_MS) — cf. setRealtimeConnected
+	hasActiveSubscription: boolean; // vrai si au moins un canal est souscrit
 	lastError: Date | null;
 	lastSyncAt: Date | null; // R6 : curseur de throttle pour les re-syncs (visibility/pageshow)
 }
 
 const status = $state<NetworkStatus>({
 	online: browser ? navigator.onLine : true,
-	pocketbaseReachable: true,
 	realtimeConnected: true,
 	hasActiveSubscription: false,
 	lastError: null,
@@ -87,6 +85,39 @@ async function runResyncOnce(): Promise<boolean> {
 	}
 }
 
+// État brut de la connexion SSE (immédiat, non réactif).
+// la transition false→true et déclencher triggerResync vite.
+let realtimeLive = true;
+// Debounce sur la descente : PocketBase ferme les SSE inactives après ~5 min
+// (idleTimeout natif), et le SDK les reconnecte en <2s. Sans debounce, chaque
+// cycle provoquerait un flicker de l'alerte réseau côté UI.
+let disconnectDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const DISCONNECT_DEBOUNCE_MS = 5000;
+
+/**
+ * Met à jour l'état realtime. La remontée (true) est immédiate (l'alerte doit
+ * disparaître vite) ; la descente (false) est debouncée sur DISCONNECT_DEBOUNCE_MS
+ * pour masquer les micro-coupures SSE reconnectées nativement par le SDK.
+ */
+function setRealtimeConnected(connected: boolean): void {
+	realtimeLive = connected;
+	if (connected) {
+		if (disconnectDebounceTimer) {
+			clearTimeout(disconnectDebounceTimer);
+			disconnectDebounceTimer = null;
+		}
+		status.realtimeConnected = true;
+		return;
+	}
+	// Descente : un seul timer, non reseté par les onDisconnect répétés pendant
+	// les tentatives de reconnexion du SDK (qui appellent disconnect(true) → onDisconnect).
+	if (disconnectDebounceTimer) return;
+	disconnectDebounceTimer = setTimeout(() => {
+		disconnectDebounceTimer = null;
+		status.realtimeConnected = false;
+	}, DISCONNECT_DEBOUNCE_MS);
+}
+
 // Écouter online/offline (Svelte 5 way)
 if (browser) {
 	on(window, 'online', () => {
@@ -95,8 +126,7 @@ if (browser) {
 
 	on(window, 'offline', () => {
 		status.online = false;
-		status.pocketbaseReachable = false;
-		status.realtimeConnected = false;
+		setRealtimeConnected(false);
 	});
 
 	// R6 — Retour au premier plan après freeze background (iOS Safari, Android PWA).
@@ -113,7 +143,7 @@ if (browser) {
 		if (Date.now() - last < 5000) return;
 		console.log('👁️ visibilitychange — re-sync foreground (R6)');
 		// Re-sync du flag local (peut être désynchronisé après un freeze iOS)
-		status.realtimeConnected = pb.realtime.isConnected;
+		setRealtimeConnected(pb.realtime.isConnected);
 		triggerResync();
 	});
 
@@ -124,7 +154,7 @@ if (browser) {
 		if (!event.persisted) return;
 		if (!status.hasActiveSubscription) return;
 		console.log('📄 pageshow (bfcache) — re-sync (R6)');
-		status.realtimeConnected = pb.realtime.isConnected;
+		setRealtimeConnected(pb.realtime.isConnected);
 		triggerResync();
 	});
 
@@ -133,46 +163,21 @@ if (browser) {
 		// Ignorer si aucune souscription active (évite race condition lors de la transition guest→auth)
 		if (!status.hasActiveSubscription) return;
 		console.log('🔴 Realtime déconnecté');
-		status.realtimeConnected = false;
+		setRealtimeConnected(false);
 		status.lastError = new Date();
 	};
 
 	// Polling pour détecter la remontée
 	setInterval(() => {
-		// Cas 1 : Reconnexion realtime avec subscription active
-		if (status.hasActiveSubscription && pb.realtime.isConnected && !status.realtimeConnected) {
+		// Reconnexion realtime avec subscription active
+		// Lecture de realtimeLive (état brut) pour détecter la transition vite, indépendamment du debounce UI.
+		if (status.hasActiveSubscription && pb.realtime.isConnected && !realtimeLive) {
 			console.log('🟢 Realtime reconnecté (polling)');
-			status.realtimeConnected = true;
-			status.pocketbaseReachable = true;
+			setRealtimeConnected(true);
 			status.lastError = null;
 			triggerResync();
 		}
-
-		// Cas 2 : PB était down mais revient (même sans subscription active)
-		if (!status.pocketbaseReachable && status.online && pb.realtime.isConnected) {
-			console.log('🟢 Serveur PocketBase de nouveau joignable');
-			status.pocketbaseReachable = true;
-			status.lastError = null;
-		}
 	}, 2000);
-}
-
-// Wrapper avec timeout pour les requêtes PocketBase
-export async function withPocketBaseTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Promise<T> {
-	try {
-		const result = await Promise.race([
-			promise,
-			new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
-		]);
-
-		status.pocketbaseReachable = true;
-		status.lastError = null;
-		return result;
-	} catch (err) {
-		status.pocketbaseReachable = false;
-		status.lastError = new Date();
-		throw err;
-	}
 }
 
 // Export read-only
@@ -180,9 +185,12 @@ export const networkStore = {
 	get online() {
 		return status.online;
 	},
-	get pocketbaseReachable() {
-		return status.pocketbaseReachable;
-	},
+	/**
+	 * État realtime vu par l'UI. Debouncé sur la descente (DISCONNECT_DEBOUNCE_MS) :
+	 * PocketBase ferme les SSE inactives après ~5 min (idleTimeout natif) et le SDK
+	 * les reconnecte en <2s — sans debounce, chaque cycle ferait flicker l'alerte.
+	 * Une déconnexion persistant au-delà du debounce remonte ici comme `false`.
+	 */
 	get realtimeConnected() {
 		return status.realtimeConnected;
 	},
@@ -196,14 +204,10 @@ export const networkStore = {
 		return status.lastSyncAt;
 	},
 	get isNetworkOk() {
-		return (
-			status.online &&
-			status.pocketbaseReachable &&
-			(!status.hasActiveSubscription || status.realtimeConnected)
-		);
+		return status.online && (!status.hasActiveSubscription || status.realtimeConnected);
 	},
 	setHasActiveSubscription(value: boolean) {
 		status.hasActiveSubscription = value;
-		if (value) status.realtimeConnected = true;
+		if (value) setRealtimeConnected(true);
 	}
 };

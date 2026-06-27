@@ -3,6 +3,7 @@
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import IdentityClaimModal from '$lib/components/IdentityClaimModal.svelte';
+	import NetworkAlert from '$lib/components/NetworkAlert.svelte';
 	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
 	import { OccurrenceView } from '$lib/components/occurrences/index';
 	import ViewTabs from '$lib/components/occurrences/ViewTabs.svelte';
@@ -310,6 +311,8 @@
 {#if isLoading}
 	<PlanningSkeleton />
 {:else if master}
+	<!-- Bannière réseau : affichée automatiquement quand !networkStore.isNetworkOk (fraîcheur + reload si serveur indispo) -->
+	<NetworkAlert />
 	<div class="mx-auto max-w-6xl md:px-4 md:py-8" in:fade={{ duration: 300 }}>
 		<!-- En-tête -->
 		<div class="mb-4 sm:mb-12">

@@ -22,6 +22,7 @@
 
 	import QuitReturnModal from '$lib/components/QuitReturnModal.svelte';
 	import LockOverlay from '$lib/components/admin/LockOverlay.svelte';
+	import NetworkAlert from '$lib/components/NetworkAlert.svelte';
 	import { ArrowLeft, Calendar, CalendarCog, RefreshCw, Trash2, WifiOff } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -266,7 +267,7 @@
 
 		try {
 			isSubmitting = true;
-			const updatedMaster = await updatePlanningWithOccurrences(
+			await updatePlanningWithOccurrences(
 				master.id,
 				data,
 				token,
@@ -314,6 +315,7 @@
 {#if isLoading}
 	<AdminSkeleton />
 {:else if master}
+	<NetworkAlert />
 	<div
 		class="mx-auto max-w-6xl py-2 md:px-4 md:py-8"
 		in:fade={{ duration: 300 }}

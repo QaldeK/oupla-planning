@@ -73,7 +73,7 @@ export function isRetryableError(err: unknown): boolean {
 	if (err instanceof Error) {
 		// AbortError → timeout fetch (AbortController) → retry.
 		if (err.name === 'AbortError') return true;
-		// Timeout applicatif (ex: wrapper `withPocketBaseTimeout`) → retry.
+		// Timeout applicatif (ex: AbortSignal.timeout sur un fetch) → retry.
 		if (/timeout/i.test(err.message)) return true;
 	}
 

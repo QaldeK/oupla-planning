@@ -19,6 +19,7 @@ import { commentStateService } from '$lib/services/commentStateService';
 import { goto } from '$app/navigation';
 
 const APP_PREFS_KEY = 'app_preferences';
+const AUTH_SYNC_AT_KEY = 'auth_sync_at';
 
 interface AuthModalState {
 	open: boolean;
@@ -40,6 +41,12 @@ class UserStore {
 	});
 	isReady = $state(false);
 	isLoggedIn = $state();
+	/**
+	 * Date de la dernière sync globale réussie en mode auth (persistée via storage).
+	 * Utilisé par l'UI (NetworkAlert) pour afficher la fraîcheur des données.
+	 * En mode guest, la fraîcheur vient de `lastFetchAt` per-master (Dexie localMeta).
+	 */
+	lastAuthSyncAt = $state<Date | null>(null);
 	/**
 	 * True pendant onAuthTransition() (guest → auth).
 	 * Utilisé par les $effect des pages pour éviter de déclencher des actions
@@ -90,6 +97,10 @@ class UserStore {
 			};
 		}
 
+		// 4. Curseur de fraîcheur auth (UI NetworkAlert). Null si jamais sync.
+		const savedSyncAt = await storage.getItem<string>(AUTH_SYNC_AT_KEY);
+		this.lastAuthSyncAt = savedSyncAt ? new Date(savedSyncAt) : null;
+
 		// Si déjà auth au chargement → données déjà en Dexie, delta fetch + subscribe
 		if (this.isLoggedIn) {
 			this.#subscribeAuth();
@@ -99,14 +110,18 @@ class UserStore {
 	}
 
 	/**
-	 * Delta fetch + subscribe realtime global pour un user auth.
-	 * Les données sont déjà en Dexie (persistées), on ne fait que rattraper le delta
-	 * et s'abonner aux mises à jour temps réel (API Rules filtrent automatiquement).
+	 * Marque le succès d'une sync globale auth (UI NetworkAlert).
+	 * À appeler après tout fetch auth réussi (syncService, #subscribeAuth, onAuthTransition).
 	 */
+	async markAuthSynced(): Promise<void> {
+		this.lastAuthSyncAt = new Date();
+		await storage.setItem(AUTH_SYNC_AT_KEY, this.lastAuthSyncAt.toISOString(), { persist: true });
+	}
 	async #subscribeAuth() {
 		try {
 			await mastersCollection.initialFetch();
 			await occurrencesCollection.initialFetch();
+			await this.markAuthSynced();
 		} catch (err) {
 			console.error('Delta sync failed:', err);
 		}
@@ -171,6 +186,7 @@ class UserStore {
 			try {
 				await mastersCollection.initialFetch();
 				await occurrencesCollection.initialFetch();
+				await this.markAuthSynced();
 			} catch (err) {
 				console.error('Post-login fetch failed:', err);
 			}
@@ -337,6 +353,8 @@ class UserStore {
 	async logout() {
 		goto('/');
 		this.savedPlannings = [];
+		this.lastAuthSyncAt = null;
+		await storage.removeItem(AUTH_SYNC_AT_KEY);
 		pb.authStore.clear();
 
 		// Unsubscribe pb-sync and clear Dexie
@@ -400,8 +418,10 @@ class UserStore {
 		const wasLoggedIn = this.isLoggedIn;
 
 		this.savedPlannings = [];
+		this.lastAuthSyncAt = null;
 		this.appPreferences = { theme: 'my', occurrenceView: 'compact' };
 		await storage.removeItem(APP_PREFS_KEY);
+		await storage.removeItem(AUTH_SYNC_AT_KEY);
 
 		mastersCollection.unsubscribeAll();
 		occurrencesCollection.unsubscribeAll();

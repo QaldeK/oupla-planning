@@ -42,6 +42,9 @@ class SyncService {
 
 		// Étape 3 : Sync incrémental des occurrences (API Rules auto-filtrent)
 		await occurrencesCollection.initialFetch();
+
+		// Étape 4 : Marquer la fraîcheur auth (UI NetworkAlert)
+		await userStore.markAuthSynced();
 	}
 }
 

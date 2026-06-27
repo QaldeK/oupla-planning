@@ -1,23 +1,30 @@
 <script lang="ts">
 	import { networkStore } from '$lib/stores/networkStore.svelte';
+	import { RefreshCw } from 'lucide-svelte';
+
+	const isServerUnavailable = $derived(
+		networkStore.online && networkStore.hasActiveSubscription && !networkStore.realtimeConnected
+	);
+
+	function reload() {
+		window.location.reload();
+	}
 </script>
 
 {#if !networkStore.online}
 	<div
 		class="text-error-content fixed right-0 bottom-0 z-50 bg-red-100 px-2 py-1 text-xs font-medium"
 	>
-		🔴 Hors ligne - Vérifiez votre connexion
+		🔴 Hors ligne
 	</div>
-{:else if !networkStore.pocketbaseReachable}
+{:else if isServerUnavailable}
 	<div
-		class="text-error-content fixed right-0 bottom-0 z-50 bg-red-100 px-2 py-1 text-xs font-medium"
+		class="text-error-content fixed right-0 bottom-0 z-50 flex items-center gap-2 bg-red-100 px-2 py-1 text-xs font-medium"
 	>
-		🔴 Serveur indisponible - Vérifiez votre connexion
-	</div>
-{:else if networkStore.hasActiveSubscription && !networkStore.realtimeConnected}
-	<div
-		class="text-error-content fixed right-0 bottom-0 z-50 bg-red-100 px-2 py-1 text-xs font-medium"
-	>
-		🔴 Serveur indisponible - Réessayez dans un instant
+		<span>🔴 Serveur indisponible</span>
+		<button class="btn btn-ghost btn-xs gap-1" onclick={reload} title="Recharger la page">
+			<RefreshCw size={12} />
+			Recharger
+		</button>
 	</div>
 {/if}

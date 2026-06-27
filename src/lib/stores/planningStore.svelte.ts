@@ -372,46 +372,75 @@ class PlanningStore {
 	 * Utilisé aussi comme fallback pour les users auth si le master n'est pas en Dexie.
 	 */
 	async #setActiveGuest(token: string): Promise<void> {
-		const result = await this.getOrFetchMaster(token);
+		// Offline-first : résoudre depuis Dexie d'abord (comme #setActiveAuth).
+		// Permet d'afficher un planning déjà visité même hors ligne (reload offline).
+		const localMaster = await this.#resolveMasterFromDexie(token);
+		let master: PlanningMaster;
 
-		if ('error' in result) {
-			if (result.error === 'not_found') {
-				// Vérifier si on a des données locales → planning supprimé sur le serveur
-				const localMaster = await this.#resolveMasterFromDexie(token);
-				if (localMaster) {
-					await this.#markAsDeleted(localMaster.id);
-					this.#error = {
-						type: 'deleted',
-						message: 'Ce planning a été supprimé par son administrateur'
-					};
-				} else {
-					this.#error = { type: 'not_found', message: 'Planning introuvable' };
-				}
-			} else {
-				this.#error = { type: result.error, message: 'Connexion impossible' };
+		if (localMaster) {
+			// Déjà marqué supprimé localement (détection précédente)
+			if (localMaster.deleted) {
+				this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
+				return;
 			}
-			this.#activeMasterId = null;
-			this.#unsubscribeDexieQueries();
-			return;
-		}
 
-		const master = result;
+			// Vérifier l'existence sur le serveur (best-effort, non bloquant offline).
+			// 404 → supprimé côté serveur ; autre erreur réseau → on garde les données locales.
+			if (!this.#verifiedMasterIds.has(localMaster.id)) {
+				try {
+					await pb.collection('planning_masters').getOne(localMaster.id, {
+						fields: 'id',
+						query: { _token: token },
+						requestKey: null
+					});
+					this.#verifiedMasterIds.add(localMaster.id);
+				} catch (err: any) {
+					if (err?.status === 404) {
+						await this.#markAsDeleted(localMaster.id);
+						this.#error = {
+							type: 'deleted',
+							message: 'Ce planning a été supprimé par son administrateur'
+						};
+						return;
+					}
+					console.warn('[PlanningStore] Could not verify master existence:', err?.message);
+				}
+			}
+			master = localMaster;
+		} else {
+			// Pas en Dexie (jamais visité) : chemin réseau complet.
+			const result = await this.getOrFetchMaster(token);
+
+			if ('error' in result) {
+				if (result.error === 'not_found') {
+					this.#error = { type: 'not_found', message: 'Planning introuvable' };
+				} else {
+					this.#error = { type: result.error, message: 'Connexion impossible' };
+				}
+				this.#activeMasterId = null;
+				this.#unsubscribeDexieQueries();
+				return;
+			}
+
+			master = result;
+
+			// update() merge les champs — préserve les champs locaux non présents dans le fetch PB
+			// (ex: adminToken masqué par onRecordEnrich). put() si le record n'existe pas encore.
+			const existing = await db.masters.get(master.id);
+			if (existing) {
+				await db.masters.update(master.id, master as any);
+			} else {
+				await db.masters.put(master);
+			}
+		}
 
 		if (this.#activeMasterId === master.id) return;
-
-		// update() merge les champs — préserve les champs locaux non présents dans le fetch PB
-		// (ex: adminToken masqué par onRecordEnrich). put() si le record n'existe pas encore.
-		const existing = await db.masters.get(master.id);
-		if (existing) {
-			await db.masters.update(master.id, master as any);
-		} else {
-			await db.masters.put(master);
-		}
 		this.#activeMasterId = master.id;
 
 		// Delta sync per-master : since basé sur localMeta.lastFetchAt (évite le bug
 		// du since global incohérent avec un filtre par master).
 		// Pattern capture/restore : mark AVANT le fetch, restore en cas d'échec.
+		// Non bloquant : offline, on garde les données Dexie et la bannière NetworkAlert signale le stale.
 		const previousLastFetchAt = await this.#resolveSince(master.id);
 		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
 		await userStore.markFetched(master.id);
@@ -428,7 +457,7 @@ class PlanningStore {
 			} catch (restoreErr) {
 				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
 			}
-			throw err;
+			console.warn('[PlanningStore] Could not fetch occurrences for master:', err);
 		}
 
 		this.#subscribeDexieQueries(master.id);
