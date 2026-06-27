@@ -7,7 +7,6 @@
 	import AuthSection from '$lib/components/homepage/AuthSection.svelte';
 	import HowItWorks from '$lib/components/homepage/HowItWorks.svelte';
 	import FeaturesGrid from '$lib/components/homepage/FeaturesGrid.svelte';
-	import UseCases from '$lib/components/homepage/UseCases.svelte';
 	import BenefitsBanner from '$lib/components/homepage/BenefitsBanner.svelte';
 
 	import { goto } from '$app/navigation';
@@ -16,6 +15,25 @@
 	function navigateToPlanning(participantToken: string) {
 		goto(`/p/${participantToken}`);
 	}
+
+	// JSON-LD structured data — construit dans le script pour éviter les problèmes de parsing HTML
+	const jsonLdScript =
+		`<script type="application/ld+json">${JSON.stringify({
+			'@context': 'https://schema.org',
+			'@type': 'WebApplication',
+			name: 'Oupla Planning',
+			url: 'https://planning.oupla.net/',
+			description:
+				'Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise.',
+			applicationCategory: 'LifestyleApplication',
+			operatingSystem: 'Web',
+			inLanguage: 'fr',
+			offers: {
+				'@type': 'Offer',
+				price: '0',
+				priceCurrency: 'EUR'
+			}
+		})}</` + 'script>';
 </script>
 
 <svelte:head>
@@ -43,22 +61,7 @@
 	/>
 
 	<!-- Structured Data (JSON-LD) -->
-	{@html `<script type="application/ld+json">${JSON.stringify({
-		'@context': 'https://schema.org',
-		'@type': 'WebApplication',
-		name: 'Oupla Planning',
-		url: 'https://planning.oupla.net/',
-		description:
-			'Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise.',
-		applicationCategory: 'LifestyleApplication',
-		operatingSystem: 'Web',
-		inLanguage: 'fr',
-		offers: {
-			'@type': 'Offer',
-			price: '0',
-			priceCurrency: 'EUR'
-		}
-	})}</script>`}
+	{@html jsonLdScript}
 </svelte:head>
 
 <div class="mx-auto max-w-4xl pb-10">

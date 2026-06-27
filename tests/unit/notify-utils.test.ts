@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const notifyUtils = await import('../../pocketbase/pb_hooks/notify-utils.js');
-const { formatDateFR, sendPushNotification, sendGroupedEmail, groupByNotificationType, processReminders, processMissingParticipants } = notifyUtils;
+const {
+	formatDateFR,
+	sendPushNotification,
+	sendGroupedEmail,
+	groupByNotificationType,
+	processReminders,
+	processMissingParticipants
+} = notifyUtils;
 
 function mockLogger() {
 	return {
@@ -97,11 +104,7 @@ describe('groupByNotificationType', () => {
 		const participant = mockParticipant({ reminderDays: 3, push: true, email: true });
 		const user = mockUser({ id: 'u1' });
 
-		const result = groupByNotificationType(
-			[{ participant, user }],
-			'reminderDays',
-			3
-		);
+		const result = groupByNotificationType([{ participant, user }], 'reminderDays', 3);
 
 		expect(result.pushUsers).toHaveLength(1);
 		expect(result.emailUsers).toHaveLength(1);
@@ -111,11 +114,7 @@ describe('groupByNotificationType', () => {
 		const participant = mockParticipant({ reminderDays: 1, push: true, email: true });
 		const user = mockUser({ id: 'u1' });
 
-		const result = groupByNotificationType(
-			[{ participant, user }],
-			'reminderDays',
-			3
-		);
+		const result = groupByNotificationType([{ participant, user }], 'reminderDays', 3);
 
 		expect(result.pushUsers).toHaveLength(0);
 		expect(result.emailUsers).toHaveLength(0);
@@ -131,11 +130,7 @@ describe('groupByNotificationType', () => {
 		const participant = mockParticipant({ reminderDays: 2, push: true, email: false });
 		const user = mockUser({ id: 'u1' });
 
-		const result = groupByNotificationType(
-			[{ participant, user }],
-			'reminderDays',
-			2
-		);
+		const result = groupByNotificationType([{ participant, user }], 'reminderDays', 2);
 
 		expect(result.pushUsers).toHaveLength(1);
 		expect(result.emailUsers).toHaveLength(0);
@@ -145,11 +140,7 @@ describe('groupByNotificationType', () => {
 		const participant = mockParticipant({ reminderDays: 1, push: true, email: true });
 		const user = mockUser({ id: 'u1' });
 
-		const result = groupByNotificationType(
-			[{ participant, user }],
-			'reminderDays',
-			1
-		);
+		const result = groupByNotificationType([{ participant, user }], 'reminderDays', 1);
 
 		expect(result.pushUsers).toContain(user);
 		expect(result.emailUsers).toContain(user);
@@ -321,10 +312,7 @@ describe('sendGroupedEmail', () => {
 		sendGroupedEmail(app, [u1 as any, u2 as any, u3 as any], 'Title', 'Body', '/p/abc');
 
 		expect(calls[0].to).toEqual([{ address: 'alice@test.com' }]);
-		expect(calls[0].cc).toEqual([
-			{ address: 'bob@test.com' },
-			{ address: 'carol@test.com' }
-		]);
+		expect(calls[0].cc).toEqual([{ address: 'bob@test.com' }, { address: 'carol@test.com' }]);
 	});
 
 	it('includes correct HTML body with link', () => {
@@ -496,7 +484,10 @@ describe('processMissingParticipants', () => {
 	it('does not alert when presentCount >= minRequired', () => {
 		(globalThis as any).$http = { send: vi.fn(() => ({ statusCode: 200 })) };
 		const occ = mockOcc({
-			responses: [{ id: 'u1', response: 'present' }, { id: 'u2', response: 'present' }],
+			responses: [
+				{ id: 'u1', response: 'present' },
+				{ id: 'u2', response: 'present' }
+			],
 			minPresentRequired: 2,
 			date: '2026-05-10'
 		});

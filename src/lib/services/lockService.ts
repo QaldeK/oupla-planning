@@ -16,6 +16,7 @@
  * local Dexie pour les guests) fourni par l'appelant — ce service ne lit
  * jamais directement `pb.authStore`.
  */
+import { ClientResponseError } from 'pocketbase';
 import { pb } from '$lib/pocketbase/pb';
 
 /**
@@ -99,8 +100,8 @@ async function postLock(
 			body: { lockedBy: userId, lockedByName },
 			query: { _token: adminToken }
 		});
-	} catch (err: any) {
-		if (err?.status === 409 && err?.response) {
+	} catch (err: unknown) {
+		if (err instanceof ClientResponseError && err.status === 409 && err.response) {
 			throw new LockHeldError({
 				lockedBy: err.response.lockedBy,
 				lockedByName: err.response.lockedByName ?? '',
@@ -164,9 +165,8 @@ export async function getLock(masterId: string, adminToken: string): Promise<Loc
 		record = await pb.collection('planning_locks').getFirstListItem(`master = "${masterId}"`, {
 			query: { _token: adminToken }
 		});
-	} catch (err: any) {
-		// 404 = pas de row (master jamais locké). Les autres erreurs remontent.
-		if (err?.status === 404) return null;
+	} catch (err: unknown) {
+		if (err instanceof ClientResponseError && err.status === 404) return null;
 		throw err;
 	}
 

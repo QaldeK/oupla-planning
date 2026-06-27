@@ -1,7 +1,7 @@
 <!-- src/lib/components/PwaInstallCard.svelte -->
 <script lang="ts">
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
-	import { Download, Bell, Users, CalendarX, Share, X, EllipsisVerticalIcon } from 'lucide-svelte';
+	import { Download, Bell, Users, CalendarX, Share, EllipsisVerticalIcon } from 'lucide-svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 

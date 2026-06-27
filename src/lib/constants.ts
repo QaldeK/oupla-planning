@@ -50,7 +50,7 @@ export const RESPONSE_TYPE_CONFIG = {
 	ResponseType,
 	{
 		label: string;
-		icon: any;
+		icon: typeof Check;
 		badgeClass: string;
 		bgClass: string;
 		bgClass10: string;

@@ -20,7 +20,7 @@ export function useLiveQuery<T>(querier: () => T | Promise<T>, deps?: () => unkn
 	const query = $state<{
 		current?: T;
 		isLoading: boolean;
-		error?: any;
+		error?: unknown;
 	}>({
 		current: undefined,
 		isLoading: true,

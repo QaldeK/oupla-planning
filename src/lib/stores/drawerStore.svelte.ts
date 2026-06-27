@@ -1,4 +1,3 @@
-import type { PlanningOccurrence, PlanningMaster } from '$lib/types/planning.types';
 import { planningStore } from './planningStore.svelte';
 
 export interface DrawerData {

@@ -38,11 +38,12 @@
 		onClose();
 	}
 
-	const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: any }> = {
-		beforeEvent: { bgClass: 'bg-accent/30', label: 'Avant', icon: CalendarArrowUp },
-		onEvent: { bgClass: 'bg-accent/60', label: 'Pendant', icon: Clock },
-		afterEvent: { bgClass: 'bg-accent', label: 'Après', icon: CalendarArrowDown }
-	};
+	const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: typeof Clock }> =
+		{
+			beforeEvent: { bgClass: 'bg-accent/30', label: 'Avant', icon: CalendarArrowUp },
+			onEvent: { bgClass: 'bg-accent/60', label: 'Pendant', icon: Clock },
+			afterEvent: { bgClass: 'bg-accent', label: 'Après', icon: CalendarArrowDown }
+		};
 
 	const config = $derived(TASK_TYPE_CONFIG[task.type]);
 	const Icon = $derived(config.icon);

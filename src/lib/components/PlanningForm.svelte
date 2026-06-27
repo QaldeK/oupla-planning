@@ -9,7 +9,6 @@
 	import MultiSelect from './MultiSelect.svelte';
 	import MultiDatePicker from './ui/MultiDatePicker.svelte';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { classifyError } from '$lib/utils/errorHandler';
 	import {
 		Plus,
@@ -30,7 +29,7 @@
 	import { untrack } from 'svelte';
 	import { onMount } from 'svelte';
 	import NetworkAlert from './NetworkAlert.svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		master?: PlanningMaster; // Si présent, on est en mode édition
@@ -76,6 +75,7 @@
 		toConfirm: initToConfirm = false,
 		recurrence = {},
 		tasks: initTasks = []
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- la prop m est très polymorphe (PlanningMaster avec champs optionnels)
 	} = m as any;
 
 	const {
@@ -160,7 +160,6 @@
 	// === Édition de tâches ===
 	let editingTaskId = $state<string | null>(null);
 	const isEditingTask = $derived(editingTaskId !== null);
-	const taskSubmitButtonLabel = $derived(isEditingTask ? 'Modifier' : 'Ajouter');
 
 	let taskNameInput: HTMLInputElement;
 

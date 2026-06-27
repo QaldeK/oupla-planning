@@ -22,14 +22,6 @@
 		isOpen = !isOpen;
 	}
 
-	function toggleOption(value: number) {
-		if (selectedValues.includes(value)) {
-			selectedValues = selectedValues.filter((v) => v !== value);
-		} else {
-			selectedValues = [...selectedValues, value].sort((a, b) => a - b);
-		}
-	}
-
 	function removeOption(value: number) {
 		selectedValues = selectedValues.filter((v) => v !== value);
 	}

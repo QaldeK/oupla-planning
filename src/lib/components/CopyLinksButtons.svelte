@@ -1,15 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Copy, Check, Settings, Share2, CalendarCog } from 'lucide-svelte';
+	import { Copy, Check, Share2, CalendarCog } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	interface Props {
 		adminToken?: string;
 		participantToken?: string;
-		size?: 'sm' | 'md' | 'lg' | 'wide' | 'block';
 	}
 
-	let { adminToken, participantToken, size = 'block' }: Props = $props();
+	let { adminToken, participantToken }: Props = $props();
 
 	let copiedAdmin = $state(false);
 	let copiedParticipant = $state(false);
@@ -52,7 +51,7 @@
 				setCopied(true);
 				toast.success(`${label} copié !`);
 				setTimeout(() => setCopied(false), 2000);
-			} catch (error) {
+			} catch {
 				toast.error('Erreur lors de la copie');
 			}
 		}

@@ -1,5 +1,10 @@
 <script lang="ts">
-	import type { ResponseType, ParticipantResponse, ViewType } from '$lib/types/planning.types';
+	import type {
+		ResponseType,
+		ParticipantResponse,
+		ViewType,
+		ResponseTypeConfig
+	} from '$lib/types/planning.types';
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from '$lib/constants';
 	import { UserPlus } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
@@ -56,9 +61,9 @@
 
 {#snippet responseRegular(
 	type: ResponseType,
-	config: any,
+	config: ResponseTypeConfig,
 	typeResponses: ParticipantResponse[],
-	Icon: any
+	Icon: typeof import('lucide-svelte').Check
 )}
 	<button
 		class="bg-base-200/50 group flex {sizeResponse} grow flex-col overflow-hidden rounded-lg {!disabled &&
@@ -102,9 +107,9 @@
 
 {#snippet responseCompact(
 	type: ResponseType,
-	config: any,
+	config: ResponseTypeConfig,
 	typeResponses: ParticipantResponse[],
-	Icon: any
+	Icon: typeof import('lucide-svelte').Check
 )}
 	<button
 		class="bg-base-200/50 group flex flex-wrap overflow-hidden rounded-lg {!disabled &&

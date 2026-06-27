@@ -50,7 +50,7 @@
 							et ajouter des commentaires.
 						</p>
 					</div>
-					<CopyLinksButtons size="md" {participantToken} />
+					<CopyLinksButtons {participantToken} />
 				</div>
 
 				<!-- Lien Admin -->
@@ -67,7 +67,7 @@
 							l'annulation des événements.
 						</p>
 					</div>
-					<CopyLinksButtons size="md" adminToken={adminToken ?? undefined} />
+					<CopyLinksButtons adminToken={adminToken ?? undefined} />
 				</div>
 			</div>
 		</div>

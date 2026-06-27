@@ -7,7 +7,6 @@
 
 	let { present, required, size = 'sm' }: Props = $props();
 
-	const ratio = $derived(required ? (present / required) * 100 : 0);
 	const isComplete = $derived(present >= required);
 </script>
 

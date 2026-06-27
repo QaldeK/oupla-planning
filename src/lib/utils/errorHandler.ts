@@ -14,7 +14,7 @@ export function classifyError(err: unknown): {
 
 	// 2. PocketBase injoignable (timeout, fetch error, network error)
 	const errorMessage = err instanceof Error ? err.message.toLowerCase() : '';
-	const errorObj = err as { status?: number; data?: any };
+	const errorObj = err as { status?: number; data?: unknown };
 
 	// Timeout ou erreur de connexion
 	if (

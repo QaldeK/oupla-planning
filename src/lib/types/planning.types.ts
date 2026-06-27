@@ -162,3 +162,14 @@ export interface CommentState {
 	isUserInConversation: boolean;
 	lastReadAt: string;
 }
+
+export interface ResponseTypeConfig {
+	label: string;
+	icon: typeof import('lucide-svelte').Check;
+	badgeClass: string;
+	bgClass: string;
+	bgClass10: string;
+	btnClass: string;
+	ringClass: string;
+	borderClass: string;
+}

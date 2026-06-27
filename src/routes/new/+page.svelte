@@ -37,11 +37,7 @@
 			}
 
 			// Créer le planning master et toutes les occurrences en une seule opération batch
-			const master = await createPlanningWithOccurrences(
-				{ ...data, participants },
-				adminToken,
-				participantToken
-			);
+			await createPlanningWithOccurrences({ ...data, participants }, adminToken, participantToken);
 
 			// Peupler adminOf + masterId sur le user auth
 			if (userStore.isLoggedIn) {

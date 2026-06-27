@@ -6,6 +6,7 @@ import { networkStore } from '$lib/stores/networkStore.svelte';
 import { pb } from '$lib/pocketbase/pb';
 import { createSyncCollection } from '$lib/pb-sync/collection';
 import { db } from '$lib/pb-sync/db';
+import { ClientResponseError } from 'pocketbase';
 import { liveQuery } from 'dexie';
 import type { Subscription } from 'dexie';
 
@@ -327,14 +328,17 @@ class PlanningStore {
 					requestKey: null
 				});
 				this.#verifiedMasterIds.add(master.id);
-			} catch (err: any) {
-				if (err?.status === 404) {
+			} catch (err: unknown) {
+				if (err instanceof ClientResponseError && err.status === 404) {
 					await this.#markAsDeleted(master.id);
 					this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
 					return;
 				}
 				// Erreur réseau → non-bloquant, on affiche les données locales (potentiellement obsolètes)
-				console.warn('[PlanningStore] Could not verify master existence:', err?.message);
+				console.warn(
+					'[PlanningStore] Could not verify master existence:',
+					err instanceof ClientResponseError ? err.message : err
+				);
 			}
 		}
 
@@ -394,8 +398,8 @@ class PlanningStore {
 						requestKey: null
 					});
 					this.#verifiedMasterIds.add(localMaster.id);
-				} catch (err: any) {
-					if (err?.status === 404) {
+				} catch (err: unknown) {
+					if (err instanceof ClientResponseError && err.status === 404) {
 						await this.#markAsDeleted(localMaster.id);
 						this.#error = {
 							type: 'deleted',
@@ -403,7 +407,10 @@ class PlanningStore {
 						};
 						return;
 					}
-					console.warn('[PlanningStore] Could not verify master existence:', err?.message);
+					console.warn(
+						'[PlanningStore] Could not verify master existence:',
+						err instanceof ClientResponseError ? err.message : err
+					);
 				}
 			}
 			master = localMaster;
@@ -428,6 +435,7 @@ class PlanningStore {
 			// (ex: adminToken masqué par onRecordEnrich). put() si le record n'existe pas encore.
 			const existing = await db.masters.get(master.id);
 			if (existing) {
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dexie UpdateSpec<T> n'accepte pas tous les champs de PlanningMaster
 				await db.masters.update(master.id, master as any);
 			} else {
 				await db.masters.put(master);

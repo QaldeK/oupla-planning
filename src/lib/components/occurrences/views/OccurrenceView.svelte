@@ -92,8 +92,7 @@
 			const updated = await updateOccurrence(
 				occurrence.id,
 				{ isConfirmed: !occurrence.isConfirmed, isCanceled: false },
-				token,
-				occurrence
+				token
 			);
 			toast.success(updated.isConfirmed ? 'Événement confirmé' : 'Confirmation annulée');
 		} catch (_error) {
@@ -105,12 +104,7 @@
 	async function restoreEvent() {
 		if (!token) return;
 		try {
-			const updated = await updateOccurrence(
-				occurrence.id,
-				{ isCanceled: false, isConfirmed: !toConfirm },
-				token,
-				occurrence
-			);
+			await updateOccurrence(occurrence.id, { isCanceled: false, isConfirmed: !toConfirm }, token);
 			toast.success('Événement rétabli');
 		} catch (_error) {
 			toast.error('Erreur lors du rétablissement');

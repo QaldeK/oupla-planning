@@ -1,7 +1,6 @@
 import { pb } from '$lib/pocketbase/pb';
 import { defaultPlanningPrefs, type PlanningParticipantPrefs } from './push';
 import type { PlanningParticipantsResponse } from '$lib/types/pocketbase-types';
-import { userStore } from '$lib/stores/userStore.svelte';
 
 /**
  * Récupère les préférences de notification d'un participant pour un planning

@@ -8,9 +8,11 @@ export interface StorageOptions {
 }
 
 export const isBrowser = typeof window !== 'undefined';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- __TAURI__ est injecté par Tauri, absent de Window
 export const isTauri = isBrowser && !!(window as any).__TAURI__;
 
 // Pour Tauri v2, on utilise LazyStore
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- LazyStore importé dynamiquement, pas de type statique
 let tauriStore: any = null;
 
 async function getTauriStore() {

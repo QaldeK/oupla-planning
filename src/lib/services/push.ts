@@ -20,7 +20,7 @@ export const defaultPlanningPrefs: Partial<PlanningParticipantPrefs> = {
 
 function urlBase64ToUint8Array(base64String: string) {
 	const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-	const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+	const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
 
 	const rawData = window.atob(base64);
 	const outputArray = new Uint8Array(rawData.length);
@@ -72,7 +72,6 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
 			});
 		}
 
-		// @ts-ignore
 		await pb.collection('users').update(userId, {
 			push_subscription: JSON.parse(JSON.stringify(sub))
 		});
@@ -95,7 +94,6 @@ export async function unsubscribeFromPush(userId: string): Promise<void> {
 		if (sub) {
 			await sub.unsubscribe();
 		}
-		// @ts-ignore
 		await pb.collection('users').update(userId, { push_subscription: null });
 	} catch (error) {
 		console.error('Erreur unsubscribe push', error);

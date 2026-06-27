@@ -7,7 +7,6 @@
 		updateOccurrence
 	} from '$lib/services/planningActions';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { classifyError } from '$lib/utils/errorHandler';
 	import type {
 		Participant,
@@ -40,7 +39,7 @@
 	import NetworkAlert from '../NetworkAlert.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import ConfirmModal from '../ui/ConfirmModal.svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		open: boolean;
@@ -414,7 +413,7 @@
 				tasks: isTasksModified ? sortTasks(tasks) : null
 			};
 
-			const updated = await updateOccurrence(occurrence.id, updates, token, occurrence);
+			const updated = await updateOccurrence(occurrence.id, updates, token);
 
 			// Mise à jour manuelle du store pour garantir la réactivité immédiate
 			occurrence = updated;

@@ -1,19 +1,17 @@
 <script lang="ts">
 	import { drawerStore } from '$lib/stores/drawerStore.svelte';
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { addComment, deleteComment } from '$lib/services/planningActions';
+	import { addComment } from '$lib/services/planningActions';
 	import { commentStateService } from '$lib/services/commentStateService';
 	import { formatDate } from '$lib/utils/date';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { classifyError } from '$lib/utils/errorHandler';
-	import { MessageSquare, Trash2, Send, X } from 'lucide-svelte';
+	import { MessageSquare, Send, X } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import NetworkAlert from './NetworkAlert.svelte';
 
 	const occurrence = $derived(drawerStore.data?.occurrence);
 	const master = $derived(drawerStore.data?.master);
 	const currentUserId = $derived(drawerStore.data?.currentUserId);
-	const isAdmin = $derived(drawerStore.data?.isAdmin ?? false);
 	const token = $derived(master?.participantToken || master?.adminToken);
 	const eventTitle = $derived(master?.title);
 
@@ -61,18 +59,6 @@
 			console.error(error);
 		} finally {
 			isSubmitting = false;
-		}
-	}
-
-	async function handleDelete(commentId: string) {
-		if (!occurrence || !master || !token) return;
-		try {
-			await deleteComment(occurrence.id, commentId, token, occurrence);
-			toast.success('Commentaire supprimé');
-		} catch (error) {
-			const { message } = classifyError(error);
-			toast.error(message);
-			console.error(error);
 		}
 	}
 </script>

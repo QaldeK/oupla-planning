@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { pb } from '$lib/pocketbase/pb';
-	import { userStore } from '$lib/stores/userStore.svelte';
+	import { ClientResponseError } from 'pocketbase';
 	import { toast } from 'svelte-sonner';
 	import { Mail, KeyRound, LoaderCircle, User } from 'lucide-svelte';
 
@@ -154,9 +154,13 @@
 			}
 
 			if (onSuccess) onSuccess();
-		} catch (error: any) {
-			console.error('Auth error', error);
-			errorMsg = error.response?.message || "Une erreur inattendue s'est produite.";
+		} catch (error: unknown) {
+			if (error instanceof ClientResponseError) {
+				console.error('Auth error', error);
+				errorMsg = error.response?.message || "Une erreur inattendue s'est produite.";
+			} else {
+				errorMsg = "Une erreur inattendue s'est produite.";
+			}
 		} finally {
 			isSubmitting = false;
 		}

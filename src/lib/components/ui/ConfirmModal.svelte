@@ -80,7 +80,7 @@
 			</button>
 			<button
 				type="button"
-				class="btn {config.btnClass} min-w-[100px]"
+				class="btn {config.btnClass} min-w-25"
 				onclick={() => {
 					onConfirm();
 				}}

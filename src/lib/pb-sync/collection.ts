@@ -30,6 +30,7 @@
 
 import type { Table, UpdateSpec } from 'dexie';
 import type PocketBase from 'pocketbase';
+import { ClientResponseError } from 'pocketbase';
 import type {
 	WithMeta,
 	PbQueryOptions,
@@ -342,8 +343,8 @@ export function createSyncCollection<T extends WithMeta>(
 			// update() merge — préserve adminToken local masqué par onRecordEnrich
 			await table.update(id, confirmed as unknown as UpdateSpec<T>);
 			return confirmed;
-		} catch (err: any) {
-			if (err?.status === 404) {
+		} catch (err: unknown) {
+			if (err instanceof ClientResponseError && err.status === 404) {
 				// Record was hard-deleted on server — mark locally instead of rolling back
 				await table.put({ ...current, deleted: true } as T);
 				throw new RecordDeletedError(id, collectionName);
@@ -375,8 +376,8 @@ export function createSyncCollection<T extends WithMeta>(
 						.delete(id, { ...(params?.query && { query: params.query }) })
 				);
 			}
-		} catch (err: any) {
-			if (err?.status === 404) {
+		} catch (err: unknown) {
+			if (err instanceof ClientResponseError && err.status === 404) {
 				// Already deleted on server — mark locally and consider it done
 				if (softDelete) {
 					await table.put({ ...snapshot, deleted: true } as T);

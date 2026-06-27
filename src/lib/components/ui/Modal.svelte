@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, ArrowLeft, Save } from 'lucide-svelte';
+	import { X, ArrowLeft } from 'lucide-svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte.js';
 
 	interface Props {

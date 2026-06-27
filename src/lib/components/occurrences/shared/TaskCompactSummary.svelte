@@ -6,8 +6,7 @@
 		CalendarArrowDown,
 		ClipboardCheck,
 		UserMinus,
-		UserPlus,
-		Eye
+		UserPlus
 	} from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 	import TaskVolunteersModal from './TaskVolunteersModal.svelte';
@@ -48,11 +47,12 @@
 	const modalTask = $derived(tasks.find((t) => t.id === modalTaskId));
 	const modalOpen = $derived(modalTaskId !== null);
 
-	const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: any }> = {
-		beforeEvent: { bgClass: 'bg-accent/30', label: 'Avant', icon: CalendarArrowUp },
-		onEvent: { bgClass: 'bg-accent/60', label: 'Pendant', icon: Clock },
-		afterEvent: { bgClass: 'bg-accent', label: 'Après', icon: CalendarArrowDown }
-	};
+	const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: typeof Clock }> =
+		{
+			beforeEvent: { bgClass: 'bg-accent/30', label: 'Avant', icon: CalendarArrowUp },
+			onEvent: { bgClass: 'bg-accent/60', label: 'Pendant', icon: Clock },
+			afterEvent: { bgClass: 'bg-accent', label: 'Après', icon: CalendarArrowDown }
+		};
 
 	function getInscribed(taskId: string) {
 		return responses.filter((r) => r.tasks?.includes(taskId));
@@ -97,8 +97,8 @@
 
 {#snippet taskRegular(
 	task: Task,
-	config: any,
-	Icon: any,
+	config: { bgClass: string; label: string },
+	Icon: typeof Clock,
 	inscribed: ParticipantResponse[],
 	volunteers: number,
 	isComplete: boolean,
@@ -158,8 +158,7 @@
 
 {#snippet taskCompact(
 	task: Task,
-	config: any,
-	Icon: any,
+	config: { bgClass: string; label: string },
 	inscribed: ParticipantResponse[],
 	volunteers: number,
 	isComplete: boolean,
@@ -222,9 +221,7 @@
 
 {#snippet taskMinimal(
 	task: Task,
-	config: any,
-	Icon: any,
-	inscribed: ParticipantResponse[],
+	config: { bgClass: string; label: string },
 	volunteers: number,
 	isComplete: boolean,
 	isInTask: boolean
@@ -274,12 +271,10 @@
 
 			{#each tasks as task (task.id)}
 				{@const config = TASK_TYPE_CONFIG[task.type]}
-				{@const Icon = config.icon}
-				{@const inscribed = getInscribed(task.id)}
-				{@const volunteers = inscribed.length}
+				{@const volunteers = getInscribed(task.id).length}
 				{@const isComplete = volunteers >= task.requiredVolunteers}
 				{@const isInTask = isUserInscribed(task.id)}
-				{@render taskMinimal(task, config, Icon, inscribed, volunteers, isComplete, isInTask)}
+				{@render taskMinimal(task, config, volunteers, isComplete, isInTask)}
 			{/each}
 		</fieldset>
 	{:else}
@@ -298,7 +293,7 @@
 				{@const isComplete = volunteers >= task.requiredVolunteers}
 				{@const isInTask = isUserInscribed(task.id)}
 				{#if isCompactDisplay}
-					{@render taskCompact(task, config, Icon, inscribed, volunteers, isComplete, isInTask)}
+					{@render taskCompact(task, config, inscribed, volunteers, isComplete, isInTask)}
 				{:else}
 					{@render taskRegular(task, config, Icon, inscribed, volunteers, isComplete, isInTask)}
 				{/if}

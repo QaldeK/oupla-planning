@@ -2,7 +2,6 @@
 <script lang="ts">
 	import AccountBenefitsAccordion from '$lib/components/homepage/AccountBenefitsAccordion.svelte';
 	import AuthForm from '$lib/components/auth/AuthForm.svelte';
-	import { userStore } from '$lib/stores/userStore.svelte';
 
 	let authMode = $state<'register' | 'login'>('register');
 

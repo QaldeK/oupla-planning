@@ -45,6 +45,7 @@ class PwaStore {
 		// 1. Détection client (display-mode, navigator.standalone)
 		this.isInstalled =
 			window.matchMedia('(display-mode: standalone)').matches ||
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- standalone est une propriété Safari non-standard
 			(window.navigator as any).standalone === true;
 
 		// 2. appinstalled (analytics one-shot)

@@ -1,20 +1,21 @@
-import { pb } from '$lib/pocketbase/pb';
-import { generateRecurrenceDates } from '$lib/utils/recurrence';
-import { mastersCollection, occurrencesCollection } from '$lib/stores/planningStore.svelte';
-import { commentStateService } from '$lib/services/commentStateService';
 import { withRetry } from '$lib/pb-sync/retry.utils';
-import { format } from 'date-fns';
+import { pb } from '$lib/pocketbase/pb';
+import { commentStateService } from '$lib/services/commentStateService';
+import { mastersCollection, occurrencesCollection } from '$lib/stores/planningStore.svelte';
 import type {
-	PlanningMaster,
-	PlanningOccurrence,
+	OccurrenceComment,
 	Participant,
 	ParticipantResponse,
-	OccurrenceComment,
+	PlanningMaster,
+	PlanningOccurrence,
 	RecurrenceConfig,
-	Task,
 	ResponseType,
+	Task,
 	TaskType
 } from '$lib/types/planning.types';
+import { generateRecurrenceDates } from '$lib/utils/recurrence';
+import { ClientResponseError } from 'pocketbase';
+import { format } from 'date-fns';
 
 // ============================================
 // Génération de tokens
@@ -165,6 +166,7 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 		// fire-and-forget claim pour les liens admin
 		if (pb.authStore.isValid && token.length === 64) {
 			const record = pb.authStore.record;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- champ adminOf ajouté par hook serveur, absent des types RecordModel
 			const adminOf = (record as any)?.adminOf || {};
 			const masterId = master.id;
 
@@ -185,14 +187,14 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 		// NOTE: adminToken est masqué par onRecordEnrich, donc on se base sur la longueur du token
 		// AdminToken = 64 chars, ParticipantToken = 32 chars
 		return { master, isAdmin: token.length === 64 };
-	} catch (error: any) {
-		// Erreur 404 explicite = planning introuvable
-		if (error?.status === 404) {
+	} catch (error: unknown) {
+		if (error instanceof ClientResponseError && error.status === 404) {
 			return { error: 'not_found' };
 		}
 
 		// Annulation (auto-cancellation) → traiter comme réseau
-		if (error?.isAbort) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- isAbort est une propriété non-standard d'annulation
+		if (error instanceof Error && 'isAbort' in error && (error as any).isAbort) {
 			return { error: 'network' };
 		}
 
@@ -290,6 +292,7 @@ export async function updatePlanningWithOccurrences(
 	for (const date of targetDates) {
 		const existing = existingDatesMap.get(date);
 		if (existing) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- updateData construit dynamiquement pour batch, type partiel non adapté
 			const updateData: any = {
 				startTime: data.defaultStartTime,
 				endTime: data.defaultEndTime,
@@ -319,9 +322,12 @@ export async function updatePlanningWithOccurrences(
 
 	try {
 		await withRetry(() => batch.send());
-	} catch (e: any) {
-		console.error('Batch error detail:', JSON.stringify(e.data, null, 2));
-		console.error('Batch error response:', e.response);
+	} catch (e: unknown) {
+		console.error(
+			'Batch error detail:',
+			JSON.stringify(e instanceof ClientResponseError ? e.data : e, null, 2)
+		);
+		if (e instanceof ClientResponseError) console.error('Batch error response:', e.response);
 		throw e;
 	}
 
@@ -491,11 +497,8 @@ export async function claimParticipantIdentity(
 // Occurrences
 // ============================================
 
-export async function createOccurrence(
-	data: any,
-	adminToken: string,
-	participantToken: string
-): Promise<PlanningOccurrence> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- paramètre polymorphe acceptant divers formats de données
+export async function createOccurrence(data: any): Promise<PlanningOccurrence> {
 	return await occurrencesCollection.create({
 		...data,
 		master: data.masterId,
@@ -511,8 +514,7 @@ export async function createOccurrence(
 export async function updateOccurrence(
 	occurrenceId: string,
 	updates: Partial<PlanningOccurrence>,
-	token: string,
-	_currentOccurrence?: PlanningOccurrence
+	token: string
 ): Promise<PlanningOccurrence> {
 	const updateData = { ...updates, lastModifiedBy: pb.authStore.record?.id };
 	if (updateData.tasks !== undefined) updateData.tasks = sortTasks(updateData.tasks);
