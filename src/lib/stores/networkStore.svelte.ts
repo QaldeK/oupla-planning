@@ -23,7 +23,15 @@ const status = $state<NetworkStatus>({
 });
 
 /**
- * Déclenche une re-sync selon le mode (auth ou guest) et marque le curseur de throttle.
+ * Déclenche une re-sync selon le mode (auth ou guest), avec un retry léger sur échec.
+ *
+ * Garanties :
+ * - `lastSyncAt` n'est marqué qu'en cas de sync réussie.
+ * - Un guard in-flight (`resyncInFlight`) empêche les cycles concurrents quand
+ *   plusieurs sources (visibilitychange, polling de reconnexion SSE) se chevauchent.
+ * - 1 retry avec délai de 2 s : au retour d'un freeze background, le navigateur
+ *   rétablit le réseau de façon asynchrone — la première tentative peut échouer
+ *   alors que le réseau serait prêt quelques centaines de ms plus tard.
  *
  * Distinction importante entre deux timestamps qui coïncident souvent mais ne sont
  * pas redondants :
@@ -36,15 +44,46 @@ const status = $state<NetworkStatus>({
  *   sur `max(updated)` local).
  *
  * - `lastSyncAt` (ce champ, global, éphémère en mémoire) : curseur de THROTTLE (UX).
- *   "Quand a-t-on déclenché une sync ?" Non persisté intentionnellement : au boot,
- *   on veut toujours re-sync.
+ *   "Quand a-t-on déclenché une sync réussie ?" Non persisté intentionnellement :
+ *   au boot, on veut toujours re-sync. Marqué uniquement au succès : si la sync
+ *   échoue, le throttle du `visibilitychange` ne bloque pas un retry légitime.
  */
-function triggerResync(): void {
-	status.lastSyncAt = new Date();
-	if (pb.authStore.record) {
-		syncService.sync();
-	} else if (planningStore.activeMasterId) {
-		planningStore.refreshActive();
+let resyncInFlight = false;
+async function triggerResync(): Promise<void> {
+	// Guard anti-spam : visibilitychange et le polling peuvent tomber dans la même
+	// fenêtre au retour foreground. Un seul cycle retry à la fois.
+	if (resyncInFlight) return;
+	resyncInFlight = true;
+	try {
+		if (await runResyncOnce()) {
+			status.lastSyncAt = new Date();
+			return;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 2000));
+		if (await runResyncOnce()) {
+			status.lastSyncAt = new Date();
+		}
+	} finally {
+		resyncInFlight = false;
+	}
+}
+
+/**
+ * Exécute une tentative de sync (mode auth ou guest).
+ * Retourne true si réussie (ou nothing-to-sync), false sur erreur réseau.
+ * Ne throw jamais — toutes les erreurs sont catchées pour le retry de `triggerResync`.
+ */
+async function runResyncOnce(): Promise<boolean> {
+	try {
+		if (pb.authStore.record) {
+			await syncService.sync();
+		} else if (planningStore.activeMasterId) {
+			await planningStore.refreshActive();
+		}
+		return true;
+	} catch (err) {
+		console.warn('[networkStore] resync attempt failed:', err);
+		return false;
 	}
 }
 

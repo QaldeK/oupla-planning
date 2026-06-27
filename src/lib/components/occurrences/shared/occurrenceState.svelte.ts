@@ -40,7 +40,18 @@ interface OccurrenceState {
 	};
 	currentResponse: ParticipantResponse | undefined;
 	quitParticipantIds: Set<string>;
+	/**
+	 * Changement de réponse en attente de confirmation quand l'utilisateur est
+	 * inscrit à au moins une tâche onEvent et vise une réponse ≠ present.
+	 * Piloté par le composant parent via une ConfirmModal.
+	 */
+	pendingResponseChange: {
+		targetResponse: ResponseType;
+		onEventTaskIds: string[];
+	} | null;
 	setResponse: (response: ResponseType) => void;
+	confirmResponseChange: () => void;
+	cancelResponseChange: () => void;
 	toggleTask: (taskId: string) => void;
 	getParticipantName: (response: ParticipantResponse | string) => string;
 }
@@ -51,6 +62,10 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 	let selectedResponse = $state<ResponseType | undefined>(undefined);
 	let selectedTasks = $state<string[]>([]);
 	let isSubmitting = $state(false);
+	let pendingResponseChange = $state<{
+		targetResponse: ResponseType;
+		onEventTaskIds: string[];
+	} | null>(null);
 
 	const currentResponse = $derived(
 		options.occurrence.responses.find((r) => r.participantId === options.currentUserId)
@@ -106,6 +121,9 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			selectedResponse = undefined;
 			selectedTasks = [];
 		}
+		// Une sync externe (autre device, admin) rend tout changement en cours
+		// obsolète : on abandonne la confirmation en attente.
+		pendingResponseChange = null;
 	});
 
 	async function handleSubmitResponse() {
@@ -162,9 +180,38 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			return;
 		}
 
+		// Les tâches onEvent exigent la présence. Un changement vers une autre
+		// réponse doit être confirmé car il désinscrira ces tâches. Seules les
+		// onEvent sont concernées (beforeEvent/afterEvent ne sont jamais liées
+		// à la présence et ne sont jamais retirées ici).
+		if (response !== 'present') {
+			const onEventInscribed = inherited.tasks
+				.filter((t) => t.type === 'onEvent' && selectedTasks.includes(t.id))
+				.map((t) => t.id);
+			if (onEventInscribed.length > 0) {
+				pendingResponseChange = {
+					targetResponse: response,
+					onEventTaskIds: onEventInscribed
+				};
+				return;
+			}
+		}
+
 		selectedResponse = response;
-		if (response === 'absent') selectedTasks = [];
 		handleSubmitResponse();
+	}
+
+	function confirmResponseChange() {
+		const pending = pendingResponseChange;
+		if (!pending) return;
+		selectedTasks = selectedTasks.filter((id) => !pending.onEventTaskIds.includes(id));
+		selectedResponse = pending.targetResponse;
+		pendingResponseChange = null;
+		handleSubmitResponse();
+	}
+
+	function cancelResponseChange() {
+		pendingResponseChange = null;
 	}
 
 	function toggleTask(taskId: string) {
@@ -240,7 +287,12 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		get quitParticipantIds() {
 			return quitParticipantIds;
 		},
+		get pendingResponseChange() {
+			return pendingResponseChange;
+		},
 		setResponse,
+		confirmResponseChange,
+		cancelResponseChange,
 		toggleTask,
 		getParticipantName
 	};

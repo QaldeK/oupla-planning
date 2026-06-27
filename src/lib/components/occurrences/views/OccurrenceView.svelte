@@ -98,6 +98,7 @@
 			toast.success(updated.isConfirmed ? 'Événement confirmé' : 'Confirmation annulée');
 		} catch (_error) {
 			toast.error('Erreur lors de la confirmation');
+			console.error(_error);
 		}
 	}
 
@@ -113,6 +114,7 @@
 			toast.success('Événement rétabli');
 		} catch (_error) {
 			toast.error('Erreur lors du rétablissement');
+			console.error(_error);
 		}
 	}
 
@@ -168,6 +170,22 @@
 	const hasUnread = $derived(
 		commentStateService.hasUnreadComments(occurrence, commentStateQuery.current)
 	);
+
+	// Message de la ConfirmModal de changement de réponse (désinscription onEvent).
+	const responseChangeModal = $derived.by(() => {
+		const pending = occState.pendingResponseChange;
+		if (!pending) return null;
+		const taskNames = pending.onEventTaskIds
+			.map((id) => occState.inherited.tasks.find((t) => t.id === id)?.name)
+			.filter((n): n is string => Boolean(n));
+		if (taskNames.length === 0) return null;
+		const isPlural = taskNames.length > 1;
+		return {
+			message: isPlural
+				? `Vous êtes inscrit à ${taskNames.length} tâches nécessitant votre présence : ${taskNames.join(', ')}.`
+				: `Vous êtes inscrit à la tâche « ${taskNames[0]} » qui nécessite votre présence.`
+		};
+	});
 </script>
 
 {#if viewMode === 'card'}
@@ -577,5 +595,18 @@
 		description={confirmModalState.description}
 		confirmLabel={confirmModalState.confirmLabel}
 		variant={confirmModalState.variant}
+	/>
+{/if}
+
+{#if responseChangeModal}
+	<ConfirmModal
+		open={occState.pendingResponseChange !== null}
+		onClose={occState.cancelResponseChange}
+		onConfirm={occState.confirmResponseChange}
+		title="Présence requise"
+		message={responseChangeModal.message}
+		description="Changer votre réponse vous désinscrira de cette ou ces tâche(s)."
+		confirmLabel="Changer ma réponse"
+		variant="warning"
 	/>
 {/if}
