@@ -39,6 +39,7 @@
 	import { toast } from 'svelte-sonner';
 	import NetworkAlert from '../NetworkAlert.svelte';
 	import Modal from '../ui/Modal.svelte';
+	import ConfirmModal from '../ui/ConfirmModal.svelte';
 	import { fade, slide } from 'svelte/transition';
 
 	interface Props {
@@ -52,6 +53,16 @@
 	let { open = $bindable(false), onClose, occurrence, master, token }: Props = $props();
 
 	let isSubmitting = $state(false);
+
+	// Changement de réponse en attente de confirmation quand le participant visé
+	// est inscrit à au moins une tâche onEvent et que l'admin vise une réponse ≠ present.
+	// Singleton : la ConfirmModal est bloquante et chaque changement soumet immédiatement.
+	let pendingResponseChange = $state<{
+		participantId: string;
+		participantName: string;
+		targetResponse: ResponseType;
+		onEventTaskIds: string[];
+	} | null>(null);
 
 	const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
 
@@ -241,13 +252,47 @@
 	}
 
 	async function handleResponseChange(participantId: string, responseType: ResponseType) {
+		// Les tâches onEvent exigent "present". Un changement vers une autre réponse
+		// désinscrirait ces tâches — confirmation requise (symétrique au côté participant).
+		if (responseType !== 'present') {
+			const existingResponse = occurrence.responses.find((r) => r.participantId === participantId);
+			const onEventInscribed = tasks
+				.filter((t) => t.type === 'onEvent' && (existingResponse?.tasks || []).includes(t.id))
+				.map((t) => t.id);
+			if (onEventInscribed.length > 0) {
+				const participant = master.participants.find((p) => p.id === participantId);
+				pendingResponseChange = {
+					participantId,
+					participantName: participant?.name || 'Inconnu',
+					targetResponse: responseType,
+					onEventTaskIds: onEventInscribed
+				};
+				return;
+			}
+		}
+
+		await applyResponseChange(participantId, responseType);
+	}
+
+	// Applique un changement de réponse, en retirant optionnellement des tâches
+	// (IDs fournis via tasksToRemove). Centralise la soumission pour le chemin
+	// direct et le chemin post-confirmation.
+	async function applyResponseChange(
+		participantId: string,
+		responseType: ResponseType,
+		tasksToRemove?: string[]
+	) {
 		try {
 			const existingResponse = occurrence.responses.find((r) => r.participantId === participantId);
+			const existingTasks = existingResponse?.tasks || [];
+			const newTasks = tasksToRemove
+				? existingTasks.filter((t) => !tasksToRemove.includes(t))
+				: existingTasks;
 
 			const newResponse: ParticipantResponse = {
 				participantId,
 				response: responseType,
-				tasks: existingResponse?.tasks || [],
+				tasks: newTasks,
 				comment: existingResponse?.comment,
 				respondedAt: new Date().toISOString()
 			};
@@ -265,6 +310,21 @@
 			toast.error(message);
 			console.error(error);
 		}
+	}
+
+	async function confirmResponseChange() {
+		const pending = pendingResponseChange;
+		if (!pending) return;
+		pendingResponseChange = null;
+		await applyResponseChange(
+			pending.participantId,
+			pending.targetResponse,
+			pending.onEventTaskIds
+		);
+	}
+
+	function cancelResponseChange() {
+		pendingResponseChange = null;
 	}
 
 	function openVolunteerModal(task: Task) {
@@ -431,6 +491,22 @@
 		newTaskVolunteers = 1;
 		newTaskType = 'onEvent';
 	}
+
+	// Message de la ConfirmModal de changement de réponse admin (désinscription onEvent).
+	const responseChangeModal = $derived.by(() => {
+		const pending = pendingResponseChange;
+		if (!pending) return null;
+		const taskNames = pending.onEventTaskIds
+			.map((id) => tasks.find((t) => t.id === id)?.name)
+			.filter((n): n is string => Boolean(n));
+		if (taskNames.length === 0) return null;
+		const isPlural = taskNames.length > 1;
+		return {
+			message: isPlural
+				? `« ${pending.participantName} » est inscrit à ${taskNames.length} tâches nécessitant sa présence : ${taskNames.join(', ')}.`
+				: `« ${pending.participantName} » est inscrit à la tâche « ${taskNames[0]} » qui nécessite sa présence.`
+		};
+	});
 </script>
 
 {#snippet actions()}
@@ -966,3 +1042,16 @@
 		</div>
 	{/if}
 </Modal>
+
+{#if responseChangeModal}
+	<ConfirmModal
+		open={pendingResponseChange !== null}
+		onClose={cancelResponseChange}
+		onConfirm={confirmResponseChange}
+		title="Présence requise"
+		message={responseChangeModal.message}
+		description="Changer sa réponse le désinscrira de cette ou ces tâche(s)."
+		confirmLabel="Changer la réponse"
+		variant="warning"
+	/>
+{/if}
