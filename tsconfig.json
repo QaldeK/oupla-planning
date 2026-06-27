@@ -12,5 +12,6 @@
 		"strict": true,
 		"moduleResolution": "bundler",
 		"types": ["./worker-configuration.d.ts"]
-	}
+	},
+	"exclude": [".serena", "pocketbase/pb_hooks"]
 }

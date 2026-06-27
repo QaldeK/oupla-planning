@@ -1,9 +1,8 @@
-import { on } from 'svelte/events';
 import { browser } from '$app/environment';
 import { pb } from '$lib/pocketbase/pb';
-import { planningStore } from './planningStore.svelte';
 import { syncService } from '$lib/services/syncService';
-import { userStore } from '$lib/stores/userStore.svelte';
+import { on } from 'svelte/events';
+import { planningStore } from './planningStore.svelte';
 
 interface NetworkStatus {
 	online: boolean;
