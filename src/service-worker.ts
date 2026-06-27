@@ -37,14 +37,26 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
 	console.log('✅ Service Worker activé');
 
-	// Remove previous cached data from disk
-	async function deleteOldCaches() {
+	async function activateSW() {
+		// Remove previous cached data from disk
 		for (const key of await caches.keys()) {
 			if (key !== CACHE) await caches.delete(key);
 		}
+		// Prendre le contrôle des clients existants immédiatement (utile au premier install).
+		// Pour les MAJ, c'est `skipWaiting` (déclenché par postMessage côté client) qui active le nouveau SW.
+		await self.clients.claim();
 	}
 
-	event.waitUntil(deleteOldCaches());
+	event.waitUntil(activateSW());
+});
+
+// Activation immédiate du SW en attente sur demande du client (pattern MAJ PWA).
+// Le client envoie ce message quand l'utilisateur clique « Mettre à jour ».
+// Le reload est ensuite déclenché côté client via l'événement `controllerchange`.
+self.addEventListener('message', (event) => {
+	if (event.data?.type === 'SKIP_WAITING') {
+		self.skipWaiting();
+	}
 });
 
 // Intercepter les requêtes réseau (Cache First strategy)
@@ -54,10 +66,14 @@ self.addEventListener('fetch', (event) => {
 
 	const url = new URL(event.request.url);
 
-	// ⚠️ NE PAS intercepter les connexions PocketBase Realtime (SSE)
-	// Les connexions Server-Sent Events ne peuvent pas être mises en cache
-	if (url.pathname.includes('/api/realtime')) {
-		// Laisser passer la requête sans intervention du service worker
+	// ⚠️ NE PAS intercepter l'API PocketBase (SSE ET REST).
+	// - Les connexions SSE (/api/realtime) sont des streams non cachables.
+	// - Les requêtes REST (/api/collections/*, /api/sync-plannings, etc.) sont gérées
+	//   par la couche offline-first Dexie/pb-sync. Les cacher serait redondant ET
+	//   risqué : en cas d'échec réseau transient, le SW pourrait servir une 200
+	//   stale du cache sans propager l'erreur → données désynchronisées sans
+	//   aucune alerte réseau côté app.
+	if (url.pathname.startsWith('/api/')) {
 		return;
 	}
 

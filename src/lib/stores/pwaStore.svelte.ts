@@ -1,6 +1,6 @@
-import { on } from 'svelte/events';
 import { pb } from '$lib/pocketbase/pb';
 import { storage } from '$lib/utils/storage';
+import { on } from 'svelte/events';
 
 class PwaStore {
 	isInstalled = $state(false);
@@ -10,6 +10,20 @@ class PwaStore {
 	// mais on veut orienter l'utilisateur vers le menu natif du browser
 	readonly showNativeHint = $derived(!this.isInstalled && !this.canInstall);
 	hasSeenWelcome = $state(false);
+
+	// Détection de mise à jour du Service Worker.
+	// Vrai quand un nouveau SW est installé et en attente d'activation (waiting).
+	// Le passage à true déclenche le toast de MAJ côté layout ; l'utilisateur
+	// choisit le moment du reload via applyUpdate().
+	hasUpdate = $state(false);
+
+	// Évite un double reload() intra-session : `controllerchange` peut se
+	// déclencher plusieurs fois pendant la fenêtre (~100-500 ms) avant que la
+	// page ne soit déchargée par le reload. Pas de risque de boucle de reloads
+	// — au reload suivant, le contrôleur est déjà établi, l'événement ne se
+	// redéclenche pas.
+	#refreshing = false;
+
 	#initialized = false;
 
 	constructor() {
@@ -48,6 +62,9 @@ class PwaStore {
 
 		// 4. Charger le flag de bienvenue
 		this.hasSeenWelcome = (await storage.getItem<boolean>('pwa_welcome_seen')) ?? false;
+
+		// 5. Détection des mises à jour du Service Worker
+		this.#initServiceWorkerUpdateDetection();
 	}
 
 	markWelcomeSeen() {
@@ -74,6 +91,84 @@ class PwaStore {
 			});
 		} catch (e) {
 			console.error('Failed to record PWA installation:', e);
+		}
+	}
+
+	/**
+	 * Branche la détection des mises à jour du Service Worker.
+	 *
+	 * Trois signaux convergent vers `hasUpdate = true` :
+	 *  - un SW déjà en `waiting` au boot (MAJ en attente d'une session précédente) ;
+	 *  - un nouveau SW passant à l'état `installed` pendant la session, à condition
+	 *    qu'un contrôleur existe déjà (sinon c'est le premier install, silencieux) ;
+	 *  - un SW en attente apparu sur un `updatefound` tardif.
+	 *
+	 * L'activation effective est différée à `applyUpdate()` (action utilisateur) :
+	 * on envoie `SKIP_WAITING` au SW en attente, puis le listener `controllerchange`
+	 * déclenche le reload.
+	 */
+	#initServiceWorkerUpdateDetection() {
+		if (!('serviceWorker' in navigator)) return;
+
+		// État du contrôleur au boot : null au premier install, non-null dès qu'un SW
+		// contrôle déjà la page. `clients.claim()` dans l'`activate` du premier SW
+		// déclenche `controllerchange` sans qu'aucune MAJ n'ait été appliquée →
+		// il faut ignorer ce signal pour ne pas recharger au premier chargement.
+		const hadController = !!navigator.serviceWorker.controller;
+
+		on(navigator.serviceWorker, 'controllerchange', () => {
+			if (!hadController) return; // premier install : pas de reload
+			if (this.#refreshing) return;
+			this.#refreshing = true;
+			window.location.reload();
+		});
+
+		navigator.serviceWorker
+			.getRegistration()
+			.then((reg) => {
+				if (!reg) return;
+
+				// MAJ en attente dès le boot (session précédente non activée).
+				if (reg.waiting) this.hasUpdate = true;
+
+				// Nouveau SW détecté pendant la session.
+				on(reg, 'updatefound', () => {
+					const installing = reg.installing;
+					if (!installing) return;
+					on(installing, 'statechange', () => {
+						// `navigator.serviceWorker.controller` null = premier install (pas de MAJ à signaler).
+						if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+							this.hasUpdate = true;
+						}
+					});
+				});
+			})
+			.catch((e) => console.warn('SW registration check failed:', e));
+	}
+
+	/**
+	 * Active la mise à jour en attente (déclenchée par le toast « Mettre à jour »).
+	 *
+	 * Envoie `SKIP_WAITING` au SW en attente → le SW s'active → `controllerchange`
+	 * → reload (via le listener posé dans `#initServiceWorkerUpdateDetection`).
+	 *
+	 * Si `reg.waiting` est null au moment du clic, `hasUpdate` est devenu incohérent
+	 * (race ou désenregistrement entre-temps) : le reload recharge simplement la
+	 * page avec le SW actif courant (ne casse rien, mais ne fait rien de spécial).
+	 */
+	async applyUpdate(): Promise<void> {
+		if (!('serviceWorker' in navigator)) return;
+		const reg = await navigator.serviceWorker.getRegistration().catch((e) => {
+			console.warn('SW registration check failed:', e);
+			return undefined;
+		});
+		const waiting = reg?.waiting;
+		if (waiting) {
+			waiting.postMessage({ type: 'SKIP_WAITING' });
+		} else {
+			// État incohérent : hasUpdate était true mais aucun waiting n'est disponible.
+			// Le reload recharge avec le SW actif courant.
+			window.location.reload();
 		}
 	}
 }

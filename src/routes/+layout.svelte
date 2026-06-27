@@ -26,7 +26,7 @@
 		Trash2
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { Toaster } from 'svelte-sonner';
+	import { Toaster, toast } from 'svelte-sonner';
 
 	let { children } = $props();
 
@@ -51,6 +51,22 @@
 		mediaQuery.init();
 		pwaStore.init();
 		commentStateStore.start();
+	});
+
+	// Notification de mise à jour de la PWA (Service Worker en attente d'activation).
+	// Toast persistant (duration: Infinity) en top-center ; l'utilisateur déclenche
+	// le reload via l'action. L'ID fixe évite tout doublon si l'$effect se rejoue.
+	$effect(() => {
+		if (!pwaStore.hasUpdate) return;
+		toast('Une nouvelle version est disponible.', {
+			id: 'sw-update',
+			position: 'top-center',
+			duration: Infinity,
+			action: {
+				label: 'Mettre à jour',
+				onClick: () => pwaStore.applyUpdate()
+			}
+		});
 	});
 
 	// Ouvrir le modal de bienvenue au premier lancement PWA
