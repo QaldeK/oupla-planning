@@ -16,7 +16,16 @@
 		ResponseType
 	} from '$lib/types/planning.types';
 	import { formatDateShort } from '$lib/utils/date';
-	import { ArrowRight, Check, Info, LoaderCircle, LogOut, User, Users } from 'lucide-svelte';
+	import {
+		ArrowRight,
+		Check,
+		Info,
+		LoaderCircle,
+		LogOut,
+		User,
+		UserCheck,
+		Users
+	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -32,6 +41,10 @@
 		occurrences: PlanningOccurrence[];
 		/** Callback appelé après un changement d'identité réussi (ajout, rename, claim) */
 		onIdentityChanged?: (identity: PlanningIdentity) => void;
+		/** Participant proposé au claim direct à l'ouverture (flux de transition guest → auth). */
+		suggestionParticipant?: Participant | null;
+		/** Callback quand l'user refuse la suggestion (le parent peut auto-add si pas de conflit). */
+		onDeclineSuggestion?: () => void;
 	}
 
 	let {
@@ -42,7 +55,9 @@
 		pbUser,
 		token,
 		occurrences,
-		onIdentityChanged
+		onIdentityChanged,
+		suggestionParticipant = null,
+		onDeclineSuggestion
 	}: Props = $props();
 
 	// === Identifiant le participant auth actuel (mode "manage") ===
@@ -52,6 +67,10 @@
 
 	// === Nom saisi dans l'input ===
 	let name = $state('');
+
+	// True tant que l'user n'a pas répondu à la suggestion. Permet de basculer
+	// de l'étape suggestion vers l'étape principale sans appeler onClose.
+	let suggestionDeclined = $state(false);
 
 	// Re-init quand le modal s'ouvre. `untrack` sinon
 	// l'$effect dépendrait de `authParticipant` (dérivé de `master.participants`)
@@ -64,6 +83,7 @@
 			name = authParticipant?.name ?? pbUser.name ?? '';
 			pendingClaimParticipant = null;
 			pendingMergeStats = null;
+			suggestionDeclined = false;
 		});
 	});
 
@@ -80,7 +100,7 @@
 		if (!normalizedName) return null;
 		return (
 			master.participants.find(
-				(p) => p.name.toLowerCase() === normalizedName && p.id !== authParticipant?.id
+				(p) => p.name.toLowerCase() === normalizedName && p.id !== authParticipant?.id && !p.hasQuit
 			) ?? null
 		);
 	});
@@ -102,6 +122,26 @@
 	let pendingClaimPreview = $derived(
 		pendingClaimParticipant ? getFutureResponsesPreview(pendingClaimParticipant.id) : null
 	);
+
+	// Aperçu pré-calculé pour l'étape suggestion
+	let suggestionPreview = $derived(
+		suggestionParticipant ? getFutureResponsesPreview(suggestionParticipant.id) : null
+	);
+
+	// Étape courante du modal. La confirmation (claim manuel) est prioritaire sur
+	// tout ; la suggestion est prioritaire sur l'étape principale tant que l'user
+	// n'a pas répondu.
+	let currentStep = $derived<'confirmation' | 'suggestion' | 'main'>(
+		pendingClaimParticipant
+			? 'confirmation'
+			: suggestionParticipant && !suggestionDeclined
+				? 'suggestion'
+				: 'main'
+	);
+
+	// Fermable seulement sur l'étape principale, avec une identité liée valide et
+	// aucun conflit sur le nom saisi. Suggestion et confirmation exigent un choix.
+	let closable = $derived(currentStep === 'main' && !!authParticipant && !nameConflictParticipant);
 
 	// === Aperçu des réponses futures d'un participant ===
 	interface ResponsePreviewItem {
@@ -267,18 +307,19 @@
 		}
 	}
 
-	/** Confirmer la revendication (appel endpoint PB) */
-	async function handleConfirmClaim() {
-		if (!pendingClaimParticipant) return;
+	/** Confirmer la revendication (appel endpoint PB). `target` explicite pour le claim direct depuis l'étape suggestion (sinon fallback sur `pendingClaimParticipant`). */
+	async function handleConfirmClaim(target?: Participant) {
+		const participant = target ?? pendingClaimParticipant;
+		if (!participant) return;
 
 		isSubmitting = true;
 		try {
-			const result = await claimParticipantIdentity(master.id, pendingClaimParticipant.id, token);
+			const result = await claimParticipantIdentity(master.id, participant.id, token);
 
 			// Construire la nouvelle identité
 			const newIdentity: PlanningIdentity = {
 				id: result.authParticipantId,
-				name: pendingClaimParticipant.name,
+				name: participant.name,
 				email: pbUser.email
 			};
 
@@ -312,7 +353,7 @@
 			if (parts.length > 0) {
 				toast.success(`Identité revendiquée (${parts.join(', ')})`);
 			} else {
-				toast.success(`Bienvenue, ${pendingClaimParticipant.name} !`);
+				toast.success(`Bienvenue, ${participant.name} !`);
 			}
 
 			open = false;
@@ -334,6 +375,17 @@
 			pendingMergeStats = null;
 		}
 	}
+
+	/** Refuser la suggestion : bascule sur l'étape principale. Le parent décide (via `onDeclineSuggestion`) s'il auto-add le nom du compte. */
+	function handleDeclineSuggestion() {
+		suggestionDeclined = true;
+		onDeclineSuggestion?.();
+	}
+
+	/** L'user a participé sous un autre nom : bascule sur l'étape principale sans auto-add (il utilisera la liste des claimables). */
+	function handleSuggestionOtherName() {
+		suggestionDeclined = true;
+	}
 </script>
 
 <Modal
@@ -341,7 +393,7 @@
 	{onClose}
 	title={mode === 'new' ? 'Votre identité sur ce planning' : 'Changer votre identité'}
 	size="md"
-	closable={mode === 'new' ? false : true}
+	{closable}
 >
 	<div class="space-y-6">
 		{#if pendingClaimParticipant}
@@ -475,7 +527,7 @@
 					<button
 						type="button"
 						class="btn btn-primary gap-2"
-						onclick={handleConfirmClaim}
+						onclick={() => handleConfirmClaim()}
 						disabled={isSubmitting}
 					>
 						{#if isSubmitting}
@@ -485,6 +537,91 @@
 							<Check size={18} />
 							Confirmer la fusion
 						{/if}
+					</button>
+				</div>
+			</div>
+		{:else if currentStep === 'suggestion'}
+			<!-- ============ ÉTAPE SUGGESTION (flux de transition guest → auth) ============ -->
+			<div class="space-y-4" in:fade out:slide={{ duration: 200 }}>
+				<div class="alert alert-info alert-soft">
+					<UserCheck size={20} class="shrink-0" />
+					<div class="flex-1">
+						<p class="font-medium">
+							Est-ce bien vous qui avez déjà participé sur ce planning en tant que <strong
+								>{suggestionParticipant!.name}</strong
+							>? {#if suggestionPreview && suggestionPreview.totalCount > 0}
+								avec les réponses suivantes:
+							{/if}
+						</p>
+						{#if pbUser.name.toLowerCase() !== suggestionParticipant!.name.toLowerCase()}
+							<!-- Situation 3 (nom différent) : clarifier que le nom guest est conservé. -->
+							<p>
+								En confirmant, vous garderez le nom <strong>{suggestionParticipant!.name}</strong>
+								sur ce planning (votre compte est <strong>{pbUser.name}</strong>). Vous pourrez le
+								modifier ensuite via le bouton « Changer ».
+							</p>
+						{/if}
+					</div>
+				</div>
+
+				{#if suggestionPreview && suggestionPreview.totalCount > 0}
+					<div class="bg-base-200 rounded-lg p-3">
+						<p class="mb-2 text-xs font-medium tracking-wide uppercase opacity-60">
+							Réponses à venir ({suggestionPreview.totalCount})
+						</p>
+						<div class="flex flex-wrap gap-x-4 gap-y-2">
+							{#each suggestionPreview.items as item (item.date)}
+								<span class="badge {RESPONSE_TYPE_CONFIG[item.response].badgeClass} font-medium">
+									<span class="opacity-80">
+										{formatDateShort(item.date)} · {item.startTime} |
+									</span>
+									{RESPONSE_TYPE_LABELS[item.response]}
+								</span>
+							{/each}
+							{#if suggestionPreview.remaining > 0}
+								<span class="self-center text-xs opacity-60">
+									+ {suggestionPreview.remaining} autre{suggestionPreview.remaining > 1 ? 's' : ''} réponse{suggestionPreview.remaining >
+									1
+										? 's'
+										: ''}
+								</span>
+							{/if}
+						</div>
+					</div>
+				{:else}
+					<div class="text-xs opacity-60">Aucune réponse à venir</div>
+				{/if}
+
+				<div class="modal-action flex-col">
+					<button
+						type="button"
+						class="btn btn-primary btn-block gap-2"
+						onclick={() => handleConfirmClaim(suggestionParticipant!)}
+						disabled={isSubmitting}
+					>
+						{#if isSubmitting}
+							<LoaderCircle class="animate-spin" size={18} />
+							Traitement...
+						{:else}
+							<Check size={18} />
+							Oui, c'est moi
+						{/if}
+					</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-block"
+						onclick={handleDeclineSuggestion}
+						disabled={isSubmitting}
+					>
+						Non
+					</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-link btn-block text-sm opacity-70"
+						onclick={handleSuggestionOtherName}
+						disabled={isSubmitting}
+					>
+						J'ai participé sous un autre nom
 					</button>
 				</div>
 			</div>
@@ -511,19 +648,70 @@
 				</fieldset>
 
 				{#if nameConflictParticipant}
-					<div class="alert alert-warning alert-soft p-2 text-sm">
-						<Info size={16} class="shrink-0" />
-						<div class="flex-1">
-							<span>"{trimmedName}" est déjà utilisé.</span>
-							{#if nameConflictIsClaimable}
-								<span class="opacity-80">
-									Si c'est vous, utilisez la section ci-dessous pour revendiquer cette identité.</span
+					{#if nameConflictIsClaimable}
+						{@const conflictPreview = getFutureResponsesPreview(nameConflictParticipant.id)}
+						<div
+							class="border-warning bg-base-200 space-y-2 rounded-l-none rounded-r-lg border-l-4 p-3"
+						>
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0 flex-1">
+									<div class="flex items-start gap-2">
+										<Info size={16} class="text-warning mt-0.5 shrink-0" />
+										<div>
+											<p class="font-medium">
+												Le nom <strong>"{trimmedName}"</strong> est déjà utilisé sur ce planning.
+											</p>
+											<p class="text-sm opacity-80">
+												C'est vous ? Si oui, revendiquez cette identité. Sinon, vous devez changer
+												votre nom pour ce planning.
+											</p>
+										</div>
+									</div>
+									{#if conflictPreview.totalCount > 0}
+										<div class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+											<p>Réponses déjà enregistrées sous le nom <strong>{trimmedName}</strong> :</p>
+											{#each conflictPreview.items.slice(0, 3) as item (item.date)}
+												<span
+													class="badge {RESPONSE_TYPE_CONFIG[item.response].badgeClass} font-medium"
+												>
+													<span class="opacity-80">
+														{formatDateShort(item.date)} · {item.startTime} |
+													</span>
+													{RESPONSE_TYPE_LABELS[item.response]}
+												</span>
+											{/each}
+											{#if conflictPreview.totalCount > 3}
+												<span class="self-center text-xs opacity-60">
+													+ {conflictPreview.totalCount - 3} autre{conflictPreview.totalCount - 3 >
+													1
+														? 's'
+														: ''}
+												</span>
+											{/if}
+										</div>
+									{:else}
+										<div class="mt-1 text-xs opacity-60">Aucune réponse à venir</div>
+									{/if}
+								</div>
+								<button
+									type="button"
+									class="btn btn-outline btn-primary shrink-0 gap-1"
+									onclick={() => handleStartClaim(nameConflictParticipant)}
+									disabled={isSubmitting}
 								>
-							{:else}
-								<span class="opacity-80">Veuillez choisir un autre nom.</span>
-							{/if}
+									C'est moi
+								</button>
+							</div>
 						</div>
-					</div>
+					{:else}
+						<div class="alert alert-warning alert-soft p-2 text-sm">
+							<Info size={16} class="shrink-0" />
+							<div class="flex-1">
+								Ce nom est déjà utilisé par un·e autre utilisateur·ice sur ce planning.
+								Choisissez-en un autre.
+							</div>
+						</div>
+					{/if}
 				{/if}
 
 				<button
@@ -554,7 +742,7 @@
 
 				<div class="space-y-3">
 					<div class="flex items-center gap-2 text-sm font-medium opacity-70">
-						<Users size={16} />
+						<Users size={16} class="shrink-0" />
 						<span>
 							Participants sans compte ({claimableParticipants.length}) — cliquez si l'un d'eux est
 							vous

@@ -56,6 +56,17 @@ class UserStore {
 	 * CAS B/C intempestif → toast d'erreur / doublon potentiel.
 	 */
 	isTransitioning = $state(false);
+	/**
+	 * Snapshot de l'identité guest de session capturé pendant onAuthTransition(),
+	 * AVANT le clear de savedPlannings. Permet à /p/[token] de proposer directement
+	 * la revendication de cette identité (modal de suggestion) au lieu de deviner
+	 * par heuristique de nom.
+	 *
+	 * In-memory uniquement (non persisté) : une transition ne survit pas à un reload.
+	 * Consommé/invalidé par la page /p/[token] après résolution.
+	 */
+	pendingGuestClaim: { masterId: string; participantId: string; name: string } | null =
+		$state(null);
 
 	async init() {
 		// Synchro authStore
@@ -146,6 +157,13 @@ class UserStore {
 			// 1. Snapshot AVANT clear : token + master actifs
 			const activeToken = planningStore.currentToken;
 			const activeMasterId = planningStore.activeMasterId;
+			// Snapshot de l'identité guest du planning actif. Lecture directe de
+			// this.savedPlannings (et non getIdentityForPlanning) : à ce moment
+			// this.isLoggedIn est déjà true, donc getIdentityForPlanning retournerait
+			// pbUser au lieu de l'identité guest de session.
+			const guestIdentity = activeMasterId
+				? (this.savedPlannings.find((p) => p.masterId === activeMasterId)?.currentUser ?? null)
+				: null;
 
 			// Unsubscribe guest realtime
 			mastersCollection.unsubscribeAll();
@@ -180,6 +198,16 @@ class UserStore {
 			this.savedPlannings = [];
 			await db.localMeta.clear();
 
+			// Snapshot guest posé APRÈS le clear de savedPlannings, consommable par
+			// la page /p/[token] pour ouvrir le modal de suggestion.
+			if (guestIdentity) {
+				this.pendingGuestClaim = {
+					masterId: activeMasterId!,
+					participantId: guestIdentity.id,
+					name: guestIdentity.name
+				};
+			}
+
 			// 4. Fetch depuis PB (API Rules filtrent automatiquement via user.masterId)
 			//    - CAS 1 (planning actif) : user.masterId contient le master → retrouvé
 			//    - CAS 2 (homepage) : user.masterId vide → 0 master (cohérent avec UI guest)
@@ -209,6 +237,14 @@ class UserStore {
 		} finally {
 			this.isTransitioning = false;
 		}
+	}
+
+	/**
+	 * Invalide le snapshot pendingGuestClaim. À appeler après résolution (claim,
+	 * auto-add, refus) ou si le participant cible n'est plus claimable.
+	 */
+	clearPendingGuestClaim() {
+		this.pendingGuestClaim = null;
 	}
 
 	async setOccurrenceView(view: ViewType) {

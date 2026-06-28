@@ -19,6 +19,7 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
 	import { formatDateShort } from '$lib/utils/date';
+	import { hasNameConflict } from '$lib/utils/participantConflict';
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { fade } from 'svelte/transition';
 
@@ -55,6 +56,9 @@
 	let showAccountModal = $state(false);
 	let showQuitModal = $state(false);
 	let showClaimModal = $state(false);
+	// Participant proposé au claim direct à l'ouverture du modal (flux de transition
+	// guest → auth). Null sauf quand le modal s'ouvre via le trigger suggestion.
+	let suggestionParticipant = $state<Participant | null>(null);
 	let showQuitReturnModal = $state(false);
 	let accountModalMode = $state<'login' | 'register'>('register');
 
@@ -146,24 +150,55 @@
 			const pbUser = userStore.pbUser;
 
 			// CAS A : déjà participant via userId → sync silencieuse (sans renommer, préserve l'indépendance nom-par-planning)
+			// Défensif : un user déjà lié ne doit jamais voir de suggestion de claim.
 			if (myParticipant) {
+				userStore.clearPendingGuestClaim();
 				ensurePlanningParticipant(master.id, pbUser.id).catch((err) =>
 					console.error('ensurePlanningParticipant failed:', err)
 				);
 				return;
 			}
 
+			// Suggestion : transition guest → auth sur ce planning → proposer le claim du
+			// participant guest de session avant tout auto-add. Prioritaire sur CAS B/C.
+			if (userStore.pendingGuestClaim?.masterId === master.id && !showClaimModal) {
+				const claim = userStore.pendingGuestClaim;
+				const target = master.participants.find(
+					(p) => p.id === claim.participantId && !p.userId && !p.hasQuit
+				);
+				if (target) {
+					suggestionParticipant = target;
+					showClaimModal = true;
+					return;
+				}
+				// Participant cible invalide (claimé ailleurs, quitté, supprimé) → expirer le snapshot
+				userStore.clearPendingGuestClaim();
+			}
+			if (showClaimModal) return; // modal ouvert → ne pas déclencher CAS B/C
+
 			// CAS B : name match avec un participant non-lié sans hasQuit → ouvrir IdentityClaimModal
 			const nameMatch = master.participants.find(
 				(p) => !p.userId && !p.hasQuit && p.name.toLowerCase() === pbUser.name.toLowerCase()
 			);
 			if (nameMatch && !showClaimModal) {
+				suggestionParticipant = null; // ouverture manuelle = étape principale
 				openIdentityClaimModal();
 				return;
 			}
 
 			// CAS C : pas de match → auto-add silencieux avec userId
-			// Garde de sécurité : ne pas re-déclencher si déjà fait pour ce master
+			// Garde d'unicité du nom contre tous les participants actifs. Voir hasNameConflict
+			// pour la double exclusion (userId ET id) nécessaire pour ne pas re-déclencher
+			// après un claim réussi.
+			const nameConflict = hasNameConflict(master.participants, pbUser.name, pbUser.id);
+			if (nameConflict) {
+				// Conflit (guest claimable OU user auth lié) → pas d'auto-add, résolution via modal
+				if (!showClaimModal) {
+					suggestionParticipant = null; // étape principale, pas suggestion
+					showClaimModal = true;
+				}
+				return;
+			}
 			if (!autoAddedMasterIds.has(master.id)) {
 				autoAddedMasterIds.add(master.id);
 				handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true, {
@@ -227,6 +262,8 @@
 		userStore
 			.setPlanningIdentity(master!.id, identity)
 			.catch((err) => console.error('setPlanningIdentity failed:', err));
+		// Le snapshot de transition est consommé (claim ou ajout effectué).
+		userStore.clearPendingGuestClaim();
 		// Le refresh des données vient automatiquement via realtime (pb-sync → Dexie → liveQuery)
 		showClaimModal = false;
 	}
@@ -252,7 +289,30 @@
 	}
 
 	function openIdentityClaimModal() {
+		suggestionParticipant = null; // ouverture manuelle = étape principale, jamais suggestion
 		showClaimModal = true;
+	}
+
+	/** Refus de la suggestion de claim : auto-add du nom du compte si pas de conflit,
+	 * sinon on laisse l'user résoudre sur l'étape principale (conflit visible). */
+	function handleDeclineSuggestion() {
+		if (!master || !userStore.pbUser) return;
+		userStore.clearPendingGuestClaim();
+		const pbUser = userStore.pbUser;
+		// Même garde que CAS C : pas d'auto-add si un autre participant actif porte ce nom.
+		const conflict = hasNameConflict(master.participants, pbUser.name, pbUser.id);
+		if (!conflict) {
+			// Pas de conflit → auto-add silencieux + fermer le modal
+			if (!autoAddedMasterIds.has(master.id)) {
+				autoAddedMasterIds.add(master.id);
+				handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true, {
+					userId: pbUser.id
+				});
+			}
+			showClaimModal = false;
+		}
+		// Si conflit → ne rien faire : le modal est déjà basculé sur l'étape principale
+		// (géré en interne par le composant via suggestionDeclined), conflit visible.
 	}
 
 	const canNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
@@ -601,10 +661,12 @@
 		onClose={() => (showClaimModal = false)}
 		mode={claimModalMode}
 		{master}
-		pbUser={userStore.pbUser}
+		pbUser={userStore.pbUser!}
 		{token}
 		occurrences={allOccurrences}
 		onIdentityChanged={handleIdentityChanged}
+		{suggestionParticipant}
+		onDeclineSuggestion={handleDeclineSuggestion}
 	/>
 {/if}
 
