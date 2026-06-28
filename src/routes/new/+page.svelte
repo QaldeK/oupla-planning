@@ -31,6 +31,7 @@
 						id: userStore.pbUser.id,
 						name: userStore.pbUser.name,
 						isAdmin: true, // Le créateur est admin
+						userId: userStore.pbUser.id,
 						createdAt: new Date().toISOString()
 					}
 				];
