@@ -578,16 +578,23 @@
 			</div>
 
 			<!-- Liste des occurrences avec composant unique -->
-			{#each displayedOccurrences as occurrence (occurrence.id)}
-				<OccurrenceView
-					{occurrence}
-					{master}
-					participants={master.participants}
-					currentUserId={currentIdentity?.id}
-					{isAdmin}
-					onNeedReidentify={() =>
-						userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
-				/>
+			{#each displayedOccurrences as occurrence, i (occurrence.id)}
+				{@const isDateBoundary =
+					i > 0 &&
+					(master.timeSlots?.length ?? 0) > 1 &&
+					displayedOccurrences[i - 1].date !== occurrence.date &&
+					userStore.appPreferences.occurrenceView !== 'card'}
+				<div class={isDateBoundary ? 'mt-6' : ''}>
+					<OccurrenceView
+						{occurrence}
+						{master}
+						participants={master.participants}
+						currentUserId={currentIdentity?.id}
+						{isAdmin}
+						onNeedReidentify={() =>
+							userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
+					/>
+				</div>
 			{/each}
 
 			{#if hasMore}
