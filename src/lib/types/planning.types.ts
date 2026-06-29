@@ -54,6 +54,57 @@ export interface Task {
 	type: TaskType;
 }
 
+// === Créneaux horaires (multi-slots) ===
+
+/**
+ * Template de créneau horaire, défini au niveau du master.
+ * Sert de préset pour générer/configurer rapidement les occurrences.
+ * Les occurrences peuvent diverger (override) — le slot n'est pas une contrainte stricte.
+ */
+export interface TimeSlot {
+	/**
+	 * Identifiant court et stable (type `s1`, `s2`). Sert de FK vers
+	 * `PlanningOccurrence.slotId` : sa stabilité préserve l'identité d'une occurrence
+	 * à travers les changements d'horaires de son template (nécessaire pour ne pas
+	 * perdre responses/comments lors d'un pencil/apply en édition master).
+	 * Les masters legacy non nettoyés peuvent encore porter des UUID ; les nouveaux
+	 * slots utilisent `generateTimeSlotId()` (`planningActions.ts`).
+	 */
+	id: string;
+	startTime: string; // HH:MM
+	endTime: string; // HH:MM
+}
+
+/**
+ * Combinaison date + créneau, unité de sélection dans le formulaire de récurrence.
+ * `slotId` est optionnel : présent si la combinaison provient d'un template,
+ * absent si l'horaire a été saisi librement (édition inline, Phase 2).
+ */
+export interface DateSlot {
+	date: string; // YYYY-MM-DD
+	startTime: string; // HH:MM
+	endTime: string; // HH:MM
+	slotId?: string; // optionnel : référence au template d'origine
+}
+
+/**
+ * Occurrence cible : unifie création (virtuelle, sans `id`) et édition (réelle, avec `id`).
+ * Porte l'état « voulu par l'admin » avant persistance — c'est le contrat formulaire↔service
+ * (source unique de vérité côté UI). Les overrides d'horaires y sont portés tels quels ;
+ * le service apply un diff contre les occurrences existantes sans re-dériver.
+ */
+export interface OccurrenceTarget {
+	id?: string; // présent si occurrence réelle existante (filé au service pour le match par id)
+	date: string; // YYYY-MM-DD
+	startTime: string; // HH:MM (horaires voulus : template ou override)
+	endTime: string; // HH:MM
+	slotId?: string; // template d'origine (id court type s1)
+	// Overrides optionnels (thin override / édition inline, Temps 3) :
+	place?: string;
+	tasks?: Task[] | null;
+	minPresentRequired?: number;
+}
+
 // === Occurrence ===
 export type OccurrenceStatus = 'pending' | 'confirmed' | 'canceled';
 
@@ -64,6 +115,15 @@ export interface PlanningOccurrence {
 	date: string; // YYYY-MM-DD
 	startTime: string; // HH:MM
 	endTime: string; // HH:MM
+	/**
+	 * Référence au TimeSlot d'origine (id court type `s1`), utilisée comme clé de
+	 * réconciliation (date|slotId) lors de l'update du master. Absent pour les
+	 * occurrences legacy non migrées (slotId implicite résolu en `s1` côté service
+	 * via `resolveTimeSlots`, mais non matché en réconciliation → soft-delete au save).
+	 * Sert aussi de base au modèle dérivé : une occurrence est override ssi ses
+	 * horaires divergent du slot référencé (cf. `isOverridden` dans planningActions).
+	 */
+	slotId?: string;
 	place?: string;
 	description?: string;
 	tasks?: Task[] | null;
@@ -91,8 +151,6 @@ export interface RecurrenceConfig {
 	type: RecurrenceType;
 	firstDate?: string; // Optionnel pour CUSTOM
 	lastDate?: string; // Optionnel pour CUSTOM
-	// Dates finales sélectionnées (peut être un sous-ensemble des dates générées)
-	recurrenceDates?: string[];
 	// Pour MONTHLY_BY_DAY : quelles occurrences (1er, 2ème, 3ème, 4ème, Dernier)
 	monthlyByDayOccurrences?: number[];
 }
@@ -105,6 +163,12 @@ export interface PlanningMaster {
 	place?: string;
 	defaultStartTime: string;
 	defaultEndTime: string;
+	/**
+	 * Catalogue de créneaux horaires (canonical multi-slots). `defaultStartTime`/
+	 * `defaultEndTime` restent en fallback pour les plannings legacy mono-créneau
+	 * (et l'UI mono-slot), d'où leur conservation non-optionnelle ci-dessus.
+	 */
+	timeSlots?: TimeSlot[];
 	toConfirm?: boolean;
 	minPresentRequired: number; // Valeur par défaut pour les occurrences
 	allowResponses: boolean;

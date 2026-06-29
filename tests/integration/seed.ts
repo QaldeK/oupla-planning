@@ -165,8 +165,7 @@ export async function seedPlanning(
 		defaultStartTime: overrides?.defaultStartTime || '09:00',
 		defaultEndTime: overrides?.defaultEndTime || '17:00',
 		recurrence: overrides?.recurrence || {
-			type: 'CUSTOM' as const,
-			recurrenceDates: ['2026-04-15', '2026-04-22', '2026-04-29']
+			type: 'CUSTOM' as const
 		},
 		tasks: overrides?.tasks || [],
 		participants: overrides?.participants || [],

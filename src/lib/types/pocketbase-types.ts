@@ -107,7 +107,7 @@ export type PlanningLocksRecord = {
 	updated: IsoAutoDateString
 }
 
-export type PlanningMastersRecord<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown> = {
+export type PlanningMastersRecord<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown, TtimeSlots = unknown> = {
 	adminToken: string
 	allowResponses?: boolean
 	availableResponseTypes?: null | TavailableResponseTypes
@@ -125,6 +125,7 @@ export type PlanningMastersRecord<TavailableResponseTypes = unknown, Tparticipan
 	place?: string
 	recurrence: null | Trecurrence
 	tasks?: null | Ttasks
+	timeSlots?: null | TtimeSlots
 	title: string
 	toConfirm?: boolean
 	updated: IsoAutoDateString
@@ -145,6 +146,7 @@ export type PlanningOccurrencesRecord<Tcomments = unknown, Tresponses = unknown,
 	minPresentRequired?: number
 	place?: string
 	responses?: null | Tresponses
+	slotId?: string
 	startTime: string
 	tasks?: null | Ttasks
 	updated: IsoAutoDateString
@@ -189,7 +191,7 @@ export type MfasResponse<Texpand = unknown> = Required<MfasRecord> & BaseSystemF
 export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemFields<Texpand>
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
 export type PlanningLocksResponse<Texpand = unknown> = Required<PlanningLocksRecord> & BaseSystemFields<Texpand>
-export type PlanningMastersResponse<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown, Texpand = unknown> = Required<PlanningMastersRecord<TavailableResponseTypes, Tparticipants, Trecurrence, Ttasks>> & BaseSystemFields<Texpand>
+export type PlanningMastersResponse<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown, TtimeSlots = unknown, Texpand = unknown> = Required<PlanningMastersRecord<TavailableResponseTypes, Tparticipants, Trecurrence, Ttasks, TtimeSlots>> & BaseSystemFields<Texpand>
 export type PlanningOccurrencesResponse<Tcomments = unknown, Tresponses = unknown, Ttasks = unknown, Texpand = unknown> = Required<PlanningOccurrencesRecord<Tcomments, Tresponses, Ttasks>> & BaseSystemFields<Texpand>
 export type PlanningParticipantsResponse<TcommentReadState = unknown, Texpand = unknown> = Required<PlanningParticipantsRecord<TcommentReadState>> & BaseSystemFields<Texpand>
 export type UsersResponse<TadminOf = unknown, Tpush_subscription = unknown, Texpand = unknown> = Required<UsersRecord<TadminOf, Tpush_subscription>> & AuthSystemFields<Texpand>

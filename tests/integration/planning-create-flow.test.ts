@@ -47,12 +47,29 @@ import {
 } from '$lib/services/planningActions';
 import { userStore } from '$lib/stores/userStore.svelte';
 import { generateRecurrenceDates } from '$lib/utils/recurrence';
-import type { PlanningMaster, PlanningOccurrence, Participant } from '$lib/types/planning.types';
+import type {
+	PlanningMaster,
+	PlanningOccurrence,
+	Participant,
+	OccurrenceTarget,
+	RecurrenceConfig
+} from '$lib/types/planning.types';
 import { pb } from '$lib/pocketbase/pb';
 
 // Helper: normalise les dates PB (format 'YYYY-MM-DD HH:mm:ss.SSSZ') en 'YYYY-MM-DD'
 function normalizeDate(dateStr: string): string {
 	return dateStr.split(' ')[0];
+}
+
+// Helper: construit les occurrenceTargets depuis une config de récurrence (mono-slot s1).
+// Reflète la logique de génération du formulaire PlanningForm.
+function buildTargetsFromRecurrence(
+	recurrence: RecurrenceConfig,
+	startTime: string,
+	endTime: string,
+	slotId = 's1'
+): OccurrenceTarget[] {
+	return generateRecurrenceDates(recurrence).map((date) => ({ date, startTime, endTime, slotId }));
 }
 
 describe('Planning Create Flow — /new', () => {
@@ -76,7 +93,7 @@ describe('Planning Create Flow — /new', () => {
 			// === SEED ===
 			const adminToken = generateAdminToken();
 			const participantToken = generateParticipantToken();
-			const recurrenceDates = ['2026-06-01', '2026-06-08', '2026-06-15'];
+			const expectedDates = ['2026-06-01', '2026-06-08', '2026-06-15'];
 
 			// === ACTION ===
 			const master = await createPlanningWithOccurrences(
@@ -86,7 +103,13 @@ describe('Planning Create Flow — /new', () => {
 					place: 'Salle A',
 					defaultStartTime: '10:00',
 					defaultEndTime: '12:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates },
+					recurrence: { type: 'CUSTOM' },
+					occurrenceTargets: expectedDates.map((date) => ({
+						date,
+						startTime: '10:00',
+						endTime: '12:00',
+						slotId: 's1'
+					})),
 					minPresentRequired: 3,
 					allowResponses: true,
 					availableResponseTypes: ['present', 'absent', 'maybe'],
@@ -118,7 +141,7 @@ describe('Planning Create Flow — /new', () => {
 			expect(dexieOccurrences.length).toBe(3);
 
 			const dexieDates = dexieOccurrences.map((o) => normalizeDate(o.date)).sort();
-			expect(dexieDates).toEqual([...recurrenceDates].sort());
+			expect(dexieDates).toEqual([...expectedDates].sort());
 
 			// Tracker les occurrences pour cleanup
 			for (const occ of dexieOccurrences) {
@@ -130,7 +153,7 @@ describe('Planning Create Flow — /new', () => {
 			// === SEED ===
 			const adminToken = generateAdminToken();
 			const participantToken = generateParticipantToken();
-			const recurrenceDates = ['2026-06-01', '2026-06-08', '2026-06-15'];
+			const expectedDates = ['2026-06-01', '2026-06-08', '2026-06-15'];
 
 			// === ACTION ===
 			const master = await createPlanningWithOccurrences(
@@ -138,7 +161,13 @@ describe('Planning Create Flow — /new', () => {
 					title: 'PB Coherence Test',
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates },
+					recurrence: { type: 'CUSTOM' },
+					occurrenceTargets: expectedDates.map((date) => ({
+						date,
+						startTime: '09:00',
+						endTime: '17:00',
+						slotId: 's1'
+					})),
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: []
@@ -165,7 +194,7 @@ describe('Planning Create Flow — /new', () => {
 			expect(pbOccurrences.length).toBe(3);
 
 			const pbDates = pbOccurrences.map((o) => normalizeDate(o.date)).sort();
-			expect(pbDates).toEqual([...recurrenceDates].sort());
+			expect(pbDates).toEqual([...expectedDates].sort());
 
 			// Tracker les occurrences pour cleanup
 			for (const occ of pbOccurrences) {
@@ -209,7 +238,10 @@ describe('Planning Create Flow — /new', () => {
 					title: 'Planning avec Createur',
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-07-01'] },
+					recurrence: { type: 'CUSTOM' },
+					occurrenceTargets: [
+						{ date: '2026-07-01', startTime: '09:00', endTime: '17:00', slotId: 's1' }
+					],
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: [creatorParticipant]
@@ -262,7 +294,6 @@ describe('Planning Create Flow — /new', () => {
 
 			// Calculer les dates attendues
 			const expectedDates = generateRecurrenceDates(recurrence);
-
 			// === ACTION ===
 			const master = await createPlanningWithOccurrences(
 				{
@@ -270,6 +301,7 @@ describe('Planning Create Flow — /new', () => {
 					defaultStartTime: '14:00',
 					defaultEndTime: '16:00',
 					recurrence,
+					occurrenceTargets: buildTargetsFromRecurrence(recurrence, '14:00', '16:00'),
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: []
@@ -325,6 +357,7 @@ describe('Planning Create Flow — /new', () => {
 					defaultStartTime: '10:00',
 					defaultEndTime: '12:00',
 					recurrence,
+					occurrenceTargets: buildTargetsFromRecurrence(recurrence, '10:00', '12:00'),
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: []
@@ -369,6 +402,7 @@ describe('Planning Create Flow — /new', () => {
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
 					recurrence,
+					occurrenceTargets: buildTargetsFromRecurrence(recurrence, '09:00', '17:00'),
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: []
@@ -414,6 +448,7 @@ describe('Planning Create Flow — /new', () => {
 					defaultStartTime: '14:00',
 					defaultEndTime: '18:00',
 					recurrence,
+					occurrenceTargets: buildTargetsFromRecurrence(recurrence, '14:00', '18:00'),
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: []
@@ -449,7 +484,11 @@ describe('Planning Create Flow — /new', () => {
 					title: 'Token Coherence Test',
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01', '2026-06-08'] },
+					recurrence: { type: 'CUSTOM' },
+					occurrenceTargets: [
+						{ date: '2026-06-01', startTime: '09:00', endTime: '17:00', slotId: 's1' },
+						{ date: '2026-06-08', startTime: '09:00', endTime: '17:00', slotId: 's1' }
+					],
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: []
@@ -497,7 +536,10 @@ describe('Planning Create Flow — /new', () => {
 					title: 'Security Test',
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01'] },
+					recurrence: { type: 'CUSTOM' },
+					occurrenceTargets: [
+						{ date: '2026-06-01', startTime: '09:00', endTime: '17:00', slotId: 's1' }
+					],
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: []
@@ -547,7 +589,10 @@ describe('Planning Create Flow — /new', () => {
 				title: 'No Token Creation',
 				defaultStartTime: '10:00',
 				defaultEndTime: '12:00',
-				recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01'] },
+				recurrence: { type: 'CUSTOM' },
+				occurrenceTargets: [
+					{ date: '2026-06-01', startTime: '10:00', endTime: '12:00', slotId: 's1' }
+				],
 				minPresentRequired: 1,
 				allowResponses: true,
 				participants: []
@@ -573,13 +618,13 @@ describe('Planning Create Flow — /new', () => {
 	});
 
 	describe('P2 — Robustesse', () => {
-		it('ne cree aucune occurrence si recurrenceDates est vide', async () => {
+		it('ne cree aucune occurrence si occurrenceTargets est absent', async () => {
 			// === ACTION ===
 			const master = await createPlanningWithOccurrences({
 				title: 'Empty Recurrence',
 				defaultStartTime: '09:00',
 				defaultEndTime: '17:00',
-				recurrence: { type: 'CUSTOM', recurrenceDates: [] },
+				recurrence: { type: 'CUSTOM' },
 				minPresentRequired: 1,
 				allowResponses: true,
 				participants: []
@@ -602,11 +647,11 @@ describe('Planning Create Flow — /new', () => {
 			// === SEED ===
 			const adminToken = generateAdminToken();
 			const participantToken = generateParticipantToken();
-			const recurrenceDates: string[] = [];
+			const customDates: string[] = [];
 			for (let i = 0; i < 100; i++) {
 				const d = new Date('2026-06-01');
 				d.setDate(d.getDate() + i * 7);
-				recurrenceDates.push(d.toISOString().split('T')[0]);
+				customDates.push(d.toISOString().split('T')[0]);
 			}
 
 			// === ACTION ===
@@ -615,7 +660,13 @@ describe('Planning Create Flow — /new', () => {
 					title: 'Max Occurrences',
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates },
+					recurrence: { type: 'CUSTOM' },
+					occurrenceTargets: customDates.map((date) => ({
+						date,
+						startTime: '09:00',
+						endTime: '17:00',
+						slotId: 's1'
+					})),
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: []
@@ -658,7 +709,10 @@ describe('Planning Create Flow — /new', () => {
 					title: 'Tasks Sorted',
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01'] },
+					recurrence: { type: 'CUSTOM' },
+					occurrenceTargets: [
+						{ date: '2026-06-01', startTime: '09:00', endTime: '17:00', slotId: 's1' }
+					],
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: [],
@@ -707,7 +761,7 @@ describe('Planning Create Flow — /new', () => {
 					title: 'Response Types Sorted',
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01'] },
+					recurrence: { type: 'CUSTOM' },
 					minPresentRequired: 1,
 					allowResponses: true,
 					availableResponseTypes: ['absent', 'maybe', 'if_needed', 'present'],
@@ -747,7 +801,7 @@ describe('Planning Create Flow — /new', () => {
 					title: 'Guest AdminToken Test',
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01'] },
+					recurrence: { type: 'CUSTOM' },
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: []
@@ -804,7 +858,7 @@ describe('Planning Create Flow — /new', () => {
 					title: 'Auth AdminToken Test',
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01'] },
+					recurrence: { type: 'CUSTOM' },
 					minPresentRequired: 1,
 					allowResponses: true,
 					participants: [creatorParticipant]

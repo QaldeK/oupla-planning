@@ -347,6 +347,7 @@
 			bind:isSubmitting
 			{datesWithData}
 			{datesWithSpecificTasks}
+			occurrences={planningStore.futureOccurrences}
 		/>
 	</div>
 

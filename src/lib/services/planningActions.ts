@@ -4,6 +4,7 @@ import { commentStateService } from '$lib/services/commentStateService';
 import { mastersCollection, occurrencesCollection } from '$lib/stores/planningStore.svelte';
 import type {
 	OccurrenceComment,
+	OccurrenceTarget,
 	Participant,
 	ParticipantResponse,
 	PlanningMaster,
@@ -11,9 +12,9 @@ import type {
 	RecurrenceConfig,
 	ResponseType,
 	Task,
-	TaskType
+	TaskType,
+	TimeSlot
 } from '$lib/types/planning.types';
-import { generateRecurrenceDates } from '$lib/utils/recurrence';
 import { ClientResponseError } from 'pocketbase';
 import { format } from 'date-fns';
 
@@ -56,6 +57,92 @@ export function sortTasks(tasks: Task[] | null | undefined): Task[] | null {
 }
 
 // ============================================
+// Multi-créneaux : templates de slots
+// ============================================
+
+/**
+ * Génère un id court type `s1`, `s2`... pour un nouveau timeSlot.
+ *
+ * Algo : `s${maxNumericId + 1}` calculé depuis les ids `s<N>` déjà présents dans
+ * `existing`. Les ids non conformes (UUID legacy, etc.) sont ignorés. Particularités :
+ *  - Déterministe et lisible en DB.
+ *  - Évite la collision avec les slots déjà présents au moment de l'ajout.
+ *  - Un id supprimé peut être réutilisé une fois ses occurrences soft-deletées
+ *    au save (la suppression d'un slot entraîne le soft-delete de ses occurrences
+ *    via le diff) — sans risque de mal-référencement d'une occurrence active.
+ */
+export function generateTimeSlotId(existing: { id: string }[]): string {
+	let max = 0;
+	for (const s of existing) {
+		const match = /^s(\d+)$/.exec(s.id);
+		if (match) {
+			const n = Number(match[1]);
+			if (n > max) max = n;
+		}
+	}
+	return `s${max + 1}`;
+}
+
+/**
+ * Résout les templates de créneaux effectifs d'un master. Renvoie toujours au
+ * moins un slot explicite : si `timeSlots` est absent ou vide (master legacy
+ * mono-créneau non encore nettoyé), on synthétise un slot unique `s1` depuis
+ * `defaultStartTime`/`defaultEndTime`. Plus de sentinelle `'default'`.
+ */
+export function resolveTimeSlots(
+	master: Pick<PlanningMaster, 'timeSlots' | 'defaultStartTime' | 'defaultEndTime'>
+): TimeSlot[] {
+	if (master.timeSlots && master.timeSlots.length > 0) {
+		return master.timeSlots;
+	}
+	return [
+		{
+			id: 's1',
+			startTime: master.defaultStartTime,
+			endTime: master.defaultEndTime
+		}
+	];
+}
+
+/**
+ * Shape attendue par `isOverridden` pour résoudre les slots templates de référence.
+ * Accepte aussi bien un `PlanningMaster` complet qu'un `CreatePlanningData`
+ * (qui est l'état cible du master après save).
+ */
+type TimeSlotResolvable = Pick<PlanningMaster, 'timeSlots' | 'defaultStartTime' | 'defaultEndTime'>;
+
+/**
+ * Détermine si une occurrence est en override d'horaires par rapport au slot
+ * template qu'elle référence. La comparaison se fait contre `master` vu comme
+ * l'état **cible** du master après save — d'où l'acceptation d'un type
+ * structural qui couvre `CreatePlanningData`.
+ *
+ * Une occurrence sans `slotId` (custom pur) n'est jamais overridée. Un `slotId`
+ * orphelin (template supprimé) est traité comme non-overridé afin de ne pas
+ * écarter une occurrence dont le template d'origine a disparu.
+ */
+export function isOverridden(
+	occ: Pick<PlanningOccurrence, 'slotId' | 'startTime' | 'endTime'>,
+	master: TimeSlotResolvable
+): boolean {
+	if (!occ.slotId) return false;
+	const slot = resolveTimeSlots(master).find((s) => s.id === occ.slotId);
+	if (!slot) return false;
+	return occ.startTime !== slot.startTime || occ.endTime !== slot.endTime;
+}
+
+/**
+ * Clé de réconciliation occurrence ↔ cible : `${date}|${slotId}`.
+ * Stable face aux changements d'horaires d'un template (slotId invariant).
+ * Le fallback sur `startTime` (legacy) est retiré : les occurrences sans slotId
+ * ne matchent aucune cible et seront soft-deletées au save — comportement accepté,
+ * l'utilisateur nettoie la DB (cf. plan, contexte prototypage).
+ */
+function reconciliationKey(date: string, slotId: string): string {
+	return `${date}|${slotId}`;
+}
+
+// ============================================
 // Planning Master
 // ============================================
 
@@ -65,7 +152,15 @@ interface CreatePlanningData {
 	place?: string;
 	defaultStartTime: string;
 	defaultEndTime: string;
+	/** Catalogue multi-créneaux (canonical). Optionnel pour rétrocompat : fallback sur defaultStartTime/EndTime. */
+	timeSlots?: TimeSlot[];
 	recurrence: RecurrenceConfig;
+	/**
+	 * Occurrences cibles voulues par l'admin (contrat formulaire↔service, source unique côté UI).
+	 * Le service apply un diff contre les occurrences existantes : create/update/soft-delete/un-soft-delete.
+	 * Si absent, aucune occurrence n'est créée/mise à jour (utile pour `createPlanning` qui ne gère que le master).
+	 */
+	occurrenceTargets?: OccurrenceTarget[];
 	tasks?: Task[];
 	participants?: Participant[];
 	minPresentRequired: number;
@@ -112,6 +207,7 @@ export async function createPlanningWithOccurrences(
 		place: data.place,
 		defaultStartTime: data.defaultStartTime,
 		defaultEndTime: data.defaultEndTime,
+		timeSlots: data.timeSlots,
 		recurrence: data.recurrence,
 		tasks: sortTasks(data.tasks) ?? [],
 		minPresentRequired: data.minPresentRequired,
@@ -124,18 +220,18 @@ export async function createPlanningWithOccurrences(
 		lastModifiedBy: pb.authStore.record?.id
 	});
 
-	// 2. Générer les dates de récurrence
-	const dates = data.recurrence.recurrenceDates || generateRecurrenceDates(data.recurrence);
-
-	// 3. Créer toutes les occurrences via pb-sync batch (PB batch + Dexie puts)
-	if (dates.length > 0) {
+	// 2. Créer les occurrences depuis les cibles voulues (contrat formulaire↔service).
+	// Pas de fallback : si occurrenceTargets est absent, aucune occurrence n'est créée.
+	const targets: OccurrenceTarget[] = data.occurrenceTargets ?? [];
+	if (targets.length > 0) {
 		const batch = occurrencesCollection.createBatch();
-		for (const date of dates) {
+		for (const target of targets) {
 			batch.create({
 				master: master.id,
-				date,
-				startTime: data.defaultStartTime,
-				endTime: data.defaultEndTime,
+				date: target.date,
+				startTime: target.startTime,
+				endTime: target.endTime,
+				slotId: target.slotId,
 				responses: [],
 				comments: [],
 				isConfirmed: false,
@@ -233,19 +329,31 @@ export async function updatePlanningWithOccurrences(
 ): Promise<PlanningMaster> {
 	const today = format(new Date(), 'yyyy-MM-dd');
 	const normalizeDate = (d: string) => d.split(' ')[0].split('T')[0];
-	// Charger uniquement les occurrences futures
+
+	// Charger les occurrences futures, **soft-deleted incluses**. La réactivation d'une
+	// combo désactivée = un-soft-delete d'une occurrence existante (préserve responses/comments/id).
 	const existingOccurrences = await pb
 		.collection('planning_occurrences')
 		.getFullList<PlanningOccurrence>({
-			filter: `master = "${masterId}" && date >= "${today}" && deleted != true`,
+			filter: `master = "${masterId}" && date >= "${today}"`,
 			query: { _token: adminToken }
 		});
 
-	const allTargetDates =
-		data.recurrence.recurrenceDates || generateRecurrenceDates(data.recurrence);
-	const targetDates = allTargetDates.filter((date) => date >= today);
+	// Cibles = occurrences voulues par l'admin, futures uniquement.
+	// Pas de fallback : si occurrenceTargets est absent, aucune occurrence n'est touchée.
+	const allTargets: OccurrenceTarget[] = data.occurrenceTargets ?? [];
+	const targets = allTargets.filter((t) => normalizeDate(t.date) >= today);
 
-	const existingDatesMap = new Map(existingOccurrences.map((o) => [normalizeDate(o.date), o]));
+	// Index des existantes par id ET par clé date|slotId (fallback pour les cibles sans id).
+	const existingById = new Map<string, PlanningOccurrence>();
+	const existingByKey = new Map<string, PlanningOccurrence>();
+	for (const occ of existingOccurrences) {
+		existingById.set(occ.id, occ);
+		existingByKey.set(reconciliationKey(normalizeDate(occ.date), occ.slotId ?? ''), occ);
+	}
+
+	// Cibles matchées (pour identifier les existantes à soft-deleter ensuite).
+	const matchedExistingIds = new Set<string>();
 
 	const batch = pb.createBatch();
 
@@ -263,6 +371,7 @@ export async function updatePlanningWithOccurrences(
 			place: data.place,
 			defaultStartTime: data.defaultStartTime,
 			defaultEndTime: data.defaultEndTime,
+			timeSlots: data.timeSlots,
 			recurrence: data.recurrence,
 			tasks: sortTasks(data.tasks),
 			minPresentRequired: data.minPresentRequired,
@@ -274,28 +383,26 @@ export async function updatePlanningWithOccurrences(
 		{ query: masterQuery }
 	);
 
-	// Soft-delete des occurrences futures obsolètes (champ `deleted: true`)
-	// — préserve la rattrapabilité par le delta sync (updated > since)
-	for (const occ of existingOccurrences) {
-		if (!targetDates.includes(normalizeDate(occ.date))) {
-			batch
-				.collection('planning_occurrences')
-				.update(
-					occ.id,
-					{ deleted: true, lastModifiedBy: pb.authStore.record?.id },
-					{ query: { _token: adminToken } }
-				);
+	// Parcourir les cibles : create / update / un-soft-delete.
+	// L'override est porté par la cible (horaires voulus) — on l'apply tel quel, sans
+	// recourir à isOverridden. responses/comments/isConfirmed/isCanceled sont préservés
+	// sur l'existante matchée (qu'elle soit active ou soft-deleted).
+	for (const target of targets) {
+		const targetDate = normalizeDate(target.date);
+		let existing: PlanningOccurrence | undefined;
+		if (target.id) existing = existingById.get(target.id);
+		if (!existing) {
+			existing = existingByKey.get(reconciliationKey(targetDate, target.slotId ?? ''));
 		}
-	}
-
-	// Créer ou mettre à jour les occurrences futures
-	for (const date of targetDates) {
-		const existing = existingDatesMap.get(date);
 		if (existing) {
+			matchedExistingIds.add(existing.id);
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- updateData construit dynamiquement pour batch, type partiel non adapté
 			const updateData: any = {
-				startTime: data.defaultStartTime,
-				endTime: data.defaultEndTime,
+				date: targetDate,
+				startTime: target.startTime,
+				endTime: target.endTime,
+				slotId: target.slotId,
+				deleted: false, // un-soft-delete si elle l'était (réactivation d'une combo)
 				lastModifiedBy: pb.authStore.record?.id
 			};
 			if (data.forceTaskRefresh) updateData.tasks = sortTasks(data.tasks);
@@ -306,9 +413,10 @@ export async function updatePlanningWithOccurrences(
 			batch.collection('planning_occurrences').create(
 				{
 					master: masterId,
-					date,
-					startTime: data.defaultStartTime,
-					endTime: data.defaultEndTime,
+					date: targetDate,
+					startTime: target.startTime,
+					endTime: target.endTime,
+					slotId: target.slotId,
 					responses: [],
 					comments: [],
 					isConfirmed: false,
@@ -318,6 +426,22 @@ export async function updatePlanningWithOccurrences(
 				{ query: { _token: adminToken } }
 			);
 		}
+	}
+
+	// Soft-delete les existantes actives non ciblées. Les soft-deleted non ciblées
+	// restent telles quelles (déjà désactivées). C'est ici que le bug temporaire est
+	// résolu : une occurrence overridée désactivée par l'admin (absente des cibles)
+	// est enfin soft-deletée, puisque le test `isOverridden` disparaît.
+	for (const occ of existingOccurrences) {
+		if (occ.deleted === true) continue;
+		if (matchedExistingIds.has(occ.id)) continue;
+		batch
+			.collection('planning_occurrences')
+			.update(
+				occ.id,
+				{ deleted: true, lastModifiedBy: pb.authStore.record?.id },
+				{ query: { _token: adminToken } }
+			);
 	}
 
 	try {

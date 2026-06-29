@@ -9,6 +9,7 @@ import { db } from '$lib/pb-sync/db';
 import { ClientResponseError } from 'pocketbase';
 import { liveQuery } from 'dexie';
 import type { Subscription } from 'dexie';
+import { format } from 'date-fns';
 
 // Compteur de subscriptions actives pour networkStore
 let activeSubscriptionCount = 0;
@@ -43,6 +44,20 @@ export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
 	}
 );
 
+/**
+ * Ordre total stable pour les occurrences : date puis startTime, avec
+ * fallback sur l'id. Plusieurs occurrences peuvent partager une même date
+ * (multi-créneaux) ; le fallback sur l'id garantit un rendu déterministe
+ * même si startTime coïncide (override libre).
+ */
+function compareOccurrences(a: PlanningOccurrence, b: PlanningOccurrence): number {
+	return (
+		a.date.localeCompare(b.date) ||
+		a.startTime.localeCompare(b.startTime) ||
+		a.id.localeCompare(b.id)
+	);
+}
+
 // Type de retour pour getOrFetchMaster
 type GetOrFetchMasterResult = PlanningMaster | { error: 'network' | 'not_found' };
 
@@ -68,6 +83,13 @@ class PlanningStore {
 	#masterSub: Subscription | null = null;
 	#occurrencesSub: Subscription | null = null;
 
+	// Occurrences futures du master actif, **soft-deleted incluses**. Sert au seeding
+	// du formulaire d'édition admin (une combo désactivée = une occ soft-deleted).
+	// Contrairement à #occurrences, on n'applique PAS le filtre `!o.deleted` : c'est le
+	// consommateur (PlanningForm) qui discrimine actives vs soft-deleted côté UI.
+	#futureOccurrences = $state<PlanningOccurrence[]>([]);
+	#futureOccurrencesSub: Subscription | null = null;
+
 	// LiveQuery global pour sidebar/homepage
 	#allMasters = $state<PlanningMaster[]>([]);
 	#allMastersSub: Subscription | null = null;
@@ -82,6 +104,14 @@ class PlanningStore {
 	}
 	get occurrences(): PlanningOccurrence[] {
 		return this.#occurrences;
+	}
+
+	/**
+	 * Occurrences futures du master actif, soft-deleted incluses. Source du seeding
+	 * du formulaire d'édition (bug #2 : une combo désactivée = une occ soft-deleted).
+	 */
+	get futureOccurrences(): PlanningOccurrence[] {
+		return this.#futureOccurrences;
 	}
 
 	get currentOccurrence(): PlanningOccurrence | null {
@@ -160,8 +190,10 @@ class PlanningStore {
 	#subscribeDexieQueries(masterId: string) {
 		this.#masterSub?.unsubscribe();
 		this.#occurrencesSub?.unsubscribe();
+		this.#futureOccurrencesSub?.unsubscribe();
 		this.#master = null;
 		this.#occurrences = [];
+		this.#futureOccurrences = [];
 
 		this.#masterSub = liveQuery(() => db.masters.get(masterId)).subscribe({
 			next: (val) => {
@@ -175,9 +207,27 @@ class PlanningStore {
 				.equals(masterId)
 				.filter((o) => !o.deleted)
 				.sortBy('date')
+				.then((rows) => rows.sort(compareOccurrences))
 		).subscribe({
 			next: (val) => {
 				this.#occurrences = val;
+			}
+		});
+
+		// Occurrences futures soft-deleted incluses : pas de filtre `!o.deleted` (le
+		// consommateur discrimine côté UI). Le seuil `today` est figé à la souscription
+		// — acceptable : un changement de jour requiert une navigation/re-activation.
+		const today = format(new Date(), 'yyyy-MM-dd');
+		this.#futureOccurrencesSub = liveQuery(() =>
+			db.occurrences
+				.where('master')
+				.equals(masterId)
+				.filter((o) => o.date >= today)
+				.sortBy('date')
+				.then((rows) => rows.sort(compareOccurrences))
+		).subscribe({
+			next: (val) => {
+				this.#futureOccurrences = val;
 			}
 		});
 	}
@@ -187,8 +237,11 @@ class PlanningStore {
 		this.#masterSub = null;
 		this.#occurrencesSub?.unsubscribe();
 		this.#occurrencesSub = null;
+		this.#futureOccurrencesSub?.unsubscribe();
+		this.#futureOccurrencesSub = null;
 		this.#master = null;
 		this.#occurrences = [];
+		this.#futureOccurrences = [];
 	}
 
 	// === Suppression détectée ===

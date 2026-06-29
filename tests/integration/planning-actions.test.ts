@@ -55,6 +55,7 @@ import {
 	deleteComment,
 	deletePlanning,
 	updatePlanning,
+	updatePlanningWithOccurrences,
 	normalizeResponseTypes,
 	sortTasks,
 	generateAdminToken,
@@ -66,6 +67,7 @@ import type {
 	PlanningOccurrence,
 	Participant,
 	ParticipantResponse,
+	ResponseType,
 	Task
 } from '$lib/types/planning.types';
 
@@ -90,7 +92,7 @@ describe('planningActions — Pipeline CRUD complet', () => {
 				title: 'Mon Planning',
 				defaultStartTime: '10:00',
 				defaultEndTime: '12:00',
-				recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01'] },
+				recurrence: { type: 'CUSTOM' },
 				minPresentRequired: 2,
 				allowResponses: true,
 				availableResponseTypes: ['present', 'absent', 'maybe']
@@ -125,7 +127,7 @@ describe('planningActions — Pipeline CRUD complet', () => {
 				title: 'Tri Test',
 				defaultStartTime: '09:00',
 				defaultEndTime: '17:00',
-				recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01'] },
+				recurrence: { type: 'CUSTOM' },
 				minPresentRequired: 1,
 				allowResponses: true,
 				availableResponseTypes: ['maybe', 'present', 'absent'],
@@ -150,7 +152,12 @@ describe('planningActions — Pipeline CRUD complet', () => {
 				title: 'Planning avec occurrences',
 				defaultStartTime: '09:00',
 				defaultEndTime: '17:00',
-				recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01', '2026-06-08', '2026-06-15'] },
+				recurrence: { type: 'CUSTOM' },
+				occurrenceTargets: [
+					{ date: '2026-06-01', startTime: '09:00', endTime: '17:00', slotId: 's1' },
+					{ date: '2026-06-08', startTime: '09:00', endTime: '17:00', slotId: 's1' },
+					{ date: '2026-06-15', startTime: '09:00', endTime: '17:00', slotId: 's1' }
+				],
 				minPresentRequired: 1,
 				allowResponses: true
 			});
@@ -181,12 +188,12 @@ describe('planningActions — Pipeline CRUD complet', () => {
 			expect(dexieDates).toEqual(pbDates);
 		});
 
-		it('ne cree pas d occurrences si recurrenceDates est vide', async () => {
+		it('ne cree pas d occurrences si occurrenceTargets est vide', async () => {
 			const master = await createPlanningWithOccurrences({
 				title: 'Sans occurrences',
 				defaultStartTime: '09:00',
 				defaultEndTime: '17:00',
-				recurrence: { type: 'CUSTOM', recurrenceDates: [] },
+				recurrence: { type: 'CUSTOM' },
 				minPresentRequired: 1,
 				allowResponses: true
 			});
@@ -199,13 +206,196 @@ describe('planningActions — Pipeline CRUD complet', () => {
 		});
 	});
 
+	describe('updatePlanningWithOccurrences — diff occurrences', () => {
+		// Dates futures obligatoires : le service filtre `date >= today`.
+		const futureDate = (offsetDays: number) => {
+			const d = new Date();
+			d.setDate(d.getDate() + offsetDays);
+			return d.toISOString().split('T')[0];
+		};
+
+		// PocketBase stocke le champ `date` (type Date) au format ISO complet
+		// (ex. `2026-07-13 00:00:00.000Z`) ; on normalise pour comparer à `YYYY-MM-DD`.
+		const normDate = (d: string) => d.split(' ')[0].split('T')[0];
+
+		// Construit le payload master complet pour updatePlanningWithOccurrences.
+		// `occurrenceTargets` est la source unique côté service : le diff create/update/
+		// soft-delete/un-soft-delete s'appuie dessus (clé de réconciliation `date|slotId`).
+		const buildData = (
+			targets: { date: string; startTime: string; endTime: string; slotId: string }[]
+		) => ({
+			title: 'Update diff',
+			defaultStartTime: '19:00',
+			defaultEndTime: '21:00',
+			timeSlots: [{ id: 's1', startTime: '19:00', endTime: '21:00' }],
+			recurrence: { type: 'CUSTOM' as const },
+			occurrenceTargets: targets,
+			minPresentRequired: 1,
+			allowResponses: true,
+			availableResponseTypes: ['present', 'absent'] as ResponseType[]
+		});
+
+		// Helper : crée un master CUSTOM + ses occs via pb-sync, et récupère les occs PB.
+		// On vérifie via PB (adminPb) car updatePlanningWithOccurrences utilise un batch
+		// direct (hors pb-sync) → Dexie n'est pas synchronisé.
+		async function createForUpdate(
+			targets: { date: string; startTime: string; endTime: string; slotId: string }[]
+		) {
+			const adminToken = generateAdminToken();
+			const participantToken = generateParticipantToken();
+			const master = await createPlanningWithOccurrences(
+				buildData(targets),
+				adminToken,
+				participantToken
+			);
+			trackIds('planning_masters', master.id);
+			const adminPb = await authenticateAdmin();
+			const occs = await adminPb
+				.collection('planning_occurrences')
+				.getFullList<PlanningOccurrence>({ filter: `master = "${master.id}"` });
+			for (const occ of occs) trackIds('planning_occurrences', occ.id);
+			return { master, adminToken, participantToken, occs };
+		}
+
+		const getOccs = async (masterId: string) => {
+			const adminPb = await authenticateAdmin();
+			return adminPb
+				.collection('planning_occurrences')
+				.getFullList<PlanningOccurrence>({ filter: `master = "${masterId}"` });
+		};
+
+		it('préserve un override au save master ultérieur (bug #1)', async () => {
+			const d1 = futureDate(7);
+			// Crée une occ dont les horaires (20:00-22:00) dévient du template s1 (19:00-21:00).
+			const { master, adminToken, participantToken } = await createForUpdate([
+				{ date: d1, startTime: '20:00', endTime: '22:00', slotId: 's1' }
+			]);
+
+			// L'admin réouvre l'édition : PlanningForm seed l'override dans seededOccurrences,
+			// donc la target porte les horaires override (20:00-22:00). Save sans toucher.
+			await updatePlanningWithOccurrences(
+				master.id,
+				buildData([{ date: d1, startTime: '20:00', endTime: '22:00', slotId: 's1' }]),
+				adminToken,
+				participantToken
+			);
+
+			const occs = await getOccs(master.id);
+			expect(occs).toHaveLength(1);
+			// L'override est préservé : le service applique les horaires de la target,
+			// il ne « corrige » jamais vers le template du master.
+			expect(occs[0].startTime).toBe('20:00');
+			expect(occs[0].endTime).toBe('22:00');
+			expect(occs[0].deleted).toBeFalsy();
+		});
+
+		it('un-soft-delete à la réactivation et préserve id/responses/comments (bug #2)', async () => {
+			const d1 = futureDate(7);
+			const {
+				master,
+				adminToken,
+				participantToken,
+				occs: initial
+			} = await createForUpdate([{ date: d1, startTime: '19:00', endTime: '21:00', slotId: 's1' }]);
+			const occId = initial[0].id;
+			const adminPb = await authenticateAdmin();
+
+			// Pose des données participant (response + commentaire) via le service (format valide).
+			await submitResponse(
+				occId,
+				'user001',
+				{
+					participantId: 'user001',
+					response: 'present',
+					tasks: [],
+					comment: '',
+					respondedAt: new Date().toISOString()
+				},
+				adminToken
+			);
+			await addComment(occId, 'user001', 'Commentaire important', adminToken);
+
+			// L'admin désactive la combo (soft-delete côté PB).
+			await adminPb.collection('planning_occurrences').update(occId, { deleted: true });
+
+			// L'admin réactive la combo : la target ne porte pas d'id (le seeding PlanningForm
+			// ne seed pas les soft-deleted dans seededOccurrences) → match par clé `date|slotId`.
+			await updatePlanningWithOccurrences(
+				master.id,
+				buildData([{ date: d1, startTime: '19:00', endTime: '21:00', slotId: 's1' }]),
+				adminToken,
+				participantToken
+			);
+
+			const occs = await getOccs(master.id);
+			const restored = occs.find((o) => o.id === occId)!;
+			expect(restored).toBeDefined();
+			expect(restored.deleted).toBeFalsy(); // un-soft-deletée
+			expect(restored.responses).toHaveLength(1); // response préservée
+			expect(restored.comments).toHaveLength(1); // commentaire préservé
+			expect(restored.startTime).toBe('19:00');
+		});
+
+		it('soft-delete les occurrences actives hors-target (bug #2)', async () => {
+			const d1 = futureDate(7);
+			const d2 = futureDate(14);
+			const { master, adminToken, participantToken } = await createForUpdate([
+				{ date: d1, startTime: '19:00', endTime: '21:00', slotId: 's1' },
+				{ date: d2, startTime: '19:00', endTime: '21:00', slotId: 's1' }
+			]);
+
+			// L'admin retire d2 (combo désactivée → absente des targets).
+			await updatePlanningWithOccurrences(
+				master.id,
+				buildData([{ date: d1, startTime: '19:00', endTime: '21:00', slotId: 's1' }]),
+				adminToken,
+				participantToken
+			);
+
+			const occs = await getOccs(master.id);
+			expect(occs).toHaveLength(2);
+			const occD1 = occs.find((o) => normDate(o.date) === d1)!;
+			const occD2 = occs.find((o) => normDate(o.date) === d2)!;
+			expect(occD1.deleted).toBeFalsy(); // ciblée → toujours active
+			expect(occD2.deleted).toBe(true); // hors-target → soft-deletée
+		});
+
+		it('crée les nouvelles occurrences ciblées sans id', async () => {
+			const d1 = futureDate(7);
+			const d2 = futureDate(14);
+			const { master, adminToken, participantToken } = await createForUpdate([
+				{ date: d1, startTime: '19:00', endTime: '21:00', slotId: 's1' }
+			]);
+			const existingIds = new Set((await getOccs(master.id)).map((o) => o.id));
+
+			// L'admin ajoute d2 (nouvelle combo sans id → création).
+			await updatePlanningWithOccurrences(
+				master.id,
+				buildData([
+					{ date: d1, startTime: '19:00', endTime: '21:00', slotId: 's1' },
+					{ date: d2, startTime: '19:00', endTime: '21:00', slotId: 's1' }
+				]),
+				adminToken,
+				participantToken
+			);
+
+			const after = await getOccs(master.id);
+			expect(after).toHaveLength(2);
+			const created = after.find((o) => !existingIds.has(o.id))!;
+			expect(created).toBeDefined();
+			expect(normDate(created.date)).toBe(d2);
+			expect(created.deleted).toBeFalsy();
+			expect(created.responses).toEqual([]); // nouvelle occurrence vierge
+		});
+	});
+
 	describe('getPlanningByToken', () => {
 		it('resout un planning via participantToken (isAdmin = false)', async () => {
 			const master = await createPlanning({
 				title: 'Token Test',
 				defaultStartTime: '09:00',
 				defaultEndTime: '17:00',
-				recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01'] },
+				recurrence: { type: 'CUSTOM' },
 				minPresentRequired: 1,
 				allowResponses: true
 			});
@@ -226,7 +416,7 @@ describe('planningActions — Pipeline CRUD complet', () => {
 					title: 'Admin Token Test',
 					defaultStartTime: '09:00',
 					defaultEndTime: '17:00',
-					recurrence: { type: 'CUSTOM', recurrenceDates: ['2026-06-01'] },
+					recurrence: { type: 'CUSTOM' },
 					minPresentRequired: 1,
 					allowResponses: true
 				},
@@ -769,19 +959,24 @@ async function createFullPlanning(
 	// Pre-generate le token car onRecordEnrich masque adminToken dans la reponse PB
 	const adminToken = generateAdminToken();
 
+	const occDates = Array.from({ length: opts.occurrenceCount || 1 }, (_, i) => {
+		const d = new Date();
+		d.setDate(d.getDate() + 7 * i);
+		return d.toISOString().split('T')[0];
+	});
+
 	const master = await createPlanningWithOccurrences(
 		{
 			title: opts.title || 'Full Planning',
 			defaultStartTime: '09:00',
 			defaultEndTime: '17:00',
-			recurrence: {
-				type: 'CUSTOM',
-				recurrenceDates: Array.from({ length: opts.occurrenceCount || 1 }, (_, i) => {
-					const d = new Date();
-					d.setDate(d.getDate() + 7 * i);
-					return d.toISOString().split('T')[0];
-				})
-			},
+			recurrence: { type: 'CUSTOM' },
+			occurrenceTargets: occDates.map((date) => ({
+				date,
+				startTime: '09:00',
+				endTime: '17:00',
+				slotId: 's1'
+			})),
 			minPresentRequired: 1,
 			allowResponses: true,
 			participants: opts.participants || []

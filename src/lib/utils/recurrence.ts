@@ -176,14 +176,10 @@ export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
  * @returns Array de dates au format YYYY-MM-DD
  */
 export function generateRecurrenceDates(recurrence: RecurrenceConfig): string[] {
-	// Si des dates spécifiques sont déjà sélectionnées, les utiliser
-	if (recurrence.recurrenceDates && recurrence.recurrenceDates.length > 0) {
-		return recurrence.recurrenceDates;
-	}
-
-	// Mode CUSTOM : pas de génération automatique
+	// Mode CUSTOM : pas de génération automatique (les occurrences sont la source
+	// unique de vérité, portées par OccurrenceTarget côté formulaire).
 	if (recurrence.type === 'CUSTOM') {
-		return recurrence.recurrenceDates || [];
+		return [];
 	}
 
 	const dates: string[] = [];
