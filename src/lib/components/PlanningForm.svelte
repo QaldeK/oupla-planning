@@ -1245,150 +1245,6 @@
 			</h3>
 
 			<div class="flex flex-col gap-4 sm:gap-6">
-				<div class="space-y-3">
-					<div class="flex items-center gap-2">
-						<Clock class="text-primary" size={18} />
-						<span class="font-medium">Créneaux horaires</span>
-					</div>
-
-					{#each timeSlots as slot, i (slot.id)}
-						{@const isEditingThis = editingSlotId === slot.id}
-						<div class="space-y-2">
-							<div class="flex flex-wrap items-end gap-2">
-								{#if isEditingThis}
-									<fieldset class="fieldset">
-										<legend class="fieldset-legend flex items-center gap-2">
-											<Clock size={16} /> Début
-										</legend>
-										<input
-											type="time"
-											bind:this={slotStartInput}
-											bind:value={slotDraft.startTime}
-											class="input w-full"
-											required
-											disabled={isSubmitting}
-										/>
-									</fieldset>
-									<fieldset class="fieldset">
-										<legend class="fieldset-legend flex items-center gap-2">
-											<Clock size={16} /> Fin
-										</legend>
-										<input
-											type="time"
-											bind:value={slotDraft.endTime}
-											class="input w-full"
-											required
-											disabled={isSubmitting}
-										/>
-									</fieldset>
-								{:else}
-									<fieldset class="fieldset">
-										<legend class="fieldset-legend flex items-center gap-2">
-											<Clock size={16} /> Début
-										</legend>
-										<input
-											type="time"
-											bind:value={slot.startTime}
-											class="input w-full"
-											required
-											disabled={isSubmitting || !!master}
-										/>
-									</fieldset>
-									<fieldset class="fieldset">
-										<legend class="fieldset-legend flex items-center gap-2">
-											<Clock size={16} /> Fin
-										</legend>
-										<input
-											type="time"
-											bind:value={slot.endTime}
-											class="input w-full"
-											required
-											disabled={isSubmitting || !!master}
-										/>
-									</fieldset>
-								{/if}
-
-								{#if isEditingThis}
-									<button
-										type="button"
-										class="btn btn-primary btn-sm"
-										onclick={() => applySlotEdit(slot.id)}
-										disabled={isSubmitting}
-									>
-										Appliquer
-									</button>
-									<button
-										type="button"
-										class="btn btn-ghost btn-sm"
-										onclick={cancelSlotEdit}
-										disabled={isSubmitting}
-									>
-										Annuler
-									</button>
-								{:else if master}
-									<button
-										type="button"
-										class="btn btn-ghost btn-sm"
-										onclick={() => startSlotEdit(slot.id)}
-										disabled={isSubmitting || editingSlotId !== null}
-										aria-label="Modifier les horaires du créneau"
-										title="Modifier les horaires (propage aux occurrences, préserve les modifications individuelles)"
-									>
-										<Pencil size={16} />
-									</button>
-								{/if}
-								{#if timeSlots.length > 1}
-									<button
-										type="button"
-										class="btn btn-error btn-ghost btn-sm"
-										onclick={() => removeTimeSlot(slot.id)}
-										disabled={isSubmitting || editingSlotId !== null}
-										aria-label="Supprimer ce créneau"
-									>
-										<Trash2 size={16} />
-									</button>
-								{/if}
-							</div>
-
-							<div class="flex w-full flex-wrap gap-2">
-								<button
-									type="button"
-									class="btn btn-ghost btn-xs bg-base-200"
-									disabled={isSubmitting || (!!master && !isEditingThis)}
-									onclick={() => applyTimePreset(i, '08:00', '12:00')}>Matinée (8h-12h)</button
-								>
-								<button
-									type="button"
-									class="btn btn-ghost btn-xs bg-base-200"
-									disabled={isSubmitting || (!!master && !isEditingThis)}
-									onclick={() => applyTimePreset(i, '13:00', '18:00')}>Après-midi (13h-18h)</button
-								>
-								<button
-									type="button"
-									class="btn btn-ghost btn-xs bg-base-200"
-									disabled={isSubmitting || (!!master && !isEditingThis)}
-									onclick={() => applyTimePreset(i, '19:00', '23:00')}>Soirée (19h-23h)</button
-								>
-								<button
-									type="button"
-									class="btn btn-ghost btn-xs bg-base-200"
-									disabled={isSubmitting || (!!master && !isEditingThis)}
-									onclick={() => applyTimePreset(i, '08:00', '23:00')}>Journée (8h-23h)</button
-								>
-							</div>
-						</div>
-					{/each}
-
-					<button
-						type="button"
-						class="btn btn-ghost btn-sm w-fit"
-						onclick={addTimeSlot}
-						disabled={isSubmitting}
-					>
-						<Plus size={16} /> Ajouter un créneau
-					</button>
-				</div>
-
 				<fieldset class="fieldset md:max-w-1/2">
 					<legend class="fieldset-legend">Type de récurrence</legend>
 					<select
@@ -1577,6 +1433,153 @@
 					{/if}
 				</div>
 			{/snippet}
+
+			<div class="space-y-3">
+				<div class="flex items-center gap-2">
+					<Clock class="text-primary" size={18} />
+					<span class="font-medium">Créneaux horaires</span>
+				</div>
+
+				{#each timeSlots as slot, i (slot.id)}
+					{@const isEditingThis = editingSlotId === slot.id}
+					<div class="space-y-2">
+						<div class="flex flex-wrap items-end gap-2">
+							{#if isEditingThis}
+								<fieldset class="fieldset">
+									<legend class="fieldset-legend flex items-center gap-2">
+										<Clock size={16} /> Début
+									</legend>
+									<input
+										type="time"
+										bind:this={slotStartInput}
+										bind:value={slotDraft.startTime}
+										class="input w-full"
+										required
+										disabled={isSubmitting}
+									/>
+								</fieldset>
+								<fieldset class="fieldset">
+									<legend class="fieldset-legend flex items-center gap-2">
+										<Clock size={16} /> Fin
+									</legend>
+									<input
+										type="time"
+										bind:value={slotDraft.endTime}
+										class="input w-full"
+										required
+										disabled={isSubmitting}
+									/>
+								</fieldset>
+							{:else}
+								<fieldset class="fieldset">
+									<legend class="fieldset-legend flex items-center gap-2">
+										<Clock size={16} /> Début
+									</legend>
+									<input
+										type="time"
+										bind:value={slot.startTime}
+										class="input w-full"
+										required
+										disabled={isSubmitting || !!master}
+									/>
+								</fieldset>
+								<fieldset class="fieldset">
+									<legend class="fieldset-legend flex items-center gap-2">
+										<Clock size={16} /> Fin
+									</legend>
+									<input
+										type="time"
+										bind:value={slot.endTime}
+										class="input w-full"
+										required
+										disabled={isSubmitting || !!master}
+									/>
+								</fieldset>
+							{/if}
+
+							{#if isEditingThis}
+								<button
+									type="button"
+									class="btn btn-primary btn-sm"
+									onclick={() => applySlotEdit(slot.id)}
+									disabled={isSubmitting}
+								>
+									Appliquer
+								</button>
+								<button
+									type="button"
+									class="btn btn-ghost btn-sm"
+									onclick={cancelSlotEdit}
+									disabled={isSubmitting}
+								>
+									Annuler
+								</button>
+							{:else if master}
+								<button
+									type="button"
+									class="btn btn-ghost btn-sm"
+									onclick={() => startSlotEdit(slot.id)}
+									disabled={isSubmitting || editingSlotId !== null}
+									aria-label="Modifier les horaires du créneau"
+									title="Modifier les horaires (propage aux occurrences, préserve les modifications individuelles)"
+								>
+									<Pencil size={16} />
+								</button>
+							{/if}
+							{#if timeSlots.length > 1}
+								<button
+									type="button"
+									class="btn btn-error btn-ghost btn-sm"
+									onclick={() => removeTimeSlot(slot.id)}
+									disabled={isSubmitting || editingSlotId !== null}
+									aria-label="Supprimer ce créneau"
+								>
+									<Trash2 size={16} />
+								</button>
+							{/if}
+						</div>
+
+						<!-- <div class="flex w-full flex-wrap gap-2">
+							<button
+								type="button"
+								class="btn btn-ghost btn-xs bg-base-200"
+								disabled={isSubmitting || (!!master && !isEditingThis)}
+								onclick={() => applyTimePreset(i, '08:00', '12:00')}>Matinée (8h-12h)</button
+							>
+							<button
+								type="button"
+								class="btn btn-ghost btn-xs bg-base-200"
+								disabled={isSubmitting || (!!master && !isEditingThis)}
+								onclick={() => applyTimePreset(i, '13:00', '18:00')}>Après-midi (13h-18h)</button
+							>
+							<button
+								type="button"
+								class="btn btn-ghost btn-xs bg-base-200"
+								disabled={isSubmitting || (!!master && !isEditingThis)}
+								onclick={() => applyTimePreset(i, '19:00', '23:00')}>Soirée (19h-23h)</button
+							>
+							<button
+								type="button"
+								class="btn btn-ghost btn-xs bg-base-200"
+								disabled={isSubmitting || (!!master && !isEditingThis)}
+								onclick={() => applyTimePreset(i, '08:00', '23:00')}>Journée (8h-23h)</button
+							>
+						</div> -->
+					</div>
+					{#if timeSlots.length > 1}
+						<span class="divider"></span>
+					{/if}
+				{/each}
+
+				<button
+					type="button"
+					class="btn btn-ghost btn-sm w-fit"
+					onclick={addTimeSlot}
+					disabled={isSubmitting}
+				>
+					<Plus size={16} /> Ajouter un créneau
+				</button>
+			</div>
 
 			{#if recurrenceType !== 'CUSTOM' && allGeneratedDates.length > 0}
 				<div
