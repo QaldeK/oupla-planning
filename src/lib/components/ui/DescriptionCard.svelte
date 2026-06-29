@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Drawer, DrawerContent, DrawerOverlay } from '@abhivarde/svelte-drawer';
+	import { Drawer, DrawerContent, DrawerHandle, DrawerOverlay } from '@abhivarde/svelte-drawer';
 	import { ChevronDown, ChevronUp, X } from 'lucide-svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 
@@ -84,7 +84,7 @@
 				<span
 					class="text-primary mt-0.5 inline-flex shrink-0 items-center gap-0.5 text-xs font-medium"
 				>
-					{#if mediaQuery.isMobile}
+					{#if !mediaQuery.isMobile}
 						Lire la suite
 						<ChevronDown size={14} />
 					{:else if isExpanded}<ChevronUp size={16} />{:else}<ChevronDown size={16} />{/if}
@@ -116,10 +116,11 @@
 
 {#if isDrawerOpen}
 	<Drawer bind:open={isDrawerOpen} portal={true} direction="bottom" closeOnEscape={true}>
-		<DrawerOverlay class="fixed bg-black/40" />
+		<DrawerOverlay class="fixed inset-0 z-50 bg-black/40" />
 		<DrawerContent
-			class="bg-base-100 fixed top-50 right-0 bottom-0 z-50 flex w-dvw flex-col shadow-2xl sm:w-120 sm:max-w-[85vw]"
+			class="bg-base-100 fixed inset-x-0 bottom-0 z-50 flex max-h-[50dvh] w-dvw flex-col rounded-t-lg shadow-2xl"
 		>
+			<DrawerHandle class="bg-base-content/30 mt-2 mb-1" />
 			<div class="border-base-300 flex items-center justify-between border-b px-4 py-3">
 				<h3 class="text-base font-semibold">Description</h3>
 				<button

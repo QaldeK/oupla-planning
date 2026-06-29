@@ -423,13 +423,6 @@
 				</div>
 			</div>
 
-			<!-- Description du planning (hors card, fait suite au header) -->
-			{#if master.description}
-				<div class="mb-4">
-					<DescriptionCard text={master.description} collapsedLines={3} />
-				</div>
-			{/if}
-
 			<!-- Card : Participants (rendue même si 0 participant) -->
 			<div class="card card-sm bg-base-300/20 border-base-content/5 mb-4 border shadow-sm">
 				<div class="card-body gap-4">
@@ -543,6 +536,13 @@
 
 			<!-- Installation PWA (compact) -->
 			<PwaInstallCard compact />
+
+			<!-- Description du planning (hors card, fait suite au header) -->
+			{#if master.description}
+				<div class="my-4">
+					<DescriptionCard text={master.description} collapsedLines={3} />
+				</div>
+			{/if}
 		</div>
 
 		<!-- Liste des occurrences -->

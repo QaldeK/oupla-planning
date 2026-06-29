@@ -318,7 +318,7 @@
 		</div>
 
 		{#if occurrence.description}
-			<div class="px-2 pt-1">
+			<div class="my-2 px-2 pt-1">
 				<DescriptionCard text={occurrence.description} collapsedLines={1} />
 			</div>
 		{/if}
