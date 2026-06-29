@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
+	import DescriptionCard from '$lib/components/ui/DescriptionCard.svelte';
 	import { updateOccurrence } from '$lib/services/planningActions';
 	import { commentStateService } from '$lib/services/commentStateService';
 	import { db } from '$lib/pb-sync/db';
@@ -316,6 +317,12 @@
 			</div>
 		</div>
 
+		{#if occurrence.description}
+			<div class="px-2 pt-1">
+				<DescriptionCard text={occurrence.description} collapsedLines={1} />
+			</div>
+		{/if}
+
 		<!-- Line 2: Actions -->
 		<div class="flex flex-col gap-3 px-2 py-1">
 			{#if occState.masterConfig.allowResponses}
@@ -435,6 +442,10 @@
 				</div>
 			</div>
 
+			{#if occurrence.description}
+				<DescriptionCard text={occurrence.description} collapsedLines={4} />
+			{/if}
+
 			{#if occState.masterConfig.allowResponses}
 				<div class="mt-3 flex flex-wrap items-center justify-between gap-8">
 					<div class="flex flex-1">
@@ -526,6 +537,12 @@
 				{/if}
 			</div>
 		</div>
+
+		{#if occurrence.description}
+			<div class="px-2 pt-1">
+				<DescriptionCard text={occurrence.description} collapsedLines={1} />
+			</div>
+		{/if}
 
 		<!-- Actions section -->
 		{#if occState.masterConfig.allowResponses}

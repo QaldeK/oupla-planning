@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
+	import DescriptionCard from '$lib/components/ui/DescriptionCard.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import IdentityClaimModal from '$lib/components/IdentityClaimModal.svelte';
 	import NetworkAlert from '$lib/components/NetworkAlert.svelte';
@@ -29,7 +30,6 @@
 		Bell,
 		Calendar,
 		History,
-		InfoIcon,
 		ListFilter,
 		Lock,
 		MapPin,
@@ -425,9 +425,8 @@
 
 			<!-- Description du planning (hors card, fait suite au header) -->
 			{#if master.description}
-				<div class="mb-4 flex items-start gap-2">
-					<InfoIcon size={18} class="text-primary mt-0.5 shrink-0" />
-					<p class="text-base-content/80 text-sm">{master.description}</p>
+				<div class="mb-4">
+					<DescriptionCard text={master.description} collapsedLines={3} />
 				</div>
 			{/if}
 
