@@ -72,27 +72,30 @@
 
 @layer base {
 	/* Desktop densité standard (1080p sur laptops) */
-	@media (min-width: 769px) and (min-resolution: 110dpi) and (max-resolution: 139dpi) {
+	/*@media (min-width: 769px) and (min-resolution: 110dpi) and (max-resolution: 139dpi) {
 		html {
 			font-size: clamp(14px, 1vw, 16px);
 		}
-	}
+	}*/
 
 	/* Desktop basse densité (grands écrans 1080p/1440p) */
-	@media (min-width: 769px) and (max-resolution: 109dpi) {
+	/*@media (min-width: 769px) and (max-resolution: 109dpi) {
 		html {
 			font-size: clamp(15px, 1.1vw, 18px);
-		}
+		}*/
 
-		/*/* Desktop haute densité (Retina, 4K compact) */
-		@media (min-width: 769px) and (min-resolution: 140dpi) {
+	/*/* Desktop haute densité (Retina, 4K compact) */
+	/*@media (min-width: 769px) and (min-resolution: 140dpi) {
 			html {
 				font-size: clamp(14px, 0.9vw, 16px);
 			}
-		}
+		}*/
+
+	html {
+		font-size: clamp(14px, 1.1vw, 18px);
 	}
 
-	*/ html {
+	html {
 		height: 100%;
 		margin: 0;
 		padding: 0;

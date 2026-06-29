@@ -55,3 +55,4 @@ src-tauri/gen/schemas
 # Git Worktrees
 .worktrees/
 AGENTS.md
+.agents/
