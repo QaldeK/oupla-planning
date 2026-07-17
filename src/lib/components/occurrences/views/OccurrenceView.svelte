@@ -287,8 +287,8 @@
 						</span>
 					</div>
 
-					<div class="flex items-center gap-1 opacity-70">
-						<Clock size={14} />
+					<div class="flex items-center gap-1 font-semibold opacity-80">
+						<Clock size={16} />
 						{formatTimeRange(occurrence.startTime, occurrence.endTime)}
 					</div>
 					<!-- Place -->
@@ -507,8 +507,8 @@
 			</div>
 
 			<!-- Time -->
-			<div class="flex items-center gap-1 text-sm opacity-70">
-				<Clock size={12} />
+			<div class="flex items-center gap-1 text-sm font-medium opacity-80">
+				<Clock size={14} />
 				{formatTimeRange(occurrence.startTime, occurrence.endTime)}
 			</div>
 

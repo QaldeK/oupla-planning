@@ -85,8 +85,8 @@
 		title: initTitle = '',
 		description: initDesc = '',
 		place: initPlace = '',
-		defaultStartTime: initStartTime = '19:00',
-		defaultEndTime: initEndTime = '21:00',
+		defaultStartTime: initStartTime = '14:00',
+		defaultEndTime: initEndTime = '18:00',
 		timeSlots: initMasterTimeSlots,
 		minPresentRequired: initMinPresent = 1,
 		allowResponses: initAllowResponses = true,
@@ -114,7 +114,7 @@
 	let timeSlots = $state<TimeSlot[]>(
 		initMasterTimeSlots && initMasterTimeSlots.length > 0
 			? initMasterTimeSlots.map((s: TimeSlot) => ({ ...s }))
-			: [{ id: 's1', startTime: initStartTime || '19:00', endTime: initEndTime || '21:00' }]
+			: [{ id: 's1', startTime: initStartTime || '14:00', endTime: initEndTime || '18:00' }]
 	);
 	let minPresentRequired = $state(initMinPresent ?? 1);
 	let allowResponses = $state(initAllowResponses ?? true);
