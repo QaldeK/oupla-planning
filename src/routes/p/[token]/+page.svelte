@@ -19,7 +19,7 @@
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
-	import { formatDateShort } from '$lib/utils/date';
+	import { formatDate, formatDateShort } from '$lib/utils/date';
 	import { hasNameConflict } from '$lib/utils/participantConflict';
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { fade } from 'svelte/transition';
@@ -29,6 +29,7 @@
 	import {
 		Bell,
 		Calendar,
+		CalendarX,
 		History,
 		ListFilter,
 		Lock,
@@ -575,6 +576,42 @@
 				<h2 class="text-xl font-semibold max-sm:px-2 sm:text-2xl">Prochaines dates</h2>
 				<ViewTabs />
 			</div>
+
+			<!-- État vide : toutes les dates sont passées -->
+			{#if occurrences.length === 0 && allOccurrences.length > 0}
+				{@const sortedDates = allOccurrences.map((o) => o.date).sort()}
+				{@const firstDate = master.recurrence?.firstDate ?? sortedDates[0]}
+				{@const lastDate = master.recurrence?.lastDate ?? sortedDates.at(-1)}
+				<div
+					class="alert alert-vertical alert-info alert-soft mx-auto mt-4"
+					in:fade={{ duration: 300 }}
+				>
+					<CalendarX size={26} class="shrink-0" />
+					<div class="flex-1">
+						<p class="font-medium">Toutes les dates programmées sont passées</p>
+						{#if firstDate && lastDate}
+							<p class="text-sm opacity-80">
+								Du {formatDate(firstDate)} au {formatDate(lastDate)}
+							</p>
+						{/if}
+						<div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+							<a href="/p/{token}/archive" class="link link-hover inline-flex items-center gap-1">
+								<History size={14} />
+								Voir l'archive
+							</a>
+							{#if isAdmin}
+								<a
+									href="/admin/{adminToken}"
+									class="link link-hover inline-flex items-center gap-1"
+								>
+									<Settings size={14} />
+									Modifier le planning
+								</a>
+							{/if}
+						</div>
+					</div>
+				</div>
+			{/if}
 
 			<!-- Liste des occurrences avec composant unique -->
 			{#each displayedOccurrences as occurrence, i (occurrence.id)}
