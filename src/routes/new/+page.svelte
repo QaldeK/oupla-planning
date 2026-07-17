@@ -8,7 +8,7 @@
 	} from '$lib/services/planningActions';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { toast } from 'svelte-sonner';
-	import { Calendar, UserPlus } from 'lucide-svelte';
+	import { Calendar, UserPlus } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { syncService } from '$lib/services/syncService';
 	import type { Participant } from '$lib/types/planning.types';

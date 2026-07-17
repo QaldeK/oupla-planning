@@ -34,7 +34,7 @@
 		Users,
 		X,
 		XCircle
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import NetworkAlert from '../NetworkAlert.svelte';
 	import Modal from '../ui/Modal.svelte';
@@ -649,8 +649,7 @@
 				<textarea
 					bind:value={description}
 					class="textarea h-24 w-full"
-					placeholder="Notes spécifiques pour cette occurrence..."
-				></textarea>
+					placeholder="Notes spécifiques pour cette occurrence..."></textarea>
 			</div>
 
 			<div class="divider"></div>

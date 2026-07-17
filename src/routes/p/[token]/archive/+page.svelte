@@ -2,7 +2,7 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { page } from '$app/state';
-	import { Calendar, ArrowLeft, History, Info, Trash2 } from 'lucide-svelte';
+	import { Calendar, ArrowLeft, History, Info, Trash2 } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import OccurrenceView from '$lib/components/occurrences/views/OccurrenceView.svelte';
 	import { ArchiveSkeleton } from '$lib/components/ui/skeletons';

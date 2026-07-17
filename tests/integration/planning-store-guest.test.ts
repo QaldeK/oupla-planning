@@ -59,7 +59,11 @@ describe('PlanningStore — Guest Flow', () => {
 	describe('setActiveToken — participant token', () => {
 		it('charge un planning guest et synchronise Dexie + PocketBase', async () => {
 			// === SEED ===
-			const { master, occurrences, participantToken } = await seedPlanning({
+			const {
+				master,
+				occurrences: _occurrences,
+				participantToken
+			} = await seedPlanning({
 				title: 'Planning Guest Test',
 				occurrenceCount: 3
 			});
@@ -276,7 +280,12 @@ describe('PlanningStore — Guest Flow', () => {
 
 		it('met a jour les occurrences quand un autre client modifie une occurrence', async () => {
 			// === SEED ===
-			const { master, occurrences, participantToken, adminToken } = await seedPlanning({
+			const {
+				master: _master,
+				occurrences,
+				participantToken,
+				adminToken
+			} = await seedPlanning({
 				title: 'Realtime Occ Test',
 				occurrenceCount: 2
 			});

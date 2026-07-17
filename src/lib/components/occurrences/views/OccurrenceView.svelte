@@ -20,7 +20,7 @@
 		MessageSquare,
 		Pencil,
 		XCircle
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import type { ViewProps } from '../index';
 	import OccurrenceEditModal from '../OccurrenceEditModal.svelte';

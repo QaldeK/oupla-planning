@@ -278,7 +278,7 @@ describe('pb-sync — CRUD et merge strategies', () => {
 
 			// Creer 2 masters via seedPlanning (tokens uniques)
 			const { master: m1, adminToken: token1 } = await seedPlanning({ title: 'Master 1' });
-			const { master: m2, adminToken: token2 } = await seedPlanning({ title: 'Master 2' });
+			const { master: _m2, adminToken: _token2 } = await seedPlanning({ title: 'Master 2' });
 
 			// Premier fetch via token admin d'un des plannings
 			await collection.initialFetch({ query: { _token: token1 } });

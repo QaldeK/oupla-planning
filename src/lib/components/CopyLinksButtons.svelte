@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Copy, Check, Share2, CalendarCog } from 'lucide-svelte';
+	import { Copy, Check, Share2, CalendarCog } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 
 	interface Props {

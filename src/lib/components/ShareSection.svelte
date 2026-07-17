@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CopyLinksButtons from '$lib/components/CopyLinksButtons.svelte';
-	import { Settings, Share2, Users } from 'lucide-svelte';
+	import { Settings, Share2, Users } from '@lucide/svelte';
 
 	interface Props {
 		isAdmin: boolean;

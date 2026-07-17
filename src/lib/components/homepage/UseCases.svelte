@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Users, Trophy, Music, Building2 } from 'lucide-svelte';
+	import { Users, Trophy, Music, Building2 } from '@lucide/svelte';
 
 	const useCases = [
 		{

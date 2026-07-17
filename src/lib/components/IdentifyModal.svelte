@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
-	import { ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from 'lucide-svelte';
+	import { ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { fade } from 'svelte/transition';
 	import AuthForm from './auth/AuthForm.svelte';

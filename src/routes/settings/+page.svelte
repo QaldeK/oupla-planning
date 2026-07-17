@@ -2,7 +2,7 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { pb } from '$lib/pocketbase/pb';
 	import { goto } from '$app/navigation';
-	import { User, Mail, Lock, LogOut, ShieldCheck } from 'lucide-svelte';
+	import { User, Mail, Lock, LogOut, ShieldCheck } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import Modal from '$lib/components/ui/Modal.svelte';
 

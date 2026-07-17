@@ -3,7 +3,7 @@
 	import { updateParticipant } from '$lib/services/planningActions';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { goto } from '$app/navigation';
-	import { LogIn } from 'lucide-svelte';
+	import { LogIn } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import type { PlanningMaster } from '$lib/types/planning.types';
 

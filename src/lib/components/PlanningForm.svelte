@@ -28,7 +28,7 @@
 		ClipboardCheck,
 		Check,
 		RotateCcw
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { generateRecurrenceDates, getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from '$lib/constants';
 	import { toast } from 'svelte-sonner';
@@ -823,6 +823,7 @@
 
 	// Applique un preset horaire. En session pencil sur ce slot, le preset alimente
 	// le draft (aperçu avant apply) ; sinon il mute le template (comportement création).
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- utilisé dans le template commenté (presets horaires)
 	function applyTimePreset(index: number, startTime: string, endTime: string) {
 		const slot = timeSlots[index];
 		if (!slot) return;
@@ -1213,8 +1214,7 @@
 						class="textarea w-full"
 						rows="3"
 						disabled={isSubmitting}
-						maxlength="280"
-					></textarea>
+						maxlength="280"></textarea>
 				</fieldset>
 
 				<fieldset class="fieldset col-span-full">
@@ -1440,7 +1440,7 @@
 					<span class="font-medium">Créneaux horaires</span>
 				</div>
 
-				{#each timeSlots as slot, i (slot.id)}
+				{#each timeSlots as slot, _i (slot.id)}
 					{@const isEditingThis = editingSlotId === slot.id}
 					<div class="space-y-2">
 						<div class="flex flex-wrap items-end gap-2">

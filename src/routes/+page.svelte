@@ -10,7 +10,7 @@
 	import BenefitsBanner from '$lib/components/homepage/BenefitsBanner.svelte';
 
 	import { goto } from '$app/navigation';
-	import { MessageSquareWarning, Plus, Trash2 } from 'lucide-svelte';
+	import { MessageSquareWarning, Plus, Trash2 } from '@lucide/svelte';
 
 	function navigateToPlanning(participantToken: string) {
 		goto(`/p/${participantToken}`);

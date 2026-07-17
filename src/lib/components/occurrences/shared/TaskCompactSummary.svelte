@@ -7,7 +7,7 @@
 		ClipboardCheck,
 		UserMinus,
 		UserPlus
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 	import TaskVolunteersModal from './TaskVolunteersModal.svelte';
 

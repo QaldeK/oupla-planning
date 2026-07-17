@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { RefreshCw, Trash2, WifiOff } from 'lucide-svelte';
+	import { RefreshCw, Trash2, WifiOff } from '@lucide/svelte';
 
 	interface Props {
 		errorType: 'network' | 'deleted' | 'not-found' | null;

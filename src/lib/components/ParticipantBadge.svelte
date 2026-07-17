@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ResponseType } from '$lib/types/planning.types';
 	import { RESPONSE_TYPE_CONFIG } from '$lib/constants';
-	import { Minus } from 'lucide-svelte';
+	import { Minus } from '@lucide/svelte';
 
 	interface Props {
 		response: ResponseType | undefined;

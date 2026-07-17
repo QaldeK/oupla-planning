@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CalendarPlus, Share2, Eye } from 'lucide-svelte';
+	import { CalendarPlus, Share2, Eye } from '@lucide/svelte';
 
 	const steps = [
 		{

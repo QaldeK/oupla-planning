@@ -39,7 +39,7 @@
 		User,
 		UserCheck,
 		UserCog
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { SvelteSet } from 'svelte/reactivity';

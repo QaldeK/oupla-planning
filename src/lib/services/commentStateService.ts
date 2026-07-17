@@ -55,7 +55,7 @@ class CommentStateService {
 		if (!pb.authStore.isValid || !pb.authStore.record) return;
 		const userId = pb.authStore.record.id;
 
-		let participants: { id: string; planning: string; commentReadState: unknown }[] = [];
+		let participants!: { id: string; planning: string; commentReadState: unknown }[];
 		try {
 			participants = await pb
 				.collection('planning_participants')

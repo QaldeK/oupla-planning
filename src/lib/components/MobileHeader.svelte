@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { Menu, PanelLeftClose, User } from 'lucide-svelte';
+	import { Menu, PanelLeftClose, User } from '@lucide/svelte';
 	import type { PlanningMaster } from '$lib/types/planning.types';
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';

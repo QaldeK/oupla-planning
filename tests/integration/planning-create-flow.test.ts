@@ -49,7 +49,6 @@ import { userStore } from '$lib/stores/userStore.svelte';
 import { generateRecurrenceDates } from '$lib/utils/recurrence';
 import type {
 	PlanningMaster,
-	PlanningOccurrence,
 	Participant,
 	OccurrenceTarget,
 	RecurrenceConfig
@@ -219,7 +218,7 @@ describe('Planning Create Flow — /new', () => {
 			const testEmail = 'creator@test.com';
 			const testPwd = 'password123';
 			const user = await seedUser(testEmail, testPwd, 'Createur Test');
-			const userPb = await authenticateUser(testEmail, testPwd);
+			const _userPb = await authenticateUser(testEmail, testPwd);
 
 			const adminToken = generateAdminToken();
 			const participantToken = generateParticipantToken();

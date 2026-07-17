@@ -2,7 +2,7 @@
 	import { pb } from '$lib/pocketbase/pb';
 	import { ClientResponseError } from 'pocketbase';
 	import { toast } from 'svelte-sonner';
-	import { Mail, KeyRound, LoaderCircle, User } from 'lucide-svelte';
+	import { Mail, KeyRound, LoaderCircle, User } from '@lucide/svelte';
 
 	interface Props {
 		mode?: 'register' | 'login';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { networkStore } from '$lib/stores/networkStore.svelte';
-	import { RefreshCw } from 'lucide-svelte';
+	import { RefreshCw } from '@lucide/svelte';
 
 	const isServerUnavailable = $derived(
 		networkStore.online && networkStore.hasActiveSubscription && !networkStore.realtimeConnected

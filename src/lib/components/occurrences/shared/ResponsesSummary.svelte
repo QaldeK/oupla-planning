@@ -6,7 +6,8 @@
 		ResponseTypeConfig
 	} from '$lib/types/planning.types';
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from '$lib/constants';
-	import { UserPlus } from 'lucide-svelte';
+	import type { LucideIcon } from '@lucide/svelte';
+	import { UserPlus } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
@@ -63,7 +64,7 @@
 	type: ResponseType,
 	config: ResponseTypeConfig,
 	typeResponses: ParticipantResponse[],
-	Icon: typeof import('lucide-svelte').Check
+	Icon: LucideIcon
 )}
 	<button
 		class="bg-base-200/50 group flex {sizeResponse} grow flex-col overflow-hidden rounded-lg {!disabled &&
@@ -109,7 +110,7 @@
 	type: ResponseType,
 	config: ResponseTypeConfig,
 	typeResponses: ParticipantResponse[],
-	Icon: typeof import('lucide-svelte').Check
+	Icon: LucideIcon
 )}
 	<button
 		class="bg-base-200/50 group flex flex-wrap overflow-hidden rounded-lg {!disabled &&

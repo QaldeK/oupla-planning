@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Modal from './Modal.svelte';
-	import { AlertTriangle, Info, AlertCircle, CheckCircle2 } from 'lucide-svelte';
+	import { AlertTriangle, Info, AlertCircle, CheckCircle2 } from '@lucide/svelte';
 
 	interface Props {
 		open: boolean;

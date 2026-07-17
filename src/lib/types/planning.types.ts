@@ -1,3 +1,5 @@
+import type { LucideIcon } from '@lucide/svelte';
+
 // === Réponses ===
 export type ResponseType = 'present' | 'if_needed' | 'maybe' | 'absent';
 
@@ -229,7 +231,7 @@ export interface CommentState {
 
 export interface ResponseTypeConfig {
 	label: string;
-	icon: typeof import('lucide-svelte').Check;
+	icon: LucideIcon;
 	badgeClass: string;
 	bgClass: string;
 	bgClass10: string;

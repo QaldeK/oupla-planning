@@ -543,7 +543,11 @@ describe('planningActions — Pipeline CRUD complet', () => {
 
 	describe('Reponses — CRUD', () => {
 		it('soumet une reponse a une occurrence', async () => {
-			const { master, adminToken, occId } = await createFullPlanning({ occurrenceCount: 1 });
+			const {
+				master: _master,
+				adminToken,
+				occId
+			} = await createFullPlanning({ occurrenceCount: 1 });
 			const participantId = 'user001';
 
 			const response: ParticipantResponse = {
@@ -573,7 +577,11 @@ describe('planningActions — Pipeline CRUD complet', () => {
 		});
 
 		it('met a jour une reponse existante pour le meme participant', async () => {
-			const { master, adminToken, occId } = await createFullPlanning({ occurrenceCount: 1 });
+			const {
+				master: _master,
+				adminToken,
+				occId
+			} = await createFullPlanning({ occurrenceCount: 1 });
 			const participantId = 'user001';
 
 			await submitResponse(
@@ -904,7 +912,9 @@ describe('planningActions — Pipeline CRUD complet', () => {
 		});
 
 		it('rejecte les operations CRUD avec un token invalide', async () => {
-			const { master, adminToken } = await createFullPlanning({ title: 'Invalid Token' });
+			const { master, adminToken: _adminToken } = await createFullPlanning({
+				title: 'Invalid Token'
+			});
 			const alice: Participant = { id: 'aaa111', name: 'Alice', isAdmin: false, createdAt: '' };
 
 			await expect(addParticipant(master.id, alice, 'invalid-token-00000000')).rejects.toThrow();
@@ -924,7 +934,11 @@ describe('planningActions — Pipeline CRUD complet', () => {
 		});
 
 		it("throw si l'occurrence n'est pas dans Dexie lors d'un submitResponse", async () => {
-			const { master, adminToken, occurrences } = await seedPlanning({
+			const {
+				master: _master,
+				adminToken,
+				occurrences
+			} = await seedPlanning({
 				title: 'Occ Not In Dexie',
 				occurrenceCount: 1
 			});

@@ -23,7 +23,7 @@
 	import QuitReturnModal from '$lib/components/QuitReturnModal.svelte';
 	import LockOverlay from '$lib/components/admin/LockOverlay.svelte';
 	import NetworkAlert from '$lib/components/NetworkAlert.svelte';
-	import { ArrowLeft, Calendar, CalendarCog, RefreshCw, Trash2, WifiOff } from 'lucide-svelte';
+	import { ArrowLeft, Calendar, CalendarCog, RefreshCw, Trash2, WifiOff } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 
 	let token = $derived($page.params.token as string);

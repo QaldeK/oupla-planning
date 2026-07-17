@@ -3,7 +3,7 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { formatDate } from '$lib/utils/date';
-	import { AlertTriangle, RefreshCw } from 'lucide-svelte';
+	import { AlertTriangle, RefreshCw } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {

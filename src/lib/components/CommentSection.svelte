@@ -5,7 +5,7 @@
 	import { formatDate } from '$lib/utils/date';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { classifyError } from '$lib/utils/errorHandler';
-	import { MessageSquare, Send, X } from 'lucide-svelte';
+	import { MessageSquare, Send, X } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import NetworkAlert from './NetworkAlert.svelte';
 
@@ -152,8 +152,7 @@
 							e.preventDefault();
 							handleSubmit();
 						}
-					}}
-				></textarea>
+					}}></textarea>
 				<button
 					type="submit"
 					class="btn btn-primary btn-circle sm:btn-sm absolute right-3 bottom-3 shadow-lg"

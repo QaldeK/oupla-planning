@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import type { ViewType } from './index';
-	import { LayoutGrid, List, Minimize2 } from 'lucide-svelte';
+	import { LayoutGrid, List, Minimize2 } from '@lucide/svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 
 	const activeView = $derived(userStore.appPreferences.occurrenceView);

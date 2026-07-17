@@ -16,7 +16,7 @@
 		parse
 	} from 'date-fns';
 	import { fr } from 'date-fns/locale';
-	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
 	import type { ClassValue } from 'svelte/elements';
 
 	/**

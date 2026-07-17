@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Lock, AlertTriangle, ArrowLeft, RotateCcw } from 'lucide-svelte';
+	import { Lock, AlertTriangle, ArrowLeft, RotateCcw } from '@lucide/svelte';
 	import type { LockInfo } from '$lib/services/lockService';
 
 	interface Props {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task, ParticipantResponse, TaskType } from '$lib/types/planning.types';
-	import { Clock, CalendarArrowUp, CalendarArrowDown, UserMinus, UserPlus } from 'lucide-svelte';
+	import { Clock, CalendarArrowUp, CalendarArrowDown, UserMinus, UserPlus } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 	import Modal from '$lib/components/ui/Modal.svelte';
 

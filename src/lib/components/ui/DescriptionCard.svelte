@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Drawer, DrawerContent, DrawerHandle, DrawerOverlay } from '@abhivarde/svelte-drawer';
-	import { ChevronDown, ChevronUp, X } from 'lucide-svelte';
+	import { ChevronDown, ChevronUp, X } from '@lucide/svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 
 	interface Props {

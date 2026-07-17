@@ -99,7 +99,9 @@ describe('userStore — identity, auth transitions, logout', () => {
 
 		it('retourne null pour un planning sans identite', async () => {
 			// === SEED : master en Dexie mais pas d'identite dans localMeta ===
-			const { master, participantToken } = await seedPlanning({ title: 'No Identity' });
+			const { master, participantToken: _participantToken } = await seedPlanning({
+				title: 'No Identity'
+			});
 
 			// === VERIFICATION ===
 			expect(userStore.getIdentityForPlanning(master.id)).toBeNull();

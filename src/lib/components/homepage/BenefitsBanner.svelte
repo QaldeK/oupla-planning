@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { UserX, HatGlasses, Smartphone } from 'lucide-svelte';
+	import { UserX, HatGlasses, Smartphone } from '@lucide/svelte';
 
 	const benefits = [
 		{

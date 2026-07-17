@@ -2,7 +2,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import AuthForm from './AuthForm.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
-	import { ShieldCheck, MonitorSmartphone } from 'lucide-svelte';
+	import { ShieldCheck, MonitorSmartphone } from '@lucide/svelte';
 
 	interface Props {
 		open: boolean;

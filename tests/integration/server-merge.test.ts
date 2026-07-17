@@ -39,7 +39,7 @@ const PB_URL = process.env.VITE_PLANNING_PB_URL || 'http://127.0.0.1:8090';
 
 // Client PB authentifié uniquement via token (query param), comme un vrai client guest.
 // Pas d'auth admin → les hooks s'appliquent (token check, merge, _version).
-function tokenClient(token: string): PocketBase {
+function tokenClient(_token: string): PocketBase {
 	return new PocketBase(PB_URL);
 }
 

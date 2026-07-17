@@ -17,14 +17,14 @@
 	import {
 		CalendarPlus,
 		Download,
-		Github,
+		Code,
 		LogOut,
 		MessageSquareWarning,
 		Moon,
 		Settings,
 		Sun,
 		Trash2
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { Toaster, toast } from 'svelte-sonner';
 
@@ -137,7 +137,7 @@
 						rel="noopener noreferrer"
 						class="hover:text-primary flex items-center gap-2 transition"
 					>
-						<Github size={20} />
+						<Code size={20} />
 					</a>
 					<a
 						href="https://www.gnu.org/licenses/agpl-3.0.html"

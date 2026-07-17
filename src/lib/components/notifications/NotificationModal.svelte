@@ -8,7 +8,7 @@
 		unsubscribeFromPush
 	} from '$lib/services/push';
 	import { getParticipantPrefs, updateParticipantPrefs } from '$lib/services/planningParticipants';
-	import { Bell, Mail, Smartphone, Save, LoaderCircle } from 'lucide-svelte';
+	import { Bell, Mail, Smartphone, Save, LoaderCircle } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { untrack } from 'svelte';
 

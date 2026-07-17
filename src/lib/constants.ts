@@ -1,5 +1,5 @@
 import type { ResponseType } from './types/planning.types';
-import { Check, X, HelpCircle, Info } from 'lucide-svelte';
+import { Check, X, HelpCircle, Info } from '@lucide/svelte';
 
 // === ResponseType disponibles ===
 export const AVAILABLE_RESPONSE_TYPES: ResponseType[] = ['present', 'if_needed', 'maybe', 'absent'];

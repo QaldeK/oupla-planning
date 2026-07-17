@@ -6,7 +6,7 @@
 		MessageSquareText,
 		Bell,
 		ShieldCheck
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	const features = [
 		{

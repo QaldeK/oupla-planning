@@ -25,7 +25,7 @@
 		User,
 		UserCheck,
 		Users
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
