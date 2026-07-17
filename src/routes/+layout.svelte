@@ -132,12 +132,12 @@
 				<!-- Links existants -->
 				<div class="text-base-content/60 flex items-center justify-center gap-2">
 					<a
-						href="https://github.com/yourusername/yourrepo"
+						href="https://github.com/QaldeK/oupla-planning/"
 						target="_blank"
 						rel="noopener noreferrer"
 						class="hover:text-primary flex items-center gap-2 transition"
 					>
-						<Code size={20} />
+						<Code size={20} /> Git -
 					</a>
 					<a
 						href="https://www.gnu.org/licenses/agpl-3.0.html"
