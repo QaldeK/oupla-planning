@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Drawer, DrawerContent, DrawerHandle, DrawerOverlay } from '@abhivarde/svelte-drawer';
 	import { ChevronDown, ChevronUp, X } from '@lucide/svelte';
+	import DOMPurify from 'dompurify';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 
 	interface Props {
@@ -12,6 +13,18 @@
 	}
 
 	let { text, collapsedLines = 1, class: className = '' }: Props = $props();
+
+	// Détection HTML : une description issue du RichTextEditor contiendra des balises
+	// connues ; une description legacy en texte brut (ou sans balises valides) reste
+	// rendue en whitespace-pre-line pour préserver les sauts de ligne existants.
+	const HTML_TAG_RE = /<(?:\/?)(?:p|br|strong|em|ul|ol|li|a|h1|h2|h3|h4|h5|h6|b|i)\b[^>]*>/i;
+	const ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'h2', 'h3'];
+	const ALLOWED_ATTR = ['href', 'target', 'rel'];
+
+	const isHtml = $derived(HTML_TAG_RE.test(text || ''));
+	const sanitizedHtml = $derived(
+		isHtml ? DOMPurify.sanitize(text, { ALLOWED_TAGS, ALLOWED_ATTR, ALLOW_DATA_ATTR: false }) : ''
+	);
 
 	let isExpanded = $state(false);
 	let isDrawerOpen = $state(false);
@@ -72,22 +85,25 @@
 
 {#if text}
 	{#snippet body()}
-		<span class="flex items-start gap-2">
+		<span class="relative flex items-start gap-2">
 			<span
-				class="text-base-content/80 min-w-0 flex-1 text-sm whitespace-pre-line"
+				class="text-base-content/80 min-w-0 flex-1 text-sm {isHtml
+					? 'rich-text-content'
+					: 'whitespace-pre-line'}"
 				style={clampStyle}
 				use:clampMeasurable
 			>
-				{text}
+				{#if isHtml}{@html sanitizedHtml}{:else}{text}{/if}
 			</span>
 			{#if isClippable}
 				<span
-					class="text-primary mt-0.5 inline-flex shrink-0 items-center gap-0.5 text-xs font-medium"
+					class="text-primary-content badge badge-soft badge-primary absolute right-0 -bottom-1 inline-flex shrink-0 items-center gap-0.5 text-sm font-bold opacity-90"
 				>
 					{#if !mediaQuery.isMobile}
-						Lire la suite
-						<ChevronDown size={14} />
-					{:else if isExpanded}<ChevronUp size={16} />{:else}<ChevronDown size={16} />{/if}
+						{#if !isExpanded}Lire la suite <ChevronDown size={16} />{:else}réduire <ChevronUp
+								size={16}
+							/>{/if}
+					{/if}
 				</span>
 			{/if}
 		</span>
@@ -133,7 +149,11 @@
 				</button>
 			</div>
 			<div class="flex-1 overflow-y-auto p-4">
-				<p class="text-base-content/80 text-sm whitespace-pre-line">{text}</p>
+				{#if isHtml}
+					<div class="rich-text-content text-base-content/80 text-sm">{@html sanitizedHtml}</div>
+				{:else}
+					<p class="text-base-content/80 text-sm whitespace-pre-line">{text}</p>
+				{/if}
 			</div>
 		</DrawerContent>
 	</Drawer>

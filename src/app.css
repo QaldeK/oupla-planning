@@ -92,7 +92,7 @@
 		}*/
 
 	html {
-		font-size: clamp(14px, 1.1vw, 18px);
+		font-size: clamp(14px, 1vw, 18px);
 	}
 
 	html {
@@ -153,6 +153,85 @@
 		var(--badge-color, var(--color-base-content)) 65%,
 		var(--color-base-content)
 	);
+}
+
+/* ── Rich text content (TipTap editor + DescriptionCard rendering) ── */
+/* Styles partagés pour assurer un rendu cohérent entre édition et affichage. */
+
+.rich-text-content {
+	color: var(--color-base-content);
+	font-size: 0.875rem;
+	line-height: 1.5;
+}
+
+.rich-text-content :where(h2) {
+	font-size: 1.25rem;
+	font-weight: 600;
+	margin: 0.75em 0 0.35em;
+	line-height: 1.25;
+}
+
+.rich-text-content :where(h3) {
+	font-size: 1.0625rem;
+	font-weight: 600;
+	margin: 0.6em 0 0.3em;
+	line-height: 1.3;
+}
+
+.rich-text-content :where(p) {
+	margin: 0.35em 0;
+}
+
+.rich-text-content :where(strong) {
+	font-weight: 700;
+}
+
+.rich-text-content :where(em) {
+	font-style: italic;
+}
+
+.rich-text-content :where(ul) {
+	list-style: disc;
+	margin: 0.35em 0;
+	padding-left: 1.5em;
+}
+
+.rich-text-content :where(ol) {
+	list-style: decimal;
+	margin: 0.35em 0;
+	padding-left: 1.5em;
+}
+
+.rich-text-content :where(li) {
+	margin: 0.15em 0;
+}
+
+.rich-text-content :where(li)::marker {
+	color: var(--color-base-content);
+}
+
+.rich-text-content :where(a) {
+	color: var(--color-primary);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.rich-text-content :where(a:hover) {
+	text-decoration: none;
+}
+
+/* Placeholder TipTap quand l'éditeur est vide. */
+.ProseMirror[data-placeholder]:empty::before {
+	content: attr(data-placeholder);
+	color: var(--color-base-content);
+	opacity: 0.4;
+	pointer-events: none;
+	cursor: text;
+}
+
+/* Liste à l'intérieur d'une liste : indentation sans puce parasite. */
+.rich-text-content :where(li) :where(ul, ol) {
+	margin: 0.15em 0;
 }
 
 /* nunito-200 - latin */

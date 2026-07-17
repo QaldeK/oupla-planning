@@ -37,6 +37,7 @@
 	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import NetworkAlert from '../NetworkAlert.svelte';
+	import RichTextEditor from '../ui/RichTextEditor.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import ConfirmModal from '../ui/ConfirmModal.svelte';
 	import { slide } from 'svelte/transition';
@@ -646,10 +647,13 @@
 					<AlignLeft size={18} class="text-primary" />
 					Description
 				</h4>
-				<textarea
+				<!-- `disabled` explicite : les éléments contenteditable (TipTap) ne respectent
+				     pas le disabled du fieldset parent, il faut le propager manuellement. -->
+				<RichTextEditor
 					bind:value={description}
-					class="textarea h-24 w-full"
-					placeholder="Notes spécifiques pour cette occurrence..."></textarea>
+					disabled={isNetworkUnavailable || currentStatus === 'canceled'}
+					placeholder="Notes spécifiques pour cette occurrence..."
+				/>
 			</div>
 
 			<div class="divider"></div>

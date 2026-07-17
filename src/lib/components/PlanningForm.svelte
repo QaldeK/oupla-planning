@@ -38,6 +38,7 @@
 	import { untrack } from 'svelte';
 	import { onMount } from 'svelte';
 	import NetworkAlert from './NetworkAlert.svelte';
+	import RichTextEditor from './ui/RichTextEditor.svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
@@ -1253,13 +1254,11 @@
 
 				<fieldset class="fieldset col-span-full">
 					<legend class="fieldset-legend">Description</legend>
-					<textarea
+					<RichTextEditor
 						bind:value={description}
-						class="textarea w-full"
-						rows="3"
 						disabled={isSubmitting}
-						maxlength="280"
-					></textarea>
+						placeholder="Description du planning (optionnel)..."
+					/>
 				</fieldset>
 
 				<fieldset class="fieldset col-span-full">

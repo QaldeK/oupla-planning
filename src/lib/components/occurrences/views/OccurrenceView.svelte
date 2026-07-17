@@ -18,6 +18,9 @@
 		Clock,
 		MapPin,
 		MessageSquare,
+		MessageSquareText,
+		MessageSquareTextIcon,
+		MessageSquareWarning,
 		Pencil,
 		XCircle
 	} from '@lucide/svelte';
@@ -237,14 +240,17 @@
 
 		<!-- Comment button -->
 		<button
-			class="btn btn-ghost sm:btn-sm gap-1"
+			class="btn sm:btn-sm relative gap-1 {hasUnread ? 'btn-info btn-soft' : ' btn-ghost'}"
 			onclick={openCommentDrawer}
 			aria-label="Voir les commentaires"
 		>
-			<span class="relative">
-				<MessageSquare size={16} />
+			<span class="">
 				{#if hasUnread}
-					<span class="bg-primary absolute -top-1 -right-1 size-2 rounded-full"></span>
+					<MessageSquareWarning size={16} />
+					<span class="bg-primary absolute -top-1 -right-1 size-2 animate-pulse rounded-full"
+					></span>
+				{:else}
+					<MessageSquare size={16} />
 				{/if}
 			</span>
 			<span class="text-sm">{occurrence.comments.length}</span>
