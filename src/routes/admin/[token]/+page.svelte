@@ -316,11 +316,7 @@
 	<AdminSkeleton />
 {:else if master}
 	<NetworkAlert />
-	<div
-		class="mx-auto max-w-6xl py-2 md:px-4 md:py-8"
-		in:fade={{ duration: 300 }}
-		inert={isFormReadOnly}
-	>
+	<div class="mx-auto max-w-6xl py-2 md:px-4" in:fade={{ duration: 300 }} inert={isFormReadOnly}>
 		<div class="mb-4 flex justify-start">
 			<a href="/p/{master.participantToken}" class="btn btn-ghost sm:btn-sm gap-2">
 				<ArrowLeft size={18} />

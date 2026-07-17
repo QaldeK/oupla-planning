@@ -373,7 +373,7 @@
 {:else if master}
 	<!-- Bannière réseau : affichée automatiquement quand !networkStore.isNetworkOk (fraîcheur + reload si serveur indispo) -->
 	<NetworkAlert />
-	<div class="mx-auto max-w-6xl md:px-4 md:py-8" in:fade={{ duration: 300 }}>
+	<div class="mx-auto max-w-6xl md:px-4" in:fade={{ duration: 300 }}>
 		<!-- En-tête -->
 		<div class="mb-4 sm:mb-12">
 			<div class="mb-2 flex flex-wrap items-start justify-between gap-6 sm:mb-8">
@@ -583,7 +583,7 @@
 					(master.timeSlots?.length ?? 0) > 1 &&
 					displayedOccurrences[i - 1].date !== occurrence.date &&
 					userStore.appPreferences.occurrenceView !== 'card'}
-				<div class={isDateBoundary ? 'mt-6' : ''}>
+				<div class={isDateBoundary ? 'mt-4' : 'mt-1'}>
 					<OccurrenceView
 						{occurrence}
 						{master}

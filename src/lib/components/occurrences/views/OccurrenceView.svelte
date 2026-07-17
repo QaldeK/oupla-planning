@@ -274,7 +274,7 @@
 {/snippet}
 
 {#snippet rowLayout()}
-	<div class=" bg-base-100 border-neutral/15 border py-2">
+	<div class=" bg-base-100 border-neutral/15 border p-2">
 		<!-- Line 1: Header -->
 		<div class="mb-2 flex items-center justify-between gap-2 px-2">
 			<div class="flex flex-1 items-center justify-between gap-2 text-sm sm:gap-6">
@@ -498,7 +498,7 @@
 {/snippet}
 
 {#snippet rowLayoutMinimal()}
-	<div class="bg-base-100 border-neutral/15 border py-1">
+	<div class="bg-base-100 border-neutral/15 border p-1">
 		<div class="flex flex-wrap items-center gap-x-2 px-2">
 			<!-- Date -->
 			<div class="flex items-center gap-1 font-semibold">

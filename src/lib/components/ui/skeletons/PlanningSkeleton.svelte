@@ -5,7 +5,7 @@
 	 */
 </script>
 
-<div class="mx-auto max-w-6xl md:px-4 md:py-8">
+<div class="mx-auto max-w-6xl md:px-4">
 	<!-- En-tête skeleton -->
 	<div class="mb-12">
 		<div class="mb-8 flex flex-wrap items-start justify-between gap-6">

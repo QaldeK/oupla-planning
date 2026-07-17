@@ -5,7 +5,7 @@
 	 */
 </script>
 
-<div class="mx-auto max-w-6xl py-2 md:px-4 md:py-8">
+<div class="mx-auto max-w-6xl py-2 md:px-4">
 	<!-- Bouton retour -->
 	<div class="mb-4 flex justify-start">
 		<div class="skeleton rounded-btn h-10 w-40"></div>
