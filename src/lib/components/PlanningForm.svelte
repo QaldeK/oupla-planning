@@ -14,6 +14,7 @@
 	import MultiSelect from './MultiSelect.svelte';
 	import MultiDatePicker from './ui/MultiDatePicker.svelte';
 	import ConfirmModal from './ui/ConfirmModal.svelte';
+	import Modal from './ui/Modal.svelte';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { classifyError } from '$lib/utils/errorHandler';
 	import { generateTimeSlotId } from '$lib/services/planningActions';
@@ -821,26 +822,16 @@
 		});
 	}
 
-	// Applique un preset horaire. En session pencil sur ce slot, le preset alimente
-	// le draft (aperçu avant apply) ; sinon il mute le template (comportement création).
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- utilisé dans le template commenté (presets horaires)
-	function applyTimePreset(index: number, startTime: string, endTime: string) {
-		const slot = timeSlots[index];
-		if (!slot) return;
-		if (editingSlotId === slot.id) {
-			slotDraft = { startTime, endTime };
-			return;
-		}
-		slot.startTime = startTime;
-		slot.endTime = endTime;
+	// Applique un preset horaire au draft courant du modal (utilisé pour l'aperçu
+	// avant Apply). Muter directement le draft garantit que la validation du bouton
+	// Appliquer et les inputs restent synchrones.
+	function applyTimePreset(startTime: string, endTime: string) {
+		if (!slotModal.state) return;
+		slotModal.state.draft = { startTime, endTime };
 	}
 
 	function addTimeSlot() {
-		timeSlots.push({
-			id: generateTimeSlotId(timeSlots),
-			startTime: '12:00',
-			endTime: '14:00'
-		});
+		openSlotModalCreate();
 	}
 
 	function removeTimeSlot(slotId: string) {
@@ -871,57 +862,111 @@
 		const index = timeSlots.findIndex((s) => s.id === slotId);
 		if (index === -1) return;
 		timeSlots.splice(index, 1);
-		// Réinitialiser une éventuelle session pencil sur le slot supprimé (sinon
-		// editingSlotId pointerait vers un id absent → submit bloqué à tort).
-		if (editingSlotId === slotId) cancelSlotEdit();
+		// Réinitialiser une éventuelle session d'édition sur le slot supprimé
+		if (slotModal.state?.slotId === slotId) closeSlotModal();
 	}
 
-	// === Édition pencil/apply d'un slot (mode édition uniquement, 3.2) ===
-	// En édition, les horaires d'un slot ne se mutent pas en direct (read-only) :
-	// l'admin ouvre une session « pencil » (draft isolé), ajuste les horaires, puis
-	// « Appliquer » propage le draft aux occurrences alignées sur l'ancien template.
-	// Les overrides individuels (occurrences dont les horaires divergent du template
-	// avant modif) sont préservés. « Annuler » revert le draft sans toucher au state.
-	// En création, les inputs restent libres (pas de pencil/apply).
-	let editingSlotId = $state<string | null>(null);
-	let slotDraft = $state<{ startTime: string; endTime: string }>({ startTime: '', endTime: '' });
+	// === Modal unifié d'ajout/édition d'un créneau ===
+	// Un seul modal sert aux deux flux : ajout (mode create) et modification (mode
+	// edit). À l'ouverture, le draft est pré-rempli (valeurs du slot édité, ou héritage
+	// du dernier slot à l'ajout, ou vide avec validation bloquante). Les presets
+	// horaires mute le draft. « Appliquer » branche sur le bon commit : push direct
+	// en create, flux confirm de propagation en edit (préservation overrides).
+	interface SlotModalState {
+		mode: 'create' | 'edit';
+		slotId: string | null;
+		draft: { startTime: string; endTime: string };
+	}
+	let slotModal = $state<{ open: boolean; state: SlotModalState | null }>({
+		open: false,
+		state: null
+	});
 	let slotStartInput = $state<HTMLInputElement | undefined>(undefined);
 
 	$effect(() => {
-		if (editingSlotId && slotStartInput) {
+		if (slotModal.open && slotStartInput) {
 			slotStartInput.focus();
 			slotStartInput.select();
 		}
 	});
 
+	function openSlotModalCreate() {
+		const last = timeSlots.at(-1);
+		slotModal = {
+			open: true,
+			state: {
+				mode: 'create',
+				slotId: null,
+				draft: last
+					? { startTime: last.startTime, endTime: last.endTime }
+					: { startTime: '', endTime: '' }
+			}
+		};
+	}
+
 	function startSlotEdit(slotId: string) {
 		const slot = timeSlots.find((s) => s.id === slotId);
 		if (!slot) return;
-		editingSlotId = slotId;
-		slotDraft = { startTime: slot.startTime, endTime: slot.endTime };
+		slotModal = {
+			open: true,
+			state: {
+				mode: 'edit',
+				slotId,
+				draft: { startTime: slot.startTime, endTime: slot.endTime }
+			}
+		};
 	}
 
-	function cancelSlotEdit() {
-		editingSlotId = null;
-		slotDraft = { startTime: '', endTime: '' };
+	function closeSlotModal() {
+		slotModal = { open: false, state: null };
 	}
 
-	function applySlotEdit(slotId: string) {
-		const slot = timeSlots.find((s) => s.id === slotId);
-		if (!slot) return;
-		const { startTime: newStart, endTime: newEnd } = slotDraft;
+	function applySlotEdit() {
+		if (!slotModal.state) return;
+		const { mode, slotId, draft } = slotModal.state;
+		const { startTime: newStart, endTime: newEnd } = draft;
 		if (!newStart || !newEnd) {
 			toast.error('Créneau incomplet', {
 				description: 'Chaque créneau doit avoir une heure de début et une heure de fin.'
 			});
 			return;
 		}
+		if (mode === 'create') {
+			timeSlots.push({
+				id: generateTimeSlotId(timeSlots),
+				startTime: newStart,
+				endTime: newEnd
+			});
+			closeSlotModal();
+			return;
+		}
+		// mode 'edit'
+		if (!slotId) {
+			closeSlotModal();
+			return;
+		}
+		const slot = timeSlots.find((s) => s.id === slotId);
+		if (!slot) {
+			closeSlotModal();
+			return;
+		}
 		const oldStart = slot.startTime;
 		const oldEnd = slot.endTime;
 		if (newStart === oldStart && newEnd === oldEnd) {
-			cancelSlotEdit();
+			closeSlotModal();
 			return;
 		}
+		// Sans master (pas d'occurrences seedées à propager), on mute directement
+		// le slot. Avec master, on ferme d'abord le modal slot puis on ouvre le
+		// ConfirmModal de propagation (on ne peut pas empiler deux modals) ; le
+		// commit préserve les overrides individuels d'occurrences.
+		if (!master) {
+			slot.startTime = newStart;
+			slot.endTime = newEnd;
+			closeSlotModal();
+			return;
+		}
+		closeSlotModal();
 		openConfirm({
 			title: 'Appliquer les nouveaux horaires',
 			message:
@@ -932,10 +977,10 @@
 		});
 	}
 
-	// Commit du pencil/apply : propage le draft aux occurrences seedées non-overridées
-	// (horaires == ancien template) et mute le template. Les occurrences overridées
-	// (horaires != ancien template) restent intactes dans seededOccurrences. Les combos
-	// non-seedées suivent automatiquement via le `$derived` occurrenceTargets.
+	// Applique la modification d'un créneau : propage aux occurrences seedées
+	// non-overridées (celles dont les horaires == ancien template) et mute le
+	// template. Les occurrences overridées restent intactes dans seededOccurrences.
+	// Les combos non-seedées suivent automatiquement via le `$derived` occurrenceTargets.
 	function commitSlotEdit(
 		slotId: string,
 		newStart: string,
@@ -954,7 +999,6 @@
 			slot.startTime = newStart;
 			slot.endTime = newEnd;
 		}
-		cancelSlotEdit();
 	}
 
 	async function handleSubmit() {
@@ -1010,8 +1054,8 @@
 			return;
 		}
 
-		// Validation : session d'édition de slot ouverte (pencil/apply non appliqué)
-		if (editingSlotId) {
+		// Validation : session d'édition de slot ouverte (modal non appliqué)
+		if (slotModal.open) {
 			toast.error('Créneau en cours de modification', {
 				description:
 					'Veuillez appliquer ou annuler les modifications du créneau avant de sauvegarder.'
@@ -1214,7 +1258,8 @@
 						class="textarea w-full"
 						rows="3"
 						disabled={isSubmitting}
-						maxlength="280"></textarea>
+						maxlength="280"
+					></textarea>
 				</fieldset>
 
 				<fieldset class="fieldset col-span-full">
@@ -1440,142 +1485,43 @@
 					<span class="font-medium">Créneaux horaires</span>
 				</div>
 
-				{#each timeSlots as slot, _i (slot.id)}
-					{@const isEditingThis = editingSlotId === slot.id}
-					<div class="space-y-2">
-						<div class="flex flex-wrap items-end gap-2">
-							{#if isEditingThis}
-								<fieldset class="fieldset">
-									<legend class="fieldset-legend flex items-center gap-2">
-										<Clock size={16} /> Début
-									</legend>
-									<input
-										type="time"
-										bind:this={slotStartInput}
-										bind:value={slotDraft.startTime}
-										class="input w-full"
-										required
-										disabled={isSubmitting}
-									/>
-								</fieldset>
-								<fieldset class="fieldset">
-									<legend class="fieldset-legend flex items-center gap-2">
-										<Clock size={16} /> Fin
-									</legend>
-									<input
-										type="time"
-										bind:value={slotDraft.endTime}
-										class="input w-full"
-										required
-										disabled={isSubmitting}
-									/>
-								</fieldset>
-							{:else}
-								<fieldset class="fieldset">
-									<legend class="fieldset-legend flex items-center gap-2">
-										<Clock size={16} /> Début
-									</legend>
-									<input
-										type="time"
-										bind:value={slot.startTime}
-										class="input w-full"
-										required
-										disabled={isSubmitting || !!master}
-									/>
-								</fieldset>
-								<fieldset class="fieldset">
-									<legend class="fieldset-legend flex items-center gap-2">
-										<Clock size={16} /> Fin
-									</legend>
-									<input
-										type="time"
-										bind:value={slot.endTime}
-										class="input w-full"
-										required
-										disabled={isSubmitting || !!master}
-									/>
-								</fieldset>
-							{/if}
-
-							{#if isEditingThis}
-								<button
-									type="button"
-									class="btn btn-primary btn-sm"
-									onclick={() => applySlotEdit(slot.id)}
-									disabled={isSubmitting}
-								>
-									Appliquer
-								</button>
-								<button
-									type="button"
-									class="btn btn-ghost btn-sm"
-									onclick={cancelSlotEdit}
-									disabled={isSubmitting}
-								>
-									Annuler
-								</button>
-							{:else if master}
-								<button
-									type="button"
-									class="btn btn-ghost btn-sm"
-									onclick={() => startSlotEdit(slot.id)}
-									disabled={isSubmitting || editingSlotId !== null}
-									aria-label="Modifier les horaires du créneau"
-									title="Modifier les horaires (propage aux occurrences, préserve les modifications individuelles)"
-								>
-									<Pencil size={16} />
-								</button>
-							{/if}
+				{#each timeSlots as slot (slot.id)}
+					<div class="bg-base-200/50 flex items-center justify-between gap-2 rounded-lg px-3 py-2">
+						<div class="flex items-center gap-2">
+							<Clock size={16} class="text-primary" />
+							<span class="font-medium tabular-nums">{slot.startTime} – {slot.endTime}</span>
+						</div>
+						<div class="flex gap-1">
+							<button
+								type="button"
+								class="btn btn-ghost btn-sm btn-square"
+								onclick={() => startSlotEdit(slot.id)}
+								disabled={isSubmitting || slotModal.open}
+								aria-label="Modifier les horaires du créneau"
+								title="Modifier les horaires (propage aux occurrences, préserve les modifications individuelles)"
+							>
+								<Pencil size={16} />
+							</button>
 							{#if timeSlots.length > 1}
 								<button
 									type="button"
-									class="btn btn-error btn-ghost btn-sm"
+									class="btn btn-ghost btn-sm btn-square text-error"
 									onclick={() => removeTimeSlot(slot.id)}
-									disabled={isSubmitting || editingSlotId !== null}
+									disabled={isSubmitting || slotModal.open}
 									aria-label="Supprimer ce créneau"
 								>
 									<Trash2 size={16} />
 								</button>
 							{/if}
 						</div>
-
-						<!-- <div class="flex w-full flex-wrap gap-2">
-							<button
-								type="button"
-								class="btn btn-ghost btn-xs bg-base-200"
-								disabled={isSubmitting || (!!master && !isEditingThis)}
-								onclick={() => applyTimePreset(i, '08:00', '12:00')}>Matinée (8h-12h)</button
-							>
-							<button
-								type="button"
-								class="btn btn-ghost btn-xs bg-base-200"
-								disabled={isSubmitting || (!!master && !isEditingThis)}
-								onclick={() => applyTimePreset(i, '13:00', '18:00')}>Après-midi (13h-18h)</button
-							>
-							<button
-								type="button"
-								class="btn btn-ghost btn-xs bg-base-200"
-								disabled={isSubmitting || (!!master && !isEditingThis)}
-								onclick={() => applyTimePreset(i, '19:00', '23:00')}>Soirée (19h-23h)</button
-							>
-							<button
-								type="button"
-								class="btn btn-ghost btn-xs bg-base-200"
-								disabled={isSubmitting || (!!master && !isEditingThis)}
-								onclick={() => applyTimePreset(i, '08:00', '23:00')}>Journée (8h-23h)</button
-							>
-						</div> -->
 					</div>
-					{#if timeSlots.length > 1}
-						<span class="divider"></span>
-					{/if}
 				{/each}
 
 				<button
 					type="button"
 					class="btn btn-ghost btn-sm w-fit"
 					onclick={addTimeSlot}
-					disabled={isSubmitting}
+					disabled={isSubmitting || slotModal.open}
 				>
 					<Plus size={16} /> Ajouter un créneau
 				</button>
@@ -2013,6 +1959,92 @@
 		</button>
 	</div>
 </form>
+
+<Modal
+	open={slotModal.open}
+	onClose={closeSlotModal}
+	title={slotModal.state?.mode === 'edit' ? 'Modifier le créneau' : 'Ajouter un créneau'}
+	size="sm"
+>
+	{#if slotModal.state}
+		<div class="space-y-4">
+			<div class="grid grid-cols-2 gap-3">
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend flex items-center gap-2">
+						<Clock size={16} /> Début
+					</legend>
+					<input
+						type="time"
+						bind:this={slotStartInput}
+						bind:value={slotModal.state.draft.startTime}
+						class="input w-full"
+						required
+					/>
+				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend flex items-center gap-2">
+						<Clock size={16} /> Fin
+					</legend>
+					<input
+						type="time"
+						bind:value={slotModal.state.draft.endTime}
+						class="input w-full"
+						required
+					/>
+				</fieldset>
+			</div>
+
+			<div class="space-y-2">
+				<p class="text-base-content/70 text-xs font-medium">Préconfigurations :</p>
+				<div class="grid grid-cols-2 gap-2">
+					<button
+						type="button"
+						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
+						onclick={() => applyTimePreset('08:00', '12:00')}
+					>
+						<span>Matinée</span>
+						<span class="opacity-70">8h–12h</span>
+					</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
+						onclick={() => applyTimePreset('13:00', '18:00')}
+					>
+						<span>Après-midi</span>
+						<span class="opacity-70">13h–18h</span>
+					</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
+						onclick={() => applyTimePreset('19:00', '23:00')}
+					>
+						<span>Soirée</span>
+						<span class="opacity-70">19h–23h</span>
+					</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
+						onclick={() => applyTimePreset('08:00', '23:00')}
+					>
+						<span>Journée</span>
+						<span class="opacity-70">8h–23h</span>
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+	{#snippet actions()}
+		<button type="button" class="btn btn-ghost" onclick={closeSlotModal}>Annuler</button>
+		<button
+			type="button"
+			class="btn btn-primary"
+			onclick={applySlotEdit}
+			disabled={!slotModal.state?.draft.startTime || !slotModal.state?.draft.endTime}
+		>
+			Appliquer
+		</button>
+	{/snippet}
+</Modal>
 
 <ConfirmModal
 	open={confirmState.open}
