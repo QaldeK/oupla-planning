@@ -21,6 +21,26 @@ onRecordAfterUpdateSuccess((e) => {
 	const rec = e.record;
 	const orig = rec.original();
 
+	e.app
+		.logger()
+		.info(
+			'[Notif-DBG] Hook start',
+			'occId',
+			rec.getId(),
+			'isCanceled',
+			rec.getBool('isCanceled'),
+			'origIsCanceled',
+			orig.getBool('isCanceled'),
+			'startTime',
+			rec.getString('startTime'),
+			'origStartTime',
+			orig.getString('startTime'),
+			'date',
+			rec.getString('date'),
+			'origDate',
+			orig.getString('date')
+		);
+
 	// Détecter les changements
 	const isCanceled = rec.getBool('isCanceled');
 	const wasCanceled = isCanceled && !orig.getBool('isCanceled');
@@ -31,7 +51,10 @@ onRecordAfterUpdateSuccess((e) => {
 			rec.getString('date') !== orig.getString('date'));
 
 	// Si pas de changement pertinent, on sort
-	if (!wasCanceled && !timeChanged) return e.next();
+	if (!wasCanceled && !timeChanged) {
+		e.app.logger().info('[Notif-DBG] Early return: no relevant change', 'occId', rec.getId());
+		return e.next();
+	}
 
 	// Trouver les participants notifiables pour CE planning
 	const masterId = rec.getString('master');
@@ -47,17 +70,49 @@ onRecordAfterUpdateSuccess((e) => {
 		);
 		e.app.expandRecords(participants, ['user'], null);
 	} catch (err) {
-		// Pas de participants ou erreur
+		e.app
+			.logger()
+			.error(
+				'[Notif-DBG] Early return: failed to load participants',
+				'occId',
+				rec.getId(),
+				'masterId',
+				masterId,
+				'err',
+				err?.message || err
+			);
 		return e.next();
 	}
 
-	if (participants.length === 0) return e.next();
+	if (participants.length === 0) {
+		e.app
+			.logger()
+			.info(
+				'[Notif-DBG] Early return: no participants',
+				'occId',
+				rec.getId(),
+				'masterId',
+				masterId
+			);
+		return e.next();
+	}
 
 	// Charger le master pour obtenir le titre et le token
 	let master;
 	try {
 		master = e.app.findRecordById('planning_masters', masterId);
 	} catch (err) {
+		e.app
+			.logger()
+			.error(
+				'[Notif-DBG] Early return: master not found',
+				'occId',
+				rec.getId(),
+				'masterId',
+				masterId,
+				'err',
+				err?.message || err
+			);
 		return e.next();
 	}
 
@@ -88,6 +143,20 @@ onRecordAfterUpdateSuccess((e) => {
 		if (p.getBool('push')) pushUsers.push(user);
 		if (p.getBool('email')) emailUsers.push(user);
 	}
+
+	e.app
+		.logger()
+		.info(
+			'[Notif-DBG] Sending notifications',
+			'occId',
+			rec.getId(),
+			'pushUsers',
+			pushUsers.length,
+			'emailUsers',
+			emailUsers.length,
+			'type',
+			wasCanceled ? 'cancellation' : 'timeChange'
+		);
 
 	// Envoyer les notifications (JSVM synchrone — boucle simple, pas Promise.all)
 	try {

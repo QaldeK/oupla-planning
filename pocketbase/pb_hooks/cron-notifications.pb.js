@@ -8,7 +8,7 @@
  * Ce cron:
  * 1. Récupère tous les participants avec des notifications activées
  * 2. Groupe les participants par planning
- * 3. Trouve les occurrences à J+1, J+3, J+7, J+30
+ * 3. Trouve les occurrences correspondant aux J-X configurés par les participants
  * 4. Envoie les rappels pour les participants "present"
  * 5. Envoie les alertes "participants manquants"
  */
@@ -31,11 +31,16 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 		// EXPAND : Charger tous les users en UNE SEULE requête
 		e.app.expandRecords(notifiableParticipants, ['user'], null);
 	} catch (err) {
-		// Pas de participants ou erreur de base
+		e.app
+			.logger()
+			.error('[Notification] Cron: failed to load notifiable participants', err?.message || err);
 		return;
 	}
 
-	if (notifiableParticipants.length === 0) return;
+	if (notifiableParticipants.length === 0) {
+		e.app.logger().info('[Notification] Cron: no notifiable participants, exiting');
+		return;
+	}
 
 	// 2. Grouper par planning
 	const participantsByPlanning = new Map();
@@ -57,8 +62,34 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 
 	const planningIds = Array.from(participantsByPlanning.keys());
 
-	// 3. Calculer les dates cibles (J+1, J+3, J+7, J+30)
-	const dates = [1, 3, 7, 30].map((days) => {
+	e.app
+		.logger()
+		.info(
+			'[Notification] Cron start',
+			'participants',
+			notifiableParticipants.length,
+			'plannings',
+			planningIds.length
+		);
+
+	// 3. Calculer les dates cibles à partir des valeurs réellement configurées
+	//    par les participants (reminderDays / missingParticipantsDays).
+	//    On évite ainsi le bug où une valeur UI (ex: 15) n'est jamais traitée
+	//    par le cron. Si personne n'a configuré de rappel, on sort tôt.
+	const configuredDays = new Set();
+	for (const p of notifiableParticipants) {
+		const r = p.getInt('reminderDays');
+		const m = p.getInt('missingParticipantsDays');
+		if (r > 0) configuredDays.add(r);
+		if (m > 0) configuredDays.add(m);
+	}
+
+	if (configuredDays.size === 0) {
+		e.app.logger().info('[Notification] Cron: no configured days, exiting');
+		return;
+	}
+
+	const dates = Array.from(configuredDays).map((days) => {
 		const d = new Date();
 		d.setUTCDate(d.getUTCDate() + days);
 		return d.toISOString().split('T')[0];
@@ -89,7 +120,7 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 			{ ...dateParams, ...planningParams }
 		);
 	} catch (err) {
-		// Pas d'occurrences ou erreur
+		e.app.logger().error('[Notification] Cron: failed to load occurrences', err?.message || err);
 		return;
 	}
 
@@ -113,6 +144,15 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 				master = e.app.findRecordById('planning_masters', masterId);
 				masterCache.set(masterId, master);
 			} catch (err) {
+				e.app
+					.logger()
+					.error(
+						'[Notification] Cron: failed to load master',
+						'masterId',
+						masterId,
+						'err',
+						err?.message || err
+					);
 				continue;
 			}
 		}
@@ -120,6 +160,7 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 		const participants = participantsByPlanning.get(masterId) || [];
 		const notifUrl = `/p/${master.getString('participantToken')}`;
 		const occTime = occ.getString('startTime');
+		const masterTitle = master.getString('title');
 
 		// 5a. Check reminders (rappels pour les participants "present")
 		const reminderGroups = notifyUtils.groupByNotificationType(
@@ -127,7 +168,15 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 			'reminderDays',
 			daysUntil
 		);
-		notifyUtils.processReminders(e.app, occ, reminderGroups, notifUrl, daysUntil, occTime);
+		notifyUtils.processReminders(
+			e.app,
+			occ,
+			reminderGroups,
+			notifUrl,
+			daysUntil,
+			occTime,
+			masterTitle
+		);
 
 		// 5b. Check missing participants (alertes si pas assez de monde)
 		const missingGroups = notifyUtils.groupByNotificationType(
@@ -135,6 +184,15 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 			'missingParticipantsDays',
 			daysUntil
 		);
-		notifyUtils.processMissingParticipants(e.app, occ, missingGroups, notifUrl, daysUntil);
+		notifyUtils.processMissingParticipants(
+			e.app,
+			occ,
+			missingGroups,
+			notifUrl,
+			daysUntil,
+			masterTitle
+		);
 	}
+
+	e.app.logger().info('[Notification] Cron done', 'occurrences', occurrences.length);
 });

@@ -87,7 +87,10 @@ module.exports = {
 			app
 				.logger()
 				.error('[Notification] Push error', res.statusCode, 'userId', user.getId(), 'url', url);
+			return;
 		}
+
+		app.logger().info('[Notification] Push sent', 'userId', user.getId());
 	},
 
 	/**
@@ -124,7 +127,21 @@ module.exports = {
 			`
 		});
 
-		app.newMailClient().send(message);
+		try {
+			app.newMailClient().send(message);
+			app.logger().info('[Notification] Email sent', 'recipients', users.length, 'subject', title);
+		} catch (err) {
+			app
+				.logger()
+				.error(
+					'[Notification] SMTP send failed',
+					err?.message || err,
+					'recipients',
+					users.length,
+					'subject',
+					title
+				);
+		}
 	},
 
 	// ============================================================================
@@ -153,21 +170,23 @@ module.exports = {
 	 * Traite les rappels pour une occurrence.
 	 * N'envoie qu'aux participants qui ont répondu "present".
 	 */
-	processReminders(app, occ, groups, notifUrl, daysUntil, occTime) {
+	processReminders(app, occ, groups, notifUrl, daysUntil, occTime, masterTitle) {
 		const responses = occ.get('responses') || [];
 
-		// Filtrer: uniquement les users qui ont répondu "present"
+		// Filtrer: uniquement les users qui ont répondu "present".
+		// ⚠️ responses utilise `participantId` (cf. main.pb.js / planning.types.ts),
+		// pas `id`. Un filtre sur `r.id` ne matche jamais → aucun rappel envoyé.
 		const presentPushUsers = groups.pushUsers.filter((u) =>
-			responses.some((r) => r.id === u.getId() && r.response === 'present')
+			responses.some((r) => r.participantId === u.getId() && r.response === 'present')
 		);
 		const presentEmailUsers = groups.emailUsers.filter((u) =>
-			responses.some((r) => r.id === u.getId() && r.response === 'present')
+			responses.some((r) => r.participantId === u.getId() && r.response === 'present')
 		);
 
 		if (presentPushUsers.length === 0 && presentEmailUsers.length === 0) return;
 
 		const occDate = occ.getString('date');
-		const title = `Rappel — Événement`;
+		const title = `Rappel — ${masterTitle}`;
 		const body = `Vous avez un événement ${daysUntil === 1 ? 'demain' : `dans ${daysUntil} jours`} (${occDate} à ${occTime}).`;
 
 		// Push: séquentiel (JSVM synchrone)
@@ -185,7 +204,7 @@ module.exports = {
 	 * Traite les alertes de participants manquants pour une occurrence.
 	 * N'envoie que si le nombre de présents est inférieur au minRequired.
 	 */
-	processMissingParticipants(app, occ, groups, notifUrl, daysUntil) {
+	processMissingParticipants(app, occ, groups, notifUrl, daysUntil, masterTitle) {
 		const responses = occ.get('responses') || [];
 		const presentCount = responses.filter((r) => r.response === 'present').length;
 		const minRequired = occ.getInt('minPresentRequired') || 0;
@@ -194,7 +213,7 @@ module.exports = {
 		if (groups.pushUsers.length === 0 && groups.emailUsers.length === 0) return;
 
 		const occDate = occ.getString('date');
-		const title = `Il manque des participants — Événement`;
+		const title = `Il manque des participants — ${masterTitle}`;
 		const body = `Occurrence du ${occDate} : ${presentCount}/${minRequired} présents.`;
 
 		// Push: séquentiel (JSVM synchrone)
