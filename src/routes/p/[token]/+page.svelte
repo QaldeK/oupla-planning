@@ -583,7 +583,7 @@
 					(master.timeSlots?.length ?? 0) > 1 &&
 					displayedOccurrences[i - 1].date !== occurrence.date &&
 					userStore.appPreferences.occurrenceView !== 'card'}
-				<div class={isDateBoundary ? 'mt-4' : 'mt-1'}>
+				<div class={isDateBoundary ? 'mt-6' : 'mt-2'}>
 					<OccurrenceView
 						{occurrence}
 						{master}
@@ -656,7 +656,7 @@
 	onConfirm={handleQuit}
 	title="Quitter ce planning ?"
 	message="Êtes-vous sûr de vouloir quitter ce planning ?"
-	description="Votre réponses seront supprimées et ne serez plus inscrit comme participant·e. Vous pourrez retrouver ce planning si vous conservez son url."
+	description="Vos réponses seront supprimées et ne serez plus inscrit comme participant·e. Vous pourrez retrouver ce planning si vous conservez son url."
 	confirmLabel="Quitter"
 	variant="warning"
 />

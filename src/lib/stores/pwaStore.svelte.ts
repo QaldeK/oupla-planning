@@ -24,6 +24,10 @@ class PwaStore {
 	// redéclenche pas.
 	#refreshing = false;
 
+	// Throttle partagé des checks de MAJ SW proactifs (visibilitychange, BFCache,
+	// polling 1h). Spec browser : max 1 `reg.update()` / minute.
+	#lastUpdateCheckAt = 0;
+
 	#initialized = false;
 
 	constructor() {
@@ -96,13 +100,39 @@ class PwaStore {
 	}
 
 	/**
+	 * Déclenche un check de MAJ du SW, throttlé à 1/min (spec browser).
+	 *
+	 * Le navigateur ne check le SW QUE sur navigation serveur (reload, navigation
+	 * document). En SPA SvelteKit, ces navigations n'arrivent pas pendant la
+	 * session → il faut forcer `reg.update()` sur les signaux de retour d'activité
+	 * (`visibilitychange`, BFCache restore) et un polling léger pour les sessions
+	 * longues.
+	 *
+	 * Skip si `reg.waiting` existe déjà : une MAJ en attente est déjà connue du
+	 * store (`hasUpdate` est censé être true), un check serait du gaspillage.
+	 * Échec silencieux (offline transient) : loggué en `debug`, non propagé.
+	 *
+	 * Note : le curseur `#lastUpdateCheckAt` est positionné AVANT l'appel (et non
+	 * au succès comme `networkStore.lastSyncAt`). La contrainte est une spec
+	 * browser (≤ 1 `reg.update()`/min), pas de l'UX : un échec transient ne doit
+	 * pas ouvrir une fenêtre permettant de violer la spec via un tab-flicker.
+	 */
+	#triggerUpdateCheck(reg: ServiceWorkerRegistration) {
+		if (reg.waiting) return; // déjà notifié (ou sur le point de l'être)
+		if (Date.now() - this.#lastUpdateCheckAt < 60_000) return;
+		this.#lastUpdateCheckAt = Date.now();
+		reg.update().catch((e) => console.debug('SW update check failed:', e));
+	}
+
+	/**
 	 * Branche la détection des mises à jour du Service Worker.
 	 *
 	 * Trois signaux convergent vers `hasUpdate = true` :
 	 *  - un SW déjà en `waiting` au boot (MAJ en attente d'une session précédente) ;
 	 *  - un nouveau SW passant à l'état `installed` pendant la session, à condition
 	 *    qu'un contrôleur existe déjà (sinon c'est le premier install, silencieux) ;
-	 *  - un SW en attente apparu sur un `updatefound` tardif.
+	 *  - un SW en attente apparu sur un `updatefound` tardif (lui-même déclenché
+	 *    par les checks proactifs `#triggerUpdateCheck`).
 	 *
 	 * L'activation effective est différée à `applyUpdate()` (action utilisateur) :
 	 * on envoie `SKIP_WAITING` au SW en attente, puis le listener `controllerchange`
@@ -143,6 +173,25 @@ class PwaStore {
 						}
 					});
 				});
+
+				// Détection proactive : le navigateur ne check le SW QUE sur navigation
+				// serveur. En SPA SvelteKit, ces navigations n'arrivent pas pendant la
+				// session → il faut forcer `reg.update()` sur les signaux de retour
+				// d'activité. Throttle partagé de 60s via `#triggerUpdateCheck` ;
+				// pas de check au boot (redondant avec le check navigateur au load).
+				on(document, 'visibilitychange', () => {
+					if (document.visibilityState !== 'visible') return;
+					this.#triggerUpdateCheck(reg);
+				});
+
+				on(window, 'pageshow', (event: PageTransitionEvent) => {
+					if (!event.persisted) return;
+					this.#triggerUpdateCheck(reg);
+				});
+
+				// Safety net : session longue sans aucun retour d'activité (desktop,
+				// onglet jamais quitté). 1h, dans la limite spec (max 1/min).
+				setInterval(() => this.#triggerUpdateCheck(reg), 60 * 60 * 1000);
 			})
 			.catch((e) => console.warn('SW registration check failed:', e));
 	}
