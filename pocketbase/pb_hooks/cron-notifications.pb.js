@@ -33,7 +33,11 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 	} catch (err) {
 		e.app
 			.logger()
-			.error('[Notification] Cron: failed to load notifiable participants', err?.message || err);
+			.error(
+				'[Notification] Cron: failed to load notifiable participants',
+				'err',
+				err?.message || err
+			);
 		return;
 	}
 
@@ -120,7 +124,9 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 			{ ...dateParams, ...planningParams }
 		);
 	} catch (err) {
-		e.app.logger().error('[Notification] Cron: failed to load occurrences', err?.message || err);
+		e.app
+			.logger()
+			.error('[Notification] Cron: failed to load occurrences', 'err', err?.message || err);
 		return;
 	}
 

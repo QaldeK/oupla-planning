@@ -168,7 +168,7 @@ onRecordAfterUpdateSuccess((e) => {
 			sendGroupedEmail(e.app, emailUsers, notifTitle, notifBody, notifUrl);
 		}
 	} catch (err) {
-		e.app.logger().error('[Notification] Occurrence update error', err?.message || err);
+		e.app.logger().error('[Notification] Occurrence update error', 'err', err?.message || err);
 	}
 
 	e.next();

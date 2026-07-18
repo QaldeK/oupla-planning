@@ -60,13 +60,19 @@ module.exports = {
 		} catch (err) {
 			app
 				.logger()
-				.error('[Notification] Push HTTP error', err?.message || err, 'userId', user.getId());
+				.error(
+					'[Notification] Push HTTP error',
+					'err',
+					err?.message || err,
+					'userId',
+					user.get('id')
+				);
 			return;
 		}
 
 		// Subscription expirée ou révoquée — nettoyer dans PocketBase
 		if (res.statusCode === 410 || res.statusCode === 404) {
-			app.logger().info('[Notification] Subscription expirée, nettoyage', 'userId', user.getId());
+			app.logger().info('[Notification] Subscription expirée, nettoyage', 'userId', user.get('id'));
 			try {
 				user.set('push_subscription', null);
 				app.save(user);
@@ -75,9 +81,10 @@ module.exports = {
 					.logger()
 					.error(
 						'[Notification] Erreur nettoyage subscription',
-						cleanupErr?.message,
+						'err',
+						cleanupErr?.message || cleanupErr,
 						'userId',
-						user.getId()
+						user.get('id')
 					);
 			}
 			return;
@@ -86,11 +93,19 @@ module.exports = {
 		if (res.statusCode !== 200) {
 			app
 				.logger()
-				.error('[Notification] Push error', res.statusCode, 'userId', user.getId(), 'url', url);
+				.error(
+					'[Notification] Push error',
+					'status',
+					res.statusCode,
+					'userId',
+					user.get('id'),
+					'url',
+					url
+				);
 			return;
 		}
 
-		app.logger().info('[Notification] Push sent', 'userId', user.getId());
+		app.logger().info('[Notification] Push sent', 'userId', user.get('id'));
 	},
 
 	/**
@@ -177,10 +192,10 @@ module.exports = {
 		// ⚠️ responses utilise `participantId` (cf. main.pb.js / planning.types.ts),
 		// pas `id`. Un filtre sur `r.id` ne matche jamais → aucun rappel envoyé.
 		const presentPushUsers = groups.pushUsers.filter((u) =>
-			responses.some((r) => r.participantId === u.getId() && r.response === 'present')
+			responses.some((r) => r.participantId === u.get('id') && r.response === 'present')
 		);
 		const presentEmailUsers = groups.emailUsers.filter((u) =>
-			responses.some((r) => r.participantId === u.getId() && r.response === 'present')
+			responses.some((r) => r.participantId === u.get('id') && r.response === 'present')
 		);
 
 		if (presentPushUsers.length === 0 && presentEmailUsers.length === 0) return;
