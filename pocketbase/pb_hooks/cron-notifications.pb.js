@@ -11,15 +11,18 @@
  * 3. Trouve les occurrences correspondant aux J-X configurés par les participants
  * 4. Envoie les rappels pour les participants "present"
  * 5. Envoie les alertes "participants manquants"
+ *
+ * Note : cronAdd ne passe AUCUN paramètre au handler. L'app PocketBase est
+ * accessible via le global `$app`, pas via un éventuel `e.app` (qui serait undefined).
  */
 
-cronAdd('notifications-check', '0 8 * * *', (e) => {
+cronAdd('notifications-check', '0 8 * * *', () => {
 	const notifyUtils = require(`${__hooks}/notify-utils.js`);
 
 	// 1. Trouver tous les participants avec des notifications activées
 	let notifiableParticipants;
 	try {
-		notifiableParticipants = e.app.findRecordsByFilter(
+		notifiableParticipants = $app.findRecordsByFilter(
 			'planning_participants',
 			'push = true || email = true',
 			'-created',
@@ -29,9 +32,9 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 		);
 
 		// EXPAND : Charger tous les users en UNE SEULE requête
-		e.app.expandRecords(notifiableParticipants, ['user'], null);
+		$app.expandRecords(notifiableParticipants, ['user'], null);
 	} catch (err) {
-		e.app
+		$app
 			.logger()
 			.error(
 				'[Notification] Cron: failed to load notifiable participants',
@@ -42,7 +45,7 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 	}
 
 	if (notifiableParticipants.length === 0) {
-		e.app.logger().info('[Notification] Cron: no notifiable participants, exiting');
+		$app.logger().info('[Notification] Cron: no notifiable participants, exiting');
 		return;
 	}
 
@@ -66,7 +69,7 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 
 	const planningIds = Array.from(participantsByPlanning.keys());
 
-	e.app
+	$app
 		.logger()
 		.info(
 			'[Notification] Cron start',
@@ -89,7 +92,7 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 	}
 
 	if (configuredDays.size === 0) {
-		e.app.logger().info('[Notification] Cron: no configured days, exiting');
+		$app.logger().info('[Notification] Cron: no configured days, exiting');
 		return;
 	}
 
@@ -115,7 +118,7 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 	// 4. Trouver les occurrences
 	let occurrences;
 	try {
-		occurrences = e.app.findRecordsByFilter(
+		occurrences = $app.findRecordsByFilter(
 			'planning_occurrences',
 			`(${planningFilters}) && (${dateFilters}) && isCanceled = false`,
 			'date ASC',
@@ -124,7 +127,7 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 			{ ...dateParams, ...planningParams }
 		);
 	} catch (err) {
-		e.app
+		$app
 			.logger()
 			.error('[Notification] Cron: failed to load occurrences', 'err', err?.message || err);
 		return;
@@ -136,7 +139,9 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 
 	for (const occ of occurrences) {
 		const masterId = occ.getString('master');
-		const occDate = occ.getString('date');
+		// PocketBase expose parfois la date au format SQL "YYYY-MM-DD HH:MM:SS.000Z".
+		// On normalise en YYYY-MM-DD pour pouvoir construire une Date UTC valide.
+		const occDate = String(occ.getString('date')).split(' ')[0].split('T')[0];
 
 		// Calcul UTC pour éviter les problèmes de fuseau horaire
 		const occDateObj = new Date(occDate + 'T00:00:00Z');
@@ -147,10 +152,10 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 		let master = masterCache.get(masterId);
 		if (!master) {
 			try {
-				master = e.app.findRecordById('planning_masters', masterId);
+				master = $app.findRecordById('planning_masters', masterId);
 				masterCache.set(masterId, master);
 			} catch (err) {
-				e.app
+				$app
 					.logger()
 					.error(
 						'[Notification] Cron: failed to load master',
@@ -175,7 +180,7 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 			daysUntil
 		);
 		notifyUtils.processReminders(
-			e.app,
+			$app,
 			occ,
 			reminderGroups,
 			notifUrl,
@@ -191,7 +196,7 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 			daysUntil
 		);
 		notifyUtils.processMissingParticipants(
-			e.app,
+			$app,
 			occ,
 			missingGroups,
 			notifUrl,
@@ -200,5 +205,5 @@ cronAdd('notifications-check', '0 8 * * *', (e) => {
 		);
 	}
 
-	e.app.logger().info('[Notification] Cron done', 'occurrences', occurrences.length);
+	$app.logger().info('[Notification] Cron done', 'occurrences', occurrences.length);
 });

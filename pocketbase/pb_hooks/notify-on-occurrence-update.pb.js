@@ -125,7 +125,9 @@ onRecordAfterUpdateSuccess((e) => {
 		? [`Annulation — ${masterTitle}`, `L'occurrence du ${occDate} a été annulée.`, 'onCancellation']
 		: [
 				`Changement — ${masterTitle}`,
-				`La date ou l'horaire d'un événement a été modifié.`,
+				`L'horaire de l'occurrence du ${occDate} a été modifié : initialement prévu pour ${orig.getString(
+					'startTime'
+				)} - ${orig.getString('endTime')} → décalé à ${rec.getString('startTime')} - ${rec.getString('endTime')}.`,
 				'onTimeChange'
 			];
 

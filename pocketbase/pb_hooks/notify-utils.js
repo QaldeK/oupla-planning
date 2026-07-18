@@ -19,7 +19,10 @@ module.exports = {
 	 */
 	formatDateFR(dateStr) {
 		try {
-			const date = new Date(dateStr + 'T00:00:00Z');
+			// PocketBase expose parfois la date au format SQL "YYYY-MM-DD HH:MM:SS.000Z".
+			// On extrait la partie YYYY-MM-DD pour construire une date UTC valide.
+			const iso = String(dateStr).split(' ')[0].split('T')[0];
+			const date = new Date(iso + 'T00:00:00Z');
 			return date.toLocaleDateString('fr-FR', {
 				weekday: 'short',
 				day: 'numeric',
