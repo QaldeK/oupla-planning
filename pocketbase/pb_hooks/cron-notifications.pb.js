@@ -121,7 +121,7 @@ cronAdd('notifications-check', '0 8 * * *', () => {
 		occurrences = $app.findRecordsByFilter(
 			'planning_occurrences',
 			`(${planningFilters}) && (${dateFilters}) && isCanceled = false`,
-			'date ASC',
+			'date',
 			500,
 			0,
 			{ ...dateParams, ...planningParams }
