@@ -26,7 +26,7 @@ onRecordAfterUpdateSuccess((e) => {
 		.info(
 			'[Notif-DBG] Hook start',
 			'occId',
-			rec.getId(),
+			rec.get('id'),
 			'isCanceled',
 			rec.getBool('isCanceled'),
 			'origIsCanceled',
@@ -52,7 +52,7 @@ onRecordAfterUpdateSuccess((e) => {
 
 	// Si pas de changement pertinent, on sort
 	if (!wasCanceled && !timeChanged) {
-		e.app.logger().info('[Notif-DBG] Early return: no relevant change', 'occId', rec.getId());
+		e.app.logger().info('[Notif-DBG] Early return: no relevant change', 'occId', rec.get('id'));
 		return e.next();
 	}
 
@@ -75,7 +75,7 @@ onRecordAfterUpdateSuccess((e) => {
 			.error(
 				'[Notif-DBG] Early return: failed to load participants',
 				'occId',
-				rec.getId(),
+				rec.get('id'),
 				'masterId',
 				masterId,
 				'err',
@@ -90,7 +90,7 @@ onRecordAfterUpdateSuccess((e) => {
 			.info(
 				'[Notif-DBG] Early return: no participants',
 				'occId',
-				rec.getId(),
+				rec.get('id'),
 				'masterId',
 				masterId
 			);
@@ -107,7 +107,7 @@ onRecordAfterUpdateSuccess((e) => {
 			.error(
 				'[Notif-DBG] Early return: master not found',
 				'occId',
-				rec.getId(),
+				rec.get('id'),
 				'masterId',
 				masterId,
 				'err',
@@ -149,7 +149,7 @@ onRecordAfterUpdateSuccess((e) => {
 		.info(
 			'[Notif-DBG] Sending notifications',
 			'occId',
-			rec.getId(),
+			rec.get('id'),
 			'pushUsers',
 			pushUsers.length,
 			'emailUsers',
