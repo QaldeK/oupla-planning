@@ -65,11 +65,7 @@ function computeDaysUntil(occDateRaw, now) {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return -1;
 	const occMs = new Date(`${day}T00:00:00Z`).getTime();
 	if (Number.isNaN(occMs)) return -1;
-	const todayUtcMidnight = Date.UTC(
-		now.getUTCFullYear(),
-		now.getUTCMonth(),
-		now.getUTCDate()
-	);
+	const todayUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 	return Math.round((occMs - todayUtcMidnight) / (24 * 60 * 60 * 1000));
 }
 

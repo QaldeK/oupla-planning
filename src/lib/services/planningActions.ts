@@ -247,8 +247,7 @@ export async function createPlanningWithOccurrences(
 
 // Type de retour pour getPlanningByToken avec gestion d'erreur typée
 export type GetPlanningByTokenResult =
-	| { master: PlanningMaster; isAdmin: boolean }
-	| { error: 'network' | 'not_found' };
+	{ master: PlanningMaster; isAdmin: boolean } | { error: 'network' | 'not_found' };
 
 export async function getPlanningByToken(token: string): Promise<GetPlanningByTokenResult> {
 	try {

@@ -67,7 +67,7 @@ const CATEGORY_PRIORITY = {
 const CATEGORY_EMOJI = {
 	cancel: '❌',
 	change: '✏️',
-	confirmation: '✅',
+	confirmation: '⏳',
 	missings: '⚠️',
 	reminder: '🔔'
 };
@@ -107,10 +107,22 @@ const DETAILED_BLOCKS = 3;
 const MAX_DESC_LENGTH = 300;
 
 /** Fallback générique si `changedBy` vide ou user introuvable. */
-const UNKNOWN_AUTHOR = 'un·e administrateur·rice';
+const UNKNOWN_AUTHOR = 'un·e administrateur·ice';
 
-/** Marqueur non-confirmation affiché en fin de bloc reminder. */
-const NON_CONFIRME_NOTE = 'ℹ Non encore confirmé par un·e administrateur·rice';
+/** Note ℹ affichée en fin de bloc reminder si l'occ n'est pas confirmée. */
+const NON_CONFIRME_NOTE = "ℹ L'événement n'est pas encore confirmé.";
+
+/** Ligne d'action attendue pour les admins (catégorie confirmation). */
+const CONFIRMATION_ACTION_LINE =
+	"En tant qu'administrateur·ice, confirmez sa tenue ou annulez-le s'il n'aura pas lieu.";
+
+/**
+ * Marqueur de barré dans les renderers.
+ * Converti en `<s>` côté HTML (rendu barré) et supprimé côté texte brut.
+ * Format : `[[s]]ancien[[/s]] → nouveau`.
+ */
+const STRIKE_OPEN = '[[s]]';
+const STRIKE_CLOSE = '[[/s]]';
 
 // ============================================================================
 // Helpers (exportés pour tests)
@@ -160,17 +172,69 @@ function _formatTime(rawTime) {
 
 /**
  * Formate la ligne d'en-tête d'un bloc occ :
- *   - Cas général : `{date} à {start}h — {place}` (ex: "mar. 31 mars à 19h00 — Salle des fêtes")
- *   - Cas cancel : `{date}` seul (horaire/lieu non pertinents sur occ annulée)
+ *   - Cas général : `{typeLabel} — {date} à {start}h — {end} — {place}`
+ *     (ex: "Rappel — mar. 31 mars à 19h00 — 22h00 — Salle des fêtes")
+ *   - Cas cancel : `{typeLabel} — {date}` (horaire/lieu non pertinents sur occ annulée)
+ *
+ * Le `typeLabel` (Annulation, Modification, À confirmer, ...) est injecté en
+ * toutes lettres pour lever l'ambiguïté de l'emoji seul.
  */
-function _formatOccLine(occ, isCanceled) {
+function _formatOccLine(occ, isCanceled, typeLabel = '') {
 	const date = formatDateFR(occ.getString('date'));
-	if (isCanceled) return date;
+	const datePart = typeLabel ? `${typeLabel} — ${date}` : date;
+	if (isCanceled) return datePart;
 	const startTime = _formatTime(occ.getString('startTime'));
 	const endTime = _formatTime(occ.getString('endTime'));
 	const place = occ.getString('place') || '';
-	const head = startTime ? `${date} à ${startTime} — ${endTime}` : date;
+	const head = startTime ? `${datePart} à ${startTime} — ${endTime}` : datePart;
 	return place ? `${head} — ${place}` : head;
+}
+
+/**
+ * Construit la ligne de contexte temporel d'un reminder à partir du J-X.
+ *   - 1      → "L'événement a lieu demain."
+ *   - N (≥2) → "L'événement a lieu dans {N} jours."
+ *   - 0/absent → '' (pas de ligne contexte)
+ */
+function _buildContextualLine(reminderValue) {
+	const n = Number(reminderValue) || 0;
+	if (n === 1) return "L'événement a lieu demain.";
+	if (n >= 2) return `L'événement a lieu dans ${n} jours.`;
+	return '';
+}
+
+/**
+ * Construit la ligne de contexte d'une confirmation admin à partir du J-X.
+ * Variante "prévu" (vs "a lieu" pour le reminder) pour signaler le caractère
+ * non-encore-confirmé.
+ *   - 1      → "L'événement est prévu demain mais n'est pas encore confirmé."
+ *   - N (≥2) → "L'événement est prévu dans {N} jours mais n'est pas encore confirmé."
+ *   - 0/absent → "L'événement n'est pas encore confirmé."
+ */
+function _buildConfirmationContextualLine(reminderValue) {
+	const n = Number(reminderValue) || 0;
+	if (n === 1) return "L'événement est prévu demain mais n'est pas encore confirmé.";
+	if (n >= 2) return `L'événement est prévu dans ${n} jours mais n'est pas encore confirmé.`;
+	return "L'événement n'est pas encore confirmé.";
+}
+
+/**
+ * Supprime les marqueurs `[[s]]...[[/s]]` d'une ligne (rendu texte brut).
+ */
+function _stripStrikeMarkers(line) {
+	return line.replace(/\[\[\/?s\]\]/g, '');
+}
+
+/**
+ * Convertit les marqueurs `[[s]]...[[/s]]` en `<s>` stylé (rendu HTML).
+ * À appeler APRÈS `_escapeHtml` : le contenu interne est alors déjà échappé,
+ * on insère juste la balise `<s>`.
+ */
+function _renderStrikeForHtml(escapedLine) {
+	return escapedLine.replace(
+		/\[\[s\]\]([\s\S]*?)\[\[\/s\]\]/g,
+		'<s style="text-decoration:line-through;color:#9ca3af;">$1</s>'
+	);
 }
 
 // ============================================================================
@@ -178,67 +242,77 @@ function _formatOccLine(occ, isCanceled) {
 // ne doit rien afficher pour ce destinataire (ex: reminder filtré runtime).
 // ============================================================================
 
-/** `cancel` → "Annulé par Sarah" (ou "Supprimé par …" pour status_deleted). */
+/** `cancel` → "L'événement a été annulé (par Sarah)." (ou "supprimé" pour status_deleted). */
 function _renderCancelLine(event, ctx) {
 	const author = _resolveAuthor(event.changedBy, ctx);
-	if (event.type === 'status_deleted') return `Supprimé par ${author}`;
-	return `Annulé par ${author}`;
+	if (event.type === 'status_deleted') return `L'événement a été supprimé (par ${author}).`;
+	return `L'événement a été annulé (par ${author}).`;
 }
 
 /**
- * `change` (schedule_change) → "Modifié par {author} : ...".
- * Le payload contient les champs avant/après modifiés. On rend une ligne
- * par dimension modifiée (date, horaire, lieu) — en pratique le hook
- * n'en insère qu'une par event, mais on reste défensif.
+ * `change` (schedule_change) → phrase complète selon le(s) champ(s) modifié(s).
+ * Le payload contient les champs avant/après. 3 cas :
+ *   - 0 champ identifié → "L'événement a été modifié (par X)."
+ *   - 1 champ → phrase dédiée ("La date a été modifiée...", "Le lieu a été...", etc.)
+ *   - N champs → "Plusieurs détails ont été modifiés (par X) : ..."
+ *
+ * Le lieu barré utilise `[[s]]ancien[[/s]]` (converti en `<s>` côté HTML,
+ * supprimé côté texte brut).
  */
 function _renderChangeLine(event, ctx) {
 	const author = _resolveAuthor(event.changedBy, ctx);
 	const p = event.payload || {};
-	const parts = [];
-	if (p.oldDate && p.newDate && p.oldDate !== p.newDate) {
-		parts.push(`${formatDateFR(p.oldDate)} → ${formatDateFR(p.newDate)}`);
-	}
-	if (p.oldStartTime && p.newStartTime && p.oldStartTime !== p.newStartTime) {
-		parts.push(`${_formatTime(p.oldStartTime)} → ${_formatTime(p.newStartTime)}`);
-	}
-	if (p.oldEndTime && p.newEndTime && p.oldEndTime !== p.newEndTime) {
-		parts.push(`fin ${_formatTime(p.oldEndTime)} → ${_formatTime(p.newEndTime)}`);
-	}
-	if (p.oldPlace !== undefined && p.newPlace && p.oldPlace !== p.newPlace) {
-		parts.push(`lieu ${p.oldPlace || '—'} → ${p.newPlace}`);
-	}
-	if (event.type === 'status_confirmed') {
-		return `Confirmé par ${author}`;
-	}
-	if (parts.length === 0) return `Modifié par ${author}`;
-	return `Modifié par ${author} : ${parts.join(', ')}`;
-}
 
-/** `confirmation` (confirmation_needed) → "À confirmer". */
-function _renderConfirmationLine() {
-	return 'À confirmer';
+	if (event.type === 'status_confirmed') {
+		return `L'événement a été confirmé (par ${author}).`;
+	}
+
+	const hasDate = p.oldDate && p.newDate && p.oldDate !== p.newDate;
+	const hasStart = p.oldStartTime && p.newStartTime && p.oldStartTime !== p.newStartTime;
+	const hasEnd = p.oldEndTime && p.newEndTime && p.oldEndTime !== p.newEndTime;
+	const hasPlace = p.oldPlace !== undefined && p.newPlace && p.oldPlace !== p.newPlace;
+
+	// 1 champ : phrasé dédié.
+	if (hasDate && !hasStart && !hasEnd && !hasPlace) {
+		return `La date a été modifiée (par ${author}) : ${formatDateFR(p.oldDate)} → ${formatDateFR(p.newDate)}.`;
+	}
+	if (hasStart && !hasDate && !hasEnd && !hasPlace) {
+		return `L'horaire de début a été modifié (par ${author}) : ${_formatTime(p.oldStartTime)} → ${_formatTime(p.newStartTime)}.`;
+	}
+	if (hasEnd && !hasDate && !hasStart && !hasPlace) {
+		return `L'horaire de fin a été modifié (par ${author}) : ${_formatTime(p.oldEndTime)} → ${_formatTime(p.newEndTime)}.`;
+	}
+	if (hasPlace && !hasDate && !hasStart && !hasEnd) {
+		const oldPlace = p.oldPlace || '—';
+		return `Le lieu a été modifié (par ${author}) : ${STRIKE_OPEN}${oldPlace}${STRIKE_CLOSE} → ${p.newPlace}.`;
+	}
+
+	// 0 champ identifié.
+	const hasAnyChange = hasDate || hasStart || hasEnd || hasPlace;
+	if (!hasAnyChange) {
+		return `L'événement a été modifié (par ${author}).`;
+	}
+
+	// N champs : phrase englobante.
+	const parts = [];
+	if (hasDate) parts.push(`date ${formatDateFR(p.oldDate)} → ${formatDateFR(p.newDate)}`);
+	if (hasStart)
+		parts.push(`horaire ${_formatTime(p.oldStartTime)} → ${_formatTime(p.newStartTime)}`);
+	if (hasEnd) parts.push(`fin ${_formatTime(p.oldEndTime)} → ${_formatTime(p.newEndTime)}`);
+	if (hasPlace) parts.push(`lieu ${p.oldPlace || '—'} → ${p.newPlace}`);
+	return `Plusieurs détails ont été modifiés (par ${author}) : ${parts.join(', ')}.`;
 }
 
 /**
- * `missings` → "{present}/{min} présents requis, {maybe} peut-être, {noreply} sans-réponse"
- *                + "Tâches à pourvoir : ..." si applicable.
- * Les compteurs viennent du payload (pré-calculés par le cron en Phase 2).
- * `{min}` = payload.minPresentRequired (occ override prioritaire sur master).
+ * `confirmation` (confirmation_needed, admin only) → 2 lignes :
+ *   - contexte temporel avec J-X ("L'événement est prévu dans 3 jours mais n'est pas encore confirmé.")
+ *   - action attendue ("En tant qu'administrateur·ice, confirmez sa tenue ou annulez-le s'il n'aura pas lieu.")
+ *
+ * Retourne un Array<string> (2 lignes), à différencier des autres renderers
+ * qui retournent une string unique.
  */
-function _renderMissingsLine(event, occ, ctx) {
-	const p = event.payload || {};
-	const present = p.presentCount ?? 0;
-	const maybe = p.maybeCount ?? 0;
-	const noreply = p.noReplyCount ?? 0;
-	const min = p.minPresentRequired ?? occ.getInt('minPresentRequired') ?? 0;
-
-	const lines = [];
-	if (min > 0) {
-		lines.push(`${present}/${min} présents requis, ${maybe} peut-être, ${noreply} sans-réponse`);
-	}
-	const taskLine = _formatTasksToFill(p.tasksToFill);
-	if (taskLine) lines.push(taskLine);
-	return lines.join('\n   ');
+function _renderConfirmationLine(event) {
+	return [_buildConfirmationContextualLine(event.reminderValue), CONFIRMATION_ACTION_LINE];
 }
 
 /**
@@ -251,37 +325,66 @@ function _formatTasksToFill(tasksToFill) {
 	const items = tasksToFill.map(
 		(t) => `${t.name || 'Tâche'} (${t.signedUp ?? 0}/${t.required ?? 0})`
 	);
-	return `Tâches à pourvoir : ${items.join(', ')}`;
+	return `Tâches à pourvoir : ${items.join(', ')}.`;
+}
+
+/**
+ * `missings` → lignes phrasées (Array<string>).
+ *   - Quorum (seulement pour `quorum_missing`) :
+ *       "Quorum insuffisant : 2 présents confirmés sur 5 requis."
+ *       "1 incertain·e·s, 2 sans-réponse."
+ *   - Tâches à pourvoir si applicable.
+ *
+ * `task_unassigned` est aussi catégorisé missings mais ne porte pas de
+ * compteurs de quorum → on saute la partie quorum et on n'affiche que les tâches.
+ */
+function _renderMissingsLine(event, occ) {
+	const p = event.payload || {};
+	const present = p.presentCount ?? 0;
+	const maybe = p.maybeCount ?? 0;
+	const noreply = p.noReplyCount ?? 0;
+	const min = p.minPresentRequired ?? occ.getInt('minPresentRequired') ?? 0;
+	const isTaskUnassigned = event.type === 'task_unassigned';
+
+	const lines = [];
+	if (!isTaskUnassigned && min > 0) {
+		lines.push(`Quorum insuffisant : ${present} présent·e·s confirmé·e·s sur ${min} requis.`);
+		lines.push(`${maybe} incertain·e·s, ${noreply} sans-réponse.`);
+	}
+	const taskLine = _formatTasksToFill(p.tasksToFill);
+	if (taskLine) lines.push(taskLine);
+	return lines;
 }
 
 /**
  * `reminder` → lignes personnalisées selon la réponse du destinataire.
- *   - `present` + tâches → "Vous êtes inscrit·e comme « présent·e »" + "Vos tâches : …"
- *   - `present` sans tâche → "Vous êtes inscrit·e comme « présent·e »"
- *   - Autre + tâches → "Vos tâches : …"
+ *   - Ligne contexte temporel (J-X) — optionnel, supprimée si une confirmation
+ *     est déjà présente dans le bloc ( évite la répétition "dans 3 jours" ).
+ *   - "Vous êtes inscrit·e comme « présent·e »." si userResponse=present
+ *   - "Vos tâches : ..." si applicable
  *
- * La response et les tâches du destinataire sont pré-calculées par le cron
- * d'envoi et passées dans `event.payload` (`userResponse`, `userTasks`).
- * Le mapping user ↔ participant est trop cas-à-cas (guests revendiqués,
- * userId ≠ participantId) pour vivre dans le templating.
- *
- * Si `master.toConfirm && !occ.isConfirmed`, ajoute la note ℹ en fin.
+ * Si master.toConfirm && !occ.isConfirmed, ajoute NON_CONFIRME_NOTE en fin.
  */
-function _renderReminderLines(event, occ, user, ctx) {
+function _renderReminderLines(event, occ, user, ctx, opts) {
 	const p = event.payload || {};
 	const userResp = p.userResponse || null;
 	const userTasks = Array.isArray(p.userTasks) ? p.userTasks : [];
+	const suppressContextual = opts && opts.suppressContextual;
 
 	const lines = [];
+	if (!suppressContextual) {
+		const ctxLine = _buildContextualLine(event.reminderValue);
+		if (ctxLine) lines.push(ctxLine);
+	}
 	if (userResp === 'present') {
-		lines.push('Vous êtes inscrit·e comme « présent·e »');
+		lines.push('Vous êtes inscrit·e comme « présent·e ».');
 	}
 	if (userTasks.length > 0) {
-		lines.push(`Vos tâches : ${userTasks.join(', ')}`);
+		lines.push(`Vos tâches : ${userTasks.join(', ')}.`);
 	}
 
-	// Le filtrage runtime doit garantir au moins une ligne. Si on est ici
-	// sans rien à dire (payload absent/incohérent), on évite un bloc vide.
+	// Filtrage runtime doit garantir au moins une ligne. Si on est ici sans
+	// rien à dire (payload absent/incohérent), on évite un bloc vide.
 	if (lines.length === 0) return [];
 
 	const master = ctx && ctx.master;
@@ -306,7 +409,7 @@ function _renderReminderLines(event, occ, user, ctx) {
  */
 function _collectBlocks(master, events, user, ctx) {
 	const occCache = (ctx && ctx.occCache) || new Map();
-	const masterDescription = master.getString('description') || ''; // FIXIT: la string description est du html, rendu brut
+	const masterDescription = master.getString('description') || '';
 
 	// Group events par occurrence (préserve l'ordre d'insertion pour stabilité).
 	const byOcc = new Map();
@@ -353,8 +456,8 @@ function _collectBlocks(master, events, user, ctx) {
 
 /**
  * Construit un bloc occurrence à partir de ses events.
- * Détermine l'emoji prioritaire, la ligne d'en-tête, les lignes internes
- * ordonnées par priorité, et l'éventuelle description override.
+ * Détermine l'emoji prioritaire, le label de type, la ligne d'en-tête,
+ * les lignes internes ordonnées par priorité, et l'éventuelle description override.
  */
 function _buildOccBlock(occ, occEvents, user, ctx) {
 	const isCanceled = occ.getBool('isCanceled');
@@ -371,16 +474,21 @@ function _buildOccBlock(occ, occEvents, user, ctx) {
 			return pa - pb;
 		});
 
-	// Emoji prioritaire = celui du 1er event trié.
+	// Emoji + label prioritaires = ceux du 1er event trié.
 	const topCategory = categorized.length > 0 ? categorized[0].category : null;
 	const emoji = topCategory ? CATEGORY_EMOJI[topCategory] : '';
+	const typeLabel = topCategory ? CATEGORY_SUBJECT_LABEL[topCategory] || '' : '';
+
+	// Détection d'une confirmation dans le bloc → supprimer la ligne contexte
+	// du reminder ("dans 3 jours") pour éviter la répétition, puisque la
+	// confirmation dit déjà "L'événement est prévu dans 3 jours mais...".
+	const hasConfirmation = categorized.some((c) => c.category === 'confirmation');
 
 	// Lignes internes : rend chaque event selon sa catégorie.
-	// Plusieurs events de même catégorie produisent chacun leur ligne
-	// (ex: 2 schedule_change = 2 lignes "Modifié par ...").
 	const lines = [];
 	for (const { ev, category } of categorized) {
-		const rendered = _renderEventLines(category, ev, occ, user, ctx);
+		const opts = { suppressContextual: hasConfirmation && category === 'reminder' };
+		const rendered = _renderEventLines(category, ev, occ, user, ctx, opts);
 		for (const line of rendered) lines.push(line);
 	}
 
@@ -394,26 +502,30 @@ function _buildOccBlock(occ, occEvents, user, ctx) {
 		occId: occ.get('id'),
 		emoji,
 		category: topCategory,
-		headLine: _formatOccLine(occ, isCanceled || topCategory === 'cancel'),
+		headLine: _formatOccLine(occ, isCanceled || topCategory === 'cancel', typeLabel),
 		lines,
 		description: descriptionOverride,
 		dateRaw: occ.getString('date') // pour le tri
 	};
 }
 
-/** Délègue au renderer de catégorie, retourne un array de lignes. */
-function _renderEventLines(category, ev, occ, user, ctx) {
+/**
+ * Délègue au renderer de catégorie, retourne un array de lignes.
+ * `opts` est passé aux renderers qui en ont besoin (reminder pour
+ * suppressContextual).
+ */
+function _renderEventLines(category, ev, occ, user, ctx, opts) {
 	switch (category) {
 		case 'cancel':
 			return [_renderCancelLine(ev, ctx)];
 		case 'change':
 			return [_renderChangeLine(ev, ctx)];
 		case 'confirmation':
-			return [_renderConfirmationLine()];
+			return _renderConfirmationLine(ev);
 		case 'missings':
-			return [_renderMissingsLine(ev, occ, ctx)];
+			return _renderMissingsLine(ev, occ);
 		case 'reminder':
-			return _renderReminderLines(ev, occ, user, ctx);
+			return _renderReminderLines(ev, occ, user, ctx, opts);
 		default:
 			return [];
 	}
@@ -512,6 +624,9 @@ function buildTextEmail(master, events, user, ctx) {
 	parts.push('Oupla Planning');
 	parts.push(collected.header.title);
 	if (collected.header.description) parts.push(collected.header.description);
+	// FIXIT ? buildTextEmail affiche la description brute (HTML). En texte brut
+	// le HTML est peu lisible. Si cela devient gênant, appliquer un strip-tags
+	// basique ici (ex: supprimer <[^>]+>, préserver les <br> comme sauts de ligne).
 	parts.push('');
 
 	// Blocs occurrence
@@ -519,7 +634,7 @@ function buildTextEmail(master, events, user, ctx) {
 		const prefix = block.emoji ? `${block.emoji} ` : '';
 		parts.push(`${prefix}${block.headLine}`);
 		for (const line of block.lines) {
-			parts.push(`   ${line}`);
+			parts.push(`   ${_stripStrikeMarkers(line)}`);
 		}
 		if (block.description) parts.push(`   ${block.description}`);
 		parts.push('');
@@ -537,6 +652,7 @@ function buildTextEmail(master, events, user, ctx) {
 	parts.push(
 		`Vous recevez cet email car vous êtes inscrit·e au planning « ${collected.header.title} ».`
 	);
+	parts.push(`Vous pouvez ajuster vos notifications depuis le planning : ${planningUrl}?notif=1`);
 
 	return parts.join('\n');
 }
@@ -557,6 +673,45 @@ function _escapeHtml(text) {
 }
 
 /**
+ * Nettoie un HTML riche pour usage dans un email : conserve les balises
+ * safe d'une whitelist (alignée sur DescriptionCard.svelte), supprime
+ * <script>, <style>, attributs on* et href javascript:.
+ * Conçu pour le contexte email (admin → participants) — pas un remplacement
+ * de DOMPurify, mais suffisant pour ce threat model.
+ */
+function _stripUnsafeHtml(html) {
+	if (!html) return '';
+	const safeTags = ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'h2', 'h3', 'b', 'i'];
+	const escaped = safeTags.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+	const re = new RegExp(`</?(?:${escaped}|\\w+)[^>]*>`, 'gi');
+	return (
+		String(html)
+			// Supprime d'abord les blocs dangereux entiers
+			.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+			.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+			// Supprime les attributs on* (onclick, onerror, etc.)
+			.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+			// Supprime les href javascript:
+			.replace(
+				/href\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]*)/gi,
+				'href="#"'
+			)
+			// Remplace toute balise non-safe par son contenu texte uniquement
+			.replace(re, (match) => {
+				const tagName = match
+					.replace(/<\/?/, '')
+					.replace(/[>\s\/].*$/, '')
+					.toLowerCase();
+				if (safeTags.includes(tagName)) return match;
+				return '';
+			})
+			// Nettoie les lignes vides multiples laissées par les suppressions
+			.replace(/\n{3,}/g, '\n\n')
+			.trim()
+	);
+}
+
+/**
  * Corps HTML sobre. Pas de logo image (overhead CID), pas de fond coloré
  * (filtrage spam). Bouton CTA bleu `#3b82f6` en CSS inline. Séparateurs
  * `<hr>` discrets entre blocs occ. Multi-lignes via `<br>` (les clients
@@ -566,7 +721,11 @@ function buildHtmlEmail(master, events, user, ctx) {
 	const collected = _collectBlocks(master, events, user, ctx);
 	const planningUrl = _buildPlanningUrl(master, ctx);
 	const title = _escapeHtml(collected.header.title);
-	const masterDesc = _escapeHtml(collected.header.description);
+	// Note: description est un champ Editor (rich-text). PB ne sanitize pas le
+	// contenu (stockage brut), donc on applique _stripUnsafeHtml() pour ne garder
+	// que les balises safe d'une whitelist — le rendu riche est conservé sans
+	// les risques XSS (<script>, on*, href javascript:).
+	const masterDesc = _stripUnsafeHtml(collected.header.description);
 
 	const bodyParts = [];
 
@@ -577,7 +736,11 @@ function buildHtmlEmail(master, events, user, ctx) {
 	bodyParts.push(`<p style="font-size:13px;color:#6b7280;margin:0 0 4px;">Oupla Planning</p>`);
 	bodyParts.push(`<h1 style="font-size:20px;margin:0 0 8px;font-weight:600;">${title}</h1>`);
 	if (masterDesc) {
-		bodyParts.push(`<p style="font-size:14px;color:#4b5563;margin:0 0 16px;">${masterDesc}</p>`);
+		// On utilise un <div> plutôt qu'un <p> car le HTML rich-text peut contenir
+		// des éléments block (<p>, <ul>, <h2>…) qui seraient invalides dans un <p>.
+		bodyParts.push(
+			`<div style="font-size:14px;color:#4b5563;margin:0 0 16px;">${masterDesc}</div>`
+		);
 	}
 
 	// Blocs occurrence
@@ -590,9 +753,10 @@ function buildHtmlEmail(master, events, user, ctx) {
 		const head = _escapeHtml(block.headLine);
 		bodyParts.push(`<p style="margin:0 0 8px;font-weight:500;">${emoji}${head}</p>`);
 		for (const line of block.lines) {
-			bodyParts.push(
-				`<p style="margin:0 0 4px;padding-left:12px;color:#4b5563;">${_escapeHtml(line)}</p>`
-			);
+			// Échappe d'abord le contenu, puis convertit les marqueurs [[s]]...
+			// en <s> (le contenu interne est déjà échappé par _escapeHtml).
+			const rendered = _renderStrikeForHtml(_escapeHtml(line));
+			bodyParts.push(`<p style="margin:0 0 4px;padding-left:12px;color:#4b5563;">${rendered}</p>`);
 		}
 		if (block.description) {
 			bodyParts.push(
@@ -619,7 +783,12 @@ function buildHtmlEmail(master, events, user, ctx) {
 	// Footer
 	bodyParts.push(`<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;">`);
 	bodyParts.push(
-		`<p style="font-size:12px;color:#9ca3af;margin:0;">Vous recevez cet email car vous êtes inscrit·e au planning « ${title} ».</p>`
+		`<p style="font-size:12px;color:#9ca3af;margin:0 0 4px;">Vous recevez cet email car vous êtes inscrit·e au planning « ${title} ».</p>`
+	);
+	bodyParts.push(
+		`<p style="font-size:12px;color:#9ca3af;margin:0;">Vous pouvez <a href="${_escapeHtml(
+			planningUrl
+		)}?notif=1" style="color:#9ca3af;text-decoration:underline;">ajuster vos notifications</a> depuis le planning.</p>`
 	);
 	bodyParts.push(`</div>`);
 
@@ -659,6 +828,11 @@ module.exports = {
 	_renderConfirmationLine,
 	_renderMissingsLine,
 	_renderReminderLines,
+	_buildContextualLine,
+	_buildConfirmationContextualLine,
+	_formatTasksToFill,
+	_stripStrikeMarkers,
+	_renderStrikeForHtml,
 
 	// Constantes exportées pour tests / debug
 	TYPE_CATEGORY,

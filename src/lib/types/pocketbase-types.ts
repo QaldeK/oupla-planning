@@ -140,7 +140,7 @@ export type PlanningMastersRecord<TavailableResponseTypes = unknown, Tparticipan
 	defaultEndTime: string
 	defaultStartTime: string
 	deleted?: boolean
-	description?: string
+	description?: HTMLString
 	id: string
 	lastModifiedBy?: string
 	locked?: boolean
@@ -161,7 +161,7 @@ export type PlanningOccurrencesRecord<Tcomments = unknown, Tresponses = unknown,
 	created: IsoAutoDateString
 	date: IsoDateString
 	deleted?: boolean
-	description?: string
+	description?: HTMLString
 	endTime: string
 	id: string
 	isCanceled?: boolean

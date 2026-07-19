@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
 import { readFileSync } from 'fs';
+import { CASES, mkRecord, buildCtx } from './notify-templates.cases';
 
 // Validation isolée (pas de PocketBase) du rendu des templates de notification.
-// Génère les 9 maquettes de référence du brainstorm § 13.8 et compare le sujet
-// + corps texte à des substrings attendus.
-//
-// Les records PB sont mockés via mkRecord().
+// Les cas de test sont définis dans notify-templates.cases.ts (source de vérité
+// partagée avec notify-templates.snapshot.ts).
 
 // ============================================================================
 // Module under test — contournement de l'interop CJS de Vite.
@@ -41,431 +40,111 @@ await import(/* @vite-ignore */ templatesDataUrl);
 const templates = (globalThis as any).__templates_exports__;
 
 // ============================================================================
-// Factory de mock pour core.Record
+// Cas de test (définis dans notify-templates.cases.ts)
+//
+// Les expected* sont déclarés à part pour rester proches des assertions et
+// faciliter les évolutions (le snapshot n'a pas besoin de ces champs).
 // ============================================================================
 
-function mkRecord(data: Record<string, unknown>): any {
-	return {
-		_data: data,
-		get(field: string) {
-			return data[field];
-		},
-		getString(field: string) {
-			const v = data[field];
-			return v === null || v === undefined ? '' : String(v);
-		},
-		getBool(field: string) {
-			return !!data[field];
-		},
-		getInt(field: string) {
-			const v = Number(data[field]);
-			return Number.isFinite(v) ? v : 0;
-		},
-		getFloat(field: string) {
-			return Number(data[field]) || 0;
-		}
-	};
-}
+type CaseExpectations = {
+	expectedSubjectContains: string[];
+	expectedBodyContains: string[];
+};
+
+// Aligné sur spec v2 (.scratch/notify-templates-rework-spec.md §3).
+const EXPECTATIONS: Record<number, CaseExpectations> = {
+	1: {
+		expectedSubjectContains: ['Rappel', 'Repas hebdo'],
+		expectedBodyContains: ['Rappel — mar. 31 mars', "L'événement a lieu demain", 'présent·e']
+	},
+	2: {
+		expectedSubjectContains: ['Rappel', 'Repas hebdo'],
+		expectedBodyContains: [
+			"L'événement a lieu demain",
+			'présent·e',
+			'Préparer salle (avant)',
+			'Accueil (pendant)',
+			"n'est pas encore confirmé"
+		]
+	},
+	3: {
+		expectedSubjectContains: ['Modification', 'Repas hebdo'],
+		expectedBodyContains: [
+			'Modification — mar. 31 mars',
+			"L'horaire de début a été modifié",
+			'19h00 → 20h00'
+		]
+	},
+	4: {
+		expectedSubjectContains: ['Annulation', 'Repas hebdo'],
+		expectedBodyContains: ['Annulation — mar. 31 mars', "L'événement a été annulé", 'Sarah']
+	},
+	5: {
+		expectedSubjectContains: ['Participants manquants', 'Repas hebdo'],
+		expectedBodyContains: [
+			'Participants manquants — dim. 5 avr.',
+			'Quorum insuffisant',
+			'présent·e·s confirmé·e·s sur 5 requis',
+			'incertain·e·s',
+			'sans-réponse',
+			'Tâches à pourvoir',
+			'Accueil (0/2)',
+			'Rangement (1/3)'
+		]
+	},
+	6: {
+		expectedSubjectContains: ['À confirmer', 'Repas hebdo'],
+		expectedBodyContains: [
+			'À confirmer — dim. 5 avr.',
+			"est prévu dans 3 jours mais n'est pas encore confirmé",
+			"En tant qu'",
+			'confirmez sa tenue'
+		]
+	},
+	7: {
+		expectedSubjectContains: ['À confirmer', 'Repas hebdo'],
+		expectedBodyContains: [
+			'Quorum insuffisant',
+			'présent·e',
+			'Préparer salle (avant)',
+			// Le reminder ne doit PAS répéter "dans 3 jours" (déjà dit par la
+			// confirmation présente dans le même bloc — voir spec §4.2).
+			"est prévu dans 3 jours mais n'est pas encore confirmé"
+		]
+	},
+	8: {
+		expectedSubjectContains: ['Important', 'Repas hebdo', '3 événements'],
+		expectedBodyContains: [
+			'Annulation — mar. 31 mars',
+			"L'événement a été annulé",
+			'Modification — dim. 5 avr.',
+			'Le lieu a été modifié',
+			'Salle des fêtes → Gymnase',
+			"L'événement a lieu demain",
+			'présent·e',
+			'Rangement (après)'
+		]
+	},
+	9: {
+		expectedSubjectContains: ['5 modifications', 'Repas hebdo'],
+		expectedBodyContains: [
+			"L'horaire de début a été modifié",
+			'Le lieu a été modifié',
+			'+ 2 autres'
+		]
+	}
+};
 
 // ============================================================================
-// Données de test partagées
-// ============================================================================
-
-const MASTER_BASE = {
-	id: 'm1',
-	title: 'Repas hebdo',
-	description: 'Repas hebdomadaire du jeudi',
-	participantToken: 'abc123',
-	toConfirm: false,
-	minPresentRequired: 5,
-	recurrence: JSON.stringify({ type: 'WEEKLY', daysOfWeek: [4] })
-};
-
-const OCC_31_MARS = {
-	id: 'o1',
-	date: '2026-03-31',
-	startTime: '19:00',
-	endTime: '22:00',
-	place: 'Salle des fêtes',
-	description: '',
-	isConfirmed: false,
-	isCanceled: false,
-	minPresentRequired: 5,
-	responses: [{ participantId: 'u1', response: 'present' }],
-	tasks: []
-};
-
-const OCC_5_AVRIL = {
-	id: 'o2',
-	date: '2026-04-05',
-	startTime: '19:00',
-	endTime: '22:00',
-	place: 'Salle des fêtes',
-	description: '',
-	isConfirmed: false,
-	isCanceled: false,
-	minPresentRequired: 5,
-	responses: [
-		{ participantId: 'u1', response: 'present' },
-		{ participantId: 'u2', response: 'present' },
-		{ participantId: 'u3', response: 'maybe' }
-	],
-	tasks: []
-};
-
-const OCC_6_AVRIL = {
-	id: 'o3',
-	date: '2026-04-06',
-	startTime: '19:00',
-	endTime: '22:00',
-	place: 'Salle des fêtes',
-	description: '',
-	isConfirmed: false,
-	isCanceled: false,
-	minPresentRequired: 5,
-	responses: [{ participantId: 'u1', response: 'present' }],
-	tasks: [
-		{
-			name: 'Rangement',
-			type: 'afterEvent',
-			signedUpParticipants: ['u1']
-		}
-	]
-};
-
-const USER_PRESENT = mkRecord({ id: 'u1', name: 'Sarah' });
-
-function buildCtx(master: any, occs: any[]) {
-	const occCache = new Map();
-	for (const o of occs) occCache.set(o.id, mkRecord(o));
-	return {
-		occCache,
-		userNamesById: new Map([
-			['u1', 'Sarah'],
-			['u2', 'Bob']
-		]),
-		master,
-		baseUrl: 'https://planning.oupla.net'
-	};
-}
-
-// ============================================================================
-// Cas de test (alignés sur brainstorm § 13.8)
+// Tests
 // ============================================================================
 
 describe('notify-templates — 9 maquettes § 13.8', () => {
-	const cases = [
-		{
-			name: 'Cas 1 — reminder simple (1 event, user présent sans tâche)',
-			master: { ...MASTER_BASE },
-			occs: [OCC_31_MARS],
-			user: USER_PRESENT,
-			events: [
-				{
-					type: 'reminder',
-					occurrence: 'o1',
-					reminderValue: 1,
-					changedBy: '',
-					payload: { userResponse: 'present', userTasks: [] }
-				}
-			],
-			expectedSubjectContains: ['Rappel', 'Repas hebdo'],
-			expectedBodyContains: ['mar. 31 mars', 'Salle des fêtes', 'présent·e']
-		},
-		{
-			name: 'Cas 2 — reminder avec tâches + occ non confirmée',
-			master: { ...MASTER_BASE, toConfirm: true },
-			occs: [
-				{
-					...OCC_31_MARS,
-					tasks: [
-						{ name: 'Préparer salle', type: 'beforeEvent', signedUpParticipants: ['u1'] },
-						{ name: 'Accueil', type: 'onEvent', signedUpParticipants: ['u1'] }
-					],
-					isConfirmed: false
-				}
-			],
-			user: USER_PRESENT,
-			events: [
-				{
-					type: 'reminder',
-					occurrence: 'o1',
-					reminderValue: 1,
-					changedBy: '',
-					payload: {
-						userResponse: 'present',
-						userTasks: ['Préparer salle (avant)', 'Accueil (pendant)']
-					}
-				}
-			],
-			expectedSubjectContains: ['Rappel', 'Repas hebdo'],
-			expectedBodyContains: [
-				'présent·e',
-				'Préparer salle (avant)',
-				'Accueil (pendant)',
-				'Non encore confirmé'
-			]
-		},
-		{
-			name: 'Cas 3 — change (modification horaire)',
-			master: { ...MASTER_BASE },
-			occs: [{ ...OCC_31_MARS, startTime: '20:00' }],
-			user: USER_PRESENT,
-			events: [
-				{
-					type: 'schedule_change',
-					occurrence: 'o1',
-					reminderValue: 0,
-					changedBy: 'u1',
-					payload: { oldStartTime: '19:00', newStartTime: '20:00' }
-				}
-			],
-			expectedSubjectContains: ['Modification', 'Repas hebdo'],
-			expectedBodyContains: ['Modifié par Sarah', '19h00 → 20h00']
-		},
-		{
-			name: 'Cas 4 — cancel (annulation)',
-			master: { ...MASTER_BASE },
-			occs: [{ ...OCC_31_MARS, isCanceled: true }],
-			user: USER_PRESENT,
-			events: [
-				{
-					type: 'status_canceled',
-					occurrence: 'o1',
-					reminderValue: 0,
-					changedBy: 'u1',
-					payload: {}
-				}
-			],
-			expectedSubjectContains: ['Annulation', 'Repas hebdo'],
-			expectedBodyContains: ['mar. 31 mars', 'Annulé par Sarah']
-		},
-		{
-			name: 'Cas 5 — missings simple',
-			master: { ...MASTER_BASE },
-			occs: [OCC_5_AVRIL],
-			user: USER_PRESENT,
-			events: [
-				{
-					type: 'quorum_missing',
-					occurrence: 'o2',
-					reminderValue: 3,
-					changedBy: '',
-					payload: {
-						presentCount: 2,
-						maybeCount: 1,
-						noReplyCount: 2,
-						minPresentRequired: 5,
-						tasksToFill: [
-							{ name: 'Accueil', type: 'onEvent', signedUp: 0, required: 2 },
-							{ name: 'Rangement', type: 'afterEvent', signedUp: 1, required: 3 }
-						]
-					}
-				}
-			],
-			expectedSubjectContains: ['Participants manquants', 'Repas hebdo'],
-			expectedBodyContains: [
-				'2/5 présents requis',
-				'1 peut-être',
-				'2 sans-réponse',
-				'Tâches à pourvoir',
-				'Accueil (0/2)',
-				'Rangement (1/3)'
-			]
-		},
-		{
-			name: 'Cas 6 — confirmation (admin)',
-			master: { ...MASTER_BASE },
-			occs: [OCC_5_AVRIL],
-			user: USER_PRESENT,
-			events: [
-				{
-					type: 'confirmation_needed',
-					occurrence: 'o2',
-					reminderValue: 3,
-					changedBy: '',
-					payload: {}
-				}
-			],
-			expectedSubjectContains: ['À confirmer', 'Repas hebdo'],
-			expectedBodyContains: ['À confirmer']
-		},
-		{
-			name: 'Cas 7 — Multi-events même occ (admin présent + manque + à confirmer + J-3)',
-			master: { ...MASTER_BASE },
-			occs: [
-				{
-					...OCC_5_AVRIL,
-					tasks: [{ name: 'Préparer salle', type: 'beforeEvent', signedUpParticipants: ['u1'] }]
-				}
-			],
-			user: USER_PRESENT,
-			events: [
-				{
-					type: 'confirmation_needed',
-					occurrence: 'o2',
-					reminderValue: 3,
-					changedBy: '',
-					payload: {}
-				},
-				{
-					type: 'quorum_missing',
-					occurrence: 'o2',
-					reminderValue: 3,
-					changedBy: '',
-					payload: { presentCount: 2, maybeCount: 1, noReplyCount: 2, minPresentRequired: 5 }
-				},
-				{
-					type: 'reminder',
-					occurrence: 'o2',
-					reminderValue: 3,
-					changedBy: '',
-					payload: {
-						userResponse: 'present',
-						userTasks: ['Préparer salle (avant)']
-					}
-				}
-			],
-			expectedSubjectContains: ['À confirmer', 'Repas hebdo'],
-			expectedBodyContains: [
-				'À confirmer',
-				'2/5 présents requis',
-				'présent·e',
-				'Préparer salle (avant)'
-			]
-		},
-		{
-			name: 'Cas 8 — Multi-occ avec cancel/change/reminder',
-			master: { ...MASTER_BASE },
-			occs: [
-				{ ...OCC_31_MARS, isCanceled: true },
-				{ ...OCC_5_AVRIL, id: 'o2b', place: 'Gymnase' },
-				{ ...OCC_6_AVRIL }
-			],
-			user: USER_PRESENT,
-			events: [
-				{
-					type: 'status_canceled',
-					occurrence: 'o1',
-					reminderValue: 0,
-					changedBy: 'u1',
-					payload: {}
-				},
-				{
-					type: 'schedule_change',
-					occurrence: 'o2b',
-					reminderValue: 0,
-					changedBy: 'u1',
-					payload: { oldPlace: 'Salle des fêtes', newPlace: 'Gymnase' }
-				},
-				{
-					type: 'reminder',
-					occurrence: 'o3',
-					reminderValue: 1,
-					changedBy: '',
-					payload: {
-						userResponse: 'present',
-						userTasks: ['Rangement (après)']
-					}
-				}
-			],
-			expectedSubjectContains: ['Important', 'Repas hebdo', '3 événements'],
-			expectedBodyContains: [
-				'Annulé par Sarah',
-				'Modifié par Sarah',
-				'lieu',
-				'Gymnase',
-				'présent·e',
-				'Rangement (après)'
-			]
-		},
-		{
-			name: 'Cas 9 — Batch edit (5+ modifs même type)',
-			master: { ...MASTER_BASE },
-			occs: [
-				{ ...OCC_31_MARS, id: 'b1', startTime: '20:00' },
-				{ ...OCC_5_AVRIL, id: 'b2', place: 'Gymnase' },
-				{
-					id: 'b3',
-					date: '2026-04-13',
-					startTime: '18:30',
-					endTime: '21:30',
-					place: 'Salle des fêtes',
-					isCanceled: false,
-					isConfirmed: false,
-					minPresentRequired: 5,
-					responses: [],
-					tasks: []
-				},
-				{
-					id: 'b4',
-					date: '2026-04-20',
-					startTime: '19:00',
-					endTime: '22:00',
-					place: 'Salle des fêtes',
-					isCanceled: false,
-					isConfirmed: false,
-					minPresentRequired: 5,
-					responses: [],
-					tasks: []
-				},
-				{
-					id: 'b5',
-					date: '2026-04-27',
-					startTime: '19:00',
-					endTime: '22:00',
-					place: 'Salle des fêtes',
-					isCanceled: false,
-					isConfirmed: false,
-					minPresentRequired: 5,
-					responses: [],
-					tasks: []
-				}
-			],
-			user: USER_PRESENT,
-			events: [
-				{
-					type: 'schedule_change',
-					occurrence: 'b1',
-					reminderValue: 0,
-					changedBy: 'u1',
-					payload: { oldStartTime: '19:00', newStartTime: '20:00' }
-				},
-				{
-					type: 'schedule_change',
-					occurrence: 'b2',
-					reminderValue: 0,
-					changedBy: 'u1',
-					payload: { oldPlace: 'Salle des fêtes', newPlace: 'Gymnase' }
-				},
-				{
-					type: 'schedule_change',
-					occurrence: 'b3',
-					reminderValue: 0,
-					changedBy: 'u1',
-					payload: { oldStartTime: '19:00', newStartTime: '18:30' }
-				},
-				{
-					type: 'schedule_change',
-					occurrence: 'b4',
-					reminderValue: 0,
-					changedBy: 'u1',
-					payload: { oldStartTime: '19:00', newStartTime: '20:00' }
-				},
-				{
-					type: 'schedule_change',
-					occurrence: 'b5',
-					reminderValue: 0,
-					changedBy: 'u1',
-					payload: { oldStartTime: '19:00', newStartTime: '21:00' }
-				}
-			],
-			expectedSubjectContains: ['5 modifications', 'Repas hebdo'],
-			expectedBodyContains: ['Modifié par Sarah', '+ 2 autres']
-		}
-	];
+	for (let i = 0; i < CASES.length; i++) {
+		const c = CASES[i];
+		const num = i + 1;
+		const exp = EXPECTATIONS[num];
 
-	for (const c of cases) {
 		it(c.name, () => {
 			const master = mkRecord(c.master);
 			const ctx = buildCtx(master, c.occs);
@@ -473,12 +152,170 @@ describe('notify-templates — 9 maquettes § 13.8', () => {
 			const subject = templates.buildSubject(master, c.events, ctx);
 			const body = templates.buildTextEmail(master, c.events, c.user, ctx);
 
-			for (const s of c.expectedSubjectContains) {
+			for (const s of exp.expectedSubjectContains) {
 				expect(subject).toContain(s);
 			}
-			for (const s of c.expectedBodyContains) {
+			for (const s of exp.expectedBodyContains) {
 				expect(body).toContain(s);
 			}
 		});
 	}
+});
+
+// Garde-fou anti-régression : on s'assure que les 9 cas ont bien leurs
+// expectations définies. Évite les silently-skipped si on ajoute un cas dans
+// cases.ts sans remplir EXPECTATIONS.
+it('chaque cas a ses expectations définies', () => {
+	expect(Object.keys(EXPECTATIONS).length).toBe(CASES.length);
+	for (let i = 0; i < CASES.length; i++) {
+		expect(EXPECTATIONS[i + 1]).toBeDefined();
+	}
+});
+
+// ============================================================================
+// Tests du corps HTML (buildHtmlEmail)
+//
+// On ne refait pas toute la couverture du texte — on cible les spécificités
+// HTML : lien footer ?notif=1, balise <s> pour lieu barré, absence de ✅
+// (remplacé par ⏳) pour les confirmations.
+// ============================================================================
+
+describe('notify-templates — buildHtmlEmail', () => {
+	function htmlForCase(idx: number): string {
+		const c = CASES[idx];
+		const master = mkRecord(c.master);
+		const ctx = buildCtx(master, c.occs);
+		return templates.buildHtmlEmail(master, c.events, c.user, ctx);
+	}
+
+	it('Cas 4 (cancel) — footer contient le lien ?notif=1 cliquable', () => {
+		const html = htmlForCase(3); // Cas 4
+		expect(html).toContain('href="https://planning.oupla.net/p/abc123?notif=1"');
+		expect(html).toContain('ajuster vos notifications');
+	});
+
+	it('Cas 6 (confirmation) — emoji ⏳ présent (pas ✅)', () => {
+		const html = htmlForCase(5); // Cas 6
+		expect(html).toContain('⏳');
+		expect(html).not.toContain('✅');
+	});
+
+	it("Cas 8 (change lieu) — balise <s> sur l'ancien lieu", () => {
+		const html = htmlForCase(7); // Cas 8
+		expect(html).toContain(
+			'<s style="text-decoration:line-through;color:#9ca3af;">Salle des fêtes</s>'
+		);
+		expect(html).toContain('→ Gymnase');
+		// Pas de marqueur brut [[s]] qui aurait fuité
+		expect(html).not.toContain('[[s]]');
+	});
+});
+
+// ============================================================================
+// Tests unitaires des helpers
+// ============================================================================
+
+describe('notify-templates — helpers contextuels', () => {
+	describe('_buildContextualLine (reminder)', () => {
+		it('J-1 → "L\'événement a lieu demain."', () => {
+			expect(templates._buildContextualLine(1)).toBe("L'événement a lieu demain.");
+		});
+		it('J-N (N≥2) → "L\'événement a lieu dans N jours."', () => {
+			expect(templates._buildContextualLine(3)).toBe("L'événement a lieu dans 3 jours.");
+			expect(templates._buildContextualLine(15)).toBe("L'événement a lieu dans 15 jours.");
+		});
+		it('J-0 ou absent → ligne vide', () => {
+			expect(templates._buildContextualLine(0)).toBe('');
+			expect(templates._buildContextualLine(undefined)).toBe('');
+			expect(templates._buildContextualLine(null)).toBe('');
+		});
+	});
+
+	describe('_buildConfirmationContextualLine (confirmation admin)', () => {
+		it('J-1 → "...prévu demain mais n\'est pas encore confirmé."', () => {
+			expect(templates._buildConfirmationContextualLine(1)).toBe(
+				"L'événement est prévu demain mais n'est pas encore confirmé."
+			);
+		});
+		it('J-N (N≥2) → "...prévu dans N jours mais..."', () => {
+			expect(templates._buildConfirmationContextualLine(3)).toBe(
+				"L'événement est prévu dans 3 jours mais n'est pas encore confirmé."
+			);
+		});
+		it('J-0/absent → "L\'événement n\'est pas encore confirmé."', () => {
+			expect(templates._buildConfirmationContextualLine(0)).toBe(
+				"L'événement n'est pas encore confirmé."
+			);
+		});
+	});
+
+	describe('_stripStrikeMarkers / _renderStrikeForHtml', () => {
+		it('texte : supprime les marqueurs [[s]][[/s]]', () => {
+			expect(templates._stripStrikeMarkers('[[s]]ancien[[/s]] → nouveau')).toBe('ancien → nouveau');
+		});
+		it('html : convertit en <s> stylé', () => {
+			// Le contenu doit déjà être échappé par l'appelant (voir buildHtmlEmail).
+			const escaped = '[[s]]Salle des fêtes[[/s]] → Gymnase';
+			expect(templates._renderStrikeForHtml(escaped)).toBe(
+				'<s style="text-decoration:line-through;color:#9ca3af;">Salle des fêtes</s> → Gymnase'
+			);
+		});
+	});
+});
+
+// ============================================================================
+// Edge cases des renderers
+// ============================================================================
+
+describe('notify-templates — edge cases', () => {
+	it('_renderChangeLine sans payload retourné la phrase générique', () => {
+		const ev = { type: 'schedule_change', changedBy: 'u1', payload: {} };
+		const line = templates._renderChangeLine(ev, { userNamesById: new Map([['u1', 'Sarah']]) });
+		expect(line).toBe("L'événement a été modifié (par Sarah).");
+	});
+
+	it('_renderChangeLine status_confirmed → phrase dédiée', () => {
+		const ev = { type: 'status_confirmed', changedBy: 'u1', payload: {} };
+		const line = templates._renderChangeLine(ev, { userNamesById: new Map([['u1', 'Sarah']]) });
+		expect(line).toBe("L'événement a été confirmé (par Sarah).");
+	});
+
+	it('_renderCancelLine status_deleted → phrase "supprimé"', () => {
+		const ev = { type: 'status_deleted', changedBy: 'u1', payload: {} };
+		const line = templates._renderCancelLine(ev, { userNamesById: new Map([['u1', 'Sarah']]) });
+		expect(line).toBe("L'événement a été supprimé (par Sarah).");
+	});
+
+	it('_renderMissingsLine task_unassigned → pas de ligne quorum, juste les tâches', () => {
+		const occ = mkRecord({ minPresentRequired: 5 });
+		const ev = {
+			type: 'task_unassigned',
+			payload: {
+				tasksToFill: [{ name: 'Accueil', signedUp: 0, required: 2 }]
+			}
+		};
+		const lines = templates._renderMissingsLine(ev, occ);
+		expect(lines.length).toBe(1);
+		expect(lines[0]).toContain('Tâches à pourvoir');
+		expect(lines[0]).toContain('Accueil (0/2)');
+		// Pas de ligne "Quorum insuffisant"
+		expect(lines.some((l: string) => l.includes('Quorum'))).toBe(false);
+	});
+
+	it('_renderChangeLine multi-champs → phrase englobante', () => {
+		const ev = {
+			type: 'schedule_change',
+			changedBy: 'u1',
+			payload: {
+				oldStartTime: '19:00',
+				newStartTime: '20:00',
+				oldPlace: 'Salle',
+				newPlace: 'Gymnase'
+			}
+		};
+		const line = templates._renderChangeLine(ev, { userNamesById: new Map([['u1', 'Sarah']]) });
+		expect(line).toContain('Plusieurs détails ont été modifiés');
+		expect(line).toContain('horaire 19h00 → 20h00');
+		expect(line).toContain('lieu Salle → Gymnase');
+	});
 });

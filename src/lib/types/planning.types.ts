@@ -142,12 +142,7 @@ export interface PlanningOccurrence {
 
 // === Récurrence ===
 export type RecurrenceType =
-	| 'DAILY'
-	| 'WEEKLY'
-	| 'BIWEEKLY'
-	| 'MONTHLY_BY_DATE'
-	| 'MONTHLY_BY_DAY'
-	| 'CUSTOM';
+	'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY_BY_DATE' | 'MONTHLY_BY_DAY' | 'CUSTOM';
 
 export interface RecurrenceConfig {
 	type: RecurrenceType;

@@ -23,6 +23,7 @@
 	import { hasNameConflict } from '$lib/utils/participantConflict';
 	import { getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { fade } from 'svelte/transition';
+	import { onMount } from 'svelte';
 
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
@@ -128,6 +129,14 @@
 
 	// Mode du IdentityClaimModal selon que l'user est déjà participant ou non
 	const claimModalMode = $derived(myParticipant ? 'manage' : 'new');
+
+	// Lien profond depuis les emails de notification (footer) : /p/{token}?notif=1
+	// ouvre directement le modal des préférences de notification au mount.
+	onMount(() => {
+		if ($page.url.searchParams.get('notif') === '1') {
+			showNotifModal = true;
+		}
+	});
 
 	$effect(() => {
 		if (!master) return;
