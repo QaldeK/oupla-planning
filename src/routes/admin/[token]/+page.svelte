@@ -19,6 +19,7 @@
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { pb } from '$lib/pocketbase/pb';
 	import { fade } from 'svelte/transition';
+	import { format } from 'date-fns';
 
 	import QuitReturnModal from '$lib/components/QuitReturnModal.svelte';
 	import LockOverlay from '$lib/components/admin/LockOverlay.svelte';
@@ -293,17 +294,26 @@
 		}
 	}
 
-	// Identifier les dates qui ont des données (réponses ou commentaires)
+	// Identifier les dates futures qui ont des données (réponses ou commentaires).
+	// Filtre sur date >= today pour rester cohérent avec `activeDates` (futur
+	// uniquement) et `updatePlanningWithOccurrences` (qui ne touche pas le passé).
+	const today = format(new Date(), 'yyyy-MM-dd');
 	const datesWithData = $derived(
 		occurrences
-			.filter((o) => o.responses?.length > 0 || o.comments?.length > 0)
+			.filter((o) => {
+				const d = o.date.split(' ')[0].split('T')[0];
+				return d >= today && (o.responses?.length > 0 || o.comments?.length > 0);
+			})
 			.map((o) => o.date.split(' ')[0].split('T')[0])
 	);
 
-	// Identifier les dates qui ont des tâches spécifiques (non héritées)
+	// Identifier les dates futures qui ont des tâches spécifiques (non héritées)
 	const datesWithSpecificTasks = $derived(
 		occurrences
-			.filter((o) => o.tasks && o.tasks.length > 0)
+			.filter((o) => {
+				const d = o.date.split(' ')[0].split('T')[0];
+				return d >= today && o.tasks && o.tasks.length > 0;
+			})
 			.map((o) => o.date.split(' ')[0].split('T')[0])
 	);
 </script>
