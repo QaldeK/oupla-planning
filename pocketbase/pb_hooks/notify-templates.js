@@ -166,9 +166,10 @@ function _formatTime(rawTime) {
 function _formatOccLine(occ, isCanceled) {
 	const date = formatDateFR(occ.getString('date'));
 	if (isCanceled) return date;
-	const time = _formatTime(occ.getString('startTime'));
+	const startTime = _formatTime(occ.getString('startTime'));
+	const endTime = _formatTime(occ.getString('endTime'));
 	const place = occ.getString('place') || '';
-	const head = time ? `${date} à ${time}` : date;
+	const head = startTime ? `${date} à ${startTime} — ${endTime}` : date;
 	return place ? `${head} — ${place}` : head;
 }
 
@@ -305,7 +306,7 @@ function _renderReminderLines(event, occ, user, ctx) {
  */
 function _collectBlocks(master, events, user, ctx) {
 	const occCache = (ctx && ctx.occCache) || new Map();
-	const masterDescription = master.getString('description') || '';
+	const masterDescription = master.getString('description') || ''; // FIXIT: la string description est du html, rendu brut
 
 	// Group events par occurrence (préserve l'ordre d'insertion pour stabilité).
 	const byOcc = new Map();
