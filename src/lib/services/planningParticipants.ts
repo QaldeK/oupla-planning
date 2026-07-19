@@ -1,6 +1,7 @@
 import { pb } from '$lib/pocketbase/pb';
-import { defaultPlanningPrefs, type PlanningParticipantPrefs } from './push';
+import { getDefaultPlanningPrefs, type PlanningParticipantPrefs } from './push';
 import type { PlanningParticipantsResponse } from '$lib/types/pocketbase-types';
+import type { RecurrenceType } from '$lib/types/planning.types';
 
 /**
  * Récupère les préférences de notification d'un participant pour un planning
@@ -19,13 +20,15 @@ export async function getParticipantPrefs(
 }
 
 /**
- * Met à jour les préférences de notification d'un participant pour un planning
- * Crée le record s'il n'existe pas
+ * Met à jour les préférences de notification d'un participant pour un planning.
+ * Crée le record s'il n'existe pas, en appliquant les defaults liés au
+ * `recurrenceType` du master (rappel / missings J-X).
  */
 export async function updateParticipantPrefs(
 	planningId: string,
 	userId: string,
-	prefs: Partial<PlanningParticipantPrefs>
+	prefs: Partial<PlanningParticipantPrefs>,
+	recurrenceType: RecurrenceType = 'WEEKLY'
 ): Promise<PlanningParticipantsResponse> {
 	if (!pb.authStore.isValid || !pb.authStore.record) {
 		throw new Error('Utilisateur non connecté');
@@ -39,30 +42,32 @@ export async function updateParticipantPrefs(
 		return await pb.collection('planning_participants').create({
 			planning: planningId,
 			user: userId,
-			...defaultPlanningPrefs,
+			...getDefaultPlanningPrefs(recurrenceType),
 			...prefs
 		});
 	}
 }
 
 /**
- * Assure qu'un user authentifié a un record dans planning_participants
- * Crée le record avec les préférences par défaut s'il n'existe pas
+ * Assure qu'un user authentifié a un record dans `planning_participants`.
+ * Crée le record avec les préférences par défaut liées au `recurrenceType`
+ * s'il n'existe pas.
  */
-export async function ensurePlanningParticipant(planningId: string, userId: string): Promise<void> {
+export async function ensurePlanningParticipant(
+	planningId: string,
+	userId: string,
+	recurrenceType: RecurrenceType = 'WEEKLY'
+): Promise<void> {
 	try {
-		// Vérifier si le participant existe déjà
 		await pb
 			.collection('planning_participants')
 			.getFirstListItem(`planning = "${planningId}" && user = "${userId}"`);
-		// Existe déjà → ne rien faire
 		return;
 	} catch {
-		// N'existe pas → créer avec les préférences par défaut
 		await pb.collection('planning_participants').create({
 			planning: planningId,
 			user: userId,
-			...defaultPlanningPrefs
+			...getDefaultPlanningPrefs(recurrenceType)
 		});
 	}
 }

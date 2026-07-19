@@ -18,6 +18,10 @@
 routerAdd('POST', '/api/claim-admin', (e) => {
 	if (!e.auth) throw new ApiError(401, 'Unauthorized');
 
+	const { readRecurrenceType, ensureAdminParticipant } = require(
+		`${__hooks}/participants-utils.js`
+	);
+
 	const body = e.requestInfo().body;
 	const token = body?.token;
 	if (!token) throw new ApiError(400, 'Missing token');
@@ -35,6 +39,7 @@ routerAdd('POST', '/api/claim-admin', (e) => {
 
 	const master = masters[0];
 	const user = e.app.findRecordById('users', e.auth.id);
+	const recurrenceType = readRecurrenceType(master);
 
 	// ✅ Lire avec JSON.parse(record.get())
 	let adminOf = {};
@@ -61,6 +66,12 @@ routerAdd('POST', '/api/claim-admin', (e) => {
 	// Pour écrire : passer la string JSON directement
 	user.set('adminOf', adminOf);
 	e.app.save(user);
+
+	// Promotion admin : garantir un `planning_participants` avec `onConfirmationNeeded`
+	// à true (les admins reçoivent les alertes de confirmation). En pratique le row existe déjà si
+	// l'user a déjà rejoint le planning en tant que participant ; sinon on le crée
+	// avec les defaults complets liés au `recurrenceType` du master.
+	ensureAdminParticipant(e.app, user.get('id'), master.id, recurrenceType);
 });
 
 routerAdd('POST', '/api/sync-plannings', (e) => {

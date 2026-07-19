@@ -56,3 +56,5 @@ src-tauri/gen/schemas
 .worktrees/
 AGENTS.md
 .agents/
+opencode.json
+CONTEXT.md

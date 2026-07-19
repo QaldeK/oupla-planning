@@ -11,6 +11,7 @@ export const Collections = {
 	Mfas: "_mfas",
 	Otps: "_otps",
 	Superusers: "_superusers",
+	NotificationEvents: "notification_events",
 	PlanningLocks: "planning_locks",
 	PlanningMasters: "planning_masters",
 	PlanningOccurrences: "planning_occurrences",
@@ -97,6 +98,30 @@ export type SuperusersRecord = {
 	verified?: boolean
 }
 
+export const NotificationEventsTypeOptions = {
+	"schedule_change": "schedule_change",
+	"status_canceled": "status_canceled",
+	"status_deleted": "status_deleted",
+	"status_confirmed": "status_confirmed",
+	"quorum_missing": "quorum_missing",
+	"task_unassigned": "task_unassigned",
+	"reminder": "reminder",
+	"confirmation_needed": "confirmation_needed",
+} as const
+export type NotificationEventsTypeOptions = typeof NotificationEventsTypeOptions[keyof typeof NotificationEventsTypeOptions]
+export type NotificationEventsRecord<Tpayload = unknown> = {
+	attempts?: number
+	changedBy?: string
+	created: IsoAutoDateString
+	id: string
+	master: RecordIdString
+	occurrence: RecordIdString
+	payload?: null | Tpayload
+	processedAt?: IsoDateString
+	reminderValue?: number
+	type: NotificationEventsTypeOptions
+}
+
 export type PlanningLocksRecord = {
 	created: IsoAutoDateString
 	id: string
@@ -152,17 +177,31 @@ export type PlanningOccurrencesRecord<Tcomments = unknown, Tresponses = unknown,
 	updated: IsoAutoDateString
 }
 
+export const PlanningParticipantsReminderDaysOptions = {
+	"E1": "1",
+	"E3": "3",
+	"E7": "7",
+} as const
+export type PlanningParticipantsReminderDaysOptions = typeof PlanningParticipantsReminderDaysOptions[keyof typeof PlanningParticipantsReminderDaysOptions]
+
+export const PlanningParticipantsMissingDaysOptions = {
+	"E1": "1",
+	"E3": "3",
+	"E7": "7",
+	"E15": "15",
+} as const
+export type PlanningParticipantsMissingDaysOptions = typeof PlanningParticipantsMissingDaysOptions[keyof typeof PlanningParticipantsMissingDaysOptions]
 export type PlanningParticipantsRecord<TcommentReadState = unknown> = {
 	commentReadState?: null | TcommentReadState
 	created: IsoAutoDateString
 	email?: boolean
 	id: string
-	missingParticipantsDays?: number
-	onCancellation?: boolean
-	onTimeChange?: boolean
+	missingDays?: PlanningParticipantsMissingDaysOptions[]
+	onConfirmationNeeded?: boolean
+	onOccurrenceChange?: boolean
 	planning?: RecordIdString
 	push?: boolean
-	reminderDays?: number
+	reminderDays?: PlanningParticipantsReminderDaysOptions[]
 	updated: IsoAutoDateString
 	user?: RecordIdString
 }
@@ -190,6 +229,7 @@ export type ExternalauthsResponse<Texpand = unknown> = Required<ExternalauthsRec
 export type MfasResponse<Texpand = unknown> = Required<MfasRecord> & BaseSystemFields<Texpand>
 export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemFields<Texpand>
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
+export type NotificationEventsResponse<Tpayload = unknown, Texpand = unknown> = Required<NotificationEventsRecord<Tpayload>> & BaseSystemFields<Texpand>
 export type PlanningLocksResponse<Texpand = unknown> = Required<PlanningLocksRecord> & BaseSystemFields<Texpand>
 export type PlanningMastersResponse<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown, TtimeSlots = unknown, Texpand = unknown> = Required<PlanningMastersRecord<TavailableResponseTypes, Tparticipants, Trecurrence, Ttasks, TtimeSlots>> & BaseSystemFields<Texpand>
 export type PlanningOccurrencesResponse<Tcomments = unknown, Tresponses = unknown, Ttasks = unknown, Texpand = unknown> = Required<PlanningOccurrencesRecord<Tcomments, Tresponses, Ttasks>> & BaseSystemFields<Texpand>
@@ -204,6 +244,7 @@ export type CollectionRecords = {
 	_mfas: MfasRecord
 	_otps: OtpsRecord
 	_superusers: SuperusersRecord
+	notification_events: NotificationEventsRecord
 	planning_locks: PlanningLocksRecord
 	planning_masters: PlanningMastersRecord
 	planning_occurrences: PlanningOccurrencesRecord
@@ -217,6 +258,7 @@ export type CollectionResponses = {
 	_mfas: MfasResponse
 	_otps: OtpsResponse
 	_superusers: SuperusersResponse
+	notification_events: NotificationEventsResponse
 	planning_locks: PlanningLocksResponse
 	planning_masters: PlanningMastersResponse
 	planning_occurrences: PlanningOccurrencesResponse

@@ -1,0 +1,472 @@
+import { describe, it, expect } from 'vitest';
+
+// Runner isolé (pas de PocketBase nécessaire) qui valide le calcul des
+// destinataires d'un event selon la matrice § 3 du brainstorm + les prefs
+// individuelles + le filtrage hasQuit.
+//
+// Couverture :
+//   - Chaque type d'event avec filtres response caractéristiques
+//   - Filtres prefs (email, reminderDays, missingDays, onOccurrenceChange,
+//     onConfirmationNeeded)
+//   - Filtre hasQuit
+//   - Mapping user↔participant (CAS A userId==participantId et CAS B distincts)
+//   - Sans-réponse (null response) selon le type d'event
+
+// ============================================================================
+// Module under test — dynamic import pour bénéficier de l'interoperabilité
+// CommonJS (le hook exporte via `module.exports`).
+// ============================================================================
+
+const { computeRecipients } = await import('../../pocketbase/pb_hooks/notification-recipients.js');
+
+// ============================================================================
+// Factory de mock pour core.Record
+// ============================================================================
+
+function mkRecord(data: Record<string, unknown>): any {
+	return {
+		get(field: string) {
+			return data[field];
+		},
+		getString(field: string) {
+			const v = data[field];
+			if (v === null || v === undefined) return '';
+			if (typeof v === 'string') return v;
+			if (Array.isArray(v) || typeof v === 'object') return JSON.stringify(v);
+			return String(v);
+		},
+		getBool(field: string) {
+			return !!data[field];
+		},
+		getInt(field: string) {
+			const v = Number(data[field]);
+			return Number.isFinite(v) ? v : 0;
+		},
+		getStringSlice(field: string) {
+			const v = data[field];
+			return Array.isArray(v) ? v.map(String) : [];
+		}
+	};
+}
+
+// ============================================================================
+// Fixtures
+// ============================================================================
+
+function mkMaster({ participants = [] }: { participants?: any[] } = {}): any {
+	return mkRecord({
+		participantToken: 'abc123',
+		participants
+	});
+}
+
+function mkParticipant({
+	id,
+	userId,
+	hasQuit = false,
+	isAdmin = false
+}: {
+	id: string;
+	userId: string | undefined;
+	hasQuit?: boolean;
+	isAdmin?: boolean;
+}): any {
+	return { id, userId, name: id, hasQuit, isAdmin };
+}
+
+function mkPlanningParticipant({
+	userId,
+	email = true,
+	push = false,
+	onOccurrenceChange = false,
+	onConfirmationNeeded = false,
+	reminderDays = [],
+	missingDays = []
+}: {
+	userId: string;
+	email?: boolean;
+	push?: boolean;
+	onOccurrenceChange?: boolean;
+	onConfirmationNeeded?: boolean;
+	reminderDays?: Array<string | number>;
+	missingDays?: Array<string | number>;
+}): any {
+	return mkRecord({
+		user: userId,
+		email,
+		push,
+		onOccurrenceChange,
+		onConfirmationNeeded,
+		reminderDays,
+		missingDays
+	});
+}
+
+function mkOcc({ responses = [], tasks = [] }: { responses?: any[]; tasks?: any[] } = {}): any {
+	return mkRecord({ responses, tasks });
+}
+
+// ============================================================================
+// Helper de comparaison — projection + tri stable des destinataires calculés.
+// ============================================================================
+
+type NormalizedRecipient = {
+	userId: string;
+	participantId: string;
+	response: unknown;
+	tasks: string[];
+};
+
+function normalize(list: any[]): NormalizedRecipient[] {
+	return list
+		.map((r) => ({
+			userId: r.userId,
+			participantId: r.participantId,
+			response: r.response === undefined ? null : r.response,
+			tasks: Array.isArray(r.tasks) ? [...r.tasks].sort() : []
+		}))
+		.sort((a, b) => a.userId.localeCompare(b.userId));
+}
+
+// ============================================================================
+// Cas de test — chaque section du runner original devient un `describe`.
+// ============================================================================
+
+describe('reminder', () => {
+	const cases = [
+		{
+			name: 'reminder J-3 : user présent + reminderDays=[3] → destinataire',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', reminderDays: ['3'] })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+			}),
+			expected: [{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [] }]
+		},
+		{
+			name: 'reminder J-3 : user absent + inscrit tâche → destinataire',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', reminderDays: ['3'] })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'absent', tasks: ['t1'] }]
+			}),
+			expected: [{ userId: 'u1', participantId: 'p1', response: 'absent', tasks: ['t1'] }]
+		},
+		{
+			name: 'reminder J-3 : user absent sans tâche → pas destinataire',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', reminderDays: ['3'] })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'absent', tasks: [] }]
+			}),
+			expected: []
+		},
+		{
+			name: 'reminder J-3 : sans-réponse → pas destinataire (reminder filtre)',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', reminderDays: ['3'] })],
+			occ: mkOcc({ responses: [] }),
+			expected: []
+		},
+		{
+			name: 'reminder J-3 : reminderDays=[1,7] ne contient pas 3 → pas destinataire',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', reminderDays: ['1', '7'] })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+			}),
+			expected: []
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const got = normalize(computeRecipients(c.event, c.master, c.planningParticipants, c.occ));
+			expect(got).toEqual(normalize(c.expected));
+		});
+	}
+});
+
+describe('missings (quorum_missing / task_unassigned)', () => {
+	const cases = [
+		{
+			name: 'quorum_missing J-3 : sans-réponse + missingDays=[3] → destinataire',
+			event: { type: 'quorum_missing', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', missingDays: ['3'] })],
+			occ: mkOcc({ responses: [] }),
+			expected: [{ userId: 'u1', participantId: 'p1', response: null, tasks: [] }]
+		},
+		{
+			name: 'quorum_missing J-3 : présent + missingDays=[3] → destinataire',
+			event: { type: 'quorum_missing', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', missingDays: ['3'] })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+			}),
+			expected: [{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [] }]
+		},
+		{
+			name: 'quorum_missing J-3 : absent → pas destinataire',
+			event: { type: 'quorum_missing', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', missingDays: ['3'] })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'absent', tasks: [] }]
+			}),
+			expected: []
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const got = normalize(computeRecipients(c.event, c.master, c.planningParticipants, c.occ));
+			expect(got).toEqual(normalize(c.expected));
+		});
+	}
+});
+
+describe('confirmation_needed (admin only via pref)', () => {
+	const cases = [
+		{
+			name: 'confirmation_needed J-3 : onConfirmationNeeded=true → destinataire',
+			event: { type: 'confirmation_needed', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', onConfirmationNeeded: true })],
+			occ: mkOcc({ responses: [] }),
+			expected: [{ userId: 'u1', participantId: 'p1', response: null, tasks: [] }]
+		},
+		{
+			name: 'confirmation_needed J-3 : onConfirmationNeeded=false → pas destinataire',
+			event: { type: 'confirmation_needed', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', onConfirmationNeeded: false })],
+			occ: mkOcc({ responses: [] }),
+			expected: []
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const got = normalize(computeRecipients(c.event, c.master, c.planningParticipants, c.occ));
+			expect(got).toEqual(normalize(c.expected));
+		});
+	}
+});
+
+describe('schedule_change / status_canceled (onOccurrenceChange)', () => {
+	const cases = [
+		{
+			name: 'schedule_change : présent + onOccurrenceChange=true → destinataire',
+			event: { type: 'schedule_change', reminderValue: 0 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', onOccurrenceChange: true })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+			}),
+			expected: [{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [] }]
+		},
+		{
+			name: 'schedule_change : sans-réponse → pas destinataire',
+			event: { type: 'schedule_change', reminderValue: 0 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', onOccurrenceChange: true })],
+			occ: mkOcc({ responses: [] }),
+			expected: []
+		},
+		{
+			name: 'schedule_change : absent → pas destinataire',
+			event: { type: 'schedule_change', reminderValue: 0 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', onOccurrenceChange: true })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'absent', tasks: [] }]
+			}),
+			expected: []
+		},
+		{
+			name: 'schedule_change : onOccurrenceChange=false → pas destinataire',
+			event: { type: 'schedule_change', reminderValue: 0 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', onOccurrenceChange: false })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+			}),
+			expected: []
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const got = normalize(computeRecipients(c.event, c.master, c.planningParticipants, c.occ));
+			expect(got).toEqual(normalize(c.expected));
+		});
+	}
+});
+
+describe('Filtre prefs communes', () => {
+	const cases = [
+		{
+			name: 'email=false → jamais destinataire email',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [
+				mkPlanningParticipant({ userId: 'u1', email: false, reminderDays: ['3'] })
+			],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+			}),
+			expected: []
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const got = normalize(computeRecipients(c.event, c.master, c.planningParticipants, c.occ));
+			expect(got).toEqual(normalize(c.expected));
+		});
+	}
+});
+
+describe('Filtre hasQuit', () => {
+	const cases = [
+		{
+			name: 'hasQuit=true → pas destinataire',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({
+				participants: [mkParticipant({ id: 'p1', userId: 'u1', hasQuit: true })]
+			}),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', reminderDays: ['3'] })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+			}),
+			expected: []
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const got = normalize(computeRecipients(c.event, c.master, c.planningParticipants, c.occ));
+			expect(got).toEqual(normalize(c.expected));
+		});
+	}
+});
+
+describe('Guest pur (pas de userId)', () => {
+	const cases = [
+		{
+			name: 'guest pur (userId undefined) → pas destinataire email',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({
+				participants: [mkParticipant({ id: 'p1', userId: undefined })]
+			}),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', reminderDays: ['3'] })],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+			}),
+			expected: []
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const got = normalize(computeRecipients(c.event, c.master, c.planningParticipants, c.occ));
+			expect(got).toEqual(normalize(c.expected));
+		});
+	}
+});
+
+describe('Mapping CAS B : userId ≠ participantId', () => {
+	const cases = [
+		{
+			name: 'CAS B (guest revendiqué) : userId≠participantId, mapping OK',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({
+				participants: [
+					// guest revendiqué : id (participantId) = UUID guest, userId = user PB
+					mkParticipant({ id: 'guest-uuid-123', userId: 'u1' })
+				]
+			}),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1', reminderDays: ['3'] })],
+			occ: mkOcc({
+				responses: [{ participantId: 'guest-uuid-123', response: 'present', tasks: ['t1'] }]
+			}),
+			expected: [
+				{ userId: 'u1', participantId: 'guest-uuid-123', response: 'present', tasks: ['t1'] }
+			]
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const got = normalize(computeRecipients(c.event, c.master, c.planningParticipants, c.occ));
+			expect(got).toEqual(normalize(c.expected));
+		});
+	}
+});
+
+describe('Multi-destinataires', () => {
+	const cases = [
+		{
+			name: 'multi-destinataires : 2 users matching, 1 exclu',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({
+				participants: [
+					mkParticipant({ id: 'p1', userId: 'u1' }),
+					mkParticipant({ id: 'p2', userId: 'u2' }),
+					mkParticipant({ id: 'p3', userId: 'u3' })
+				]
+			}),
+			planningParticipants: [
+				mkPlanningParticipant({ userId: 'u1', reminderDays: ['3'] }),
+				mkPlanningParticipant({ userId: 'u2', reminderDays: ['3'] }),
+				// u3 n'a pas reminderDays=[3]
+				mkPlanningParticipant({ userId: 'u3', reminderDays: ['1', '7'] })
+			],
+			occ: mkOcc({
+				responses: [
+					{ participantId: 'p1', response: 'present', tasks: [] },
+					{ participantId: 'p2', response: 'present', tasks: ['t1'] },
+					{ participantId: 'p3', response: 'present', tasks: [] }
+				]
+			}),
+			expected: [
+				{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [] },
+				{ userId: 'u2', participantId: 'p2', response: 'present', tasks: ['t1'] }
+			]
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const got = normalize(computeRecipients(c.event, c.master, c.planningParticipants, c.occ));
+			expect(got).toEqual(normalize(c.expected));
+		});
+	}
+});
+
+describe('Type inconnu', () => {
+	const cases = [
+		{
+			name: 'type inconnu → pas de destinataire',
+			event: { type: 'unknown_type', reminderValue: 0 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [mkPlanningParticipant({ userId: 'u1' })],
+			occ: mkOcc({ responses: [] }),
+			expected: []
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const got = normalize(computeRecipients(c.event, c.master, c.planningParticipants, c.occ));
+			expect(got).toEqual(normalize(c.expected));
+		});
+	}
+});

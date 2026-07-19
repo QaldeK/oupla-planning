@@ -1,22 +1,61 @@
 import { pb } from '$lib/pocketbase/pb';
+import type {
+	PlanningParticipantsMissingDaysOptions,
+	PlanningParticipantsReminderDaysOptions
+} from '$lib/types/pocketbase-types';
+import type { RecurrenceType } from '$lib/types/planning.types';
 
+/**
+ * Préférences de notification d'un participant pour un planning.
+ * Reflète exactement les champs de la collection `planning_participants`
+ * (hors `commentReadState`, géré séparément).
+ */
 export interface PlanningParticipantPrefs {
 	push: boolean;
 	email: boolean;
-	reminderDays: number;
-	missingParticipantsDays: number;
-	onCancellation: boolean;
-	onTimeChange: boolean;
+	onOccurrenceChange: boolean;
+	onConfirmationNeeded: boolean;
+	reminderDays: PlanningParticipantsReminderDaysOptions[];
+	missingDays: PlanningParticipantsMissingDaysOptions[];
 }
 
-export const defaultPlanningPrefs: Partial<PlanningParticipantPrefs> = {
+/**
+ * Defaults communs (booléens), ne dépendant pas du `recurrenceType`.
+ * Voir `getDefaultPlanningPrefs` pour les valeurs de `reminderDays`/`missingDays`.
+ */
+const baseDefaultPlanningPrefs: Omit<PlanningParticipantPrefs, 'reminderDays' | 'missingDays'> = {
 	push: false,
-	email: false,
-	reminderDays: 0,
-	missingParticipantsDays: 0,
-	onCancellation: true,
-	onTimeChange: true
+	email: true,
+	onOccurrenceChange: true,
+	onConfirmationNeeded: false
 };
+
+/**
+ * Defaults de `reminderDays` / `missingDays` selon le `recurrenceType` du master.
+ */
+const RECURRENCE_DEFAULTS: Record<
+	RecurrenceType,
+	Pick<PlanningParticipantPrefs, 'reminderDays' | 'missingDays'>
+> = {
+	WEEKLY: { reminderDays: ['1', '3'], missingDays: ['1', '3'] },
+	BIWEEKLY: { reminderDays: ['1', '3'], missingDays: ['1', '3', '7'] },
+	MONTHLY_BY_DATE: { reminderDays: ['1', '3', '7'], missingDays: ['1', '3', '7'] },
+	MONTHLY_BY_DAY: { reminderDays: ['1', '3', '7'], missingDays: ['1', '3', '7'] },
+	DAILY: { reminderDays: ['1'], missingDays: ['1'] },
+	CUSTOM: { reminderDays: ['1', '3', '7'], missingDays: ['1', '3', '7', '15'] }
+};
+
+/**
+ * Defaults de prefs à appliquer à la création d'un `planning_participants`
+ * (quand un user rejoint un planning). Les valeurs de rappel / missings
+ * dépendent du `recurrenceType` du master.
+ */
+export function getDefaultPlanningPrefs(recurrenceType: RecurrenceType): PlanningParticipantPrefs {
+	return {
+		...baseDefaultPlanningPrefs,
+		...RECURRENCE_DEFAULTS[recurrenceType]
+	};
+}
 
 function urlBase64ToUint8Array(base64String: string) {
 	const padding = '='.repeat((4 - (base64String.length % 4)) % 4);

@@ -2,13 +2,14 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { pb } from '$lib/pocketbase/pb';
 	import {
-		defaultPlanningPrefs,
-		type PlanningParticipantPrefs,
+		getDefaultPlanningPrefs,
 		subscribeToPush,
-		unsubscribeFromPush
+		unsubscribeFromPush,
+		type PlanningParticipantPrefs
 	} from '$lib/services/push';
 	import { getParticipantPrefs, updateParticipantPrefs } from '$lib/services/planningParticipants';
-	import { Bell, Mail, Smartphone, Save, LoaderCircle } from '@lucide/svelte';
+	import type { RecurrenceType } from '$lib/types/planning.types';
+	import { Bell, Mail, Smartphone, Save, LoaderCircle, ShieldAlert } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { untrack } from 'svelte';
 
@@ -16,16 +17,38 @@
 		open: boolean;
 		onClose: () => void;
 		planningId: string;
+		recurrenceType: RecurrenceType;
+		isAdmin: boolean;
 	}
 
-	let { open = $bindable(false), onClose, planningId }: Props = $props();
+	let { open = $bindable(false), onClose, planningId, recurrenceType, isAdmin }: Props = $props();
 
+	// Placeholder initial : les vraies prefs sont chargées dans le $effect ci-dessous
+	// à l'ouverture du modal (selon le recurrenceType courant et l'état en DB).
 	let prefs = $state<PlanningParticipantPrefs>({
-		...defaultPlanningPrefs
-	} as PlanningParticipantPrefs);
+		push: false,
+		email: true,
+		onOccurrenceChange: true,
+		onConfirmationNeeded: false,
+		reminderDays: [],
+		missingDays: []
+	});
 	let isSaving = $state(false);
 	let pushSupported = $state(false);
 	let initialPushState = $state(false); // Track l'état initial pour éviter les désinscriptions inutiles
+
+	const reminderOptions: Array<{ value: '1' | '3' | '7'; label: string }> = [
+		{ value: '1', label: '1 jour avant' },
+		{ value: '3', label: '3 jours avant' },
+		{ value: '7', label: '1 semaine avant' }
+	];
+
+	const missingOptions: Array<{ value: '1' | '3' | '7' | '15'; label: string }> = [
+		{ value: '1', label: '1 jour avant' },
+		{ value: '3', label: '3 jours avant' },
+		{ value: '7', label: '1 semaine avant' },
+		{ value: '15', label: '15 jours avant' }
+	];
 
 	$effect(() => {
 		if (!open) return;
@@ -35,19 +58,19 @@
 
 			pushSupported = 'serviceWorker' in navigator && 'PushManager' in window;
 
-			// Charger les préférences par planning
+			// Charger les préférences par planning, fusionnées avec les defaults liés
+			// au `recurrenceType` du master (rappels / missings J-X) pour les champs
+			// éventuellement absents du record existant.
 			getParticipantPrefs(planningId, pb.authStore.record.id)
 				.then((existing) => {
-					if (existing) {
-						prefs = { ...defaultPlanningPrefs, ...existing } as PlanningParticipantPrefs;
-					} else {
-						prefs = { ...defaultPlanningPrefs } as PlanningParticipantPrefs;
-					}
-					// Stocker l'état initial des push
+					prefs = {
+						...getDefaultPlanningPrefs(recurrenceType),
+						...(existing as Partial<PlanningParticipantPrefs>)
+					};
 					initialPushState = prefs.push;
 				})
 				.catch(() => {
-					prefs = { ...defaultPlanningPrefs } as PlanningParticipantPrefs;
+					prefs = getDefaultPlanningPrefs(recurrenceType);
 					initialPushState = prefs.push;
 				});
 		});
@@ -70,8 +93,7 @@
 				await unsubscribeFromPush(pb.authStore.record.id);
 			}
 
-			// Mise à jour des préférences par planning dans PocketBase
-			await updateParticipantPrefs(planningId, pb.authStore.record.id, prefs);
+			await updateParticipantPrefs(planningId, pb.authStore.record.id, prefs, recurrenceType);
 
 			toast.success('Préférences sauvegardées');
 			onClose();
@@ -98,10 +120,10 @@
 			class="space-y-6"
 		>
 			<!-- Canaux de communication -->
-			<div class="space-y-3">
-				<h3 class="flex items-center gap-2 text-sm font-bold tracking-widest uppercase opacity-50">
+			<fieldset class="fieldset">
+				<legend class="fieldset-legend flex items-center gap-2">
 					<Bell size={16} /> Canaux
-				</h3>
+				</legend>
 
 				<label
 					class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
@@ -133,94 +155,97 @@
 						</div>
 					</label>
 				{/if}
-			</div>
+			</fieldset>
 
-			<!-- Types d'alertes -->
-			<div class={['space-y-4', !prefs.email && !prefs.push && 'pointer-events-none opacity-50']}>
-				<h3 class="text-sm font-bold tracking-widest uppercase opacity-50">
-					Ce dont on vous notifie
-				</h3>
+			<!-- Événements notifiables -->
+			<fieldset
+				class={['fieldset', !prefs.email && !prefs.push && 'pointer-events-none opacity-50']}
+			>
+				<legend class="fieldset-legend">Ce dont on vous notifie</legend>
 
-				<!-- Rappels d'engagements -->
+				<!-- Modifs d'occurrence (toggle unique : heure / lieu / détails / annulation) -->
+				<label
+					class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
+				>
+					<input
+						type="checkbox"
+						bind:checked={prefs.onOccurrenceChange}
+						class="checkbox checkbox-sm"
+					/>
+					<span class="label-text text-sm font-medium">
+						Modifications d'horaires, lieu, détails et annulations
+					</span>
+				</label>
+
+				<!-- Rappels (multi-select via checkboxes bind:group) -->
 				<div class="bg-base-200 border-base-300 space-y-2 rounded-lg border p-3">
-					<label class="label cursor-pointer justify-start gap-3 p-0">
-						<input
-							type="checkbox"
-							checked={prefs.reminderDays > 0}
-							onchange={(e) => {
-								const target = e.target as HTMLInputElement;
-								prefs.reminderDays = target.checked ? 1 : 0;
-							}}
-							class="checkbox checkbox-sm"
-						/>
-						<span class="label-text text-sm font-medium"
-							>Rappels pour vos participations confirmées</span
-						>
-					</label>
-
-					{#if prefs.reminderDays > 0}
-						<div class="pt-2 pl-8">
-							<select
-								bind:value={prefs.reminderDays}
-								class="select select-bordered select-sm w-full max-w-xs"
-							>
-								<option value={1}>1 jour avant</option>
-								<option value={3}>3 jours avant</option>
-								<option value={7}>1 semaine avant</option>
-							</select>
-						</div>
-					{/if}
+					<p class="label-text text-sm font-medium">Rappels avant vos participations</p>
+					<p class="text-xs opacity-60">Cochez les moments auxquels recevoir un rappel.</p>
+					<div class="flex flex-wrap gap-x-4 gap-y-2 pt-1 pl-1">
+						{#each reminderOptions as opt (opt.value)}
+							<label class="label cursor-pointer justify-start gap-2 p-0">
+								<input
+									type="checkbox"
+									bind:group={prefs.reminderDays}
+									value={opt.value}
+									class="checkbox checkbox-sm checkbox-primary"
+								/>
+								<span class="label-text text-sm">{opt.label}</span>
+							</label>
+						{/each}
+					</div>
 				</div>
 
-				<!-- Participants manquants -->
+				<!-- Missings (tous les participants non-absents sont destinataires) -->
 				<div class="bg-base-200 border-base-300 space-y-2 rounded-lg border p-3">
-					<label class="label cursor-pointer justify-start gap-3 p-0">
+					<p class="label-text text-sm font-medium">Alertes participants manquants</p>
+					<p class="text-xs opacity-60">Pour anticiper les sessions sous-effectif.</p>
+					<div class="flex flex-wrap gap-x-4 gap-y-2 pt-1 pl-1">
+						{#each missingOptions as opt (opt.value)}
+							<label class="label cursor-pointer justify-start gap-2 p-0">
+								<input
+									type="checkbox"
+									bind:group={prefs.missingDays}
+									value={opt.value}
+									class="checkbox checkbox-sm checkbox-warning"
+								/>
+								<span class="label-text text-sm">{opt.label}</span>
+							</label>
+						{/each}
+					</div>
+				</div>
+			</fieldset>
+
+			<!-- Section admin -->
+			{#if isAdmin}
+				<fieldset
+					class={['fieldset', !prefs.email && !prefs.push && 'pointer-events-none opacity-50']}
+				>
+					<legend class="fieldset-legend flex items-center gap-2">
+						<ShieldAlert size={16} /> Administration
+					</legend>
+
+					<label
+						class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
+					>
 						<input
 							type="checkbox"
-							checked={prefs.missingParticipantsDays > 0}
-							onchange={(e) => {
-								const target = e.target as HTMLInputElement;
-								prefs.missingParticipantsDays = target.checked ? 7 : 0;
-							}}
-							class="checkbox checkbox-sm"
+							bind:checked={prefs.onConfirmationNeeded}
+							class="checkbox checkbox-warning checkbox-sm"
 						/>
-						<span class="label-text text-sm font-medium">Alerte s'il manque des participants</span>
-					</label>
-
-					{#if prefs.missingParticipantsDays > 0}
-						<div class="pt-2 pl-8">
-							<select
-								bind:value={prefs.missingParticipantsDays}
-								class="select select-bordered select-sm w-full max-w-xs"
-							>
-								<option value={1}>1 jour avant</option>
-								<option value={3}>3 jours avant</option>
-								<option value={7}>1 semaine avant</option>
-								<option value={15}>15 jours avant</option>
-								<option value={30}>1 mois avant</option>
-							</select>
+						<div class="space-y-0.5">
+							<p class="label-text text-sm font-medium">
+								Événements non confirmés à l'approche de la date
+							</p>
+							<p class="text-xs opacity-60">
+								Recevez une alerte pour confirmer ou non les événements confirmables qui arrivent.
+							</p>
 						</div>
-					{/if}
-				</div>
-
-				<div class="space-y-1">
-					<label class="label cursor-pointer justify-start gap-3 py-1">
-						<input type="checkbox" bind:checked={prefs.onTimeChange} class="checkbox checkbox-sm" />
-						<span class="label-text text-sm font-medium">Modifications d'horaires et détails</span>
 					</label>
+				</fieldset>
+			{/if}
 
-					<label class="label cursor-pointer justify-start gap-3 py-1">
-						<input
-							type="checkbox"
-							bind:checked={prefs.onCancellation}
-							class="checkbox checkbox-sm"
-						/>
-						<span class="label-text text-sm font-medium">Annulations d'événements</span>
-					</label>
-				</div>
-			</div>
-
-			<div class="modal-action pt-4">
+			<div class="modal-action pt-2">
 				<button type="submit" class="btn btn-primary gap-2" disabled={isSaving}>
 					{#if isSaving}
 						<LoaderCircle class="animate-spin" size={18} />

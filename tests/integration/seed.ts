@@ -59,6 +59,17 @@ export interface SeedPlanningResult {
 	participantToken: string;
 }
 
+/**
+ * Retourne une date ISO (YYYY-MM-DD) à N jours de maintenant (UTC minuit).
+ * Utilisée pour semer des occurrences futures / passées de façon déterministe.
+ */
+export function dateInDays(days: number): string {
+	const d = new Date();
+	d.setUTCDate(d.getUTCDate() + days);
+	d.setUTCHours(0, 0, 0, 0);
+	return d.toISOString().split('T')[0];
+}
+
 function generateAdminToken(): string {
 	const array = new Uint8Array(32);
 	crypto.getRandomValues(array);
@@ -151,7 +162,15 @@ export async function cleanupTrackedRecords() {
 }
 
 export async function seedPlanning(
-	overrides?: Partial<PlanningMaster> & { occurrenceCount?: number }
+	overrides?: Partial<PlanningMaster> & {
+		occurrenceCount?: number;
+		/** Décale toutes les occ de N jours depuis today. Défaut : 7 (future, dans la fenêtre J-X de 20j). */
+		occurrenceDayOffset?: number;
+		/** Date ISO imposée pour toutes les occ. Alias de occurrenceDayOffset=0 si absente. */
+		occurrenceDate?: string;
+		/** Dates ISO explicites (mix passé/futur possible). Si fourni, occurrenceCount est ignoré. */
+		occurrenceDates?: string[];
+	}
 ): Promise<SeedPlanningResult> {
 	const pb = await authenticateAdmin();
 
@@ -181,13 +200,25 @@ export async function seedPlanning(
 	const master = await pb.collection('planning_masters').create<PlanningMaster>(masterData);
 	trackedIds.planning_masters.add(master.id);
 
-	const occurrenceCount = overrides?.occurrenceCount ?? 3;
+	// Résolution des dates d'occ : occurrenceDates explicites > occurrenceDate unique >
+	// occurrenceDayOffset > défaut J+7 (future, dans la fenêtre J-X de 20j du cron).
+	let occurrenceDates: string[];
+	if (overrides?.occurrenceDates && overrides.occurrenceDates.length > 0) {
+		occurrenceDates = overrides.occurrenceDates;
+	} else if (overrides?.occurrenceDate) {
+		const count = overrides?.occurrenceCount ?? 1;
+		occurrenceDates = Array(count).fill(overrides.occurrenceDate);
+	} else {
+		const offset = overrides?.occurrenceDayOffset ?? 7;
+		const count = overrides?.occurrenceCount ?? 3;
+		occurrenceDates = Array(count).fill(dateInDays(offset));
+	}
 	const occurrences: PlanningOccurrence[] = [];
 
-	for (let i = 0; i < occurrenceCount; i++) {
+	for (const date of occurrenceDates) {
 		const occ = await pb.collection('planning_occurrences').create<PlanningOccurrence>({
 			master: master.id,
-			date: `2026-04-${15 + i * 7}`,
+			date,
 			startTime: '09:00',
 			endTime: '17:00',
 			responses: [],

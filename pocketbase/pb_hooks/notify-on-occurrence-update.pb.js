@@ -2,175 +2,90 @@
 // ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7. Pièges projet : agent/doc/memo.md. Voir AGENTS.md § PRÉALABLE POCKETBASE.
 
 /**
- * Hook déclenché après la mise à jour d'une occurrence
+ * Hook occurrence-update — brique producteur du pipeline de notifications.
  *
- * Envoie des notifications push et email aux participants concernés quand:
- * - Une occurrence est annulée
- * - L'horaire ou la date d'une occurrence est modifiée
+ * Toute modification pertinente d'une occurrence future est enregistrée comme
+ * une row dans `notification_events`. Le cron quotidien agrège ces rows pour
+ * produire les emails et push, en calculant les destinataires au runtime
+ * selon les prefs de chaque participant.
  *
- * Les notifications sont envoyées uniquement aux participants qui ont
- * activé les préférences onCancellation ou onTimeChange dans leurs
- * préférences de planning.
+ * Rôle strictement producteur : aucune logique de destinataire, de préférence
+ * ou d'envoi SMTP/push ici. Cela garantit un coût constant par update (1 INSERT)
+ * indépendant du nombre de participants au planning.
+ *
+ * Pourquoi un hook `*After*Success` plutôt qu'un hook `*Request` :
+ *   - il se déclenche aussi bien depuis une route API que depuis un batch SDK,
+ *     une commande console, ou tout autre `$app.save()`;
+ *   - il ne s'exécute qu'après le commit transactionnel, donc l'event reflète
+ *     un état réellement persisté.
+ * Contrepartie acceptée : pas d'accès au contexte HTTP (`e.auth`, headers...).
+ * L'auteur de l'action est lu depuis `occurrence.lastModifiedBy`, alimenté côté
+ * client par `pb.authStore.record?.id`.
  */
 
 onRecordAfterUpdateSuccess((e) => {
-	const { sendPushNotification, sendGroupedEmail, formatDateFR } = require(
-		`${__hooks}/notify-utils.js`
-	);
+	const record = e.record;
+	const original = record.original();
+	const { detectOccurrenceChange } = require(`${__hooks}/occurrence-change-detector.js`);
 
-	const rec = e.record;
-	const orig = rec.original();
-
-	e.app
-		.logger()
-		.info(
-			'[Notif-DBG] Hook start',
-			'occId',
-			rec.get('id'),
-			'isCanceled',
-			rec.getBool('isCanceled'),
-			'origIsCanceled',
-			orig.getBool('isCanceled'),
-			'startTime',
-			rec.getString('startTime'),
-			'origStartTime',
-			orig.getString('startTime'),
-			'date',
-			rec.getString('date'),
-			'origDate',
-			orig.getString('date')
-		);
-
-	// Détecter les changements
-	const isCanceled = rec.getBool('isCanceled');
-	const wasCanceled = isCanceled && !orig.getBool('isCanceled');
-
-	const timeChanged =
-		!isCanceled &&
-		(rec.getString('startTime') !== orig.getString('startTime') ||
-			rec.getString('date') !== orig.getString('date'));
-
-	// Si pas de changement pertinent, on sort
-	if (!wasCanceled && !timeChanged) {
-		e.app.logger().info('[Notif-DBG] Early return: no relevant change', 'occId', rec.get('id'));
-		return e.next();
+	// Filtre temporel : les occurrences passées ne génèrent plus d'events.
+	// Comparaison en UTC pour éviter les décalages de fuseau. Le guard doit
+	// retourner au niveau du handler (et non inside une IIFE) pour réellement
+	// court-circuiter la suite : un `return` d'IIFE ne fait que quitter l'IIFE.
+	const rawDate = record.getString('date');
+	if (rawDate) {
+		const day = rawDate.split(' ')[0].split('T')[0];
+		if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+			const occDate = new Date(`${day}T00:00:00Z`).getTime();
+			if (!Number.isNaN(occDate)) {
+				const today = new Date();
+				const todayUtcMidnight = Date.UTC(
+					today.getUTCFullYear(),
+					today.getUTCMonth(),
+					today.getUTCDate()
+				);
+				if (occDate < todayUtcMidnight) {
+					e.next();
+					return;
+				}
+			}
+		}
+	}
+	if (!record.get('id')) {
+		e.next();
+		return;
 	}
 
-	// Trouver les participants notifiables pour CE planning
-	const masterId = rec.getString('master');
-	let participants;
+	const descriptor = detectOccurrenceChange(record, original);
+	if (!descriptor) {
+		e.next();
+		return;
+	}
+
+	// Insertion dans notification_events : l'échec est loggué sans remonter
+	// pour ne pas casser la réponse API à un update qui a pourtant réussi.
 	try {
-		participants = e.app.findRecordsByFilter(
-			'planning_participants',
-			`planning = {:masterId} && (onCancellation = true || onTimeChange = true)`,
-			'-created',
-			-1,
-			0,
-			{ masterId }
-		);
-		e.app.expandRecords(participants, ['user'], null);
+		const collection = e.app.findCollectionByNameOrId('notification_events');
+		const event = new Record(collection);
+		event.set('type', descriptor.type);
+		event.set('master', record.getString('master'));
+		event.set('occurrence', record.get('id'));
+		event.set('reminderValue', 0);
+		event.set('changedBy', record.getString('lastModifiedBy'));
+		event.set('payload', descriptor.payload || null);
+		e.app.save(event);
 	} catch (err) {
 		e.app
 			.logger()
 			.error(
-				'[Notif-DBG] Early return: failed to load participants',
-				'occId',
-				rec.get('id'),
-				'masterId',
-				masterId,
+				'[Notification] Failed to insert notification_events row',
 				'err',
-				err?.message || err
+				err?.message || String(err),
+				'occurrenceId',
+				record.get('id'),
+				'type',
+				descriptor.type
 			);
-		return e.next();
-	}
-
-	if (participants.length === 0) {
-		e.app
-			.logger()
-			.info(
-				'[Notif-DBG] Early return: no participants',
-				'occId',
-				rec.get('id'),
-				'masterId',
-				masterId
-			);
-		return e.next();
-	}
-
-	// Charger le master pour obtenir le titre et le token
-	let master;
-	try {
-		master = e.app.findRecordById('planning_masters', masterId);
-	} catch (err) {
-		e.app
-			.logger()
-			.error(
-				'[Notif-DBG] Early return: master not found',
-				'occId',
-				rec.get('id'),
-				'masterId',
-				masterId,
-				'err',
-				err?.message || err
-			);
-		return e.next();
-	}
-
-	const notifUrl = `/p/${master.getString('participantToken')}`;
-	const masterTitle = master.getString('title');
-	const occDate = formatDateFR(rec.getString('date'));
-
-	// Déterminer le type de notification
-	const [notifTitle, notifBody, relevantField] = wasCanceled
-		? [`Annulation — ${masterTitle}`, `L'occurrence du ${occDate} a été annulée.`, 'onCancellation']
-		: [
-				`Changement — ${masterTitle}`,
-				`L'horaire de l'occurrence du ${occDate} a été modifié : initialement prévu pour ${orig.getString(
-					'startTime'
-				)} - ${orig.getString('endTime')} → décalé à ${rec.getString('startTime')} - ${rec.getString('endTime')}.`,
-				'onTimeChange'
-			];
-
-	// Grouper par type de notification
-	const pushUsers = [];
-	const emailUsers = [];
-
-	for (const p of participants) {
-		// Vérifier que le participant a activé CE type de notification
-		if (!p.getBool(relevantField)) continue;
-
-		const user = p.expandedOne('user');
-		if (!user) continue;
-
-		if (p.getBool('push')) pushUsers.push(user);
-		if (p.getBool('email')) emailUsers.push(user);
-	}
-
-	e.app
-		.logger()
-		.info(
-			'[Notif-DBG] Sending notifications',
-			'occId',
-			rec.get('id'),
-			'pushUsers',
-			pushUsers.length,
-			'emailUsers',
-			emailUsers.length,
-			'type',
-			wasCanceled ? 'cancellation' : 'timeChange'
-		);
-
-	// Envoyer les notifications (JSVM synchrone — boucle simple, pas Promise.all)
-	try {
-		for (const user of pushUsers) {
-			sendPushNotification(e.app, user, notifTitle, notifBody, notifUrl);
-		}
-
-		if (emailUsers.length > 0) {
-			sendGroupedEmail(e.app, emailUsers, notifTitle, notifBody, notifUrl);
-		}
-	} catch (err) {
-		e.app.logger().error('[Notification] Occurrence update error', 'err', err?.message || err);
 	}
 
 	e.next();

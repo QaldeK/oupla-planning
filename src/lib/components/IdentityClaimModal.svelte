@@ -241,7 +241,7 @@
 					token
 				);
 				try {
-					await ensurePlanningParticipant(master.id, pbUser.id);
+					await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type);
 				} catch (err) {
 					console.error('ensurePlanningParticipant failed:', err);
 				}
@@ -325,7 +325,7 @@
 
 			// S'assurer que l'entrée planning_participants existe
 			try {
-				await ensurePlanningParticipant(master.id, pbUser.id);
+				await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type);
 			} catch (err) {
 				console.error('ensurePlanningParticipant failed:', err);
 			}

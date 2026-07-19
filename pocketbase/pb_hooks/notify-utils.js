@@ -1,11 +1,11 @@
 // @ts-nocheck — Fichier JSVM PocketBase, les globaux ($http, MailerMessage, etc.) sont injectés par le runtime
-// ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7. Pièges projet : agent/doc/memo.md. Voir AGENTS.md § PRÉALABLE POCKETBASE.
-
 /**
- * Utilitaires partagés pour les notifications
+ * Utilitaires partagés pour les notifications.
  *
- * Ce module fournit tous les helpers nécessaires pour l'envoi de notifications
- * push et email, ainsi que le traitement de la logique de notifications.
+ * Fournit :
+ *  - formatDateFR          : formatage de date FR court
+ *  - sendPushNotification  : envoi push à un user (HTTP synchrone vers notify-service)
+ *  - sendIndividualEmail   : envoi email multipart (HTML + texte) à un user unique
  */
 
 module.exports = {
@@ -112,136 +112,57 @@ module.exports = {
 	},
 
 	/**
-	 * Envoyer un email groupé (TO + CC)
-	 * Permet d'envoyer un seul email à plusieurs destinataires
+	 * Envoyer un email multipart (HTML + texte) à un destinataire unique.
+	 *
+	 * L'envoi individuel (vs TO+CC) garantit la privacy des destinataires
+	 * (aucune fuite d'emails entre participants) et la délivrabilité
+	 * (1 message = 1 RCPT, moins de spam filtering).
+	 *
+	 * @param {object} app            — instance PocketBase ($app ou e.app)
+	 * @param {object} user           — record auth user (doit exposer email() et get('id'))
+	 * @param {string} subject        — sujet de l'email
+	 * @param {string} html           — corps HTML
+	 * @param {string} text           — corps texte brut (fallback clients non-HTML)
+	 * @param {object} [opts]         — options
+	 * @param {object} [opts.headers] — headers additionnels (ex: Reply-To,
+	 *                                  X-Entity-Ref-ID pour la dedup mailbox)
+	 *
+	 * Sur erreur SMTP : log zerolog + **rethrow** pour permettre au caller
+	 * d'incrémenter `attempts` et décider du retry.
 	 */
-	sendGroupedEmail(app, users, title, body, notifUrl) {
-		if (users.length === 0) return;
-
+	sendIndividualEmail(app, user, subject, html, text, opts = {}) {
 		const settings = app.settings();
-
-		// Premier destinataire dans TO, les autres en CC
-		const to = users[0].email();
-		const cc = users.slice(1).map((u) => ({ address: u.email() }));
-
 		const message = new MailerMessage({
 			from: {
 				address: settings.meta.senderAddress,
 				name: settings.meta.senderName || 'Oupla Planning'
 			},
-			to: [{ address: to }],
-			cc: cc,
-			subject: title,
-			html: `
-				<p>${body}</p>
-				<p style="margin-top: 20px;">
-					<a href="https://planning.oupla.net${notifUrl}"
-					   style="display: inline-block; padding: 12px 24px;
-						  background-color: #007bff; color: white;
-						  text-decoration: none; border-radius: 6px;">
-						Voir le planning
-					</a>
-				</p>
-			`
+			to: [{ address: user.email() }],
+			subject,
+			html,
+			text,
+			headers: opts.headers || {}
 		});
 
 		try {
 			app.newMailClient().send(message);
-			app.logger().info('[Notification] Email sent', 'recipients', users.length, 'subject', title);
 		} catch (err) {
+			// zerolog exige des paires 'clé', valeur : sans clé, err partirait dans
+			// un champ `!BADKEY` et serait invisible dans les logs.
 			app
 				.logger()
 				.error(
 					'[Notification] SMTP send failed',
-					err?.message || err,
-					'recipients',
-					users.length,
+					'err',
+					err?.message || String(err),
+					'userId',
+					user.get('id'),
 					'subject',
-					title
+					subject
 				);
-		}
-	},
-
-	// ============================================================================
-	// TRAITEMENT DES NOTIFICATIONS
-	// ============================================================================
-
-	/**
-	 * Groupe les participants par type de notification (push/email)
-	 * selon qu'ils ont activé une notification à un nombre de jours donné
-	 */
-	groupByNotificationType(participants, dayField, targetDays) {
-		const filtered = participants.filter((p) => p.participant.getInt(dayField) === targetDays);
-
-		const pushUsers = [];
-		const emailUsers = [];
-
-		for (const p of filtered) {
-			if (p.participant.getBool('push')) pushUsers.push(p.user);
-			if (p.participant.getBool('email')) emailUsers.push(p.user);
+			throw err;
 		}
 
-		return { pushUsers, emailUsers };
-	},
-
-	/**
-	 * Traite les rappels pour une occurrence.
-	 * N'envoie qu'aux participants qui ont répondu "present".
-	 */
-	processReminders(app, occ, groups, notifUrl, daysUntil, occTime, masterTitle) {
-		const responses = occ.get('responses') || [];
-
-		// Filtrer: uniquement les users qui ont répondu "present".
-		// ⚠️ responses utilise `participantId` (cf. main.pb.js / planning.types.ts),
-		// pas `id`. Un filtre sur `r.id` ne matche jamais → aucun rappel envoyé.
-		const presentPushUsers = groups.pushUsers.filter((u) =>
-			responses.some((r) => r.participantId === u.get('id') && r.response === 'present')
-		);
-		const presentEmailUsers = groups.emailUsers.filter((u) =>
-			responses.some((r) => r.participantId === u.get('id') && r.response === 'present')
-		);
-
-		if (presentPushUsers.length === 0 && presentEmailUsers.length === 0) return;
-
-		const occDate = occ.getString('date');
-		const title = `Rappel — ${masterTitle}`;
-		const body = `Vous avez un événement ${daysUntil === 1 ? 'demain' : `dans ${daysUntil} jours`} (${occDate} à ${occTime}).`;
-
-		// Push: séquentiel (JSVM synchrone)
-		for (const user of presentPushUsers) {
-			this.sendPushNotification(app, user, title, body, notifUrl);
-		}
-
-		// Email: 1 seul email avec CC
-		if (presentEmailUsers.length > 0) {
-			this.sendGroupedEmail(app, presentEmailUsers, title, body, notifUrl);
-		}
-	},
-
-	/**
-	 * Traite les alertes de participants manquants pour une occurrence.
-	 * N'envoie que si le nombre de présents est inférieur au minRequired.
-	 */
-	processMissingParticipants(app, occ, groups, notifUrl, daysUntil, masterTitle) {
-		const responses = occ.get('responses') || [];
-		const presentCount = responses.filter((r) => r.response === 'present').length;
-		const minRequired = occ.getInt('minPresentRequired') || 0;
-
-		if (minRequired === 0 || presentCount >= minRequired) return;
-		if (groups.pushUsers.length === 0 && groups.emailUsers.length === 0) return;
-
-		const occDate = occ.getString('date');
-		const title = `Il manque des participants — ${masterTitle}`;
-		const body = `Occurrence du ${occDate} : ${presentCount}/${minRequired} présents.`;
-
-		// Push: séquentiel (JSVM synchrone)
-		for (const user of groups.pushUsers) {
-			this.sendPushNotification(app, user, title, body, notifUrl);
-		}
-
-		// Email groupé
-		if (groups.emailUsers.length > 0) {
-			this.sendGroupedEmail(app, groups.emailUsers, title, body, notifUrl);
-		}
+		app.logger().info('[Notification] Email sent', 'userId', user.get('id'), 'subject', subject);
 	}
 };

@@ -2,208 +2,507 @@
 // ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7. Pièges projet : agent/doc/memo.md. Voir AGENTS.md § PRÉALABLE POCKETBASE.
 
 /**
- * Cron principal pour les notifications
- * Exécuté tous les jours à 8h du matin
+ * Cron notifications — cron quotidien 00h UTC.
  *
- * Ce cron:
- * 1. Récupère tous les participants avec des notifications activées
- * 2. Groupe les participants par planning
- * 3. Trouve les occurrences correspondant aux J-X configurés par les participants
- * 4. Envoie les rappels pour les participants "present"
- * 5. Envoie les alertes "participants manquants"
+ * Phase 1 — Calcul et insertion des events J-X (rappels, missings, confirmation).
+ *   Parcourt les occurrences dans la fenêtre à venir (today → today+20 jours) et
+ *   insère dans `notification_events` les faits notifiables liés au timing.
  *
- * Note : cronAdd ne passe AUCUN paramètre au handler. L'app PocketBase est
- * accessible via le global `$app`, pas via un éventuel `e.app` (qui serait undefined).
+ * Phase 2 — Envoi agrégé.
+ *   Consomme les events non traités, calcule les destinataires au runtime selon
+ *   la matrice brainstorm § 3 + prefs individuelles, construit 1 email agrégé
+ *   par (user, master) et envoie via SMTP. Push 1 par event J-X pour les users
+ *   qui ont activé `push`. Circuit breaker SMTP après 3 échecs consécutifs.
+ *
+ * La fusion des deux phases dans un seul cron garantit l'ordre séquentiel
+ * (insertion → envoi) sans scheduling parallèle, et produit un seul log
+ * zerolog final.
+ *
+ * `notifications-purge` : cron hebdomadaire lundi 00h30 UTC, supprime les
+ * rows `notification_events` traitées de plus de 60 jours.
+ *
+ * Tous les helpers nécessaires sont importés via `require()` au début du
+ * handler : les fonctions top-level d'un `.pb.js` ne sont PAS visibles depuis
+ * les callbacks JSVM (scope isolé, memo.md L397-425).
  */
 
-cronAdd('notifications-check', '0 8 * * *', () => {
-	const notifyUtils = require(`${__hooks}/notify-utils.js`);
+cronAdd('notifications-daily', '0 0 * * *', () => {
+	const { detectJxEvents } = require(`${__hooks}/notification-jx-detector.js`);
+	const { computeRecipients } = require(`${__hooks}/notification-recipients.js`);
+	const cronUtils = require(`${__hooks}/notification-cron-utils.js`);
+	const { sendIndividualEmail, sendPushNotification } = require(`${__hooks}/notify-utils.js`);
+	const { buildSubject, buildHtmlEmail, buildTextEmail } = require(
+		`${__hooks}/notify-templates.js`
+	);
 
-	// 1. Trouver tous les participants avec des notifications activées
-	let notifiableParticipants;
-	try {
-		notifiableParticipants = $app.findRecordsByFilter(
-			'planning_participants',
-			'push = true || email = true',
-			'-created',
-			-1,
-			0,
-			{}
-		);
+	const {
+		MAX_SMTP_FAILURES,
+		BASE_URL,
+		JX_EVENT_TYPES,
+		nowIsoCompat,
+		parseJsonArray,
+		buildEventPayload,
+		resolveUserTaskNames,
+		buildPushTitle,
+		buildPushBody
+	} = cronUtils;
 
-		// EXPAND : Charger tous les users en UNE SEULE requête
-		$app.expandRecords(notifiableParticipants, ['user'], null);
-	} catch (err) {
-		$app
-			.logger()
-			.error(
-				'[Notification] Cron: failed to load notifiable participants',
-				'err',
-				err?.message || err
+	// ========================================================================
+	// PHASE 1 — Insertion des events J-X
+	// ========================================================================
+
+	// Fenêtre 20 jours : couvre tous les J-X possibles (max 15 pour missings).
+	// Les filtres `findRecordsByFilter` n'acceptent PAS `datetime()` (fonction SQL
+	// brute) — il faut calculer les bornes en JS et les binder via placeholders.
+	// Les macros `@` (@todayStart, @now) existent mais ne supportent pas l'arithmétique
+	// additive native ; on privilégie des bornes explicites YYYY-MM-DD (UTC minuit).
+	const windowStart = new Date();
+	windowStart.setUTCHours(0, 0, 0, 0);
+	const windowEnd = new Date(windowStart.getTime());
+	windowEnd.setUTCDate(windowEnd.getUTCDate() + 20);
+	const startDate = windowStart.toISOString().split('T')[0];
+	const endDate = windowEnd.toISOString().split('T')[0];
+
+	const occs = $app.findRecordsByFilter(
+		'planning_occurrences',
+		'date >= {:start} && date <= {:end} && deleted = false && isCanceled = false',
+		'date',
+		0,
+		0,
+		{ start: startDate, end: endDate }
+	);
+
+	const masterCtxCache = new Map();
+	const getMasterContext = (masterId) => {
+		let ctx = masterCtxCache.get(masterId);
+		if (ctx !== undefined) return ctx;
+		let master;
+		try {
+			master = $app.findRecordById('planning_masters', masterId);
+		} catch {
+			master = null;
+		}
+		if (!master || master.getBool('deleted')) {
+			ctx = null;
+		} else {
+			const participants = $app.findRecordsByFilter(
+				'planning_participants',
+				'planning = {:masterId}',
+				'',
+				0,
+				0,
+				{ masterId }
 			);
-		return;
-	}
+			ctx = { master, participants };
+		}
+		masterCtxCache.set(masterId, ctx);
+		return ctx;
+	};
 
-	if (notifiableParticipants.length === 0) {
-		$app.logger().info('[Notification] Cron: no notifiable participants, exiting');
-		return;
-	}
+	let scanned = 0;
+	let inserted = 0;
+	let skippedDuplicate = 0;
+	let skippedNoMaster = 0;
+	const now = new Date();
 
-	// 2. Grouper par planning
-	const participantsByPlanning = new Map();
-
-	for (const p of notifiableParticipants) {
-		const planningId = p.getString('planning');
-		const user = p.expandedOne('user');
-		if (!user) continue;
-
-		if (!participantsByPlanning.has(planningId)) {
-			participantsByPlanning.set(planningId, []);
+	for (const occ of occs) {
+		scanned++;
+		const masterId = occ.getString('master');
+		const ctx = getMasterContext(masterId);
+		if (!ctx) {
+			skippedNoMaster++;
+			continue;
 		}
 
-		participantsByPlanning.get(planningId).push({
-			participant: p,
-			user: user
-		});
-	}
+		const descriptors = detectJxEvents(occ, ctx.master, ctx.participants, now);
+		if (descriptors.length === 0) continue;
 
-	const planningIds = Array.from(participantsByPlanning.keys());
+		const occId = occ.get('id');
 
-	$app
-		.logger()
-		.info(
-			'[Notification] Cron start',
-			'participants',
-			notifiableParticipants.length,
-			'plannings',
-			planningIds.length
-		);
-
-	// 3. Calculer les dates cibles à partir des valeurs réellement configurées
-	//    par les participants (reminderDays / missingParticipantsDays).
-	//    On évite ainsi le bug où une valeur UI (ex: 15) n'est jamais traitée
-	//    par le cron. Si personne n'a configuré de rappel, on sort tôt.
-	const configuredDays = new Set();
-	for (const p of notifiableParticipants) {
-		const r = p.getInt('reminderDays');
-		const m = p.getInt('missingParticipantsDays');
-		if (r > 0) configuredDays.add(r);
-		if (m > 0) configuredDays.add(m);
-	}
-
-	if (configuredDays.size === 0) {
-		$app.logger().info('[Notification] Cron: no configured days, exiting');
-		return;
-	}
-
-	const dates = Array.from(configuredDays).map((days) => {
-		const d = new Date();
-		d.setUTCDate(d.getUTCDate() + days);
-		return d.toISOString().split('T')[0];
-	});
-
-	const dateFilters = dates.map((d, i) => `date = {:date_${i}}`).join(' || ');
-	const dateParams = {};
-	dates.forEach((d, i) => {
-		dateParams[`date_${i}`] = d;
-	});
-
-	// IMPORTANT: Utiliser des placeholders nommés pour master (éviter injection SQL)
-	const planningParams = {};
-	planningIds.forEach((id, i) => {
-		planningParams[`planning_${i}`] = id;
-	});
-	const planningFilters = planningIds.map((id, i) => `master = {:planning_${i}}`).join(' || ');
-
-	// 4. Trouver les occurrences
-	let occurrences;
-	try {
-		occurrences = $app.findRecordsByFilter(
-			'planning_occurrences',
-			`(${planningFilters}) && (${dateFilters}) && isCanceled = false`,
-			'date',
-			500,
-			0,
-			{ ...dateParams, ...planningParams }
-		);
-	} catch (err) {
-		$app
-			.logger()
-			.error('[Notification] Cron: failed to load occurrences', 'err', err?.message || err);
-		return;
-	}
-
-	// 5. Traiter chaque occurrence
-	const today = new Date().toISOString().split('T')[0];
-	const masterCache = new Map();
-
-	for (const occ of occurrences) {
-		const masterId = occ.getString('master');
-		// PocketBase expose parfois la date au format SQL "YYYY-MM-DD HH:MM:SS.000Z".
-		// On normalise en YYYY-MM-DD pour pouvoir construire une Date UTC valide.
-		const occDate = String(occ.getString('date')).split(' ')[0].split('T')[0];
-
-		// Calcul UTC pour éviter les problèmes de fuseau horaire
-		const occDateObj = new Date(occDate + 'T00:00:00Z');
-		const todayDateObj = new Date(today + 'T00:00:00Z');
-		const daysUntil = Math.ceil((occDateObj - todayDateObj) / (1000 * 60 * 60 * 24));
-
-		// Charger le master (avec cache)
-		let master = masterCache.get(masterId);
-		if (!master) {
+		for (const d of descriptors) {
+			let existing;
 			try {
-				master = $app.findRecordById('planning_masters', masterId);
-				masterCache.set(masterId, master);
+				existing = $app.findFirstRecordByFilter(
+					'notification_events',
+					'occurrence = {:occ} && type = {:type} && reminderValue = {:value}',
+					{ occ: occId, type: d.type, value: d.reminderValue }
+				);
+			} catch {
+				/* not found — on insère */
+			}
+			if (existing) {
+				skippedDuplicate++;
+				continue;
+			}
+
+			try {
+				const collection = $app.findCollectionByNameOrId('notification_events');
+				const event = new Record(collection);
+				event.set('type', d.type);
+				event.set('master', masterId);
+				event.set('occurrence', occId);
+				event.set('reminderValue', d.reminderValue);
+				event.set('changedBy', '');
+				event.set('payload', null);
+				$app.save(event);
+				inserted++;
 			} catch (err) {
 				$app
 					.logger()
 					.error(
-						'[Notification] Cron: failed to load master',
-						'masterId',
-						masterId,
+						'[Notif] Phase 1 — insert failed',
+						'cron',
+						'notifications-daily',
+						'occurrenceId',
+						occId,
+						'type',
+						d.type,
 						'err',
-						err?.message || err
+						err?.message || String(err)
 					);
-				continue;
+			}
+		}
+	}
+
+	// ========================================================================
+	// PHASE 2 — Envoi agrégé
+	// ========================================================================
+
+	// Sélectionner les events non traités. `attempts` est ignoré (champ DB conservé
+	// pour compat, mais la logique de retry est remplacée par le circuit breaker).
+	const pendingEvents = $app.findRecordsByFilter(
+		'notification_events',
+		"processedAt = ''",
+		'created',
+		0,
+		0
+	);
+
+	// Cache des occurrences réutilisées entre events du même master/occ.
+	const occCache = new Map();
+	const getOcc = (occId) => {
+		if (occCache.has(occId)) return occCache.get(occId);
+		let occ = null;
+		try {
+			occ = $app.findRecordById('planning_occurrences', occId);
+		} catch {
+			/* deleted */
+		}
+		occCache.set(occId, occ);
+		return occ;
+	};
+
+	// Pré-calcul des items : pour chaque event, on résout {record, eventPlain,
+	// master, occ, recipients}. Le payload event-level (missings counts) est
+	// enrichi une seule fois par event.
+	const eventItems = [];
+	for (const eventRecord of pendingEvents) {
+		const masterId = eventRecord.getString('master');
+		const occId = eventRecord.getString('occurrence');
+		const masterCtx = getMasterContext(masterId);
+		if (!masterCtx) continue;
+
+		const occ = getOcc(occId);
+		if (!occ || occ.getBool('deleted') || occ.getBool('isCanceled')) continue;
+
+		const type = eventRecord.getString('type');
+		const eventPlain = {
+			type,
+			reminderValue: eventRecord.getInt('reminderValue'),
+			occurrence: occId,
+			master: masterId,
+			changedBy: eventRecord.getString('changedBy'),
+			payload: buildEventPayload({ type }, masterCtx.master, occ)
+		};
+
+		const recipients = computeRecipients(eventPlain, masterCtx.master, masterCtx.participants, occ);
+
+		eventItems.push({
+			record: eventRecord,
+			event: eventPlain,
+			master: masterCtx.master,
+			occ,
+			recipients
+		});
+	}
+
+	// Buffer (userId|masterId) → { userId, masterId, master, items: [{record, event, occ}] }
+	// Une entrée du buffer = 1 email agrégé à envoyer.
+	const buffer = new Map();
+	for (const item of eventItems) {
+		const occTasks = parseJsonArray(item.occ, 'tasks');
+		for (const r of item.recipients) {
+			const key = `${r.userId}|${item.event.master}`;
+			let bucket = buffer.get(key);
+			if (!bucket) {
+				bucket = {
+					userId: r.userId,
+					masterId: item.event.master,
+					master: item.master,
+					items: []
+				};
+				buffer.set(key, bucket);
+			}
+			const enrichedEvent = {
+				...item.event,
+				payload: {
+					...(item.event.payload || {}),
+					userResponse: r.response,
+					userTasks: resolveUserTaskNames(r.tasks, occTasks)
+				}
+			};
+			bucket.items.push({
+				record: item.record,
+				event: enrichedEvent,
+				occ: item.occ
+			});
+		}
+	}
+
+	// Envoi des emails avec circuit breaker SMTP.
+	let emailsSent = 0;
+	let pushSent = 0;
+	let consecutiveSmtpFailures = 0;
+	let smtpErrors = 0;
+	let bufferSkipped = 0;
+	const processedAt = nowIsoCompat();
+
+	for (const [, bucket] of buffer) {
+		if (consecutiveSmtpFailures >= MAX_SMTP_FAILURES) {
+			bufferSkipped++;
+			continue;
+		}
+
+		let user;
+		try {
+			user = $app.findRecordById('users', bucket.userId);
+		} catch {
+			// User supprimé entre-temps — abandonner ce bucket silencieusement.
+			bufferSkipped++;
+			continue;
+		}
+
+		// Résolution des noms pour `changedBy` (lookup users).
+		const userNamesById = new Map();
+		const changedBySet = new Set();
+		for (const it of bucket.items) {
+			if (it.event.changedBy) changedBySet.add(it.event.changedBy);
+		}
+		for (const uid of changedBySet) {
+			try {
+				const u = $app.findRecordById('users', uid);
+				userNamesById.set(uid, u.getString('name') || u.getString('email') || 'admin');
+			} catch {
+				/* changedBy introuvable — le template fallback sur UNKNOWN_AUTHOR */
 			}
 		}
 
-		const participants = participantsByPlanning.get(masterId) || [];
-		const notifUrl = `/p/${master.getString('participantToken')}`;
-		const occTime = occ.getString('startTime');
-		const masterTitle = master.getString('title');
+		// occCache local au bucket : les events ne sont pas tous sur la même occ.
+		const localOccCache = new Map();
+		for (const it of bucket.items) {
+			if (!localOccCache.has(it.event.occurrence)) {
+				localOccCache.set(it.event.occurrence, getOcc(it.event.occurrence));
+			}
+		}
 
-		// 5a. Check reminders (rappels pour les participants "present")
-		const reminderGroups = notifyUtils.groupByNotificationType(
-			participants,
-			'reminderDays',
-			daysUntil
-		);
-		notifyUtils.processReminders(
-			$app,
-			occ,
-			reminderGroups,
-			notifUrl,
-			daysUntil,
-			occTime,
-			masterTitle
-		);
+		const ctx = {
+			occCache: localOccCache,
+			userNamesById,
+			master: bucket.master,
+			baseUrl: BASE_URL
+		};
 
-		// 5b. Check missing participants (alertes si pas assez de monde)
-		const missingGroups = notifyUtils.groupByNotificationType(
-			participants,
-			'missingParticipantsDays',
-			daysUntil
-		);
-		notifyUtils.processMissingParticipants(
-			$app,
-			occ,
-			missingGroups,
-			notifUrl,
-			daysUntil,
-			masterTitle
-		);
+		const eventsForTemplate = bucket.items.map((it) => it.event);
+
+		let subject;
+		let html;
+		let text;
+		try {
+			subject = buildSubject(bucket.master, eventsForTemplate, ctx);
+			html = buildHtmlEmail(bucket.master, eventsForTemplate, user, ctx);
+			text = buildTextEmail(bucket.master, eventsForTemplate, user, ctx);
+		} catch (err) {
+			$app
+				.logger()
+				.error(
+					'[Notif] Phase 2 — template rendering failed',
+					'cron',
+					'notifications-daily',
+					'userId',
+					bucket.userId,
+					'err',
+					err?.message || String(err)
+				);
+			bufferSkipped++;
+			continue;
+		}
+
+		try {
+			sendIndividualEmail($app, user, subject, html, text, {
+				headers: {
+					'X-Entity-Ref-ID': `notif-${bucket.masterId}-${processedAt.slice(0, 10)}`
+				}
+			});
+			emailsSent++;
+			consecutiveSmtpFailures = 0;
+
+			// Tous les events du bucket sont marqués traités (envoi agrégé réussi).
+			for (const it of bucket.items) {
+				try {
+					it.record.set('processedAt', processedAt);
+					$app.save(it.record);
+				} catch (saveErr) {
+					$app
+						.logger()
+						.error(
+							'[Notif] Phase 2 — processedAt save failed',
+							'cron',
+							'notifications-daily',
+							'err',
+							saveErr?.message || String(saveErr)
+						);
+				}
+			}
+		} catch (err) {
+			// sendIndividualEmail rethrow sur SMTP fail — on log et on compte.
+			consecutiveSmtpFailures++;
+			smtpErrors++;
+			$app
+				.logger()
+				.error(
+					'[Notif] Phase 2 — SMTP send failed',
+					'cron',
+					'notifications-daily',
+					'userId',
+					bucket.userId,
+					'consecutive',
+					consecutiveSmtpFailures,
+					'err',
+					err?.message || String(err)
+				);
+		}
 	}
 
-	$app.logger().info('[Notification] Cron done', 'occurrences', occurrences.length);
+	if (consecutiveSmtpFailures >= MAX_SMTP_FAILURES) {
+		$app
+			.logger()
+			.error(
+				'[Notif] Phase 2 — circuit breaker triggered',
+				'cron',
+				'notifications-daily',
+				'reason',
+				`${MAX_SMTP_FAILURES} SMTP failures consécutives — SMTP probablement down`,
+				'bucketsSkipped',
+				bufferSkipped
+			);
+	}
+
+	// ========================================================================
+	// PUSH J-X — 1 push par event pour les users avec push=true
+	// ========================================================================
+	// TODO: ush immédiat pour `onOccurrenceChange` :s events issus du hook update (status_canceled, schedule_change, …)
+	const userCache = new Map();
+	const getUser = (userId) => {
+		if (userCache.has(userId)) return userCache.get(userId);
+		let u = null;
+		try {
+			u = $app.findRecordById('users', userId);
+		} catch {
+			/* deleted */
+		}
+		userCache.set(userId, u);
+		return u;
+	};
+
+	for (const item of eventItems) {
+		if (!JX_EVENT_TYPES.has(item.event.type)) continue;
+
+		const participants = getMasterContext(item.event.master)?.participants || [];
+		const occTasks = parseJsonArray(item.occ, 'tasks');
+		const participantToken = item.master.getString('participantToken');
+		const title = buildPushTitle(item.event, item.master);
+		const url = `/p/${participantToken}`;
+
+		for (const r of item.recipients) {
+			const pp = participants.find((p) => p.getString('user') === r.userId);
+			if (!pp || !pp.getBool('push')) continue;
+
+			const user = getUser(r.userId);
+			if (!user) continue;
+
+			const body = buildPushBody(item.event, item.occ, r, occTasks);
+			try {
+				sendPushNotification($app, user, title, body, url);
+				pushSent++;
+			} catch {
+				// sendPushNotification loggue ses propres erreurs en interne.
+			}
+		}
+	}
+
+	// ========================================================================
+	// Log final unifié
+	// ========================================================================
+
+	$app
+		.logger()
+		.info(
+			'[Notif] Cron done',
+			'cron',
+			'notifications-daily',
+			'phase1_scanned',
+			scanned,
+			'phase1_inserted',
+			inserted,
+			'phase1_skippedDuplicate',
+			skippedDuplicate,
+			'phase1_skippedNoMaster',
+			skippedNoMaster,
+			'phase2_eventsProcessed',
+			eventItems.length,
+			'phase2_emailsSent',
+			emailsSent,
+			'phase2_pushSent',
+			pushSent,
+			'phase2_smtpErrors',
+			smtpErrors,
+			'phase2_bufferSkipped',
+			bufferSkipped,
+			'phase2_circuitBreaker',
+			consecutiveSmtpFailures >= MAX_SMTP_FAILURES ? 1 : 0
+		);
+});
+
+cronAdd('notifications-purge', '30 0 * * 1', () => {
+	try {
+		const where = "processedAt != '' AND processedAt < datetime('now', '-60 days')";
+
+		const counter = new DynamicModel({ total: 0 });
+		$app
+			.db()
+			.newQuery(`SELECT COUNT(*) as total FROM notification_events WHERE ${where}`)
+			.one(counter);
+
+		$app.db().newQuery(`DELETE FROM notification_events WHERE ${where}`).execute();
+
+		$app
+			.logger()
+			.info(
+				'[Notif] Purge notification_events',
+				'cron',
+				'notifications-purge',
+				'deleted',
+				counter.total || 0
+			);
+	} catch (err) {
+		$app
+			.logger()
+			.error(
+				'[Notif] Purge notification_events failed',
+				'cron',
+				'notifications-purge',
+				'err',
+				err?.message || String(err)
+			);
+	}
 });

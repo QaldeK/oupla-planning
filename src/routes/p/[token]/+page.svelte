@@ -154,7 +154,7 @@
 			// Défensif : un user déjà lié ne doit jamais voir de suggestion de claim.
 			if (myParticipant) {
 				userStore.clearPendingGuestClaim();
-				ensurePlanningParticipant(master.id, pbUser.id).catch((err) =>
+				ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type).catch((err) =>
 					console.error('ensurePlanningParticipant failed:', err)
 				);
 				return;
@@ -242,7 +242,7 @@
 
 			if (userStore.isLoggedIn) {
 				try {
-					await ensurePlanningParticipant(master.id, userStore.pbUser!.id);
+					await ensurePlanningParticipant(master.id, userStore.pbUser!.id, master.recurrence.type);
 				} catch (err) {
 					console.error('Erreur création planning_participant:', err);
 				}
@@ -674,6 +674,8 @@
 	bind:open={showNotifModal}
 	onClose={() => (showNotifModal = false)}
 	planningId={master?.id ?? ''}
+	recurrenceType={master?.recurrence.type ?? 'WEEKLY'}
+	{isAdmin}
 />
 
 <AccountModal
