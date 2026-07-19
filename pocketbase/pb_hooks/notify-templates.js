@@ -332,7 +332,7 @@ function _formatTasksToFill(tasksToFill) {
  * `missings` → lignes phrasées (Array<string>).
  *   - Quorum (seulement pour `quorum_missing`) :
  *       "Quorum insuffisant : 2 présents confirmés sur 5 requis."
- *       "1 incertain·e·s, 2 sans-réponse."
+ *       "1 si besoin, 2 incertain·e·s."  (uniquement si au moins un compteur > 0)
  *   - Tâches à pourvoir si applicable.
  *
  * `task_unassigned` est aussi catégorisé missings mais ne porte pas de
@@ -341,15 +341,20 @@ function _formatTasksToFill(tasksToFill) {
 function _renderMissingsLine(event, occ) {
 	const p = event.payload || {};
 	const present = p.presentCount ?? 0;
+	const ifNeeded = p.ifNeededCount ?? 0;
 	const maybe = p.maybeCount ?? 0;
-	const noreply = p.noReplyCount ?? 0;
 	const min = p.minPresentRequired ?? occ.getInt('minPresentRequired') ?? 0;
 	const isTaskUnassigned = event.type === 'task_unassigned';
 
 	const lines = [];
 	if (!isTaskUnassigned && min > 0) {
 		lines.push(`Quorum insuffisant : ${present} présent·e·s confirmé·e·s sur ${min} requis.`);
-		lines.push(`${maybe} incertain·e·s, ${noreply} sans-réponse.`);
+		// 2e ligne optionnelle : seulement si au moins une catégorie > 0.
+		// Évite d'afficher "0 si besoin, 0 incertain·e·s." quand tout est vide.
+		const parts = [];
+		if (ifNeeded > 0) parts.push(`${ifNeeded} si besoin`);
+		if (maybe > 0) parts.push(`${maybe} incertain·e·s`);
+		if (parts.length > 0) lines.push(parts.join(', ') + '.');
 	}
 	const taskLine = _formatTasksToFill(p.tasksToFill);
 	if (taskLine) lines.push(taskLine);

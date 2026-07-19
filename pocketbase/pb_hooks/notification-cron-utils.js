@@ -63,6 +63,11 @@ function resolveMinPresentRequired(occurrence, master) {
  * Calcule le payload event-level (counts pour missings).
  * Identique pour tous les destinataires de l'event. Le payload user-level
  * (response, tasks) est ajouté séparément par le cron d'envoi.
+ *
+ * Compteurs : present, if_needed, maybe. Les `absent` et les sans-réponse
+ * ne sont pas comptés — les guests (sans userId) ne sont pas destinataires
+ * email, donc les inclure dans "sans-réponse" donnerait à l'admin une image
+ * trompeuse. KISS : on n'affiche que les réponses positives.
  */
 function buildEventPayload(event, master, occ) {
 	const type = event.type;
@@ -73,22 +78,13 @@ function buildEventPayload(event, master, occ) {
 	const minRequired = resolveMinPresentRequired(occ, master);
 
 	let present = 0;
+	let ifNeeded = 0;
 	let maybe = 0;
-	let noreply = 0;
-	const respondedIds = new Set();
 	for (const r of responses) {
 		if (!r || !r.participantId) continue;
-		respondedIds.add(r.participantId);
 		if (r.response === 'present') present++;
+		else if (r.response === 'if_needed') ifNeeded++;
 		else if (r.response === 'maybe') maybe++;
-	}
-
-	// Sans-réponse = participants auth actifs sans response sur cette occ.
-	// Les guests (sans userId) sont exclus car pas destinataires email.
-	const allParticipants = parseJsonArray(master, 'participants');
-	for (const p of allParticipants) {
-		if (!p || p.hasQuit || !p.userId) continue;
-		if (!respondedIds.has(p.id)) noreply++;
 	}
 
 	const tasksToFill = [];
@@ -112,8 +108,8 @@ function buildEventPayload(event, master, occ) {
 
 	return {
 		presentCount: present,
+		ifNeededCount: ifNeeded,
 		maybeCount: maybe,
-		noReplyCount: noreply,
 		minPresentRequired: minRequired,
 		tasksToFill
 	};

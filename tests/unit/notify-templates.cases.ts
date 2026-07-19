@@ -225,8 +225,8 @@ export const CASES: TestCase[] = [
 				changedBy: '',
 				payload: {
 					presentCount: 2,
+					ifNeededCount: 1,
 					maybeCount: 1,
-					noReplyCount: 2,
 					minPresentRequired: 5,
 					tasksToFill: [
 						{ name: 'Accueil', type: 'onEvent', signedUp: 0, required: 2 },
@@ -274,7 +274,7 @@ export const CASES: TestCase[] = [
 				occurrence: 'o2',
 				reminderValue: 3,
 				changedBy: '',
-				payload: { presentCount: 2, maybeCount: 1, noReplyCount: 2, minPresentRequired: 5 }
+				payload: { presentCount: 2, ifNeededCount: 0, maybeCount: 1, minPresentRequired: 5 }
 			},
 			{
 				type: 'reminder',

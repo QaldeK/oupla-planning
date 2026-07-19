@@ -85,8 +85,8 @@ const EXPECTATIONS: Record<number, CaseExpectations> = {
 			'Participants manquants — dim. 5 avr.',
 			'Quorum insuffisant',
 			'présent·e·s confirmé·e·s sur 5 requis',
+			'si besoin',
 			'incertain·e·s',
-			'sans-réponse',
 			'Tâches à pourvoir',
 			'Accueil (0/2)',
 			'Rangement (1/3)'
@@ -300,6 +300,67 @@ describe('notify-templates — edge cases', () => {
 		expect(lines[0]).toContain('Accueil (0/2)');
 		// Pas de ligne "Quorum insuffisant"
 		expect(lines.some((l: string) => l.includes('Quorum'))).toBe(false);
+	});
+
+	describe('_renderMissingsLine — combinaisons de compteurs', () => {
+		const occ = mkRecord({ minPresentRequired: 5 });
+
+		function missingsEv(payload: Record<string, unknown>) {
+			return { type: 'quorum_missing', payload };
+		}
+
+		it('ifNeeded > 0 et maybe > 0 → "X si besoin, Y incertain·e·s."', () => {
+			const lines = templates._renderMissingsLine(
+				missingsEv({ presentCount: 1, ifNeededCount: 2, maybeCount: 3, minPresentRequired: 5 }),
+				occ
+			);
+			expect(lines[0]).toContain('1 présent·e·s confirmé·e·s sur 5 requis');
+			expect(lines[1]).toBe('2 si besoin, 3 incertain·e·s.');
+			expect(lines.length).toBe(2);
+		});
+
+		it('ifNeeded > 0 et maybe = 0 → "X si besoin." seul', () => {
+			const lines = templates._renderMissingsLine(
+				missingsEv({ presentCount: 1, ifNeededCount: 2, maybeCount: 0, minPresentRequired: 5 }),
+				occ
+			);
+			expect(lines[1]).toBe('2 si besoin.');
+			expect(lines.length).toBe(2);
+		});
+
+		it('ifNeeded = 0 et maybe > 0 → "Y incertain·e·s." seul', () => {
+			const lines = templates._renderMissingsLine(
+				missingsEv({ presentCount: 1, ifNeededCount: 0, maybeCount: 3, minPresentRequired: 5 }),
+				occ
+			);
+			expect(lines[1]).toBe('3 incertain·e·s.');
+			expect(lines.length).toBe(2);
+		});
+
+		it('ifNeeded = 0 et maybe = 0 → pas de 2e ligne', () => {
+			const lines = templates._renderMissingsLine(
+				missingsEv({ presentCount: 0, ifNeededCount: 0, maybeCount: 0, minPresentRequired: 5 }),
+				occ
+			);
+			expect(lines.length).toBe(1);
+			expect(lines[0]).toContain('0 présent·e·s confirmé·e·s sur 5 requis');
+		});
+
+		it('payload legacy avec noReplyCount (non produit par le cron) → ignoré, pas de crash', () => {
+			// Défensif : si un event déjà en DB porte l'ancien payload, le rendu
+			// ne doit pas crasher. noReplyCount est simplement ignoré.
+			const lines = templates._renderMissingsLine(
+				missingsEv({
+					presentCount: 1,
+					maybeCount: 1,
+					noReplyCount: 5,
+					minPresentRequired: 5
+				}),
+				occ
+			);
+			expect(lines[1]).toBe('1 incertain·e·s.');
+			expect(lines.some((l: string) => l.includes('sans-réponse'))).toBe(false);
+		});
 	});
 
 	it('_renderChangeLine multi-champs → phrase englobante', () => {
