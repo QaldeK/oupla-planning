@@ -158,7 +158,7 @@
 				{/if} -->
 			</div>
 		{:else}
-			<div class="alert alert-info alert-soft shadow-md">
+			<div class="alert alert-info alert-soft max-md:alert-vertical shadow-md">
 				<div class="flex items-start gap-4">
 					<div class="bg-info/20 shrink-0 rounded-full p-3">
 						<Download size={mediaQuery.isMobile ? 20 : 24} class="text-info" />

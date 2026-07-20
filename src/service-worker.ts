@@ -38,13 +38,14 @@ self.addEventListener('activate', (event) => {
 	console.log('✅ Service Worker activé');
 
 	async function activateSW() {
-		// Remove previous cached data from disk
+		// Claim AVANT de supprimer les anciens caches : les clients en vol
+		// continuent de recevoir des réponses tant que le nouveau SW est en place.
+		await self.clients.claim();
+		// Nettoyage des anciens caches POST-claim : plus de race condition
+		// entre suppression et service des requêtes existantes.
 		for (const key of await caches.keys()) {
 			if (key !== CACHE) await caches.delete(key);
 		}
-		// Prendre le contrôle des clients existants immédiatement (utile au premier install).
-		// Pour les MAJ, c'est `skipWaiting` (déclenché par postMessage côté client) qui active le nouveau SW.
-		await self.clients.claim();
 	}
 
 	event.waitUntil(activateSW());
@@ -55,7 +56,7 @@ self.addEventListener('activate', (event) => {
 // Le reload est ensuite déclenché côté client via l'événement `controllerchange`.
 self.addEventListener('message', (event) => {
 	if (event.data?.type === 'SKIP_WAITING') {
-		self.skipWaiting();
+		event.waitUntil(self.skipWaiting());
 	}
 });
 

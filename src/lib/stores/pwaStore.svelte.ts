@@ -141,14 +141,19 @@ class PwaStore {
 	#initServiceWorkerUpdateDetection() {
 		if (!('serviceWorker' in navigator)) return;
 
-		// État du contrôleur au boot : null au premier install, non-null dès qu'un SW
+			// Première prise de contrôle : null au premier install, non-null dès qu'un SW
 		// contrôle déjà la page. `clients.claim()` dans l'`activate` du premier SW
 		// déclenche `controllerchange` sans qu'aucune MAJ n'ait été appliquée →
-		// il faut ignorer ce signal pour ne pas recharger au premier chargement.
-		const hadController = !!navigator.serviceWorker.controller;
+		// il faut ignorer CE signal pour ne pas recharger au premier chargement.
+		// Le flag bascule à `true` après le premier `controllerchange`, de sorte que
+		// les suivants (issus d'un UPDATE) déclenchent correctement le reload.
+		let firstClaimDone = !!navigator.serviceWorker.controller;
 
 		on(navigator.serviceWorker, 'controllerchange', () => {
-			if (!hadController) return; // premier install : pas de reload
+			if (!firstClaimDone) {
+				firstClaimDone = true;
+				return; // premier install : pas de reload
+			}
 			if (this.#refreshing) return;
 			this.#refreshing = true;
 			window.location.reload();
