@@ -92,7 +92,7 @@
 		}*/
 
 	html {
-		font-size: clamp(14px, 1vw, 18px);
+		font-size: clamp(16px, 1vw, 18px);
 	}
 
 	html {

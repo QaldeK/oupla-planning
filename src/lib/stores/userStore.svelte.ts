@@ -158,6 +158,9 @@ class UserStore {
 		// (master cleared, userId pas encore posé, etc.) pendant la transition.
 		this.isTransitioning = true;
 		try {
+			// Réactiver le liveQuery global alimentant #allMasters (sidebar + homepage).
+			planningStore.initGlobalSync();
+
 			// 1. Snapshot AVANT clear : token + master actifs
 			const activeToken = planningStore.currentToken;
 			const activeMasterId = planningStore.activeMasterId;

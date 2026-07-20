@@ -445,7 +445,7 @@
 						{#if currentIdentity}
 							<!-- Identifié -->
 							<div class="flex flex-wrap items-center gap-2">
-								<span class="badge badge-info gap-1">{currentIdentity.name}</span>
+								<span class="badge badge-info gap-1 font-bold">{currentIdentity.name}</span>
 								<button
 									class="btn btn-soft btn-info btn-sm gap-1"
 									type="button"
@@ -491,10 +491,10 @@
 							</div>
 						{:else}
 							<!-- Non identifié -->
-							<div class="flex flex-wrap items-center gap-3">
+							<div class="alert alert-outline alert-warning flex flex-wrap items-center gap-3">
 								<span class="text-sm opacity-80">Vous n'êtes pas encore identifié.</span>
 								<button
-									class="btn btn-primary btn-sm"
+									class="btn btn-warning btn-sm"
 									onclick={() =>
 										userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
 								>
@@ -516,7 +516,7 @@
 						{:else}
 							<div class="flex flex-wrap gap-1.5">
 								{#each visibleOtherParticipants as p (p.id)}
-									<span class="badge badge-info badge-outline">{p.name}</span>
+									<span class="badge badge-info badge-outline font-bold">{p.name}</span>
 								{/each}
 								{#if hasMoreOthers}
 									<button
@@ -557,10 +557,10 @@
 
 		<!-- Liste des occurrences -->
 		<div class="">
-			<div class="flex flex-wrap justify-between gap-x-4">
-				<a href="/p/{token}/archive" class="btn btn-soft mb-2 gap-2">
-					<History size={18} />
-					Voir les événements passés
+			<div class="mb-4 flex flex-wrap items-center justify-between gap-x-4">
+				<a href="/p/{token}/archive" class="btn btn-sm btn-soft">
+					<History size={18} class="mr-1" />
+					<span class="max-sm:hidden">Voir les</span>événements passés
 				</a>
 				<div class="mx-2 flex gap-4">
 					{#if mediaQuery.isMobile && isAdmin}

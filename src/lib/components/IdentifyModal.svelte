@@ -260,9 +260,9 @@
 						par email (et push sur mobile).
 					</div>
 
-					<div class="my-1 flex flex-wrap justify-evenly gap-2">
+					<div class="my-4 flex flex-wrap justify-evenly gap-2">
 						<button
-							class="btn btn-sm {authMode === 'login' ? 'btn-primary' : 'btn-soft btn-primary'}"
+							class="btn {authMode === 'login' ? 'btn-primary' : 'btn-soft btn-primary'}"
 							onclick={() => {
 								authMode = 'login';
 								showAccountForm = true;
@@ -271,7 +271,7 @@
 							J'ai déjà un compte — Se connecter
 						</button>
 						<button
-							class="btn btn-sm {authMode === 'register' ? 'btn-primary' : 'btn-soft btn-primary'}"
+							class="btn {authMode === 'register' ? 'btn-primary' : 'btn-soft btn-primary'}"
 							onclick={() => {
 								authMode = 'register';
 								showAccountForm = true;

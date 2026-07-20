@@ -411,6 +411,77 @@ describe('userStore — identity, auth transitions, logout', () => {
 	});
 
 	// ============================================
+	// Reactive liveQuery global — bug logout -> login
+	// ============================================
+	// planningStore.initGlobalSync() souscrit au liveQuery Dexie qui alimente
+	// #allMasters (lu par sidebar + homepage). userStore.logout() détruit ce
+	// liveQuery via planningStore.destroy(). Si onAuthTransition() ne le
+	// réactive pas, les masters fetchés en Dexie ne sont jamais propagés à
+	// l'UI — d'où le bug "homepage/sidebar vides après re-login sans reload".
+
+	describe('Reactive liveQuery after destroy() (logout -> login)', () => {
+		it('propage les masters a activeMasters meme si le liveQuery a ete detruit avant', async () => {
+			// === SEED ===
+			// User existant AVEC masterId déjà populated côté serveur.
+			// Simule un compte qui reconnecte (pas un guest qui claim).
+			const { master } = await seedPlanning({ title: 'Re-Login Master' });
+			const user = await seedUser(USER_EMAIL, USER_PWD, 'Re-Login User', {
+				masterIds: [master.id]
+			});
+			trackIds('users', user.id);
+
+			// === PRECONDITION ===
+			// beforeEach a appelé planningStore.destroy() → #allMastersSub est null,
+			// #allMasters est []. C'est l'état laissé par userStore.logout() :
+			// le liveQuery global est désactivé.
+			expect(planningStore.activeMasters).toHaveLength(0);
+
+			// === AUTH (simule login depuis homepage /) ===
+			// Pas de setActiveToken → currentToken reste null (CAS homepage).
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+			userStore.isLoggedIn = true;
+
+			// === ACTION ===
+			await userStore.onAuthTransition();
+
+			// === VERIFICATION DEXIE ===
+			// Masters chargés en Dexie via initialFetch (API Rule filtre par user.masterId).
+			await vi.waitFor(
+				async () => {
+					const dexieMaster = await db.masters.get(master.id);
+					expect(dexieMaster).toBeDefined();
+					expect(dexieMaster!.title).toBe('Re-Login Master');
+				},
+				{ timeout: 5000 }
+			);
+
+			// === VERIFICATION STORE (le bug) ===
+			// planningStore.activeMasters dépend de #allMasters via le liveQuery global.
+			// Sans initGlobalSync() dans onAuthTransition, le liveQuery reste désactivé
+			// et activeMasters reste [] même si Dexie est rempli.
+			await vi.waitFor(
+				() => {
+					expect(planningStore.activeMasters.length).toBe(1);
+					expect(planningStore.activeMasters[0].id).toBe(master.id);
+					expect(planningStore.activeMasters[0].title).toBe('Re-Login Master');
+				},
+				{ timeout: 5000 }
+			);
+
+			// === VERIFICATION POCKETBASE (cohérence croisée) ===
+			const adminPb = await authenticateAdmin();
+			const pbMaster = await adminPb.collection('planning_masters').getOne(master.id);
+			expect(pbMaster.title).toBe('Re-Login Master');
+
+			// Cleanup
+			pb.authStore.clear();
+			userStore.isLoggedIn = false;
+			planningStore.destroy();
+		});
+	});
+
+	// ============================================
 	// Logout
 	// ============================================
 

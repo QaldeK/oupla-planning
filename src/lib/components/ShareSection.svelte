@@ -15,14 +15,14 @@
 
 {#if !isAdmin}
 	<!-- Bandeau de partage léger (action secondaire pour le participant) -->
-	<div class="alert alert-info alert-soft flex items-center justify-between gap-4 py-3">
+	<div class="alert alert-info alert-outline flex items-center justify-between gap-4 py-3">
 		<div class="flex items-center gap-2">
 			<Users size={20} class="shrink-0" />
 			<span class="text-base">
 				Invitez d'autres participants à
 				{#if allowResponses}déclarer leur présence,{/if}
 				{#if tasksCount > 0}s'inscrire aux tâches,{/if}
-				et ajouter des commentaires, en leur partageance le lien du planning.
+				en leur partageant le lien du planning.
 			</span>
 		</div>
 		<CopyLinksButtons {participantToken} />

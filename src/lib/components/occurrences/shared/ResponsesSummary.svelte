@@ -119,7 +119,7 @@
 	>
 		<div class="flex min-w-20 flex-1 flex-wrap items-center gap-1">
 			<div
-				class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium opacity-80 {config.bgClass}"
+				class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium opacity-90 {config.bgClass}"
 			>
 				<Icon size={16} />
 				<span
