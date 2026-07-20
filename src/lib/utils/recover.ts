@@ -27,7 +27,10 @@
  * ne se charge pas du tout. Si tu modifies la séquence ici, pense à mettre à
  * jour `error.html` en parallèle.
  */
-import { APP_DB_NAME } from '$lib/pb-sync/db';
+// Hardcodé volontairement : ce module est importé par +error.svelte, qui doit
+// rester indépendant de db.ts (Dexie) pour pouvoir s'afficher même si db.ts
+// est la cause du crash. Si le nom change dans db.ts, le mettre à jour ici aussi.
+const APP_DB_NAME = 'appDB';
 
 async function clearHttpCaches(): Promise<void> {
 	if (typeof caches === 'undefined') return;
