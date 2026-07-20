@@ -12,10 +12,10 @@
  * ne partagent pas de modules. Toute évolution doit être répercutée des
  * deux côtés pour garder les defaults cohérents.
  *
- * `readRecurrenceType` est dans `pb-helpers.js` (mutualisé avec le cron).
+ * `readRecurrenceType` est dans `pb-helpers.cjs` (mutualisé avec le cron).
  */
 
-const { readRecurrenceType } = require(`${__hooks}/pb-helpers.js`);
+const { readRecurrenceType } = require(`${__hooks}/pb-helpers.cjs`);
 
 /**
  * Defaults `reminderDays` / `missingDays` par `recurrenceType`.

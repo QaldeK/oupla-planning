@@ -21,7 +21,7 @@
  */
 
 const { parseJsonArray, readRecurrenceType, resolveMinPresentRequired } = require(
-	`${__hooks}/pb-helpers.js`
+	`${__hooks}/pb-helpers.cjs`
 );
 
 /** Valeurs J-X possibles pour les events liés au timing. */

@@ -4,7 +4,7 @@
  *
  * Les handlers JSVM (cronAdd, onRecord*, routerAdd) s'exécutent dans des
  * contextes isolés — toute fonction réutilisée entre modules doit vivre ici
- * et être `require()`-ée via `${__hooks}/pb-helpers.js`.
+ * et être `require()`-ée via `${__hooks}/pb-helpers.cjs`.
  */
 
 /**

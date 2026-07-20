@@ -13,10 +13,10 @@
  *  - Construction du payload missings (presentCount, tasksToFill, etc.)
  *  - Résolution des noms de tâches user ("Préparer salle (avant)")
  *  - Rendu push (titre + corps court)
- *  - Les helpers de parsing/dates sont dans `pb-helpers.js`
+ *  - Les helpers de parsing/dates sont dans `pb-helpers.cjs`
  */
 
-const { parseJsonArray, resolveMinPresentRequired } = require(`${__hooks}/pb-helpers.js`);
+const { parseJsonArray, resolveMinPresentRequired } = require(`${__hooks}/pb-helpers.cjs`);
 
 const MAX_SMTP_FAILURES = 3;
 
@@ -169,7 +169,7 @@ module.exports = {
 	resolveUserTaskNames,
 	buildPushTitle,
 	buildPushBody,
-	// Ré-exporte depuis pb-helpers.js pour compatibilité avec les consommateurs existants
+	// Ré-exporte depuis pb-helpers.cjs pour compatibilité avec les consommateurs existants
 	parseJsonArray,
 	resolveMinPresentRequired
 };

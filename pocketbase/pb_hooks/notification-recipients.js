@@ -19,7 +19,7 @@
  * `participantId`, pas par `userId`.
  */
 
-const { parseJsonArray } = require(`${__hooks}/pb-helpers.js`);
+const { parseJsonArray } = require(`${__hooks}/pb-helpers.cjs`);
 
 /** Types d'events issus du hook update (C2) — déclenchés par `onOccurrenceChange`. */
 const CHANGE_EVENT_TYPES = [
