@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import path from 'path';
 
 // Mock isolé (pas de PocketBase nécessaire) qui valide la détection des
 // events J-X (rappels, missings, confirmation) sur planning_occurrences.
@@ -17,6 +18,9 @@ import { describe, it, expect } from 'vitest';
 // Module under test — dynamic import pour bénéficier de l'interoperabilité
 // CommonJS (le hook exporte via `module.exports`).
 // ============================================================================
+
+const HOOKS_DIR = path.resolve(__dirname, '../../', 'pocketbase/pb_hooks');
+(globalThis as any).__hooks = HOOKS_DIR;
 
 const { detectJxEvents } = await import('../../pocketbase/pb_hooks/notification-jx-detector.js');
 

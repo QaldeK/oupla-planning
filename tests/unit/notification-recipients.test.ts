@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import path from 'path';
 
 // Runner isolé (pas de PocketBase nécessaire) qui valide le calcul des
 // destinataires d'un event selon la matrice § 3 du brainstorm + les prefs
@@ -16,6 +17,9 @@ import { describe, it, expect } from 'vitest';
 // Module under test — dynamic import pour bénéficier de l'interoperabilité
 // CommonJS (le hook exporte via `module.exports`).
 // ============================================================================
+
+const HOOKS_DIR = path.resolve(__dirname, '../../', 'pocketbase/pb_hooks');
+(globalThis as any).__hooks = HOOKS_DIR;
 
 const { computeRecipients } = await import('../../pocketbase/pb_hooks/notification-recipients.js');
 

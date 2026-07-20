@@ -19,6 +19,8 @@
  * `participantId`, pas par `userId`.
  */
 
+const { parseJsonArray } = require(`${__hooks}/pb-helpers.js`);
+
 /** Types d'events issus du hook update (C2) — déclenchés par `onOccurrenceChange`. */
 const CHANGE_EVENT_TYPES = [
 	'status_canceled',
@@ -51,18 +53,6 @@ const RESPONSE_FILTER = {
 
 const ABSENT = 'absent';
 const PRESENT = 'present';
-
-/** Parse un champ JSON d'un record en tableau. Tolère null/undefined/malformé. */
-function parseJsonArray(record, field) {
-	const raw = record.getString(field);
-	if (!raw || raw === 'null' || raw === '') return [];
-	try {
-		const v = JSON.parse(raw);
-		return Array.isArray(v) ? v : [];
-	} catch {
-		return [];
-	}
-}
 
 /**
  * Extrait les participants actifs authentifiés du master.

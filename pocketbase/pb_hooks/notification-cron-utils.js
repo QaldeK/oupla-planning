@@ -10,11 +10,13 @@
  *
  * Contenu :
  *  - Constantes (seuils, base URL, ensembles de types d'events)
- *  - Helpers de parsing/dates (maintenus compatibles avec le format PB)
  *  - Construction du payload missings (presentCount, tasksToFill, etc.)
  *  - Résolution des noms de tâches user ("Préparer salle (avant)")
  *  - Rendu push (titre + corps court)
+ *  - Les helpers de parsing/dates sont dans `pb-helpers.js`
  */
+
+const { parseJsonArray, resolveMinPresentRequired } = require(`${__hooks}/pb-helpers.js`);
 
 const MAX_SMTP_FAILURES = 3;
 
@@ -38,25 +40,6 @@ const MISSING_EVENT_TYPES = new Set(['quorum_missing', 'task_unassigned']);
 /** Timestamp courant au format PocketBase "YYYY-MM-DD HH:MM:SS.000Z". */
 function nowIsoCompat() {
 	return new Date().toISOString().replace('T', ' ');
-}
-
-/** Parse un champ JSON d'un record en tableau. Tolère null/undefined/malformé. */
-function parseJsonArray(record, field) {
-	const raw = record.getString(field);
-	if (!raw || raw === 'null' || raw === '') return [];
-	try {
-		const v = JSON.parse(raw);
-		return Array.isArray(v) ? v : [];
-	} catch {
-		return [];
-	}
-}
-
-/** `minPresentRequired` effective : override occ, fallback master si occ = 0. */
-function resolveMinPresentRequired(occurrence, master) {
-	const occMin = Number(occurrence.getInt('minPresentRequired')) || 0;
-	if (occMin > 0) return occMin;
-	return Number(master.getInt('minPresentRequired')) || 0;
 }
 
 /**
@@ -182,10 +165,11 @@ module.exports = {
 	JX_EVENT_TYPES,
 	MISSING_EVENT_TYPES,
 	nowIsoCompat,
-	parseJsonArray,
-	resolveMinPresentRequired,
 	buildEventPayload,
 	resolveUserTaskNames,
 	buildPushTitle,
-	buildPushBody
+	buildPushBody,
+	// Ré-exporte depuis pb-helpers.js pour compatibilité avec les consommateurs existants
+	parseJsonArray,
+	resolveMinPresentRequired
 };

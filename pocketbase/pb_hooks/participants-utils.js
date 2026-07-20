@@ -11,7 +11,11 @@
  * `src/lib/services/push.ts` (côté frontend TS) — la JSVM et le navigateur
  * ne partagent pas de modules. Toute évolution doit être répercutée des
  * deux côtés pour garder les defaults cohérents.
+ *
+ * `readRecurrenceType` est dans `pb-helpers.js` (mutualisé avec le cron).
  */
+
+const { readRecurrenceType } = require(`${__hooks}/pb-helpers.js`);
 
 /**
  * Defaults `reminderDays` / `missingDays` par `recurrenceType`.
@@ -25,27 +29,6 @@ const RECURRENCE_DEFAULTS = {
 	DAILY: { reminderDays: ['1'], missingDays: ['1'] },
 	CUSTOM: { reminderDays: ['1', '3', '7'], missingDays: ['1', '3', '7', '15'] }
 };
-
-/**
- * Extrait le `type` du champ JSON `recurrence` d'un master.
- *
- * @param {core.Record} master — record `planning_masters`
- * @returns {string} — `recurrenceType` ('WEEKLY', 'BIWEEKLY', …) ou
- *   'WEEKLY' par défaut si le champ est vide/malformé (cohérent avec le
- *   default du frontend `ensurePlanningParticipant`).
- */
-function readRecurrenceType(master) {
-	const raw = master.getString('recurrence');
-	if (raw && raw !== 'null' && raw !== '') {
-		try {
-			const parsed = JSON.parse(raw);
-			if (parsed && typeof parsed.type === 'string') return parsed.type;
-		} catch {
-			/* ignore, fallback below */
-		}
-	}
-	return 'WEEKLY';
-}
 
 /**
  * Defaults de prefs à appliquer à la création d'un `planning_participants`.

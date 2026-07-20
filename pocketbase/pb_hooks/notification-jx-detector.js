@@ -20,6 +20,10 @@
  * tasks), puis itération sur les participants.
  */
 
+const { parseJsonArray, readRecurrenceType, resolveMinPresentRequired } = require(
+	`${__hooks}/pb-helpers.js`
+);
+
 /** Valeurs J-X possibles pour les events liés au timing. */
 const JX_VALUES = [1, 3, 7, 15];
 
@@ -37,23 +41,6 @@ const CONFIRMATION_NEEDED_JX = {
 const REMINDER_JX_VALUES = [1, 3, 7];
 
 /**
- * Extrait le `type` du champ JSON `recurrence` d'un master.
- * @returns {string} — 'WEEKLY' par défaut si vide/malformé.
- */
-function readRecurrenceType(master) {
-	const raw = master.getString('recurrence');
-	if (raw && raw !== 'null' && raw !== '') {
-		try {
-			const parsed = JSON.parse(raw);
-			if (parsed && typeof parsed.type === 'string') return parsed.type;
-		} catch {
-			/* fallback ci-dessous */
-		}
-	}
-	return 'WEEKLY';
-}
-
-/**
  * Nombre de jours entre `now` (UTC minuit) et la date de l'occurrence (UTC minuit).
  * Retourne un entier (positif pour une occ future, 0 pour aujourd'hui, négatif pour
  * le passé). Arrondi pour tolérer d'éventuels décalages sub-journaliers dans le
@@ -67,18 +54,6 @@ function computeDaysUntil(occDateRaw, now) {
 	if (Number.isNaN(occMs)) return -1;
 	const todayUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 	return Math.round((occMs - todayUtcMidnight) / (24 * 60 * 60 * 1000));
-}
-
-/** Parse un champ JSON d'un record en tableau. Tolère null/undefined/malformé. */
-function parseJsonArray(record, field) {
-	const raw = record.getString(field);
-	if (!raw || raw === 'null' || raw === '') return [];
-	try {
-		const v = JSON.parse(raw);
-		return Array.isArray(v) ? v : [];
-	} catch {
-		return [];
-	}
 }
 
 /** True si au moins un participant a `day` dans le champ `field` (select multiple). */
@@ -135,16 +110,6 @@ function hasUnassignedTask(tasks, responses) {
 		if (volunteers < required) return true;
 	}
 	return false;
-}
-
-/**
- * `minPresentRequired` effectif pour l'occurrence : override occ d'abord,
- * fallback master. 0 si non défini.
- */
-function resolveMinPresentRequired(occurrence, master) {
-	const occMin = Number(occurrence.getInt('minPresentRequired')) || 0;
-	if (occMin > 0) return occMin;
-	return Number(master.getInt('minPresentRequired')) || 0;
 }
 
 /**
