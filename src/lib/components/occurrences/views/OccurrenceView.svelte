@@ -262,17 +262,17 @@
 	{@const cls = size === 'xs' ? 'badge-sm gap-0.5 text-xs' : size === 'sm' ? 'badge-sm gap-1' : ''}
 	{@const iconSize = size === 'xs' ? 12 : size === 'sm' ? 12 : 16}
 	{#if master.toConfirm && occurrence.isConfirmed}
-		<span class="badge {cls} bg-success/40 text-success-content font-medium">
+		<span class="badge {cls} badge-success font-semibold">
 			<CheckCircle size={iconSize} />
 			Confirmé
 		</span>
 	{:else if occurrence.isCanceled}
-		<span class="badge {cls} badge-error">
+		<span class="badge {cls} badge-error font-semibold">
 			<XCircle size={iconSize} />
 			Annulé
 		</span>
 	{:else if master.toConfirm && !occurrence.isConfirmed}
-		<span class="badge {cls} bg-warning/40 text-warning-content font-medium">
+		<span class="badge {cls} badge-warning font-semibold">
 			<CircleQuestionMark size={iconSize} />
 			à confirmer
 		</span>
@@ -285,7 +285,10 @@
 		<div class="mb-2 flex items-center justify-between gap-2 px-2">
 			<div class="flex flex-1 items-center justify-between gap-2 text-sm sm:gap-6">
 				<!-- Date & Time -->
-				<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+				<div
+					class="flex flex-wrap items-baseline gap-x-2 gap-y-0 {occurrence.isCanceled &&
+						'bg-error/20 rounded px-1'}"
+				>
 					<div class="flex items-center gap-1 text-lg font-semibold">
 						<Calendar size={16} />
 						<span>
@@ -507,7 +510,10 @@
 	<div class="bg-base-100 border-neutral/15 border p-1">
 		<div class="flex flex-wrap items-center gap-x-2 px-2">
 			<!-- Date -->
-			<div class="flex items-center gap-1 font-semibold">
+			<div
+				class="flex items-center gap-1 font-semibold {occurrence.isCanceled &&
+					'bg-error/20 rounded px-1'}"
+			>
 				<Calendar size={14} />
 				<span>{formatDateShort(occurrence.date)}</span>
 			</div>

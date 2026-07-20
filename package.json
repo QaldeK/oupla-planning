@@ -34,6 +34,7 @@
 		"eventsource": "^4.1.0",
 		"fake-indexeddb": "^6.2.5",
 		"globals": "^17.7.0",
+		"happy-dom": "^20.11.0",
 		"prettier": "^3.9.5",
 		"prettier-plugin-svelte": "^4.1.1",
 		"prettier-plugin-tailwindcss": "^0.8.1",

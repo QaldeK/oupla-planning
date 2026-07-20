@@ -3,7 +3,6 @@
 	"compilerOptions": {
 		"rewriteRelativeImportExtensions": true,
 		"allowJs": true,
-		"checkJs": true,
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
 		"resolveJsonModule": true,
@@ -13,5 +12,5 @@
 		"moduleResolution": "bundler",
 		"types": ["./worker-configuration.d.ts"]
 	},
-	"exclude": [".serena", "pocketbase/pb_hooks"]
+	"exclude": [".serena"]
 }

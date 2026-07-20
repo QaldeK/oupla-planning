@@ -73,6 +73,7 @@
 			<p class="text-base-content/70 max-w-md text-lg">
 				Gérez les présences et les tâches de vos activités récurrentes.
 			</p>
+			<p class="text-base-content/70 text-sm">v.0.3-beta</p>
 		</div>
 	</div>
 
