@@ -13,6 +13,7 @@
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
+	import { recoverAllData } from '$lib/utils/recover';
 	import { Drawer, DrawerContent, DrawerOverlay } from '@abhivarde/svelte-drawer';
 	import {
 		CalendarPlus,
@@ -47,6 +48,23 @@
 	let showWelcomeModal = $state(false);
 
 	onMount(() => {
+		// Hook de recover : déclenché par error.html (?recover=1) ou saisie manuelle.
+		// error.html tente déjà le clear navigateur avant redirect vers `/` (sans le
+		// paramètre). Ce hook est un filet pour le cas où ce script a échoué ou où
+		// l'utilisateur a saisi l'URL directement. Dans tous les cas, on relance un
+		// nettoyage complet puis on redirect vers `/` (recoverAllData inclus).
+		const params = new URLSearchParams(window.location.search);
+		if (params.get('recover') === '1') {
+			// Fire-and-forget : recoverAllData ne devrait jamais rejeter (chaque step
+			// catche ses propres erreurs), mais on ajoute un .catch défensif pour
+			// éviter une unhandled rejection pendant le boot — exactement le scénario
+			// qu'on cherche à résoudre.
+			recoverAllData().catch((err) =>
+				console.error('[layout] recoverAllData failed:', err)
+			);
+			return;
+		}
+
 		userStore.init();
 		mediaQuery.init();
 		pwaStore.init();

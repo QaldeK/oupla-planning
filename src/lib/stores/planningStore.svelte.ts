@@ -5,7 +5,7 @@ import { userStore } from '$lib/stores/userStore.svelte';
 import { networkStore } from '$lib/stores/networkStore.svelte';
 import { pb } from '$lib/pocketbase/pb';
 import { createSyncCollection } from '$lib/pb-sync/collection';
-import { db } from '$lib/pb-sync/db';
+import { db, ensureDbReady } from '$lib/pb-sync/db';
 import { ClientResponseError } from 'pocketbase';
 import { liveQuery } from 'dexie';
 import type { Subscription } from 'dexie';
@@ -168,10 +168,15 @@ class PlanningStore {
 	 */
 	initGlobalSync() {
 		if (this.#allMastersSub) return; // Déjà initialisé
-		this.#allMastersSub = liveQuery(() => db.masters.toArray()).subscribe({
-			next: (val) => {
-				this.#allMasters = val;
-			}
+		// Open défensif (idempotent) avant le liveQuery — en pratique, userStore.init()
+		// a déjà déclenché ensureDbReady(), mais on sécurise au cas où ce store serait
+		// utilisé sans passer par userStore (tests, code futur).
+		ensureDbReady().then(() => {
+			this.#allMastersSub = liveQuery(() => db.masters.toArray()).subscribe({
+				next: (val) => {
+					this.#allMasters = val;
+				}
+			});
 		});
 	}
 
@@ -330,6 +335,10 @@ class PlanningStore {
 		}
 
 		if (this.#currentToken === token) return;
+
+		// Open défensif de la DB locale avant toute opération Dexie (ADR 0006).
+		// Idempotent via readyPromise mémoïsé dans db.ts.
+		await ensureDbReady();
 
 		this.#isLoading = true;
 		this.#error = null;
@@ -596,6 +605,8 @@ class PlanningStore {
 
 	async refreshActive(): Promise<void> {
 		if (!this.#activeMasterId) return;
+		// Open défensif avant toute opération DB (idempotent, ADR 0006).
+		await ensureDbReady();
 		const master = await db.masters.get(this.#activeMasterId);
 		if (!master) return;
 

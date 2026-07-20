@@ -14,7 +14,7 @@ import {
 	mastersCollection,
 	occurrencesCollection
 } from '$lib/stores/planningStore.svelte';
-import { db } from '$lib/pb-sync/db';
+import { db, ensureDbReady } from '$lib/pb-sync/db';
 import { commentStateService } from '$lib/services/commentStateService';
 import { goto } from '$app/navigation';
 
@@ -69,6 +69,10 @@ class UserStore {
 		$state(null);
 
 	async init() {
+		// Open défensif de la DB locale (reset auto si migration cassée — ADR 0006).
+		// Avant toute opération Dexie pour garantir que readyPromise est résolu.
+		await ensureDbReady();
+
 		// Synchro authStore
 		this.isLoggedIn = pb.authStore.isValid;
 		pb.authStore.onChange(() => {
