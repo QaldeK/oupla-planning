@@ -33,8 +33,17 @@ function mockUser(overrides: { id?: string; email?: string; push_subscription?: 
 		push_subscription: overrides.push_subscription ?? null,
 		...overrides
 	};
+	// Simulation du comportement JSVM réel : getString() sur un champ json retourne
+	// la string JSON (vide si null), pas les bytes bruts. Sans ça, le test ne
+	// couvrirait pas le bug `[]byte` qui plantaient notify-service en production.
+	const getString = (key: string): string => {
+		const val = data[key];
+		if (val === null || val === undefined) return '';
+		return typeof val === 'string' ? val : JSON.stringify(val);
+	};
 	return {
 		get: vi.fn((key: string) => data[key]),
+		getString: vi.fn(getString),
 		getId: vi.fn(() => overrides.id ?? 'user-1'),
 		email: vi.fn(() => overrides.email ?? 'user@test.com'),
 		set: vi.fn((key: string, val: any) => {

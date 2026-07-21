@@ -41,10 +41,29 @@ module.exports = {
 	 * Envoyer une notification push à un user.
 	 * $http.send() est synchrone dans la JSVM PocketBase — pas de Promise.
 	 * Si la subscription est expirée (410/404), elle est nettoyée dans PocketBase.
+	 *
+	 * Lecture du champ JSON via getString() + JSON.parse() : en JSVM (Goja),
+	 * record.get() retourne les bytes Go bruts ([]byte → Array<number>),
+	 * ce qui sérialise en HTTP comme un tableau de nombres et fait échouer
+	 * web-push côté notify-service avec "subscription with at least an endpoint".
 	 */
 	sendPushNotification(app, user, title, body, url) {
-		const sub = user.get('push_subscription');
-		if (!sub) return;
+		const subRaw = user.getString('push_subscription');
+		if (!subRaw) return;
+
+		let sub;
+		try {
+			sub = JSON.parse(subRaw);
+		} catch (err) {
+			app.logger().error(
+				'[Notification] push_subscription JSON invalide',
+				'err',
+				err?.message || String(err),
+				'userId',
+				user.get('id')
+			);
+			return;
+		}
 
 		let res;
 		try {
