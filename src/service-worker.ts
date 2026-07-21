@@ -38,11 +38,11 @@ self.addEventListener('activate', (event) => {
 	console.log('✅ Service Worker activé');
 
 	async function activateSW() {
-		// Claim AVANT de supprimer les anciens caches : les clients en vol
-		// continuent de recevoir des réponses tant que le nouveau SW est en place.
+		// Claim d'abord pour transférer le contrôle au nouveau SW (cohérent :
+		// nouveau cache + nouveaux ASSETS). Supprimer ensuite les anciens caches
+		// évite une race condition où l'ancien SW (encore contrôleur avant le claim)
+		// servirait des requêtes contre un cache en cours de suppression.
 		await self.clients.claim();
-		// Nettoyage des anciens caches POST-claim : plus de race condition
-		// entre suppression et service des requêtes existantes.
 		for (const key of await caches.keys()) {
 			if (key !== CACHE) await caches.delete(key);
 		}

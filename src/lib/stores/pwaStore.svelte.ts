@@ -141,7 +141,7 @@ class PwaStore {
 	#initServiceWorkerUpdateDetection() {
 		if (!('serviceWorker' in navigator)) return;
 
-			// Première prise de contrôle : null au premier install, non-null dès qu'un SW
+		// Première prise de contrôle : null au premier install, non-null dès qu'un SW
 		// contrôle déjà la page. `clients.claim()` dans l'`activate` du premier SW
 		// déclenche `controllerchange` sans qu'aucune MAJ n'ait été appliquée →
 		// il faut ignorer CE signal pour ne pas recharger au premier chargement.
