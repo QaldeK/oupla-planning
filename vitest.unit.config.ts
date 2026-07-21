@@ -7,7 +7,13 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			$lib: path.resolve('./src/lib')
-		}
+		},
+		// Forcer la résolution des exports "browser" des dépendances (notamment
+		// Svelte 5) pour les tests de composants. Sans ça, Vite résout vers les
+		// exports "server" (SSR) qui rendent `mount()` indisponible → erreur
+		// `lifecycle_function_unavailable`. Les tests purement Node n'ont pas
+		// de dépendances qui différencient browser/server, donc sans impact.
+		conditions: ['browser']
 	},
 	test: {
 		name: 'unit',

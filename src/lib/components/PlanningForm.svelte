@@ -31,6 +31,7 @@
 		RotateCcw
 	} from '@lucide/svelte';
 	import { generateRecurrenceDates, getRecurrenceLabel } from '$lib/utils/recurrence';
+	import { computeMaxDateForComboLimit } from '$lib/utils/comboLimit';
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from '$lib/constants';
 	import { toast } from 'svelte-sonner';
 	import { format, parse, addWeeks, addMonths } from 'date-fns';
@@ -136,6 +137,10 @@
 
 	let showArbitraryDatePicker = $state(false); // Afficher le picker inline pour dates arbitraires
 
+	// « Aujourd'hui » figé à la résolution du dérivé. Source unique partagée par
+	// le picker minDate, la validation des combos futures, et le masquage des badges passés.
+	const todayStr = $derived(format(new Date(), 'yyyy-MM-dd'));
+
 	// Dates générées par la récurrence — déclaré avant les $derived qui le référencent
 	// (nécessaire pour le prerender SSR, sinon TDZ "Cannot access before initialization")
 	const allGeneratedDates = $derived.by(() => {
@@ -150,9 +155,11 @@
 				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined
 		});
 
-		// Limiter à 100 dates futures maximum
-		const today = format(new Date(), 'yyyy-MM-dd');
-		return generated.filter((d) => d >= today).slice(0, 100);
+		// On ne retient que les dates futures (inutiles au rendu), sans tronquer à 100 :
+		// l'alerte UI et le blocage submit appliquent la limite sur les combos futures,
+		// pas sur les dates nues. Tronquer ici rendrait la génération non pure et masquerait
+		// silencieusement un cycle qui déborde (ex : DAILY sur 4 mois ~120 dates).
+		return generated.filter((d) => d >= todayStr);
 	});
 
 	// Dates manuelles hors cycle généré (mode récurrent uniquement). En CUSTOM, toutes
@@ -179,6 +186,13 @@
 	// y compris désactivées). La sélection active est portée par `disabledSlotKeys` (plus bas) :
 	// une combo est active ssi sa clé n'y figure pas. `activeDateSlots` en est la projection.
 	const showSlot = $derived(timeSlots.length > 1);
+
+	// Plafond du picker de dates manuelles : ⌊100/nbSlots⌋ pour respecter la
+	// limite combos même en multi-slot. Les dates du cycle ne sont pas décomptées
+	// du quota — le blocage submit reste la garde finale.
+	const maxManualDatesForLimit = $derived(
+		timeSlots.length === 0 ? 100 : Math.max(1, Math.floor(100 / timeSlots.length))
+	);
 
 	/**
 	 * Clé stable d'une combinaison date + créneau, cohérente avec `reconciliationKey` côté
@@ -317,6 +331,41 @@
 
 	// Dates distinctes ayant au moins une combinaison active (alerte datesWithData, limite).
 	const activeDates = $derived(new SvelteSet(activeDateSlots.map((ds) => ds.date)));
+
+	// Badges affichés : combos passées masquées au rendu, mais conservées dans
+	// l'état interne (manualDates, seededOccurrences, occurrenceTargets) — les
+	// filtrer reviendrait à soft-deleter au save.
+	const displayedDateSlots = $derived(allDateSlots.filter((ds) => ds.date >= todayStr));
+	const hiddenPastDateCount = $derived(allDateSlots.length - displayedDateSlots.length);
+	const hiddenPastLabel = $derived(
+		hiddenPastDateCount > 0
+			? `${hiddenPastDateCount} date${hiddenPastDateCount > 1 ? 's' : ''} passée${hiddenPastDateCount > 1 ? 's' : ''}, consultables depuis la page archives.`
+			: ''
+	);
+
+	// Dernière date de cycle ramenant le compte de combos futures à ≤ 100, pour
+	// le bouton « Ajuster au ... » de l'alerte (mode récurrent uniquement).
+	// Set natif pour couper le tracking réactif de SvelteSet (fonction pure).
+	const maxAdjustDate = $derived(
+		recurrenceType !== 'CUSTOM' && firstDate && lastDate
+			? computeMaxDateForComboLimit({
+					firstDate,
+					lastDate,
+					recurrenceType,
+					monthlyByDayOccurrences:
+						recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
+					manualDates,
+					timeSlots,
+					disabledSlotKeys: new Set(disabledSlotKeys),
+					todayStr
+				})
+			: null
+	);
+	const maxAdjustDateLabel = $derived(
+		maxAdjustDate
+			? format(parse(maxAdjustDate, 'yyyy-MM-dd', new Date()), 'd MMM yyyy', { locale: fr })
+			: ''
+	);
 
 	// === Popover par badge (multi-slot uniquement) ===
 	// Popover en position fixe pour échapper au conteneur `overflow-y-auto` (sinon clippé).
@@ -548,22 +597,6 @@
 	// sortent de allDateSlots donc de occurrenceTargets ; les clés orphelines éventuelles
 	// dans disabledSlotKeys sont inoffensives (elles ne filtrent que des combos existantes).
 
-	// Effet pour synchroniser allowResponses avec availableResponseTypes
-	$effect(() => {
-		if (!allowResponses) {
-			availableResponseTypes = [];
-		} else if (availableResponseTypes.length === 0) {
-			// Réactiver les types de réponse
-			if (!master) {
-				// En création : recocher tous par défaut
-				availableResponseTypes = [...AVAILABLE_RESPONSE_TYPES];
-			} else {
-				// En édition : restaurer les types originaux sauvegardés
-				availableResponseTypes = master.availableResponseTypes || [...AVAILABLE_RESPONSE_TYPES];
-			}
-		}
-	});
-
 	// Effet pour effacer les erreurs de validation quand l'utilisateur corrige
 	$effect(() => {
 		if (!hasAttemptedSubmit) return;
@@ -575,8 +608,7 @@
 
 		// Effacer l'erreur des dates si corrigée (basée sur la sélection réelle active)
 		if (validationErrors.dates && activeDateSlots.length > 0) {
-			const today = format(new Date(), 'yyyy-MM-dd');
-			const hasValidCombos = activeDateSlots.some((ds) => ds.date >= today);
+			const hasValidCombos = activeDateSlots.some((ds) => ds.date >= todayStr);
 			if (hasValidCombos) {
 				validationErrors.dates = false;
 			}
@@ -703,6 +735,12 @@
 	// --- Portes de confirmation (intercept → confirm → commit/revert) ---
 	// Une action destructrice ne mute jamais le state directement depuis le rendu :
 	// elle passe par un handler `request*` qui décide commit direct vs confirmation.
+	//
+	// Deux patterns :
+	// - **changement structurel** : confirme en édition indépendamment des données
+	//   (reset, propagation d'horaires, suppression de créneau) — Portes 1, 5, 6
+	// - **suppression de données** : confirme seulement si une date avec données
+	//   participant est affectée — Portes 2, 3, 4
 
 	// Porte 1 — Changement de récurrence : modification fondamentale. Ne se confirme
 	// qu'en édition (`master`) : en création, aucune occurrence existante à détruire, le
@@ -837,19 +875,23 @@
 
 	function removeTimeSlot(slotId: string) {
 		// En création, suppression directe (aucune occurrence persistée). En édition,
-		// la suppression d'un slot soft-deletera au save toutes les occurrences liées
-		// (le slotId ne figure plus dans occurrenceTargets) → porte de confirmation.
+		// la suppression d'un slot soft-deletera au save les occurrences liées à ce slot.
+		// Pattern "changement structurel" : on confirme seulement si des occurrences
+		// actives existent pour ce slot (`count > 0`). Sinon, suppression directe —
+		// l'action n'est pas destructive.
 		if (!master) {
 			commitRemoveTimeSlot(slotId);
 			return;
 		}
 		const count = activeDateSlots.filter((ds) => ds.slotId === slotId).length;
+		if (count === 0) {
+			commitRemoveTimeSlot(slotId);
+			return;
+		}
 		const message =
-			count === 0
-				? "Les occurrences de ce créneau seront supprimées à l'enregistrement."
-				: count === 1
-					? "L'occurrence de ce créneau sera supprimée à l'enregistrement, ainsi que les réponses et commentaires éventuels."
-					: `Les ${count} occurrences de ce créneau seront supprimées à l'enregistrement, ainsi que les réponses et commentaires éventuels.`;
+			count === 1
+				? "L'occurrence de ce créneau sera supprimée à l'enregistrement, ainsi que les réponses et commentaires éventuels."
+				: `Les ${count} occurrences de ce créneau seront supprimées à l'enregistrement, ainsi que les réponses et commentaires éventuels.`;
 		openConfirm({
 			title: 'Supprimer ce créneau',
 			message,
@@ -1011,8 +1053,7 @@
 
 		// Limite Phase 1 : 100 combinaisons date×slot futures maximum (remplace l'ancienne
 		// limite de 100 dates). En mono-slot, 1 slot = 1 combinaison/date, donc équivalent.
-		const today = format(new Date(), 'yyyy-MM-dd');
-		const futureCombosCount = activeDateSlots.filter((ds) => ds.date >= today).length;
+		const futureCombosCount = activeDateSlots.filter((ds) => ds.date >= todayStr).length;
 		if (futureCombosCount > 100) {
 			toast.error('Trop de créneaux planifiés', {
 				description: `Vous avez ${futureCombosCount} combinaisons date×créneau futures. La limite est de 100.`
@@ -1088,8 +1129,7 @@
 
 		// Validation : au moins une combinaison future active (unifie CUSTOM et récurrent).
 		// En mono-slot cela équivaut à « au moins une date future sélectionnée ».
-		const todayForValidation = format(new Date(), 'yyyy-MM-dd');
-		const hasFutureCombo = activeDateSlots.some((ds) => ds.date >= todayForValidation);
+		const hasFutureCombo = activeDateSlots.some((ds) => ds.date >= todayStr);
 		if (activeDateSlots.length === 0) {
 			validationErrors.dates = true;
 			toast.error('Aucune date sélectionnée', {
@@ -1110,18 +1150,9 @@
 			return;
 		}
 
-		// Alerte datesWithData (granularité date en Phase 1) : une date est « supprimée »
-		// si plus aucune combinaison active ne la concerne. L'affinage au niveau combinaison
-		// (savoir quel slot avait des données) est reporté en Phase 3.
-		if (master && datesWithData.length > 0) {
-			const datesToDelete = datesWithData.filter((d) => !activeDates.has(d));
-			if (datesToDelete.length > 0) {
-				const confirm = window.confirm(
-					`Attention : Cette modification va supprimer ${datesToDelete.length} date(s) qui contiennent déjà des réponses ou des commentaires. Souhaitez-vous continuer ?`
-				);
-				if (!confirm) return;
-			}
-		}
+		// Pas de porte globale au submit : les 6 ConfirmModal just-in-time
+		// couvrent déjà tous les chemins destructeurs. Une seconde porte serait
+		// une double confirmation UX.
 
 		// recurrence : seed déclaratif (type + bornes + monthlyByDay). La source
 		// unique des occurrences est occurrenceTargets ci-dessous.
@@ -1543,20 +1574,35 @@
 						<div class="text-base-content/60 font-medium italic">{recurrenceLabel}</div>
 					</div>
 					<div class="bg-base-200/50 flex max-h-64 flex-wrap gap-2 overflow-y-auto rounded-xl p-4">
-						{#each allDateSlots as ds (slotKey(ds))}
+						{#each displayedDateSlots as ds (slotKey(ds))}
 							{@render comboBadge(ds)}
 						{/each}
 					</div>
+					{#if hiddenPastDateCount > 0}
+						<p class="text-base-content/60 mt-2 text-xs italic">{hiddenPastLabel}</p>
+					{/if}
 
-					{#if activeDateSlots.filter((ds) => ds.date >= format(new Date(), 'yyyy-MM-dd')).length >= 100}
+					{#if activeDateSlots.filter((ds) => ds.date >= todayStr).length > 100}
 						<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
-							<span>
+							<span class="flex-1">
 								{#if showSlot}
-									Limite atteinte : 100 combinaisons date×créneau futures (maximum autorisé).
+									Limite dépassée : plus de 100 combinaisons date×créneau futures.
 								{:else}
-									Limite atteinte : 100 dates futures (maximum autorisé).
+									Limite dépassée : plus de 100 dates futures.
 								{/if}
 							</span>
+							{#if maxAdjustDate}
+								<button
+									type="button"
+									class="btn btn-warning btn-sm"
+									onclick={() => {
+										lastDate = maxAdjustDate;
+										lastDateWasManuallySet = true;
+									}}
+								>
+									Ajuster au {maxAdjustDateLabel}
+								</button>
+							{/if}
 						</div>
 					{/if}
 
@@ -1583,8 +1629,9 @@
 							<MultiDatePicker
 								selectedDates={manualDates}
 								excludeDates={allGeneratedDates}
-								maxSelection={100}
+								maxSelection={maxManualDatesForLimit}
 								onChange={setManualDates}
+								minDate={todayStr}
 								class="bg-base-200/50 rounded-lg p-4"
 							/>
 						</div>
@@ -1626,30 +1673,33 @@
 					<MultiDatePicker
 						selectedDates={manualDates}
 						excludeDates={[]}
-						maxSelection={100}
+						maxSelection={maxManualDatesForLimit}
 						onChange={setManualDates}
+						minDate={todayStr}
 					/>
 
 					{#if manualDates.length > 0}
 						<div
 							class="bg-base-200/50 mt-4 flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-xl p-4"
 						>
-							{#each allDateSlots as ds (slotKey(ds))}
+							{#each displayedDateSlots as ds (slotKey(ds))}
 								{@render comboBadge(ds)}
 							{/each}
 						</div>
+						{#if hiddenPastDateCount > 0}
+							<p class="text-base-content/60 mt-2 text-xs italic">{hiddenPastLabel}</p>
+						{/if}
 					{/if}
 
 					{#if manualDates.length > 0}
-						{@const todayStr = format(new Date(), 'yyyy-MM-dd')}
 						{@const futureComboCount = activeDateSlots.filter((ds) => ds.date >= todayStr).length}
-						{#if futureComboCount >= 100}
+						{#if futureComboCount > 100}
 							<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
 								<span>
 									{#if showSlot}
-										Limite atteinte : 100 combinaisons date×créneau futures (maximum autorisé).
+										Limite dépassée : plus de 100 combinaisons date×créneau futures.
 									{:else}
-										Limite atteinte : 100 dates futures (maximum autorisé).
+										Limite dépassée : plus de 100 dates futures.
 									{/if}
 								</span>
 							</div>
