@@ -1,4 +1,5 @@
 import { generateRecurrenceDates } from './recurrence';
+import { formatSlotKey } from './slots';
 import type { RecurrenceType, TimeSlot } from '$lib/types/planning.types';
 
 export interface ComputeMaxDateArgs {
@@ -56,7 +57,7 @@ export function computeMaxDateForComboLimit(args: ComputeMaxDateArgs): string | 
 	const activeSlotsForDate = (date: string): number => {
 		let active = 0;
 		for (const slot of timeSlots) {
-			if (!disabledSlotKeys.has(`${date}|${slot.id}`)) active++;
+			if (!disabledSlotKeys.has(formatSlotKey(date, slot.id))) active++;
 		}
 		return active;
 	};

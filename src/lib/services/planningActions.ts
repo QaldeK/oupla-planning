@@ -17,6 +17,7 @@ import type {
 } from '$lib/types/planning.types';
 import { ClientResponseError } from 'pocketbase';
 import { format } from 'date-fns';
+import { formatSlotKey } from '$lib/utils/slots';
 
 // ============================================
 // Génération de tokens
@@ -129,17 +130,6 @@ export function isOverridden(
 	const slot = resolveTimeSlots(master).find((s) => s.id === occ.slotId);
 	if (!slot) return false;
 	return occ.startTime !== slot.startTime || occ.endTime !== slot.endTime;
-}
-
-/**
- * Clé de réconciliation occurrence ↔ cible : `${date}|${slotId}`.
- * Stable face aux changements d'horaires d'un template (slotId invariant).
- * Le fallback sur `startTime` (legacy) est retiré : les occurrences sans slotId
- * ne matchent aucune cible et seront soft-deletées au save — comportement accepté,
- * l'utilisateur nettoie la DB (cf. plan, contexte prototypage).
- */
-function reconciliationKey(date: string, slotId: string): string {
-	return `${date}|${slotId}`;
 }
 
 // ============================================
@@ -348,7 +338,7 @@ export async function updatePlanningWithOccurrences(
 	const existingByKey = new Map<string, PlanningOccurrence>();
 	for (const occ of existingOccurrences) {
 		existingById.set(occ.id, occ);
-		existingByKey.set(reconciliationKey(normalizeDate(occ.date), occ.slotId ?? ''), occ);
+		existingByKey.set(formatSlotKey(normalizeDate(occ.date), occ.slotId), occ);
 	}
 
 	// Cibles matchées (pour identifier les existantes à soft-deleter ensuite).
@@ -391,7 +381,7 @@ export async function updatePlanningWithOccurrences(
 		let existing: PlanningOccurrence | undefined;
 		if (target.id) existing = existingById.get(target.id);
 		if (!existing) {
-			existing = existingByKey.get(reconciliationKey(targetDate, target.slotId ?? ''));
+			existing = existingByKey.get(formatSlotKey(targetDate, target.slotId));
 		}
 		if (existing) {
 			matchedExistingIds.add(existing.id);

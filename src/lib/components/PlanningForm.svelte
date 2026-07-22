@@ -195,7 +195,7 @@
 	);
 
 	/**
-	 * Clé stable d'une combinaison date + créneau, cohérente avec `reconciliationKey` côté
+	 * Clé stable d'une combinaison date + créneau, cohérente avec `formatSlotKey` côté
 	 * service (`date|slotId`). Le fallback sur `startTime` (legacy) est retiré : une occurrence
 	 * sans slotId ne matche aucune combo active. Recopiée localement car le helper service
 	 * attend un master, indisponible en création.
