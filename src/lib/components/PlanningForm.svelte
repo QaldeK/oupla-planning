@@ -32,6 +32,8 @@
 	} from '@lucide/svelte';
 	import { generateRecurrenceDates, getRecurrenceLabel } from '$lib/utils/recurrence';
 	import { computeMaxDateForComboLimit } from '$lib/utils/comboLimit';
+	import { computeDateSlotSelection, seedFromOccurrences } from '$lib/utils/dateSlotSelection';
+	import { formatSlotKey } from '$lib/utils/slots';
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from '$lib/constants';
 	import { toast } from 'svelte-sonner';
 	import { format, parse, addWeeks, addMonths } from 'date-fns';
@@ -141,139 +143,56 @@
 	// le picker minDate, la validation des combos futures, et le masquage des badges passés.
 	const todayStr = $derived(format(new Date(), 'yyyy-MM-dd'));
 
-	// Dates générées par la récurrence — déclaré avant les $derived qui le référencent
-	// (nécessaire pour le prerender SSR, sinon TDZ "Cannot access before initialization")
-	const allGeneratedDates = $derived.by(() => {
-		if (recurrenceType === 'CUSTOM') return [];
-		if (!firstDate || !lastDate || !recurrenceType) return [];
-
-		const generated = generateRecurrenceDates({
-			type: recurrenceType,
-			firstDate,
-			lastDate,
-			monthlyByDayOccurrences:
-				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined
-		});
-
-		// On ne retient que les dates futures (inutiles au rendu), sans tronquer à 100 :
-		// l'alerte UI et le blocage submit appliquent la limite sur les combos futures,
-		// pas sur les dates nues. Tronquer ici rendrait la génération non pure et masquerait
-		// silencieusement un cycle qui déborde (ex : DAILY sur 4 mois ~120 dates).
-		return generated.filter((d) => d >= todayStr);
-	});
-
-	// Dates manuelles hors cycle généré (mode récurrent uniquement). En CUSTOM, toutes
-	// les dates sont manuelles, donc pas de notion d'« arbitraire ». Ne sert qu'au libellé
-	// `recurrenceLabel` (« ... + N dates »). NE DÉTERMINE PAS la catégorie d'affichage :
-	// celle-ci est stable et se fonde sur `manualDates` (sticky) — voir `isManual` au rendu.
-	const arbitraryDates = $derived.by(() => {
-		if (recurrenceType === 'CUSTOM') return [];
-		const generatedSet = new Set(allGeneratedDates);
-		return manualDates.filter((d) => !generatedSet.has(d));
-	});
-
-	// Toutes les dates à afficher (candidats). CUSTOM → manualDates ; sinon union triée
-	// du cycle généré et des dates arbitraires manuelles.
-	const allDatesToDisplay = $derived.by(() => {
-		if (recurrenceType === 'CUSTOM') {
-			return manualDates;
-		}
-		return [...new Set([...allGeneratedDates, ...manualDates])].sort();
-	});
-
-	// === Multi-créneaux : produit cartésien date × slot ===
-	// `allDateSlots` est le produit cartésien complet (affichage de toutes les combos possibles,
-	// y compris désactivées). La sélection active est portée par `disabledSlotKeys` (plus bas) :
-	// une combo est active ssi sa clé n'y figure pas. `activeDateSlots` en est la projection.
+	// Multi-créneaux : afficher le badge slotId uniquement en mode multi-slot.
 	const showSlot = $derived(timeSlots.length > 1);
 
-	// Plafond du picker de dates manuelles : ⌊100/nbSlots⌋ pour respecter la
-	// limite combos même en multi-slot. Les dates du cycle ne sont pas décomptées
-	// du quota — le blocage submit reste la garde finale.
-	const maxManualDatesForLimit = $derived(
-		timeSlots.length === 0 ? 100 : Math.max(1, Math.floor(100 / timeSlots.length))
-	);
-
-	/**
-	 * Clé stable d'une combinaison date + créneau, cohérente avec `formatSlotKey` côté
-	 * service (`date|slotId`). Le fallback sur `startTime` (legacy) est retiré : une occurrence
-	 * sans slotId ne matche aucune combo active. Recopiée localement car le helper service
-	 * attend un master, indisponible en création.
-	 *
-	 * Accepte un shape minimal `{date, slotId?}` pour servir aussi bien les DateSlot que les
-	 * OccurrenceTarget (et les partiels construits au seeding).
-	 */
-	function slotKey(ds: { date: string; slotId?: string }): string {
-		return `${ds.date}|${ds.slotId ?? ''}`;
-	}
-
-	function compareDateSlots(a: DateSlot, b: DateSlot): number {
-		return a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime);
-	}
-
-	// Produit cartésien DateSlot[] = dates à afficher × créneaux, trié (date puis startTime).
-	const allDateSlots = $derived.by(() => {
-		const result: DateSlot[] = [];
-		for (const date of allDatesToDisplay) {
-			for (const slot of timeSlots) {
-				result.push({
-					date,
-					startTime: slot.startTime,
-					endTime: slot.endTime,
-					slotId: slot.id
-				});
-			}
-		}
-		return result.sort(compareDateSlots);
-	});
-
-	// === Sélection unifiée : disabledSlotKeys + seededOccurrences ===
-	// Deux états canoniques mutés uniquement par les handlers purs (setSlotEnabled,
-	// addTimeSlot/commitRemoveTimeSlot) et le seeding édition one-shot. Plus
-	// aucun `$effect` de sync : la projection (`occurrenceTargets`) est un `$derived`,
-	// ce qui élimine l'anti-pattern d'un effect écrasant le state qu'il lit.
+	// --- Sélection unifiée : disabledSlotKeys + seededOccurrences ---
+	// États canoniques mutés uniquement par les handlers purs (setSlotEnabled,
+	// addTimeSlot/commitRemoveTimeSlot) et le seeding édition one-shot.
 	//  - disabledSlotKeys : clés `date|slotId` explicitement désactivées par l'admin.
-	//    En mono-slot, slotId = 's1' (cas particulier du multi). Unification mono/multi.
-	//  - seededOccurrences : overrides portés (id occurrence + horaires réels) par clé,
-	//    peuplés au seeding édition depuis les occurrences actives.
+	//  - seededOccurrences : overrides portés (id occurrence + horaires réels) par clé.
 	let disabledSlotKeys = new SvelteSet<string>();
 	let seededOccurrences = new SvelteMap<string, OccurrenceTarget>();
 
-	// Projection du produit cartésien (allDateSlots) moins les combos désactivées.
-	// Horaires = override seedé (édition) sinon template du slot. Contrat formulaire↔service.
-	const occurrenceTargets = $derived.by(() => {
-		const result: OccurrenceTarget[] = [];
-		for (const ds of allDateSlots) {
-			const key = slotKey(ds);
-			if (disabledSlotKeys.has(key)) continue;
-			const seeded = seededOccurrences.get(key);
-			result.push(
-				seeded ?? {
-					date: ds.date,
-					startTime: ds.startTime,
-					endTime: ds.endTime,
-					slotId: ds.slotId
-				}
-			);
-		}
-		return result;
-	});
+	// --- Moteur pur de sélection DateSlot ---
+	// Toute la logique de calcul (produit cartésien, filtrage désactivées, overrides,
+	// masquage passées, comptages) vit dans `dateSlotSelection.ts`. Le composant ne
+	// fait plus que binding Svelte + template + état réactif mutable (disabledSlotKeys,
+	// seededOccurrences).
+	const views = $derived(
+		computeDateSlotSelection(
+			{
+				recurrenceType,
+				firstDate,
+				lastDate,
+				monthlyByDayOccurrences:
+					recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
+				manualDates,
+				timeSlots,
+				todayStr
+			},
+			{
+				disabledSlotKeys: new Set(disabledSlotKeys),
+				seededOccurrences: new Map(seededOccurrences)
+			}
+		)
+	);
 
 	/** True si la combo est active (non désactivée). Unifie mono/multi/CUSTOM. */
 	function isSlotActive(ds: DateSlot): boolean {
-		return !disabledSlotKeys.has(slotKey(ds));
+		return !disabledSlotKeys.has(formatSlotKey(ds.date, ds.slotId));
 	}
 
 	/** Active/désactive une combo (popover multi-slot). Mute disabledSlotKeys. */
 	function setSlotEnabled(ds: DateSlot, enabled: boolean) {
-		const key = slotKey(ds);
+		const key = formatSlotKey(ds.date, ds.slotId);
 		if (enabled) disabledSlotKeys.delete(key);
 		else disabledSlotKeys.add(key);
 	}
 
 	/** Horaires à afficher : override seedé (édition) sinon template du slot. */
 	function displayTimes(ds: DateSlot): { startTime: string; endTime: string } {
-		const seeded = seededOccurrences.get(slotKey(ds));
+		const seeded = seededOccurrences.get(formatSlotKey(ds.date, ds.slotId));
 		return seeded
 			? { startTime: seeded.startTime, endTime: seeded.endTime }
 			: { startTime: ds.startTime, endTime: ds.endTime };
@@ -281,71 +200,29 @@
 
 	// --- Seeding édition (one-shot, seul `$effect` autorisé) ---
 	// Se déclenche à l'ouverture en édition (master + occurrences). Remplit les deux états
-	// canoniques depuis l'état persisté, puis pose un flag pour ne JAMAIS re-seeder
-	// (préserve les désactivations/réactivations faites durant la session). En création,
-	// disabledSlotKeys reste vide → toutes les combos sont actives par défaut.
+	// canoniques depuis l'état persisté, puis pose un flag pour ne JAMAIS re-seeder.
 	let seedingDone = $state(false);
 	$effect(() => {
 		if (seedingDone) return;
 		if (!master || occurrences.length === 0) return;
-		// Snapshot du cycle généré au moment du seeding : sert à détecter les dates
-		// d'occurrences hors-cycle (rétrécissement de bornes, changement de type, ou dates
-		// arbitraires d'origine) pour les préserver dans manualDates. Figé ici : un changement
-		// ultérieur de bornes par l'admin est un choix explicite (soft-delete au save).
-		const generated = new Set(allGeneratedDates);
-		const manualAdded = new Set<string>();
-		for (const occ of occurrences) {
-			const d = occ.date.split(' ')[0].split('T')[0];
-			const key = slotKey({ date: d, slotId: occ.slotId });
-			if (occ.deleted === true) {
-				disabledSlotKeys.add(key);
-			} else {
-				seededOccurrences.set(key, {
-					id: occ.id,
-					date: d,
-					startTime: occ.startTime,
-					endTime: occ.endTime,
-					slotId: occ.slotId
-				});
-				if (!generated.has(d)) manualAdded.add(d);
-			}
-		}
-		if (manualAdded.size > 0) {
-			manualDates.push(...manualAdded);
+		const result = seedFromOccurrences(occurrences, new Set(views.allGeneratedDates));
+		for (const key of result.disabledKeys) disabledSlotKeys.add(key);
+		for (const [key, target] of result.seeded) seededOccurrences.set(key, target);
+		if (result.manualDatesToAdd.length > 0) {
+			manualDates.push(...result.manualDatesToAdd);
 		}
 		seedingDone = true;
 	});
 
 	// --- Vues dérivées (consommées par le rendu) ---
-	// activeDateSlots = projection de occurrenceTargets en DateSlot (trié). Unifie les modes.
-	const activeDateSlots = $derived.by(() => {
-		return occurrenceTargets
-			.map((t) => ({
-				date: t.date,
-				startTime: t.startTime,
-				endTime: t.endTime,
-				slotId: t.slotId
-			}))
-			.sort(compareDateSlots);
-	});
-
-	// Dates distinctes ayant au moins une combinaison active (alerte datesWithData, limite).
-	const activeDates = $derived(new SvelteSet(activeDateSlots.map((ds) => ds.date)));
-
-	// Badges affichés : combos passées masquées au rendu, mais conservées dans
-	// l'état interne (manualDates, seededOccurrences, occurrenceTargets) — les
-	// filtrer reviendrait à soft-deleter au save.
-	const displayedDateSlots = $derived(allDateSlots.filter((ds) => ds.date >= todayStr));
-	const hiddenPastDateCount = $derived(allDateSlots.length - displayedDateSlots.length);
 	const hiddenPastLabel = $derived(
-		hiddenPastDateCount > 0
-			? `${hiddenPastDateCount} date${hiddenPastDateCount > 1 ? 's' : ''} passée${hiddenPastDateCount > 1 ? 's' : ''}, consultables depuis la page archives.`
+		views.hiddenPastDateCount > 0
+			? `${views.hiddenPastDateCount} date${views.hiddenPastDateCount > 1 ? 's' : ''} passée${views.hiddenPastDateCount > 1 ? 's' : ''}, consultables depuis la page archives.`
 			: ''
 	);
 
 	// Dernière date de cycle ramenant le compte de combos futures à ≤ 100, pour
 	// le bouton « Ajuster au ... » de l'alerte (mode récurrent uniquement).
-	// Set natif pour couper le tracking réactif de SvelteSet (fonction pure).
 	const maxAdjustDate = $derived(
 		recurrenceType !== 'CUSTOM' && firstDate && lastDate
 			? computeMaxDateForComboLimit({
@@ -382,7 +259,7 @@
 	});
 
 	function togglePopoverFor(ds: DateSlot, btn: HTMLElement) {
-		const key = slotKey(ds);
+		const key = formatSlotKey(ds.date, ds.slotId);
 		if (activePopoverKey === key) {
 			activePopoverKey = null;
 			return;
@@ -407,7 +284,7 @@
 
 	/** True si la combo porte un override (horaires divergeant du slot template). */
 	function isOverriddenCombo(ds: DateSlot): boolean {
-		const seeded = seededOccurrences.get(slotKey(ds));
+		const seeded = seededOccurrences.get(formatSlotKey(ds.date, ds.slotId));
 		const slot = timeSlots.find((s) => s.id === ds.slotId);
 		if (!seeded || !slot) return false;
 		return seeded.startTime !== slot.startTime || seeded.endTime !== slot.endTime;
@@ -428,7 +305,7 @@
 			});
 			return;
 		}
-		const key = slotKey(ds);
+		const key = formatSlotKey(ds.date, ds.slotId);
 		const seeded = seededOccurrences.get(key);
 		seededOccurrences.set(
 			key,
@@ -443,7 +320,7 @@
 	function resetPopoverToTemplate(ds: DateSlot) {
 		const slot = timeSlots.find((s) => s.id === ds.slotId);
 		if (!slot) return;
-		const key = slotKey(ds);
+		const key = formatSlotKey(ds.date, ds.slotId);
 		const seeded = seededOccurrences.get(key);
 		if (!seeded) {
 			popoverTimeDraft = { startTime: slot.startTime, endTime: slot.endTime };
@@ -607,8 +484,8 @@
 		}
 
 		// Effacer l'erreur des dates si corrigée (basée sur la sélection réelle active)
-		if (validationErrors.dates && activeDateSlots.length > 0) {
-			const hasValidCombos = activeDateSlots.some((ds) => ds.date >= todayStr);
+		if (validationErrors.dates && views.activeDateSlots.length > 0) {
+			const hasValidCombos = views.activeDateSlots.some((ds) => ds.date >= todayStr);
 			if (hasValidCombos) {
 				validationErrors.dates = false;
 			}
@@ -726,7 +603,7 @@
 		for (const d of dates) {
 			if (prev.has(d)) continue;
 			for (const slot of timeSlots) {
-				disabledSlotKeys.delete(slotKey({ date: d, slotId: slot.id }));
+				disabledSlotKeys.delete(formatSlotKey(d, slot.id));
 			}
 		}
 		manualDates = dates;
@@ -803,7 +680,7 @@
 					recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined
 			})
 		);
-		const atRisk = allGeneratedDates.some(
+		const atRisk = views.allGeneratedDates.some(
 			(d) => !newCycle.has(d) && datesWithData.includes(d) && !manualDates.includes(d)
 		);
 		if (!atRisk) {
@@ -883,7 +760,7 @@
 			commitRemoveTimeSlot(slotId);
 			return;
 		}
-		const count = activeDateSlots.filter((ds) => ds.slotId === slotId).length;
+		const count = views.activeDateSlots.filter((ds) => ds.slotId === slotId).length;
 		if (count === 0) {
 			commitRemoveTimeSlot(slotId);
 			return;
@@ -1053,7 +930,7 @@
 
 		// Limite Phase 1 : 100 combinaisons date×slot futures maximum (remplace l'ancienne
 		// limite de 100 dates). En mono-slot, 1 slot = 1 combinaison/date, donc équivalent.
-		const futureCombosCount = activeDateSlots.filter((ds) => ds.date >= todayStr).length;
+		const futureCombosCount = views.futureActiveDateSlotCount;
 		if (futureCombosCount > 100) {
 			toast.error('Trop de créneaux planifiés', {
 				description: `Vous avez ${futureCombosCount} combinaisons date×créneau futures. La limite est de 100.`
@@ -1129,8 +1006,8 @@
 
 		// Validation : au moins une combinaison future active (unifie CUSTOM et récurrent).
 		// En mono-slot cela équivaut à « au moins une date future sélectionnée ».
-		const hasFutureCombo = activeDateSlots.some((ds) => ds.date >= todayStr);
-		if (activeDateSlots.length === 0) {
+		const hasFutureCombo = views.activeDateSlots.some((ds) => ds.date >= todayStr);
+		if (views.activeDateSlots.length === 0) {
 			validationErrors.dates = true;
 			toast.error('Aucune date sélectionnée', {
 				description: 'Veuillez sélectionner au moins une date pour le planning.'
@@ -1181,7 +1058,7 @@
 			availableResponseTypes,
 			recurrence,
 			// Source unique : c'est ce tableau qui pilote create/update côté service.
-			occurrenceTargets: occurrenceTargets.map((t) => ({ ...t })),
+			occurrenceTargets: views.occurrenceTargets.map((t) => ({ ...t })),
 			tasks,
 			forceTaskRefresh
 		};
@@ -1219,7 +1096,7 @@
 		});
 
 		// Ajouter les dates arbitraires si présentes
-		const arbitraryCount = arbitraryDates.length;
+		const arbitraryCount = views.arbitraryDates.length;
 		if (arbitraryCount > 0) {
 			return `${baseLabel} + ${arbitraryCount} date${arbitraryCount > 1 ? 's' : ''}`;
 		}
@@ -1413,7 +1290,7 @@
 							>
 						{/if}
 					</button>
-					{#if activePopoverKey === slotKey(ds)}
+					{#if activePopoverKey === formatSlotKey(ds.date, ds.slotId)}
 						<div
 							data-slot-ui
 							class="bg-base-100 ring-base-300 fixed z-50 mt-1 w-56 rounded-xl p-3 shadow-lg ring-1"
@@ -1557,7 +1434,7 @@
 				</button>
 			</div>
 
-			{#if recurrenceType !== 'CUSTOM' && allGeneratedDates.length > 0}
+			{#if recurrenceType !== 'CUSTOM' && views.allGeneratedDates.length > 0}
 				<div
 					class="mt-4 space-y-3 {validationErrors.dates
 						? 'ring-error rounded-xl p-2 ring-2 ring-offset-2'
@@ -1566,23 +1443,23 @@
 					<div class="flex items-end justify-between">
 						<div class="font-bold">
 							{#if showSlot}
-								Sélection des dates ({activeDateSlots.length} / {allDateSlots.length} combinaisons)
+								Sélection des dates ({views.activeDateSlots.length} / {views.allDateSlots.length} combinaisons)
 							{:else}
-								Sélection des dates ({activeDateSlots.length} / {allDateSlots.length})
+								Sélection des dates ({views.activeDateSlots.length} / {views.allDateSlots.length})
 							{/if}
 						</div>
 						<div class="text-base-content/60 font-medium italic">{recurrenceLabel}</div>
 					</div>
 					<div class="bg-base-200/50 flex max-h-64 flex-wrap gap-2 overflow-y-auto rounded-xl p-4">
-						{#each displayedDateSlots as ds (slotKey(ds))}
+						{#each views.displayedDateSlots as ds (formatSlotKey(ds.date, ds.slotId))}
 							{@render comboBadge(ds)}
 						{/each}
 					</div>
-					{#if hiddenPastDateCount > 0}
+					{#if views.hiddenPastDateCount > 0}
 						<p class="text-base-content/60 mt-2 text-xs italic">{hiddenPastLabel}</p>
 					{/if}
 
-					{#if activeDateSlots.filter((ds) => ds.date >= todayStr).length > 100}
+					{#if views.activeDateSlots.filter((ds) => ds.date >= todayStr).length > 100}
 						<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
 							<span class="flex-1">
 								{#if showSlot}
@@ -1606,7 +1483,7 @@
 						</div>
 					{/if}
 
-					{#if datesWithData.some((d) => !activeDates.has(d))}
+					{#if datesWithData.some((d) => !views.activeDates.has(d))}
 						<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
 							<Trash2 size={16} />
 							<span>Certaines dates supprimées contiennent des réponses de participants.</span>
@@ -1628,8 +1505,8 @@
 							</div>
 							<MultiDatePicker
 								selectedDates={manualDates}
-								excludeDates={allGeneratedDates}
-								maxSelection={maxManualDatesForLimit}
+								excludeDates={views.allGeneratedDates}
+								maxSelection={views.maxManualDatesForLimit}
 								onChange={setManualDates}
 								minDate={todayStr}
 								class="bg-base-200/50 rounded-lg p-4"
@@ -1659,7 +1536,7 @@
 					<div class="flex items-end justify-between">
 						<div class="font-medium">
 							{#if showSlot}
-								Dates libres ({activeDateSlots.length} / {allDateSlots.length} combinaisons)
+								Dates libres ({views.activeDateSlots.length} / {views.allDateSlots.length} combinaisons)
 							{:else}
 								Dates libres ({manualDates.length} / 100)
 							{/if}
@@ -1673,7 +1550,7 @@
 					<MultiDatePicker
 						selectedDates={manualDates}
 						excludeDates={[]}
-						maxSelection={maxManualDatesForLimit}
+						maxSelection={views.maxManualDatesForLimit}
 						onChange={setManualDates}
 						minDate={todayStr}
 					/>
@@ -1682,17 +1559,17 @@
 						<div
 							class="bg-base-200/50 mt-4 flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-xl p-4"
 						>
-							{#each displayedDateSlots as ds (slotKey(ds))}
+							{#each views.displayedDateSlots as ds (formatSlotKey(ds.date, ds.slotId))}
 								{@render comboBadge(ds)}
 							{/each}
 						</div>
-						{#if hiddenPastDateCount > 0}
+						{#if views.hiddenPastDateCount > 0}
 							<p class="text-base-content/60 mt-2 text-xs italic">{hiddenPastLabel}</p>
 						{/if}
 					{/if}
 
 					{#if manualDates.length > 0}
-						{@const futureComboCount = activeDateSlots.filter((ds) => ds.date >= todayStr).length}
+						{@const futureComboCount = views.activeDateSlots.filter((ds) => ds.date >= todayStr).length}
 						{#if futureComboCount > 100}
 							<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
 								<span>
