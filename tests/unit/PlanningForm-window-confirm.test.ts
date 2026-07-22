@@ -85,11 +85,11 @@ describe('PlanningForm — retrait du window.confirm au submit (ticket 03)', () 
 			}
 		});
 
-		// 1. Ouvre le popover de la combo pour `targetDate`.
-		const comboButton = screen.getByRole('button', {
+		// 1. Ouvre le popover de la DateSlot pour `targetDate`.
+		const dateSlotButton = screen.getByRole('button', {
 			name: new RegExp(formatDateFr(targetDate), 'i')
 		});
-		await user.click(comboButton);
+		await user.click(dateSlotButton);
 
 		// 2. Clic sur « Désactiver » dans le popover → déclenche la porte 4.
 		//    À ce stade, la ConfirmModal n'est pas encore ouverte : un seul bouton

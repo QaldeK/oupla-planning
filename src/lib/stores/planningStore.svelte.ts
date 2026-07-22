@@ -84,7 +84,7 @@ class PlanningStore {
 	#occurrencesSub: Subscription | null = null;
 
 	// Occurrences futures du master actif, **soft-deleted incluses**. Sert au seeding
-	// du formulaire d'édition admin (une combo désactivée = une occ soft-deleted).
+	// du formulaire d'édition admin (une DateSlot désactivée = une occ soft-deleted).
 	// Contrairement à #occurrences, on n'applique PAS le filtre `!o.deleted` : c'est le
 	// consommateur (PlanningForm) qui discrimine actives vs soft-deleted côté UI.
 	#futureOccurrences = $state<PlanningOccurrence[]>([]);
@@ -108,7 +108,7 @@ class PlanningStore {
 
 	/**
 	 * Occurrences futures du master actif, soft-deleted incluses. Source du seeding
-	 * du formulaire d'édition (bug #2 : une combo désactivée = une occ soft-deleted).
+	 * du formulaire d'édition (bug #2 : une DateSlot désactivée = une occ soft-deleted).
 	 */
 	get futureOccurrences(): PlanningOccurrence[] {
 		return this.#futureOccurrences;

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /**
- * PlanningForm — limite de 100 combos futures actives.
+ * PlanningForm — limite de 100 DateSlots futurs actifs.
  *
  * Vérifie : génération pure du cycle (pas de troncature), alerte en multi-slot,
  * blocage au submit > 100, et `maxSelection` dynamique du picker selon le nombre
@@ -33,7 +33,7 @@ vi.mock('svelte-sonner', () => ({
 /**
  * Génère `count` dates futures au format YYYY-MM-DD, à partir du 2026-08-01
  * (jour par jour). Sert à seedder N occurrences en CUSTOM pour tester la limite
- * combos sans dépendre du calendrier graphique.
+ * DateSlots sans dépendre du calendrier graphique.
  */
 function makeFutureDates(count: number, start = '2026-08-01'): string[] {
 	const [y, m, d] = start.split('-').map(Number);
@@ -85,21 +85,21 @@ describe('A — Génération pure (cycle non tronqué)', () => {
 		expect(badgeCount).toBeGreaterThan(100);
 		expect(badgeCount).toBe(122);
 
-		// L'alert-warning live s'affiche (> 100 combos futures).
+		// L'alert-warning live s'affiche (> 100 DateSlots futurs).
 		// Mono-slot → variante "dates futures" du libellé.
 		expect(screen.getByText(/limite dépassée/i)).toBeInTheDocument();
 	});
 });
 
 // ====================================================================
-// B — Limite combos en multi-slot (alerte UI)
+// B — Limite DateSlots en multi-slot (alerte UI)
 // ====================================================================
 
-describe('B — Alerte combos en multi-slot', () => {
-	it('2 slots × 60 dates manuelles = 120 combos → alerte "combinaisons date×créneau"', async () => {
+describe('B — Alerte DateSlots en multi-slot', () => {
+	it('2 slots × 60 dates manuelles = 120 DateSlots → alerte "combinaisons date×créneau"', async () => {
 		// CUSTOM avec 2 slots + 60 occurrences sur 60 dates distinctes (1 occ par date).
 		// Le seeding remplit manualDates avec 60 dates ; le produit cartésien
-		// 60 × 2 slots = 120 combos futures → dépasse la limite 100.
+		// 60 × 2 slots = 120 DateSlots futurs → dépasse la limite 100.
 		const futureDates = makeFutureDates(60);
 		const occurrences = futureDates.map((d, i) =>
 			makeOccurrence({
@@ -133,10 +133,10 @@ describe('B — Alerte combos en multi-slot', () => {
 });
 
 // ====================================================================
-// C — Submit bloqué quand > 100 combos futures
+// C — Submit bloqué quand > 100 DateSlots futurs
 // ====================================================================
 
-describe('C — Submit bloqué > 100 combos futures', () => {
+describe('C — Submit bloqué > 100 DateSlots futurs', () => {
 	it('2 slots × 60 dates → toast "Trop de créneaux planifiés" et onSubmit non appelé', async () => {
 		const futureDates = makeFutureDates(60);
 		const occurrences = futureDates.map((d, i) =>
@@ -155,7 +155,7 @@ describe('C — Submit bloqué > 100 combos futures', () => {
 
 		await user.click(getSubmitButton());
 
-		// La garde combos (> 100) est la première validation de handleSubmit :
+		// La garde DateSlots (> 100) est la première validation de handleSubmit :
 		// elle court-circuite avant tout autre check.
 		expect(toast.error).toHaveBeenCalledWith(
 			'Trop de créneaux planifiés',
@@ -173,8 +173,8 @@ describe('C — Submit bloqué > 100 combos futures', () => {
 
 describe('D — Picker : maxSelection dynamique', () => {
 	it('2 slots → limite picker à 50 (51e date bloquée)', async () => {
-		// Seed 49 dates × 2 slots = 98 combos. maxSelection = floor(100/2) = 50.
-		// Clic 1 (22 juil) → 50e date acceptée (100 combos, alerte absente : pas > 100).
+		// Seed 49 dates × 2 slots = 98 DateSlots. maxSelection = floor(100/2) = 50.
+		// Clic 1 (22 juil) → 50e date acceptée (100 DateSlots, alerte absente : pas > 100).
 		// Clic 2 (23 juil) → refusé par maxSelection=50, badge count inchangé.
 		const futureDates = makeFutureDates(49);
 		const seededOccurrences = futureDates.map((d, i) =>
@@ -210,7 +210,7 @@ describe('D — Picker : maxSelection dynamique', () => {
 	});
 
 	it('1 slot → limite picker préservée à 100 (101e date bloquée)', async () => {
-		// Seed 99 dates × 1 slot = 99 combos. maxSelection = 100 (mono-slot).
+		// Seed 99 dates × 1 slot = 99 DateSlots. maxSelection = 100 (mono-slot).
 		// Clic 1 (22 juil) → 100e date acceptée.
 		// Clic 2 (23 juil) → refusé par maxSelection=100.
 		const futureDates = makeFutureDates(99);

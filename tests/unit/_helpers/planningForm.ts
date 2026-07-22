@@ -61,7 +61,7 @@ export function getSubmitButton(): HTMLButtonElement {
 	return document.querySelector('button[type=submit]') as HTMLButtonElement;
 }
 
-/** Compte les badges de combo rendus (clé : attribut `data-slot-ui` sur un <button>). */
+/** Compte les badges de DateSlot rendus (clé : attribut `data-slot-ui` sur un <button>). */
 export function countBadges(container: HTMLElement): number {
 	return container.querySelectorAll('button[data-slot-ui]').length;
 }

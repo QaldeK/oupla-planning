@@ -80,7 +80,7 @@ function computeGeneratedDates(
 	});
 
 	// On ne retient que les dates futures (inutiles au rendu), sans tronquer à 100 :
-	// l'alerte UI et le blocage submit appliquent la limite sur les combos futures,
+	// l'alerte UI et le blocage submit appliquent la limite sur les DateSlots futurs,
 	// pas sur les dates nues. Tronquer ici rendrait la génération non pure et masquerait
 	// silencieusement un cycle qui déborde (ex : DAILY sur 4 mois ~120 dates).
 	return generated.filter((d) => d >= todayStr);

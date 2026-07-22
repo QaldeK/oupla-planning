@@ -41,7 +41,7 @@ async function setDate(
 }
 
 // Fige « aujourd'hui » au 2026-01-01 pour tous les filtres du composant
-// (dates passées, validation des combos futures, auto-calc lastDate).
+// (dates passées, validation des DateSlots futurs, auto-calc lastDate).
 // On fake uniquement Date — on laisse setTimeout/microtasks réels pour ne pas casser
 // le scheduling interne de Svelte 5 (effects, onMount).
 beforeEach(() => {
@@ -95,7 +95,7 @@ describe('A — Auto-clear des erreurs de validation', () => {
 		const dateButton = screen.getByRole('button', { name: '10 janvier 2026' });
 		await user.click(dateButton);
 
-		// L'erreur visuelle disparaît : au moins une combo future est maintenant active
+		// L'erreur visuelle disparaît : au moins une DateSlot future est maintenant active
 		const ringErrorApres = container.querySelectorAll('.ring-error').length;
 		expect(ringErrorApres).toBeLessThan(ringErrorAvant);
 	});

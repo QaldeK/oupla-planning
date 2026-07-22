@@ -1,9 +1,9 @@
 /**
- * Tests unitaires de `computeMaxDateForComboLimit` — fonction pure qui calcule
- * la dernière date de cycle ramenant le compte de combos futures à ≤ 100.
+ * Tests unitaires de `computeMaxDateForLimit` — fonction pure qui calcule
+ * la dernière date de cycle ramenant le compte de DateSlots futurs à ≤ 100.
  */
 import { describe, it, expect } from 'vitest';
-import { computeMaxDateForComboLimit } from '$lib/utils/comboLimit';
+import { computeMaxDateForLimit } from '$lib/utils/dateSlotLimit';
 import { generateRecurrenceDates } from '$lib/utils/recurrence';
 import type { TimeSlot } from '$lib/types/planning.types';
 
@@ -30,10 +30,10 @@ function datesFrom(start: string, count: number, stepDays = 7): string[] {
 	return out;
 }
 
-describe('computeMaxDateForComboLimit', () => {
+describe('computeMaxDateForLimit', () => {
 	it('retourne null si déjà sous la limite', () => {
-		// WEEKLY Jan 7 → Dec 31 2026 = 52 dates, mono-slot = 52 combos < 100.
-		const result = computeMaxDateForComboLimit({
+		// WEEKLY Jan 7 → Dec 31 2026 = 52 dates, mono-slot = 52 DateSlots < 100.
+		const result = computeMaxDateForLimit({
 			firstDate: '2026-01-07',
 			lastDate: '2026-12-31',
 			recurrenceType: 'WEEKLY',
@@ -48,7 +48,7 @@ describe('computeMaxDateForComboLimit', () => {
 	it('mono-slot : tronque la borne sup à la 100e date de cycle', () => {
 		// DAILY Jan 2 → Jun 30 2026 = 180 dates, mono-slot. La 100e date depuis
 		// firstDate tombe sur le 11 avril 2026 (Jan 2 + 99 jours).
-		const result = computeMaxDateForComboLimit({
+		const result = computeMaxDateForLimit({
 			firstDate: '2026-01-02',
 			lastDate: '2026-06-30',
 			recurrenceType: 'DAILY',
@@ -61,9 +61,9 @@ describe('computeMaxDateForComboLimit', () => {
 	});
 
 	it('multi-slot : tronque en tenant compte du nombre de slots', () => {
-		// DAILY Jan 2 → Apr 30 = 119 dates × 2 slots = 238 combos.
+		// DAILY Jan 2 → Apr 30 = 119 dates × 2 slots = 238 DateSlots.
 		// Budget : 100 / 2 = 50 dates. 50e date depuis firstDate = 20 fév 2026.
-		const result = computeMaxDateForComboLimit({
+		const result = computeMaxDateForLimit({
 			firstDate: '2026-01-02',
 			lastDate: '2026-04-30',
 			recurrenceType: 'DAILY',
@@ -78,7 +78,7 @@ describe('computeMaxDateForComboLimit', () => {
 	it('sans manualDates : tronque au cycle pur (garde firstDate)', () => {
 		// DAILY 180 dates, mono-slot. Vérifie que la 1re date du cycle (Jan 2)
 		// reste dans la nouvelle borne.
-		const result = computeMaxDateForComboLimit({
+		const result = computeMaxDateForLimit({
 			firstDate: '2026-01-02',
 			lastDate: '2026-06-30',
 			recurrenceType: 'DAILY',
@@ -107,7 +107,7 @@ describe('computeMaxDateForComboLimit', () => {
 		const manualDates = datesFrom('2026-01-08', 50, 7); // 50 jeudis
 		expect(manualDates[manualDates.length - 1]).toBe('2026-12-17');
 
-		const result = computeMaxDateForComboLimit({
+		const result = computeMaxDateForLimit({
 			firstDate: '2026-01-07',
 			lastDate: '2026-12-31',
 			recurrenceType: 'WEEKLY',
@@ -119,13 +119,13 @@ describe('computeMaxDateForComboLimit', () => {
 		expect(result).toBe('2026-12-16');
 	});
 
-	it('manualDates seules > maxCombos : retourne la 1re date de cycle (edge case)', () => {
+	it('manualDates seules > maxDateSlots : retourne la 1re date de cycle (edge case)', () => {
 		// 200 manualDates (Jan 3 → Jul 21) + 1 date de cycle (Jan 2).
 		// Le cumul dépasse 100 dès la 101e date (un mardi manuel) — la 1re date
 		// de cycle (Jan 2) a déjà été visitée et validée (cumul = 1), mais
 		// aucune autre date de cycle n'a pu l'être → fallback sur futureCycle[0].
 		const manualDates = datesFrom('2026-01-03', 200, 1);
-		const result = computeMaxDateForComboLimit({
+		const result = computeMaxDateForLimit({
 			firstDate: '2026-01-02',
 			lastDate: '2026-01-02', // cycle réduit à 1 date
 			recurrenceType: 'DAILY',
@@ -139,9 +139,9 @@ describe('computeMaxDateForComboLimit', () => {
 
 	it('MONTHLY_BY_DAY : utilise monthlyByDayOccurrences', () => {
 		// MONTHLY_BY_DAY Jan 7 (1er mercredi) avec [1,2,3,4,5] = tous les mercredis
-		// de chaque mois. 52 dates en 2026 × 2 slots = 104 combos > 100.
+		// de chaque mois. 52 dates en 2026 × 2 slots = 104 DateSlots > 100.
 		// Budget : 50 dates (100 / 2). 50e mercredi depuis Jan 7 = Dec 16.
-		const result = computeMaxDateForComboLimit({
+		const result = computeMaxDateForLimit({
 			firstDate: '2026-01-07',
 			lastDate: '2026-12-31',
 			recurrenceType: 'MONTHLY_BY_DAY',
@@ -154,9 +154,9 @@ describe('computeMaxDateForComboLimit', () => {
 		expect(result).toBe('2026-12-16');
 	});
 
-	it('disabledSlotKeys : réduit le compte de combos par date', () => {
-		// DAILY Jan 2 → Jun 30 = 180 dates × 2 slots = 360 combos.
-		// On désactive s2 sur toutes les dates → 180 dates × 1 slot = 180 combos.
+	it('disabledSlotKeys : réduit le compte de DateSlots par date', () => {
+		// DAILY Jan 2 → Jun 30 = 180 dates × 2 slots = 360 DateSlots.
+		// On désactive s2 sur toutes les dates → 180 dates × 1 slot = 180 DateSlots.
 		// Cutoff attendu : 100e date = Apr 11 (comme le test mono-slot).
 		const disabled = new Set<string>();
 		const cycle = generateRecurrenceDates({
@@ -166,7 +166,7 @@ describe('computeMaxDateForComboLimit', () => {
 		});
 		for (const d of cycle) disabled.add(`${d}|s2`);
 
-		const result = computeMaxDateForComboLimit({
+		const result = computeMaxDateForLimit({
 			firstDate: '2026-01-02',
 			lastDate: '2026-06-30',
 			recurrenceType: 'DAILY',
@@ -179,7 +179,7 @@ describe('computeMaxDateForComboLimit', () => {
 	});
 
 	it('retourne null si cycle vide (CUSTOM)', () => {
-		const result = computeMaxDateForComboLimit({
+		const result = computeMaxDateForLimit({
 			firstDate: '2026-01-02',
 			lastDate: '2026-06-30',
 			recurrenceType: 'CUSTOM',
@@ -192,7 +192,7 @@ describe('computeMaxDateForComboLimit', () => {
 	});
 
 	it('retourne null si dates invalides', () => {
-		const result = computeMaxDateForComboLimit({
+		const result = computeMaxDateForLimit({
 			firstDate: '',
 			lastDate: '',
 			recurrenceType: 'WEEKLY',
@@ -206,7 +206,7 @@ describe('computeMaxDateForComboLimit', () => {
 
 	it('retourne null si toutes les dates du cycle sont passées', () => {
 		// Cycle entièrement dans le passé par rapport à todayStr.
-		const result = computeMaxDateForComboLimit({
+		const result = computeMaxDateForLimit({
 			firstDate: '2025-01-01',
 			lastDate: '2025-12-31',
 			recurrenceType: 'WEEKLY',

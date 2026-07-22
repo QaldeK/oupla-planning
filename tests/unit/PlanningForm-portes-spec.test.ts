@@ -244,11 +244,11 @@ describe('PlanningForm — Porte 3 (requestRemoveManualDate)', () => {
 
 // ====================================================================
 // Porte 4 — requestDisableSlot (suppression de données)
-// Confirme seulement si la combo désactivée a des données.
+// Confirme seulement si la DateSlot désactivée a des données.
 // ====================================================================
 
 describe('PlanningForm — Porte 4 (requestDisableSlot)', () => {
-	it('édition : désactiver une combo avec données ouvre la ConfirmModal', async () => {
+	it('édition : désactiver une DateSlot avec données ouvre la ConfirmModal', async () => {
 		// 2026-08-12 = mercredi, dans le cycle hebdo démarrant 2026-08-05.
 		const { user } = renderForm({
 			master: makeMaster(),
@@ -258,7 +258,7 @@ describe('PlanningForm — Porte 4 (requestDisableSlot)', () => {
 		await user.click(getDateBadge('2026-08-12'));
 
 		// En mono-slot + date in-cycle (non-manual), le popover affiche
-		// « Désactiver » (la combo est sélectionnée).
+		// « Désactiver » (la DateSlot est sélectionnée).
 		await user.click(screen.getByRole('button', { name: /^désactiver$/i }));
 
 		// ConfirmModal porte 4 (titre « Retirer cette date »).
@@ -266,7 +266,7 @@ describe('PlanningForm — Porte 4 (requestDisableSlot)', () => {
 		expect(dialog).toHaveTextContent(/retirer cette date/i);
 	});
 
-	it('édition : désactiver une combo sans données ne confirme pas', async () => {
+	it('édition : désactiver une DateSlot sans données ne confirme pas', async () => {
 		const { user } = renderForm({
 			master: makeMaster(),
 			datesWithData: []
@@ -278,8 +278,8 @@ describe('PlanningForm — Porte 4 (requestDisableSlot)', () => {
 		// Pas de modal : désactivation directe (setSlotEnabled + closePopover).
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-		// Rouvrir le popover de la même combo : le bouton est maintenant
-		// « Réactiver » (la combo est désactivée → `isSelected = false`).
+		// Rouvrir le popover de la même DateSlot : le bouton est maintenant
+		// « Réactiver » (la DateSlot est désactivée → `isSelected = false`).
 		await user.click(getDateBadge('2026-08-12'));
 		expect(screen.getByRole('button', { name: /^réactiver$/i })).toBeInTheDocument();
 	});
@@ -287,7 +287,7 @@ describe('PlanningForm — Porte 4 (requestDisableSlot)', () => {
 
 // Porte 5 — removeTimeSlot : couverte par `tests/unit/PlanningForm-portes.test.ts`
 // (ticket 05). Pattern "changement structurel" avec skip quand `count === 0`
-// (aucune combo active pour ce slot → action non destructive).
+// (aucune DateSlot active pour ce slot → action non destructive).
 
 // ====================================================================
 // Porte 6 — applySlotEdit (changement structurel)

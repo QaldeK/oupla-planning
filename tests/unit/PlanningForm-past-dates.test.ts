@@ -71,14 +71,14 @@ describe('A — Picker refuse les dates passées', () => {
 		await user.click(pastDay);
 
 		// Aucun badge de date ne doit être rendu (manualDates reste vide).
-		// Les badges portent data-slot-ui (cf. comboBadge snippet).
+		// Les badges portent data-slot-ui (cf. dateSlotBadge snippet).
 		expect(container.querySelectorAll('button[data-slot-ui]')).toHaveLength(0);
 
 		// Sanity check : un jour futur reste enabled et son clic ajoute bien un badge.
 		const futureDay = screen.getByRole('button', { name: '25 juillet 2026' });
 		expect(futureDay.hasAttribute('disabled')).toBe(false);
 		await user.click(futureDay);
-		// Maintenant 1 badge (combo future) est rendu.
+		// Maintenant 1 badge (DateSlot futur) est rendu.
 		expect(container.querySelectorAll('button[data-slot-ui]')).toHaveLength(1);
 	});
 });

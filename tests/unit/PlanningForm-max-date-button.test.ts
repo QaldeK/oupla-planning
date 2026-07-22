@@ -106,10 +106,10 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 		await user.click(button);
 
 		// Après clic : lastDate = 2026-11-08 (100e jour depuis firstDate, pour
-		// ramener le compte de combos futures à exactement 100, sous le seuil > 100).
+		// ramener le compte de DateSlots futurs à exactement 100, sous le seuil > 100).
 		expect(getLastDateInput().value).toBe('2026-11-08');
 
-		// L'alerte a disparu (le compte de combos futures est redescendu à 100).
+		// L'alerte a disparu (le compte de DateSlots futurs est redescendu à 100).
 		expect(screen.queryByText(/limite dépassée/i)).not.toBeInTheDocument();
 		// Le bouton aussi (puisque maxAdjustDate repasse à null une fois sous la limite).
 		expect(screen.queryByRole('button', { name: /ajuster au/i })).not.toBeInTheDocument();

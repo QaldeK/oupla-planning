@@ -14,7 +14,7 @@ export interface ComputeMaxDateArgs {
 }
 
 /**
- * Dernière date de cycle (YYYY-MM-DD) ramenant le compte de combos futures
+ * Dernière date de cycle (YYYY-MM-DD) ramenant le compte de DateSlots futurs
  * actives à ≤ 100. Préserve les dates les plus anciennes (proches de
  * `firstDate`), tronque les plus récentes. Retournée au bouton « Ajuster au… ».
  *
@@ -23,7 +23,7 @@ export interface ComputeMaxDateArgs {
  * > 100), retourne quand même cette 1re date — l'utilisateur devra réduire les
  * manualDates à la main.
  */
-export function computeMaxDateForComboLimit(args: ComputeMaxDateArgs): string | null {
+export function computeMaxDateForLimit(args: ComputeMaxDateArgs): string | null {
 	const {
 		firstDate,
 		lastDate,
@@ -62,18 +62,18 @@ export function computeMaxDateForComboLimit(args: ComputeMaxDateArgs): string | 
 		return active;
 	};
 
-	// Parcours ascendant : on accumule les combos depuis la 1re date future.
+	// Parcours ascendant : on accumule les DateSlots depuis la 1re date future.
 	// La 1re date qui ferait dépasser 100 déclenche le retour de la dernière
 	// date de cycle valide visitée.
 	let cumulative = 0;
 	let lastValidCycleDate: string | null = null;
 
 	for (const date of allFutureDates) {
-		const combos = activeSlotsForDate(date);
-		if (cumulative + combos > 100) {
+		const dateSlots = activeSlotsForDate(date);
+		if (cumulative + dateSlots > 100) {
 			return lastValidCycleDate ?? futureCycle[0];
 		}
-		cumulative += combos;
+		cumulative += dateSlots;
 		if (futureCycleSet.has(date)) {
 			lastValidCycleDate = date;
 		}

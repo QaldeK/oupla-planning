@@ -315,10 +315,10 @@ describe('planningActions — Pipeline CRUD complet', () => {
 			);
 			await addComment(occId, 'user001', 'Commentaire important', adminToken);
 
-			// L'admin désactive la combo (soft-delete côté PB).
+			// L'admin désactive la DateSlot (soft-delete côté PB).
 			await adminPb.collection('planning_occurrences').update(occId, { deleted: true });
 
-			// L'admin réactive la combo : la target ne porte pas d'id (le seeding PlanningForm
+			// L'admin réactive la DateSlot : la target ne porte pas d'id (le seeding PlanningForm
 			// ne seed pas les soft-deleted dans seededOccurrences) → match par clé `date|slotId`.
 			await updatePlanningWithOccurrences(
 				master.id,
@@ -344,7 +344,7 @@ describe('planningActions — Pipeline CRUD complet', () => {
 				{ date: d2, startTime: '19:00', endTime: '21:00', slotId: 's1' }
 			]);
 
-			// L'admin retire d2 (combo désactivée → absente des targets).
+			// L'admin retire d2 (DateSlot désactivée → absente des targets).
 			await updatePlanningWithOccurrences(
 				master.id,
 				buildData([{ date: d1, startTime: '19:00', endTime: '21:00', slotId: 's1' }]),
@@ -368,7 +368,7 @@ describe('planningActions — Pipeline CRUD complet', () => {
 			]);
 			const existingIds = new Set((await getOccs(master.id)).map((o) => o.id));
 
-			// L'admin ajoute d2 (nouvelle combo sans id → création).
+			// L'admin ajoute d2 (nouvelle DateSlot sans id → création).
 			await updatePlanningWithOccurrences(
 				master.id,
 				buildData([

@@ -3,7 +3,7 @@
  * PlanningForm — Porte 5 (`removeTimeSlot`).
  *
  * Pattern « changement structurel » mais skip de la confirmation quand
- * `count === 0` (aucune combo active pour ce slot → action non destructive).
+ * `count === 0` (aucune DateSlot active pour ce slot → action non destructive).
  *
  * Le bouton « Supprimer ce créneau » n'est rendu que si `timeSlots.length > 1`.
  * Pour compter les slots de façon robuste on cible « Modifier les horaires du
@@ -51,7 +51,7 @@ afterEach(() => {
 // ====================================================================
 
 describe('PlanningForm — Porte 5 (removeTimeSlot)', () => {
-	it('édition sans combos actives (cycle passé) → pas de modal, slot supprimé directement', async () => {
+	it('édition sans DateSlots actives (cycle passé) → pas de modal, slot supprimé directement', async () => {
 		// « Aujourd'hui » placé après lastDate (2026-06-30) : toutes les dates du cycle
 		// sont filtrées par `d >= today` → `activeDateSlots = []` → `count === 0`
 		// pour tous les slots. La porte 5 skip la confirmation (action non destructive).
@@ -87,7 +87,7 @@ describe('PlanningForm — Porte 5 (removeTimeSlot)', () => {
 		expect(screen.queryByText(/08:00\s*–\s*12:00/)).not.toBeInTheDocument();
 	});
 
-	it('édition avec N combos actives → modal avec message compté, puis slot supprimé', async () => {
+	it('édition avec N DateSlots actives → modal avec message compté, puis slot supprimé', async () => {
 		// Cycle au futur proche : 3 dates hebdo (2026-01-07, 14, 21) → `count = 3` pour s1.
 		// On seed 3 occurrences actives pour s1 sur ces dates (à des fins de réalisme,
 		// le compte est porté par le produit cartésien `activeDateSlots`).
@@ -115,7 +115,7 @@ describe('PlanningForm — Porte 5 (removeTimeSlot)', () => {
 		// La ConfirmModal s'ouvre (titre « Supprimer ce créneau »)
 		const dialog = await screen.findByRole('dialog');
 		expect(dialog).toHaveTextContent(/supprimer ce créneau/i);
-		// Message avec le compte exact (3 combos actives → « Les 3 occurrences… »)
+		// Message avec le compte exact (3 DateSlots actives → « Les 3 occurrences… »)
 		expect(dialog).toHaveTextContent(/les 3 occurrences de ce créneau/i);
 
 		// Cliquer « Supprimer » dans la modal → s1 supprimé

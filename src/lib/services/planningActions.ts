@@ -320,7 +320,7 @@ export async function updatePlanningWithOccurrences(
 	const normalizeDate = (d: string) => d.split(' ')[0].split('T')[0];
 
 	// Charger les occurrences futures, **soft-deleted incluses**. La réactivation d'une
-	// combo désactivée = un-soft-delete d'une occurrence existante (préserve responses/comments/id).
+	// DateSlot désactivée = un-soft-delete d'une occurrence existante (préserve responses/comments/id).
 	const existingOccurrences = await pb
 		.collection('planning_occurrences')
 		.getFullList<PlanningOccurrence>({
@@ -391,7 +391,7 @@ export async function updatePlanningWithOccurrences(
 				startTime: target.startTime,
 				endTime: target.endTime,
 				slotId: target.slotId,
-				deleted: false, // un-soft-delete si elle l'était (réactivation d'une combo)
+				deleted: false, // un-soft-delete si elle l'était (réactivation d'une DateSlot)
 				lastModifiedBy: pb.authStore.record?.id
 			};
 			if (data.forceTaskRefresh) updateData.tasks = sortTasks(data.tasks);

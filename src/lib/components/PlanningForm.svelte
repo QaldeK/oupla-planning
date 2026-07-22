@@ -31,7 +31,7 @@
 		RotateCcw
 	} from '@lucide/svelte';
 	import { generateRecurrenceDates, getRecurrenceLabel } from '$lib/utils/recurrence';
-	import { computeMaxDateForComboLimit } from '$lib/utils/comboLimit';
+	import { computeMaxDateForLimit } from '$lib/utils/dateSlotLimit';
 	import { computeDateSlotSelection, seedFromOccurrences } from '$lib/utils/dateSlotSelection';
 	import { formatSlotKey } from '$lib/utils/slots';
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from '$lib/constants';
@@ -140,7 +140,7 @@
 	let showArbitraryDatePicker = $state(false); // Afficher le picker inline pour dates arbitraires
 
 	// « Aujourd'hui » figé à la résolution du dérivé. Source unique partagée par
-	// le picker minDate, la validation des combos futures, et le masquage des badges passés.
+	// le picker minDate, la validation des DateSlots futurs, et le masquage des badges passés.
 	const todayStr = $derived(format(new Date(), 'yyyy-MM-dd'));
 
 	// Multi-créneaux : afficher le badge slotId uniquement en mode multi-slot.
@@ -178,12 +178,12 @@
 		)
 	);
 
-	/** True si la combo est active (non désactivée). Unifie mono/multi/CUSTOM. */
+	/** True si la DateSlot est active (non désactivée). Unifie mono/multi/CUSTOM. */
 	function isSlotActive(ds: DateSlot): boolean {
 		return !disabledSlotKeys.has(formatSlotKey(ds.date, ds.slotId));
 	}
 
-	/** Active/désactive une combo (popover multi-slot). Mute disabledSlotKeys. */
+	/** Active/désactive une DateSlot (popover multi-slot). Mute disabledSlotKeys. */
 	function setSlotEnabled(ds: DateSlot, enabled: boolean) {
 		const key = formatSlotKey(ds.date, ds.slotId);
 		if (enabled) disabledSlotKeys.delete(key);
@@ -221,11 +221,11 @@
 			: ''
 	);
 
-	// Dernière date de cycle ramenant le compte de combos futures à ≤ 100, pour
+	// Dernière date de cycle ramenant le compte de DateSlots futurs à ≤ 100, pour
 	// le bouton « Ajuster au ... » de l'alerte (mode récurrent uniquement).
 	const maxAdjustDate = $derived(
 		recurrenceType !== 'CUSTOM' && firstDate && lastDate
-			? computeMaxDateForComboLimit({
+			? computeMaxDateForLimit({
 					firstDate,
 					lastDate,
 					recurrenceType,
@@ -282,15 +282,15 @@
 		activePopoverKey = null;
 	}
 
-	/** True si la combo porte un override (horaires divergeant du slot template). */
-	function isOverriddenCombo(ds: DateSlot): boolean {
+	/** True si la DateSlot porte un override (horaires divergeant du slot template). */
+	function isOverriddenDateSlot(ds: DateSlot): boolean {
 		const seeded = seededOccurrences.get(formatSlotKey(ds.date, ds.slotId));
 		const slot = timeSlots.find((s) => s.id === ds.slotId);
 		if (!seeded || !slot) return false;
 		return seeded.startTime !== slot.startTime || seeded.endTime !== slot.endTime;
 	}
 
-	/** Applique le draft comme override sur la combo (3.3). Préserve l'id seedé. */
+	/** Applique le draft comme override sur la DateSlot (3.3). Préserve l'id seedé. */
 	function commitPopoverOverride(ds: DateSlot) {
 		const { startTime, endTime } = popoverTimeDraft;
 		if (!startTime || !endTime) {
@@ -316,7 +316,7 @@
 		closePopover();
 	}
 
-	/** Remet les horaires de la combo au template du slot (retire l'override). */
+	/** Remet les horaires de la DateSlot au template du slot (retire l'override). */
 	function resetPopoverToTemplate(ds: DateSlot) {
 		const slot = timeSlots.find((s) => s.id === ds.slotId);
 		if (!slot) return;
@@ -472,7 +472,7 @@
 	// (allGeneratedDates → allDateSlots → occurrenceTargets). Les nouvelles dates générées
 	// sont actives par défaut (disabledSlotKeys vide en création) ; les dates hors-cycle
 	// sortent de allDateSlots donc de occurrenceTargets ; les clés orphelines éventuelles
-	// dans disabledSlotKeys sont inoffensives (elles ne filtrent que des combos existantes).
+	// dans disabledSlotKeys sont inoffensives (elles ne filtrent que des DateSlots existantes).
 
 	// Effet pour effacer les erreurs de validation quand l'utilisateur corrige
 	$effect(() => {
@@ -485,8 +485,8 @@
 
 		// Effacer l'erreur des dates si corrigée (basée sur la sélection réelle active)
 		if (validationErrors.dates && views.activeDateSlots.length > 0) {
-			const hasValidCombos = views.activeDateSlots.some((ds) => ds.date >= todayStr);
-			if (hasValidCombos) {
+			const hasValidDateSlots = views.activeDateSlots.some((ds) => ds.date >= todayStr);
+			if (hasValidDateSlots) {
 				validationErrors.dates = false;
 			}
 		}
@@ -584,15 +584,15 @@
 	}
 
 	// Retire une date manuelle (popover « Supprimer » mono-slot) : la sort de
-	// manualDates, donc de l'affichage. Distinct de la désactivation d'une combo
+	// manualDates, donc de l'affichage. Distinct de la désactivation d'une DateSlot
 	// (setSlotEnabled / disabledSlotKeys), qui préserve la date candidate.
 	function removeManualDate(dateToRemove: string) {
 		manualDates = manualDates.filter((d) => d !== dateToRemove);
 	}
 
 	// Affecte manualDates depuis un picker (CUSTOM ou arbitraires récurrent). Une date
-	// (re)ajoutée est entièrement réactivée : on retire toutes ses combos de
-	// disabledSlotKeys. Sans cela, une date dont toutes les combos avaient été
+	// (re)ajoutée est entièrement réactivée : on retire toutes ses DateSlots de
+	// disabledSlotKeys. Sans cela, une date dont toutes les DateSlots avaient été
 	// désactivées puis (re)sélectionnées au picker réapparaîtrait grisée — car ses clés
 	// persistent dans disabledSlotKeys (notamment après réouverture : le seeding y met
 	// les occurrences soft-deleted, sans les compter dans manualDates). Au save, le
@@ -717,7 +717,7 @@
 		});
 	}
 
-	// Porte 4 — Désactivation d'une combo générée : confirme si la date a des données.
+	// Porte 4 — Désactivation d'une DateSlot générée : confirme si la date a des données.
 	// La réactivation ne se confirme jamais.
 	function requestDisableSlot(ds: DateSlot) {
 		if (!datesWithData.includes(ds.date)) {
@@ -900,7 +900,7 @@
 	// Applique la modification d'un créneau : propage aux occurrences seedées
 	// non-overridées (celles dont les horaires == ancien template) et mute le
 	// template. Les occurrences overridées restent intactes dans seededOccurrences.
-	// Les combos non-seedées suivent automatiquement via le `$derived` occurrenceTargets.
+	// Les DateSlots non-seedées suivent automatiquement via le `$derived` occurrenceTargets.
 	function commitSlotEdit(
 		slotId: string,
 		newStart: string,
@@ -928,12 +928,12 @@
 		// Reset des erreurs
 		validationErrors = {};
 
-		// Limite Phase 1 : 100 combinaisons date×slot futures maximum (remplace l'ancienne
-		// limite de 100 dates). En mono-slot, 1 slot = 1 combinaison/date, donc équivalent.
-		const futureCombosCount = views.futureActiveDateSlotCount;
-		if (futureCombosCount > 100) {
+		// Limite Phase 1 : 100 DateSlots futurs maximum (remplace l'ancienne
+		// limite de 100 dates). En mono-slot, 1 slot = 1 DateSlot/date, donc équivalent.
+		const futureActiveDateSlotCount = views.futureActiveDateSlotCount;
+		if (futureActiveDateSlotCount > 100) {
 			toast.error('Trop de créneaux planifiés', {
-				description: `Vous avez ${futureCombosCount} combinaisons date×créneau futures. La limite est de 100.`
+				description: `Vous avez ${futureActiveDateSlotCount} combinaisons date×créneau futures. La limite est de 100.`
 			});
 			return;
 		}
@@ -1004,9 +1004,9 @@
 			return;
 		}
 
-		// Validation : au moins une combinaison future active (unifie CUSTOM et récurrent).
+		// Validation : au moins un DateSlot futur actif (unifie CUSTOM et récurrent).
 		// En mono-slot cela équivaut à « au moins une date future sélectionnée ».
-		const hasFutureCombo = views.activeDateSlots.some((ds) => ds.date >= todayStr);
+		const hasFutureActiveDateSlot = views.activeDateSlots.some((ds) => ds.date >= todayStr);
 		if (views.activeDateSlots.length === 0) {
 			validationErrors.dates = true;
 			toast.error('Aucune date sélectionnée', {
@@ -1014,7 +1014,7 @@
 			});
 			return;
 		}
-		if (!hasFutureCombo) {
+		if (!hasFutureActiveDateSlot) {
 			validationErrors.dates = true;
 			toast.error('Dates passées', {
 				description:
@@ -1260,7 +1260,7 @@
 				{/if}
 			</div>
 
-			{#snippet comboBadge(ds: DateSlot)}
+			{#snippet dateSlotBadge(ds: DateSlot)}
 				{@const isSelected = isSlotActive(ds)}
 				{@const isManual = manualDates.includes(ds.date)}
 				{@const hasData = datesWithData.includes(ds.date)}
@@ -1337,7 +1337,7 @@
 										>
 											<Check size={14} /> Appliquer
 										</button>
-										{#if isOverriddenCombo(ds)}
+										{#if isOverriddenDateSlot(ds)}
 											<button
 												type="button"
 												class="btn btn-ghost btn-sm btn-square"
@@ -1452,7 +1452,7 @@
 					</div>
 					<div class="bg-base-200/50 flex max-h-64 flex-wrap gap-2 overflow-y-auto rounded-xl p-4">
 						{#each views.displayedDateSlots as ds (formatSlotKey(ds.date, ds.slotId))}
-							{@render comboBadge(ds)}
+							{@render dateSlotBadge(ds)}
 						{/each}
 					</div>
 					{#if views.hiddenPastDateCount > 0}
@@ -1560,7 +1560,7 @@
 							class="bg-base-200/50 mt-4 flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-xl p-4"
 						>
 							{#each views.displayedDateSlots as ds (formatSlotKey(ds.date, ds.slotId))}
-								{@render comboBadge(ds)}
+								{@render dateSlotBadge(ds)}
 							{/each}
 						</div>
 						{#if views.hiddenPastDateCount > 0}
@@ -1569,8 +1569,8 @@
 					{/if}
 
 					{#if manualDates.length > 0}
-						{@const futureComboCount = views.activeDateSlots.filter((ds) => ds.date >= todayStr).length}
-						{#if futureComboCount > 100}
+						{@const futureActiveDateSlotCount = views.activeDateSlots.filter((ds) => ds.date >= todayStr).length}
+						{#if futureActiveDateSlotCount > 100}
 							<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
 								<span>
 									{#if showSlot}

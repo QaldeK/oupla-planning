@@ -93,13 +93,13 @@ describe('PlanningForm — handleSubmit validation rules', () => {
 
 	// --- Ordonné comme dans handleSubmit (lignes 1005-1110) ---
 
-	it('#1 limite > 100 combos futures → toast "Trop de créneaux planifiés" + onSubmit non appelé', async () => {
+	it('#1 limite > 100 DateSlots futurs → toast "Trop de créneaux planifiés" + onSubmit non appelé', async () => {
 		const { user, onSubmit } = renderForm();
 		await fillTitle(user, 'Planning test');
 
 		// DAILY + firstDate=aujourd'hui + lastDate=+200j génère > 100 dates futures.
 		// `allGeneratedDates` cappe à 100, donc on ajoute un 2ème slot pour dépasser
-		// la limite : 100 dates × 2 slots = 200 combos > 100.
+		// la limite : 100 dates × 2 slots = 200 DateSlots > 100.
 		await selectRecurrence(user, 'DAILY');
 		const today = format(new Date(), 'yyyy-MM-dd');
 		const farFuture = format(addDays(new Date(), 200), 'yyyy-MM-dd');
@@ -198,7 +198,7 @@ describe('PlanningForm — handleSubmit validation rules', () => {
 		expect(toast.error).toHaveBeenCalledWith('Réponses possibles requises', expect.anything());
 	});
 
-	it('#9 0 combo active (CUSTOM sans date) → toast "Aucune date sélectionnée" + onSubmit non appelé', async () => {
+	it('#9 0 DateSlot actif (CUSTOM sans date) → toast "Aucune date sélectionnée" + onSubmit non appelé', async () => {
 		const { user, onSubmit } = renderForm();
 		await fillTitle(user, 'Planning test');
 
@@ -212,14 +212,14 @@ describe('PlanningForm — handleSubmit validation rules', () => {
 		expect(toast.error).toHaveBeenCalledWith('Aucune date sélectionnée', expect.anything());
 	});
 
-	// SKIP #10 (combos toutes passées) : non déclenchable de façon déterministe via
+	// SKIP #10 (DateSlots toutes passées) : non déclenchable de façon déterministe via
 	// le DOM en création pure (le MultiDatePicker filtre les dates passées côté UI).
 	// En édition en revanche, le seeding d'occurrences passées (qui finissent dans
 	// `manualDates` hors-cycle) permet de constituer un `activeDateSlots` entièrement
 	// passé. On fake « aujourd'hui » après la borne `lastDate` du master pour vider
-	// `allGeneratedDates`, puis on seed une occurrence passée — le combo passée
-	// devient la seule combo active → `hasFutureCombo = false` → toast « Dates passées ».
-	it('#10 toutes combos passées (édition, cycle passé) → toast "Dates passées" + onSubmit non appelé', async () => {
+	// `allGeneratedDates`, puis on seed une occurrence passée — la DateSlot passée
+	// devient la seule DateSlot active → `hasFutureActiveDateSlot = false` → toast « Dates passées ».
+	it('#10 toutes DateSlots passées (édition, cycle passé) → toast "Dates passées" + onSubmit non appelé', async () => {
 		// Figer « aujourd'hui » après la borne supérieure du master pour vider
 		// `allGeneratedDates` (filtre `d >= today`). On ne fake QUE Date pour préserver
 		// le scheduler Svelte 5 / userEvent.
@@ -243,7 +243,7 @@ describe('PlanningForm — handleSubmit validation rules', () => {
 				} as any,
 				// Une seule occurrence passée → seeded dans `manualDates` (hors-cycle car
 				// `allGeneratedDates` est vide avec today=2026-07-01 > lastDate=2026-06-30).
-				// `activeDateSlots` contient donc 1 combo passée et 0 future → #10.
+				// `activeDateSlots` contient donc 1 DateSlot passée et 0 future → #10.
 				occurrences: [
 					{
 						id: 'occ-past',
