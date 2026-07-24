@@ -5,9 +5,14 @@
  * Ce helper prend un event + le contexte (master, occurrence, prefs participants)
  * et retourne la liste des destinataires effectifs, en appliquant :
  *   - la matrice de destinataires par type (présent / !absent / sans-réponse / admin)
- *   - les prefs individuelles (email, reminderDays, missingDays, onOccurrenceChange,
+ *   - les prefs individuelles métier (reminderDays, missingDays, onOccurrenceChange,
  *     onConfirmationNeeded)
  *   - le filtre hasQuit (participants ayant quitté le planning exclus)
+ *
+ * NOTE : le filtre par canal (email/push) n'est PAS appliqué ici — il est géré
+ * au point d'usage (cron-notifications.pb.js). Cela permet d'utiliser le même
+ * tableau de destinataires pour les deux canaux, chacun filtrant indépendamment
+ * selon sa pref (email:true / push:true).
  *
  * Le helper est PUR : pas d'accès DB, pas de logging. Toutes les données
  * nécessaires sont passées en paramètre.
@@ -148,9 +153,11 @@ function getPrefRequirement(event) {
  * @param {core.Record} master — record `planning_masters`
  * @param {core.Record[]} planningParticipants — records `planning_participants` du master
  * @param {core.Record} occurrence — record `planning_occurrences`
- * @returns {Array<{userId, participantId, response, tasks}>}
+ * @returns {Array<{userId, participantId, response, tasks, email, push}>}
  *   - `response` : 'present'|'if_needed'|'maybe'|'absent'|null (sans-réponse)
  *   - `tasks` : tableau d'IDs de tâches assignées
+ *   - `email`, `push` : booléens de la row `planning_participants` — le filtre
+ *     par canal est délégué au consommateur via ces champs
  */
 function computeRecipients(event, master, planningParticipants, occurrence) {
 	const filter = RESPONSE_FILTER[event.type];
@@ -167,8 +174,9 @@ function computeRecipients(event, master, planningParticipants, occurrence) {
 		const pp = findPlanningParticipant(planningParticipants, ap.userId);
 		if (!pp) continue;
 
-		// Canal email obligatoire (sinon pas destinataire email)
-		if (!pp.getBool('email')) continue;
+		// NOTE : le filtre par canal (email/push) est appliqué au point d'usage
+		// (cron-notifications.pb.js), pas ici. computeRecipients ne vérifie que
+		// les préférences métier liées au type d'event (reminderDays, missingDays, etc.).
 
 		// Vérification de la pref spécifique au type d'event
 		if (prefRequirement) {
@@ -192,7 +200,9 @@ function computeRecipients(event, master, planningParticipants, occurrence) {
 			userId: ap.userId,
 			participantId: ap.id,
 			response: responseType,
-			tasks: userTasks
+			tasks: userTasks,
+			email: pp.getBool('email'),
+			push: pp.getBool('push')
 		});
 	}
 

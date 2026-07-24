@@ -119,6 +119,8 @@ type NormalizedRecipient = {
 	participantId: string;
 	response: unknown;
 	tasks: string[];
+	email: boolean;
+	push: boolean;
 };
 
 function normalize(list: any[]): NormalizedRecipient[] {
@@ -127,7 +129,9 @@ function normalize(list: any[]): NormalizedRecipient[] {
 			userId: r.userId,
 			participantId: r.participantId,
 			response: r.response === undefined ? null : r.response,
-			tasks: Array.isArray(r.tasks) ? [...r.tasks].sort() : []
+			tasks: Array.isArray(r.tasks) ? [...r.tasks].sort() : [],
+			email: r.email ?? true,
+			push: r.push ?? false
 		}))
 		.sort((a, b) => a.userId.localeCompare(b.userId));
 }
@@ -146,7 +150,7 @@ describe('reminder', () => {
 			occ: mkOcc({
 				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
 			}),
-			expected: [{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [] }]
+			expected: [{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [], email: true, push: false }]
 		},
 		{
 			name: 'reminder J-3 : user absent + inscrit tâche → destinataire',
@@ -156,7 +160,7 @@ describe('reminder', () => {
 			occ: mkOcc({
 				responses: [{ participantId: 'p1', response: 'absent', tasks: ['t1'] }]
 			}),
-			expected: [{ userId: 'u1', participantId: 'p1', response: 'absent', tasks: ['t1'] }]
+			expected: [{ userId: 'u1', participantId: 'p1', response: 'absent', tasks: ['t1'], email: true, push: false }]
 		},
 		{
 			name: 'reminder J-3 : user absent sans tâche → pas destinataire',
@@ -204,7 +208,7 @@ describe('missings (quorum_missing / task_unassigned)', () => {
 			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: 'u1', missingDays: ['3'] })],
 			occ: mkOcc({ responses: [] }),
-			expected: [{ userId: 'u1', participantId: 'p1', response: null, tasks: [] }]
+			expected: [{ userId: 'u1', participantId: 'p1', response: null, tasks: [], email: true, push: false }]
 		},
 		{
 			name: 'quorum_missing J-3 : présent + missingDays=[3] → destinataire',
@@ -214,7 +218,7 @@ describe('missings (quorum_missing / task_unassigned)', () => {
 			occ: mkOcc({
 				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
 			}),
-			expected: [{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [] }]
+			expected: [{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [], email: true, push: false }]
 		},
 		{
 			name: 'quorum_missing J-3 : absent → pas destinataire',
@@ -244,7 +248,7 @@ describe('confirmation_needed (admin only via pref)', () => {
 			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: 'u1', onConfirmationNeeded: true })],
 			occ: mkOcc({ responses: [] }),
-			expected: [{ userId: 'u1', participantId: 'p1', response: null, tasks: [] }]
+			expected: [{ userId: 'u1', participantId: 'p1', response: null, tasks: [], email: true, push: false }]
 		},
 		{
 			name: 'confirmation_needed J-3 : onConfirmationNeeded=false → pas destinataire',
@@ -274,7 +278,7 @@ describe('schedule_change / status_canceled (onOccurrenceChange)', () => {
 			occ: mkOcc({
 				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
 			}),
-			expected: [{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [] }]
+			expected: [{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [], email: true, push: false }]
 		},
 		{
 			name: 'schedule_change : sans-réponse → pas destinataire',
@@ -317,7 +321,7 @@ describe('schedule_change / status_canceled (onOccurrenceChange)', () => {
 describe('Filtre prefs communes', () => {
 	const cases = [
 		{
-			name: 'email=false → jamais destinataire email',
+			name: 'email=false → destinataire avec email:false (filtre délégué)',
 			event: { type: 'reminder', reminderValue: 3 },
 			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
 			planningParticipants: [
@@ -326,7 +330,23 @@ describe('Filtre prefs communes', () => {
 			occ: mkOcc({
 				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
 			}),
-			expected: []
+			expected: [
+				{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [], email: false, push: false }
+			]
+		},
+		{
+			name: 'push=true → destinataire avec push:true (filtre délégué)',
+			event: { type: 'reminder', reminderValue: 3 },
+			master: mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] }),
+			planningParticipants: [
+				mkPlanningParticipant({ userId: 'u1', push: true, reminderDays: ['3'] })
+			],
+			occ: mkOcc({
+				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+			}),
+			expected: [
+				{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [], email: true, push: true }
+			]
 		}
 	];
 
@@ -402,7 +422,7 @@ describe('Mapping CAS B : userId ≠ participantId', () => {
 				responses: [{ participantId: 'guest-uuid-123', response: 'present', tasks: ['t1'] }]
 			}),
 			expected: [
-				{ userId: 'u1', participantId: 'guest-uuid-123', response: 'present', tasks: ['t1'] }
+				{ userId: 'u1', participantId: 'guest-uuid-123', response: 'present', tasks: ['t1'], email: true, push: false }
 			]
 		}
 	];
@@ -441,8 +461,8 @@ describe('Multi-destinataires', () => {
 				]
 			}),
 			expected: [
-				{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [] },
-				{ userId: 'u2', participantId: 'p2', response: 'present', tasks: ['t1'] }
+				{ userId: 'u1', participantId: 'p1', response: 'present', tasks: [], email: true, push: false },
+				{ userId: 'u2', participantId: 'p2', response: 'present', tasks: ['t1'], email: true, push: false }
 			]
 		}
 	];

@@ -2,16 +2,16 @@
 // ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7. Pièges projet : agent/doc/memo.md. Voir AGENTS.md § PRÉALABLE POCKETBASE.
 
 /**
- * Hook occurrence-update — brique producteur du pipeline de notifications.
+ * Hook occurrence-update — brique producteur du pipeline de notifications,
+ * avec envoi push immédiat pour les change events.
  *
- * Toute modification pertinente d'une occurrence future est enregistrée comme
- * une row dans `notification_events`. Le cron quotidien agrège ces rows pour
- * produire les emails et push, en calculant les destinataires au runtime
- * selon les prefs de chaque participant.
+ * Toute modification pertinente d'une occurrence future est :
+ *   1) enregistrée comme une row dans `notification_events` (pour email au cron)
+ *   2) envoyée immédiatement en push aux participants avec push:true
+ *      et onOccurrenceChange:true (best-effort, non bloquant)
  *
- * Rôle strictement producteur : aucune logique de destinataire, de préférence
- * ou d'envoi SMTP/push ici. Cela garantit un coût constant par update (1 INSERT)
- * indépendant du nombre de participants au planning.
+ * Le cron quotidien agrège les rows non traitées pour produire les emails,
+ * et sert de fallback si le push échoue.
  *
  * Pourquoi un hook `*After*Success` plutôt qu'un hook `*Request` :
  *   - il se déclenche aussi bien depuis une route API que depuis un batch SDK,
@@ -27,6 +27,10 @@ onRecordAfterUpdateSuccess((e) => {
 	const record = e.record;
 	const original = record.original();
 	const { detectOccurrenceChange } = require(`${__hooks}/occurrence-change-detector.js`);
+	const { computeRecipients } = require(`${__hooks}/notification-recipients.js`);
+	const { buildPushTitle, buildPushBody } = require(`${__hooks}/notification-cron-utils.js`);
+	const { sendPushNotification } = require(`${__hooks}/notify-utils.js`);
+	const { parseJsonArray } = require(`${__hooks}/pb-helpers.cjs`);
 
 	// Filtre temporel : les occurrences passées ne génèrent plus d'events.
 	// Comparaison en UTC pour éviter les décalages de fuseau. Le guard doit
@@ -79,6 +83,60 @@ onRecordAfterUpdateSuccess((e) => {
 			.logger()
 			.error(
 				'[Notification] Failed to insert notification_events row',
+				'err',
+				err?.message || String(err),
+				'occurrenceId',
+				record.get('id'),
+				'type',
+				descriptor.type
+			);
+	}
+
+	// ======================================================================
+	// PUSH IMMÉDIAT pour les change events (meilleur effort)
+	// ======================================================================
+	// Si l'envoi échoue, l'event est déjà dans notification_events → l'email
+	// partira au prochain cron (fallback fiable).
+	try {
+		const masterId = record.getString('master');
+		const master = e.app.findRecordById('planning_masters', masterId);
+		const planningParticipants = e.app.findRecordsByFilter(
+			'planning_participants',
+			'planning = {:masterId}',
+			'',
+			0,
+			0,
+			{ masterId }
+		);
+
+		const eventPlain = { type: descriptor.type, reminderValue: 0 };
+		const recipients = computeRecipients(eventPlain, master, planningParticipants, record);
+
+		const participantToken = master.getString('participantToken');
+		const url = `/p/${participantToken}`;
+		const title = buildPushTitle(eventPlain, master);
+		const occTasks = parseJsonArray(record, 'tasks');
+
+		for (const r of recipients) {
+			if (!r.push) continue;
+
+			let user;
+			try {
+				user = e.app.findRecordById('users', r.userId);
+			} catch {
+				continue;
+			}
+			if (!user) continue;
+
+			const body = buildPushBody(eventPlain, record, r, occTasks);
+			sendPushNotification(e.app, user, title, body, url);
+		}
+	} catch (err) {
+		// Ne jamais casser l'API update pour un push qui échoue.
+		e.app
+			.logger()
+			.error(
+				'[Notification] Push immédiat failed',
 				'err',
 				err?.message || String(err),
 				'occurrenceId',

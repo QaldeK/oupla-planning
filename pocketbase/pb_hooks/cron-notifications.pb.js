@@ -232,6 +232,10 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	for (const item of eventItems) {
 		const occTasks = parseJsonArray(item.occ, 'tasks');
 		for (const r of item.recipients) {
+			// Filtre canal email : r.email vient de computeRecipients (booléen
+			// de la row planning_participants).
+			if (!r.email) continue;
+
 			const key = `${r.userId}|${item.event.master}`;
 			let bucket = buffer.get(key);
 			if (!bucket) {
@@ -417,15 +421,13 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	for (const item of eventItems) {
 		if (!JX_EVENT_TYPES.has(item.event.type)) continue;
 
-		const participants = getMasterContext(item.event.master)?.participants || [];
 		const occTasks = parseJsonArray(item.occ, 'tasks');
 		const participantToken = item.master.getString('participantToken');
 		const title = buildPushTitle(item.event, item.master);
 		const url = `/p/${participantToken}`;
 
 		for (const r of item.recipients) {
-			const pp = participants.find((p) => p.getString('user') === r.userId);
-			if (!pp || !pp.getBool('push')) continue;
+			if (!r.push) continue;
 
 			const user = getUser(r.userId);
 			if (!user) continue;
