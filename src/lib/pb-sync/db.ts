@@ -152,3 +152,21 @@ export async function openAppDB(): Promise<AppDB> {
 		return db;
 	}
 }
+
+/**
+ * Upsert partiel dans localMeta : met à jour les champs du patch si le record
+ * existe, sinon crée un nouvel enregistrement avec le patch.
+ * Coexistence : chaque module (guestStateStore, planningStore) ne touche que
+ * ses champs via ce helper, sans écraser ceux des autres.
+ */
+export async function upsertLocalMeta(
+	masterId: string,
+	patch: Partial<SavedPlanning>
+): Promise<void> {
+	const existing = await db.localMeta.get(masterId);
+	if (existing) {
+		await db.localMeta.update(masterId, patch);
+	} else {
+		await db.localMeta.put({ masterId, ...patch } as SavedPlanning);
+	}
+}

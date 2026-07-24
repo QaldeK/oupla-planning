@@ -28,8 +28,8 @@
 		if (userStore.isLoggedIn) return userStore.lastAuthSyncAt;
 		const masterId = planningStore.activeMasterId;
 		if (!masterId) return null;
-		const saved = userStore.savedPlannings.find((p) => p.masterId === masterId);
-		return saved?.lastFetchAt ? new Date(saved.lastFetchAt) : null;
+		const lastFetchAt = planningStore.lastFetchAtFor(masterId);
+		return lastFetchAt ? new Date(lastFetchAt) : null;
 	});
 
 	const freshnessLabel = $derived(

@@ -46,7 +46,6 @@ class UserStore {
 	/**
 	 * Date de la dernière sync globale réussie en mode auth (persistée via storage).
 	 * Utilisé par l'UI (NetworkAlert) pour afficher la fraîcheur des données.
-	 * En mode guest, la fraîcheur vient de `lastFetchAt` per-master (Dexie localMeta).
 	 */
 	lastAuthSyncAt = $state<Date | null>(null);
 	/* isTransitioning et pendingGuestClaim sont dans authTransition (module dédié) */
@@ -68,9 +67,9 @@ class UserStore {
 				// Fire-and-forget — onChange callback ne supporte pas async.
 				// Les erreurs internes sont catchées dans authTransition.transitionToAuth(),
 				// ce .catch() protège contre d'éventuelles rejections résiduelles.
-				authTransition.transitionToAuth().catch((err) =>
-					console.error('authTransition failed:', err)
-				);
+				authTransition
+					.transitionToAuth()
+					.catch((err) => console.error('authTransition failed:', err));
 			}
 		});
 
@@ -149,71 +148,9 @@ class UserStore {
 		await storage.setItem(APP_PREFS_KEY, this.appPreferences, { persist: true });
 	}
 
-	/**
-	 * Source unique de vérité pour mettre à jour un SavedPlanning.
-	 * Lit l'existant (in-memory, fallback Dexie pour rattraper les écritures directes
-	 * comme lastFetchAt), merge le patch, met à jour l'in-memory ET Dexie de façon cohérente.
-	 * Préserve les champs existants (lastFetchAt, currentUser, hasQuit...).
-	 */
-	async #upsertSavedPlanning(masterId: string, patch: Partial<SavedPlanning>): Promise<void> {
-		const idx = this.savedPlannings.findIndex((p) => p.masterId === masterId);
-		const existing = idx >= 0 ? this.savedPlannings[idx] : await db.localMeta.get(masterId);
-		const merged: SavedPlanning = { ...(existing as SavedPlanning), masterId, ...patch };
-
-		if (idx >= 0) {
-			this.savedPlannings[idx] = merged;
-		} else {
-			this.savedPlannings.push(merged);
-		}
-		await db.localMeta.put(merged);
-	}
-
 	/* Les méthodes guest (getIdentityForPlanning, setPlanningIdentity, removeIdentity,
 	   removePlanningIdentity, markPlanningAsQuit) sont dans guestStateStore.
 	   La règle ADR-0002 résolue par resolveCurrentIdentity (utils/identityResolution). */
-
-	/**
-	 * Enregistre le timestamp du dernier fetch réussi pour un master.
-	 * Utilisé par planningStore pour la delta sync per-master (lastFetchAt).
-	 * Passe par #upsertSavedPlanning pour préserver les autres champs et garder
-	 * l'in-memory cohérent avec Dexie.
-	 *
-	 * Le pattern capture/restore (lire l'ancienne valeur avant écriture) est géré
-	 * côté planningStore via #resolveSince + restoreLastFetchAt.
-	 */
-	async markFetched(masterId: string): Promise<void> {
-		await this.#upsertSavedPlanning(masterId, { lastFetchAt: new Date().toISOString() });
-	}
-
-	/**
-	 * Restaure lastFetchAt à une valeur antérieure après l'échec d'un fetch.
-	 * Permet de ne pas perdre le delta [previous, now] au prochain cycle de sync.
-	 */
-	async restoreLastFetchAt(masterId: string, previousValue: string | null): Promise<void> {
-		if (previousValue) {
-			await this.#upsertSavedPlanning(masterId, { lastFetchAt: previousValue });
-			return;
-		}
-		await this.#clearLastFetchAt(masterId);
-	}
-
-	/**
-	 * Retire le champ lastFetchAt d'un SavedPlanning (in-memory + Dexie),
-	 * en préservant les autres champs (currentUser, hasQuit...).
-	 */
-	async #clearLastFetchAt(masterId: string): Promise<void> {
-		const idx = this.savedPlannings.findIndex((p) => p.masterId === masterId);
-		const target = idx >= 0 ? this.savedPlannings[idx] : await db.localMeta.get(masterId);
-		if (!target) return;
-		const updated = { ...target };
-		delete updated.lastFetchAt;
-		if (idx >= 0) {
-			this.savedPlannings[idx] = updated;
-		} else {
-			this.savedPlannings.push(updated);
-		}
-		await db.localMeta.put(updated);
-	}
 
 	// === Auth ===
 

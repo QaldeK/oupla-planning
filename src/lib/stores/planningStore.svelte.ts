@@ -1,4 +1,4 @@
-import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
+import type { PlanningMaster, PlanningOccurrence, SavedPlanning } from '$lib/types/planning.types';
 import { getPlanningByToken } from '$lib/services/planningActions';
 import { commentStateService } from '$lib/services/commentStateService';
 import { userStore } from '$lib/stores/userStore.svelte';
@@ -6,11 +6,12 @@ import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
 import { networkStore } from '$lib/stores/networkStore.svelte';
 import { pb } from '$lib/pocketbase/pb';
 import { createSyncCollection } from '$lib/pb-sync/collection';
-import { db, ensureDbReady } from '$lib/pb-sync/db';
+import { db, ensureDbReady, upsertLocalMeta } from '$lib/pb-sync/db';
 import { ClientResponseError } from 'pocketbase';
 import { liveQuery } from 'dexie';
 import type { Subscription } from 'dexie';
 import { format } from 'date-fns';
+import { SvelteMap } from 'svelte/reactivity';
 
 // Compteur de subscriptions actives pour networkStore
 let activeSubscriptionCount = 0;
@@ -78,6 +79,14 @@ class PlanningStore {
 		message: string;
 	} | null>(null);
 
+	// Sync cursor per-master (lastFetchAt) — mirror réactif de Dexie localMeta.
+	// SvelteMap plutôt qu'un liveQuery Dexie : ciblage des updates (un liveQuery sur
+	// localMeta se déclencherait aussi sur les écritures currentUser/hasQuit de
+	// guestStateStore). Les mutations .set()/.delete() déclenchent la réactivité
+	// via SvelteMap (un Map natif dans $state ne serait PAS réactif : Map est une
+	// instance de classe, non proxifié en deep state par Svelte 5).
+	#lastFetchAtMap = new SvelteMap<string, string>();
+
 	// Dexie-backed reactive state — mis à jour par liveQuery subscriptions
 	#master = $state<PlanningMaster | null>(null);
 	#occurrences = $state<PlanningOccurrence[]>([]);
@@ -134,6 +143,14 @@ class PlanningStore {
 	}
 	get error() {
 		return this.#error;
+	}
+
+	/**
+	 * Retourne le lastFetchAt réactif pour un master donné.
+	 * Le getter est réactif : il se met à jour quand markFetched/restoreLastFetchAt est appelé.
+	 */
+	lastFetchAtFor(masterId: string): string | undefined {
+		return this.#lastFetchAtMap.get(masterId);
 	}
 
 	// === Getters globaux (sidebar/homepage) ===
@@ -415,7 +432,7 @@ class PlanningStore {
 		// restore en cas d'échec (évite de perdre le delta).
 		const previousLastFetchAt = await this.#resolveSince(master.id);
 		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
-		await userStore.markFetched(master.id);
+		await this.markFetched(master.id);
 		try {
 			await occurrencesCollection.initialFetch({
 				filter: ['master = {:masterId}', { masterId: master.id }],
@@ -424,7 +441,7 @@ class PlanningStore {
 		} catch (err) {
 			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle
 			try {
-				await userStore.restoreLastFetchAt(master.id, previousLastFetchAt);
+				await this.restoreLastFetchAt(master.id, previousLastFetchAt);
 			} catch (restoreErr) {
 				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
 			}
@@ -514,7 +531,7 @@ class PlanningStore {
 		// Non bloquant : offline, on garde les données Dexie et la bannière NetworkAlert signale le stale.
 		const previousLastFetchAt = await this.#resolveSince(master.id);
 		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
-		await userStore.markFetched(master.id);
+		await this.markFetched(master.id);
 		try {
 			await occurrencesCollection.initialFetch({
 				filter: ['master = {:masterId}', { masterId: master.id }],
@@ -524,7 +541,7 @@ class PlanningStore {
 		} catch (err) {
 			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle
 			try {
-				await userStore.restoreLastFetchAt(master.id, previousLastFetchAt);
+				await this.restoreLastFetchAt(master.id, previousLastFetchAt);
 			} catch (restoreErr) {
 				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
 			}
@@ -604,6 +621,37 @@ class PlanningStore {
 		this.#selectedOccurrenceId = id;
 	}
 
+	/**
+	 * Enregistre le succès d'un fetch pour un master.
+	 * Effet : écrit lastFetchAt dans Dexie (partial patch) et met à jour le mirror réactif.
+	 * Le pattern capture/restore (previousLastFetchAt avant fetch, restore en cas d'échec)
+	 * est géré par les call sites (#setActiveAuth, #setActiveGuest, refreshActive).
+	 */
+	async markFetched(masterId: string): Promise<void> {
+		const now = new Date().toISOString();
+		await upsertLocalMeta(masterId, { lastFetchAt: now });
+		this.#lastFetchAtMap.set(masterId, now);
+	}
+
+	/**
+	 * Restaure lastFetchAt à une valeur antérieure après l'échec d'un fetch.
+	 * Permet de ne pas perdre le delta [previous, now] au prochain cycle de sync.
+	 * Si previousValue est null, retire le champ lastFetchAt (clear).
+	 */
+	async restoreLastFetchAt(masterId: string, previousValue: string | null): Promise<void> {
+		const existing = await db.localMeta.get(masterId);
+		if (!existing) return;
+		if (previousValue) {
+			await db.localMeta.update(masterId, { lastFetchAt: previousValue });
+			this.#lastFetchAtMap.set(masterId, previousValue);
+		} else {
+			// previousValue null → clear : on réécrit l'enregistrement sans le champ lastFetchAt
+			const { lastFetchAt: _, ...rest } = existing;
+			await db.localMeta.put(rest as SavedPlanning);
+			this.#lastFetchAtMap.delete(masterId);
+		}
+	}
+
 	async refreshActive(): Promise<void> {
 		if (!this.#activeMasterId) return;
 		// Open défensif avant toute opération DB (idempotent, ADR 0006).
@@ -618,7 +666,7 @@ class PlanningStore {
 		// Non bloquant : appelé en fire-and-forget par networkStore (polling de reconnexion).
 		const previousLastFetchAt = await this.#resolveSince(this.#activeMasterId);
 		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
-		await userStore.markFetched(this.#activeMasterId);
+		await this.markFetched(this.#activeMasterId);
 		try {
 			await occurrencesCollection.initialFetch({
 				filter: ['master = {:masterId}', { masterId: this.#activeMasterId }],
@@ -628,7 +676,7 @@ class PlanningStore {
 		} catch (err) {
 			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle
 			try {
-				await userStore.restoreLastFetchAt(this.#activeMasterId, previousLastFetchAt);
+				await this.restoreLastFetchAt(this.#activeMasterId, previousLastFetchAt);
 			} catch (restoreErr) {
 				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
 			}

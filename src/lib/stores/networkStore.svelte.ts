@@ -34,7 +34,7 @@ const status = $state<NetworkStatus>({
  * Distinction importante entre deux timestamps qui coïncident souvent mais ne sont
  * pas redondants :
  *
- * - `lastFetchAt` (userStore, per-master, persisté en Dexie `localMeta`) :
+ * - `lastFetchAt` (planningStore, per-master, persisté en Dexie `localMeta`) :
  *   curseur de DELTA SYNC (correctness). `since = lastFetchAt` → récupère tout depuis
  *   ce point. Géré par capture/restore dans planningStore (markFetched avant le fetch,
  *   restoreLastFetchAt en cas d'échec réseau pour ne pas perdre le delta).

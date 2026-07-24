@@ -147,7 +147,7 @@
 
 		const adminToken = token;
 		// Identité lue ponctuellement : on ne veut pas redémarrer le cycle lock
-		// quand l'état guest évolue (markFetched, etc.) pendant l'édition.
+		// quand l'état guest évolue (setGuestIdentity, etc.) pendant l'édition.
 		const identity = untrack(() => {
 			if (userStore.pbUser) return { id: userStore.pbUser.id, name: userStore.pbUser.name };
 			const guest = guestStateStore.getGuestIdentity(masterId);

@@ -8,10 +8,11 @@
  * N'utilise pas `getIdentityForPlanning` (qui mêle auth et guest) — cette
  * fonction vit dans `identityResolution.ts` (pure).
  *
- * Écritures via `db.localMeta.put` avec merge de l'existant pour coexister
+ * Écritures via `db.localMeta.update` (partial patch) pour coexister
  * avec planningStore (écrivain de `lastFetchAt`) sans écrasement croisé.
+ * Fallback `put()` si le record n'existe pas encore (première visite).
  */
-import { db } from '$lib/pb-sync/db';
+import { db, upsertLocalMeta } from '$lib/pb-sync/db';
 import type { SavedPlanning, PlanningIdentity } from '$lib/types/planning.types';
 
 class GuestStateStore {
@@ -53,13 +54,11 @@ class GuestStateStore {
 
 	/**
 	 * Définit l'identité guest pour un planning.
-	 * Utilise put() avec merge pour coexister avec planningStore (écrivain de lastFetchAt).
+	 * Effet : écrit currentUser dans Dexie (partial patch via upsertLocalMeta).
 	 */
 	async setGuestIdentity(masterId: string, identity: PlanningIdentity): Promise<void> {
 		this.#upsertGuestState(masterId, { currentUser: identity });
-		const existing = await db.localMeta.get(masterId);
-		const merged: SavedPlanning = { ...(existing as SavedPlanning), masterId, currentUser: identity };
-		await db.localMeta.put(merged);
+		await upsertLocalMeta(masterId, { currentUser: identity });
 	}
 
 	/**
@@ -76,13 +75,11 @@ class GuestStateStore {
 
 	/**
 	 * Marque l'identité guest comme ayant quitté le planning.
-	 * Permet la détection du retour après quit pour ouvrir le modal de reconnexion.
+	 * Effet : écrit hasQuit dans Dexie (partial patch via upsertLocalMeta).
 	 */
 	async markGuestQuit(masterId: string): Promise<void> {
 		this.#upsertGuestState(masterId, { hasQuit: true });
-		const existing = await db.localMeta.get(masterId);
-		const merged: SavedPlanning = { ...(existing as SavedPlanning), masterId, hasQuit: true };
-		await db.localMeta.put(merged);
+		await upsertLocalMeta(masterId, { hasQuit: true });
 	}
 
 	/**
