@@ -30,7 +30,7 @@ onRecordAfterUpdateSuccess((e) => {
 	const { computeRecipients } = require(`${__hooks}/notification-recipients.js`);
 	const { buildPushTitle, buildPushBody } = require(`${__hooks}/notification-cron-utils.js`);
 	const { sendPushNotification } = require(`${__hooks}/notify-utils.js`);
-	const { parseJsonArray } = require(`${__hooks}/pb-helpers.cjs`);
+	const { dispatchPushForEvent } = require(`${__hooks}/push-dispatch.js`);
 
 	// Filtre temporel : les occurrences passées ne génèrent plus d'events.
 	// Comparaison en UTC pour éviter les décalages de fuseau. Le guard doit
@@ -112,25 +112,22 @@ onRecordAfterUpdateSuccess((e) => {
 		const eventPlain = { type: descriptor.type, reminderValue: 0 };
 		const recipients = computeRecipients(eventPlain, master, planningParticipants, record);
 
-		const participantToken = master.getString('participantToken');
-		const url = `/p/${participantToken}`;
-		const title = buildPushTitle(eventPlain, master);
-		const occTasks = parseJsonArray(record, 'tasks');
-
-		for (const r of recipients) {
-			if (!r.push) continue;
-
-			let user;
-			try {
-				user = e.app.findRecordById('users', r.userId);
-			} catch {
-				continue;
-			}
-			if (!user) continue;
-
-			const body = buildPushBody(eventPlain, record, r, occTasks);
-			sendPushNotification(e.app, user, title, body, url);
-		}
+		dispatchPushForEvent(e.app, {
+			event: eventPlain,
+			master,
+			occ: record,
+			recipients,
+			resolveUser: (uid) => {
+				try {
+					return e.app.findRecordById('users', uid);
+				} catch {
+					return null;
+				}
+			},
+			buildPushTitle,
+			buildPushBody,
+			sendPushNotification
+		});
 	} catch (err) {
 		// Ne jamais casser l'API update pour un push qui échoue.
 		e.app

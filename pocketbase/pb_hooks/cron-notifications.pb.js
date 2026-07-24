@@ -34,6 +34,7 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	const { buildSubject, buildHtmlEmail, buildTextEmail } = require(
 		`${__hooks}/notify-templates.js`
 	);
+	const { dispatchPushForEvent } = require(`${__hooks}/push-dispatch.js`);
 
 	const {
 		MAX_SMTP_FAILURES,
@@ -402,9 +403,10 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	}
 
 	// ========================================================================
-	// PUSH J-X — 1 push par event pour les users avec push=true
+	// PUSH J-X — dispatch unifié avec le hook update (push-dispatch.js)
 	// ========================================================================
-	// TODO: ush immédiat pour `onOccurrenceChange` :s events issus du hook update (status_canceled, schedule_change, …)
+	// Cache user partagé entre events : un même user peut être destinataire
+	// de plusieurs events du même cron run.
 	const userCache = new Map();
 	const getUser = (userId) => {
 		if (userCache.has(userId)) return userCache.get(userId);
@@ -421,25 +423,16 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	for (const item of eventItems) {
 		if (!JX_EVENT_TYPES.has(item.event.type)) continue;
 
-		const occTasks = parseJsonArray(item.occ, 'tasks');
-		const participantToken = item.master.getString('participantToken');
-		const title = buildPushTitle(item.event, item.master);
-		const url = `/p/${participantToken}`;
-
-		for (const r of item.recipients) {
-			if (!r.push) continue;
-
-			const user = getUser(r.userId);
-			if (!user) continue;
-
-			const body = buildPushBody(item.event, item.occ, r, occTasks);
-			try {
-				sendPushNotification($app, user, title, body, url);
-				pushSent++;
-			} catch {
-				// sendPushNotification loggue ses propres erreurs en interne.
-			}
-		}
+		pushSent += dispatchPushForEvent($app, {
+			event: item.event,
+			master: item.master,
+			occ: item.occ,
+			recipients: item.recipients,
+			resolveUser: getUser,
+			buildPushTitle,
+			buildPushBody,
+			sendPushNotification
+		});
 	}
 
 	// ========================================================================
