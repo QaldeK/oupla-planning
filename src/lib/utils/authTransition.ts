@@ -59,10 +59,13 @@ export interface AuthTransitionDeps {
 	db: {
 		masters: {
 			clear(): Promise<void>;
-			get(id: string): Promise<{
-				participantToken?: string;
-				adminToken?: string;
-			} | undefined>;
+			get(id: string): Promise<
+				| {
+						participantToken?: string;
+						adminToken?: string;
+				  }
+				| undefined
+			>;
 		};
 		occurrences: { clear(): Promise<void> };
 		commentState: { clear(): Promise<void> };

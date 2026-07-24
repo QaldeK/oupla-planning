@@ -58,7 +58,6 @@ describe('userStore — identity, auth transitions, logout', () => {
 		await db.commentState.clear();
 
 		planningStore.destroy();
-		userStore.savedPlannings = [];
 		guestStateStore.guestStates = [];
 		userStore.appPreferences = { theme: 'my', occurrenceView: 'compact' };
 		pb.authStore.clear();
@@ -532,7 +531,6 @@ describe('userStore — identity, auth transitions, logout', () => {
 			await userStore.logout();
 
 			// === VERIFICATION ===
-			expect(userStore.savedPlannings).toHaveLength(0);
 			expect(pb.authStore.isValid).toBe(false);
 
 			const dexieMasters = await db.masters.toArray();

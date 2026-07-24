@@ -12,6 +12,7 @@ import { liveQuery } from 'dexie';
 import type { Subscription } from 'dexie';
 import { format } from 'date-fns';
 import { SvelteMap } from 'svelte/reactivity';
+import { resolveActorIdentity } from '$lib/utils/identityResolution';
 
 // Compteur de subscriptions actives pour networkStore
 let activeSubscriptionCount = 0;
@@ -550,7 +551,10 @@ class PlanningStore {
 
 		this.#subscribeDexieQueries(master.id);
 
-		const identityId = userStore.pbUser?.id ?? guestStateStore.getGuestIdentity(master.id)?.id;
+		const identityId = resolveActorIdentity({
+			pbUser: userStore.pbUser,
+			guestIdentity: guestStateStore.getGuestIdentity(master.id)
+		})?.id;
 		if (identityId) {
 			const occs = await db.occurrences.where('master').equals(master.id).toArray();
 			commentStateService.backfillCommentState(master.id, occs, identityId);

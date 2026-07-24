@@ -1,5 +1,4 @@
 import type {
-	SavedPlanning,
 	PlanningIdentity,
 	Participant,
 	ViewType,
@@ -34,8 +33,6 @@ interface AuthModalState {
 }
 
 class UserStore {
-	/** Identités guest par planning — { masterId, currentUser? } */
-	savedPlannings = $state<SavedPlanning[]>([]);
 	authModal = $state<AuthModalState>({ open: false });
 	appPreferences = $state<AppPreferences>({
 		theme: 'my',
@@ -75,7 +72,6 @@ class UserStore {
 
 		// 1. Identités — chargées par guestStateStore.loadGuestState() dans +layout.svelte
 		//    AVANT userStore.init() pour garantir l'ordering boot.
-		this.savedPlannings = await db.localMeta.toArray();
 
 		// 2. Initialiser le liveQuery global de planningStore (sidebar/homepage)
 		planningStore.initGlobalSync();
@@ -148,6 +144,19 @@ class UserStore {
 		await storage.setItem(APP_PREFS_KEY, this.appPreferences, { persist: true });
 	}
 
+	/**
+	 * Unsubscribe pb-sync et vide les tables Dexie locales (cache technique jetable).
+	 * Appelé par logout / logoutAndStayOnPlanning / clearAllLocalData.
+	 */
+	async #clearLocalDexie(): Promise<void> {
+		mastersCollection.unsubscribeAll();
+		occurrencesCollection.unsubscribeAll();
+		await db.masters.clear();
+		await db.occurrences.clear();
+		await db.commentState.clear();
+		await db.localMeta.clear();
+	}
+
 	/* Les méthodes guest (getIdentityForPlanning, setPlanningIdentity, removeIdentity,
 	   removePlanningIdentity, markPlanningAsQuit) sont dans guestStateStore.
 	   La règle ADR-0002 résolue par resolveCurrentIdentity (utils/identityResolution). */
@@ -158,18 +167,11 @@ class UserStore {
 		goto('/');
 		authTransition.clearPendingGuestClaim();
 		await guestStateStore.clearGuestState();
-		this.savedPlannings = [];
 		this.lastAuthSyncAt = null;
 		await storage.removeItem(AUTH_SYNC_AT_KEY);
 		pb.authStore.clear();
 
-		// Unsubscribe pb-sync and clear Dexie
-		mastersCollection.unsubscribeAll();
-		occurrencesCollection.unsubscribeAll();
-		await db.masters.clear();
-		await db.occurrences.clear();
-		await db.commentState.clear();
-		await db.localMeta.clear();
+		await this.#clearLocalDexie();
 
 		// Clear planningStore
 		planningStore.destroy();
@@ -194,17 +196,10 @@ class UserStore {
 		try {
 			authTransition.clearPendingGuestClaim();
 			await guestStateStore.clearGuestState();
-			this.savedPlannings = [];
 			pb.authStore.clear();
 			this.isLoggedIn = false;
 
-			// Unsubscribe pb-sync + clear Dexie
-			mastersCollection.unsubscribeAll();
-			occurrencesCollection.unsubscribeAll();
-			await db.masters.clear();
-			await db.occurrences.clear();
-			await db.commentState.clear();
-			await db.localMeta.clear();
+			await this.#clearLocalDexie();
 
 			// Re-activer le planning en guest (setActiveToken route vers #setActiveGuest
 			// car isLoggedIn est false). L'$effect de la page s'occupera d'ouvrir IdentifyModal.
@@ -226,18 +221,12 @@ class UserStore {
 		const wasLoggedIn = this.isLoggedIn;
 
 		await guestStateStore.clearGuestState();
-		this.savedPlannings = [];
 		this.lastAuthSyncAt = null;
 		this.appPreferences = { theme: 'my', occurrenceView: 'compact' };
 		await storage.removeItem(APP_PREFS_KEY);
 		await storage.removeItem(AUTH_SYNC_AT_KEY);
 
-		mastersCollection.unsubscribeAll();
-		occurrencesCollection.unsubscribeAll();
-		await db.masters.clear();
-		await db.occurrences.clear();
-		await db.commentState.clear();
-		await db.localMeta.clear();
+		await this.#clearLocalDexie();
 
 		// Clear planningStore
 		planningStore.destroy();

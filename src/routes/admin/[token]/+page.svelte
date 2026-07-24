@@ -18,6 +18,7 @@
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
 	import { authTransition } from '$lib/stores/authTransition.svelte';
+	import { resolveActorIdentity } from '$lib/utils/identityResolution';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { pb } from '$lib/pocketbase/pb';
 	import { fade } from 'svelte/transition';
@@ -148,11 +149,12 @@
 		const adminToken = token;
 		// Identité lue ponctuellement : on ne veut pas redémarrer le cycle lock
 		// quand l'état guest évolue (setGuestIdentity, etc.) pendant l'édition.
-		const identity = untrack(() => {
-			if (userStore.pbUser) return { id: userStore.pbUser.id, name: userStore.pbUser.name };
-			const guest = guestStateStore.getGuestIdentity(masterId);
-			return guest ? { id: guest.id, name: guest.name } : null;
-		});
+		const identity = untrack(() =>
+			resolveActorIdentity({
+				pbUser: userStore.pbUser,
+				guestIdentity: guestStateStore.getGuestIdentity(masterId)
+			})
+		);
 		if (!identity) return;
 		const userId = identity.id;
 
@@ -286,7 +288,10 @@
 
 			// Le save libère le lock : release explicite avant la navigation
 			// (l'$effect teardown relancera aussi releaseLock, idempotent côté serveur).
-			const identityId = userStore.pbUser?.id ?? guestStateStore.getGuestIdentity(master.id)?.id;
+			const identityId = resolveActorIdentity({
+				pbUser: userStore.pbUser,
+				guestIdentity: guestStateStore.getGuestIdentity(master.id)
+			})?.id;
 			if (identityId) {
 				await releaseLock(master.id, token, identityId);
 			}

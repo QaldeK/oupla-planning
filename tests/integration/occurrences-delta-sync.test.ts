@@ -112,7 +112,6 @@ describe('planningStore — delta sync per-master (bug original)', () => {
 		await db.commentState.clear();
 
 		planningStore.destroy();
-		userStore.savedPlannings = [];
 	});
 
 	afterEach(async () => {
@@ -265,7 +264,6 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		await db.commentState.clear();
 
 		planningStore.destroy();
-		userStore.savedPlannings = [];
 	});
 
 	afterEach(async () => {
@@ -433,7 +431,6 @@ describe('planningStore — #setActiveAuth corrige le bug occCount === 0 (D4)', 
 		await db.commentState.clear();
 
 		planningStore.destroy();
-		userStore.savedPlannings = [];
 		pb.authStore.clear();
 	});
 

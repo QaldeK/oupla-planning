@@ -100,3 +100,25 @@ export function resolveCurrentIdentity(input: IdentityInput): IdentityResolution
 		claimedByAuth: false
 	};
 }
+
+// =============================================
+// Résolution légère (sans participant matching)
+// =============================================
+
+/**
+ * Identité courante (auth prioritaire sur guest) SANS matching de participant
+ * ni détection claimedByAuth. Pour les sites qui ont juste besoin de « qui
+ * suis-je » (lock admin, archives, backfill commentaire) là où la résolution
+ * complète ADR-0002 (resolveCurrentIdentity) serait surdimensionnée.
+ *
+ * Concentre la précédence auth > guest en un seul endroit pour empêcher la
+ * divergence entre les call sites.
+ */
+export function resolveActorIdentity(input: {
+	pbUser: { id: string; name: string } | null;
+	guestIdentity: PlanningIdentity | null;
+}): { id: string; name: string } | null {
+	if (input.pbUser) return { id: input.pbUser.id, name: input.pbUser.name };
+	if (input.guestIdentity) return { id: input.guestIdentity.id, name: input.guestIdentity.name };
+	return null;
+}

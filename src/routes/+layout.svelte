@@ -61,9 +61,7 @@
 			// catche ses propres erreurs), mais on ajoute un .catch défensif pour
 			// éviter une unhandled rejection pendant le boot — exactement le scénario
 			// qu'on cherche à résoudre.
-			recoverAllData().catch((err) =>
-				console.error('[layout] recoverAllData failed:', err)
-			);
+			recoverAllData().catch((err) => console.error('[layout] recoverAllData failed:', err));
 			return;
 		}
 

@@ -32,7 +32,6 @@ import {
 	mastersCollection,
 	occurrencesCollection
 } from '$lib/stores/planningStore.svelte';
-import { userStore } from '$lib/stores/userStore.svelte';
 
 describe('PlanningStore — Guest Flow', () => {
 	beforeEach(async () => {
@@ -45,7 +44,6 @@ describe('PlanningStore — Guest Flow', () => {
 
 		// Reset l'état des stores
 		planningStore.destroy();
-		userStore.savedPlannings = [];
 	});
 
 	afterEach(async () => {

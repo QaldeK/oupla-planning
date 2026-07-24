@@ -7,6 +7,7 @@
 	import { fade } from 'svelte/transition';
 	import OccurrenceView from '$lib/components/occurrences/views/OccurrenceView.svelte';
 	import { ArchiveSkeleton } from '$lib/components/ui/skeletons';
+	import { resolveActorIdentity } from '$lib/utils/identityResolution';
 
 	const token = page.params.token;
 
@@ -18,7 +19,10 @@
 	const occurrences = $derived(allOccurrences.filter((o) => o.date < today));
 	const currentUserId = $derived(
 		master
-			? (userStore.pbUser?.id ?? guestStateStore.getGuestIdentity(master.id)?.id)
+			? resolveActorIdentity({
+					pbUser: userStore.pbUser,
+					guestIdentity: guestStateStore.getGuestIdentity(master.id)
+				})?.id
 			: undefined
 	);
 

@@ -252,8 +252,8 @@
 
 	/** Callback invoqué par IdentityClaimModal après un changement d'identité réussi */
 	function handleIdentityChanged(identity: PlanningIdentity) {
-		// setGuestIdentity est no-op pour les auth (guard dans guestStateStore),
-		// mais on l'appelle pour les guests.
+		// Persiste l'identité guest. Pour un user auth, l'écriture est inerte :
+		// resolveCurrentIdentity priorise pbUser sur cette identité locale.
 		guestStateStore
 			.setGuestIdentity(master!.id, identity)
 			.catch((err) => console.error('setGuestIdentity failed:', err));

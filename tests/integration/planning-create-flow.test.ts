@@ -78,7 +78,6 @@ describe('Planning Create Flow — /new', () => {
 		await db.occurrences.clear();
 		await db.localMeta.clear();
 		await db.commentState.clear();
-		userStore.savedPlannings = [];
 	});
 
 	afterEach(async () => {
