@@ -67,8 +67,12 @@ class AuthTransitionWrapper {
 
 			const result: AuthTransitionResult = await runAuthTransition(ctx, deps);
 			this.pendingGuestClaim = result.guestClaim;
-			// Clear l'état guest in-memory (runAuthTransition clear Dexie mais pas le store réactif)
-			await guestStateStore.clearGuestState();
+			// Pas de cleanup Dexie ici : runAuthTransition a déjà fait le teardown
+			// (étape 5 vide db.localMeta). Le reset de guestStates est automatique —
+			// la subscription liveQuery propage le [] vers le $state. Tout curseur
+			// lastFetchAt (ré)écrit ultérieurement par planningStore lors d'une
+			// activation ou delta-sync doit pouvoir coexister sans être wipe hors
+			// du périmètre de guestStateStore (modèle de propriété ADR 0009).
 		} catch (err) {
 			console.error('transitionToAuth failed:', err);
 		} finally {

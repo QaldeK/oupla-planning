@@ -15,7 +15,6 @@ import {
 } from '$lib/stores/planningStore.svelte';
 import { db, ensureDbReady } from '$lib/pb-sync/db';
 import { commentStateService } from '$lib/services/commentStateService';
-import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
 import { authTransition } from '$lib/stores/authTransition.svelte';
 import { goto } from '$app/navigation';
 
@@ -166,7 +165,6 @@ class UserStore {
 	async logout() {
 		goto('/');
 		authTransition.clearPendingGuestClaim();
-		await guestStateStore.clearGuestState();
 		this.lastAuthSyncAt = null;
 		await storage.removeItem(AUTH_SYNC_AT_KEY);
 		pb.authStore.clear();
@@ -195,7 +193,6 @@ class UserStore {
 		authTransition.isTransitioning = true;
 		try {
 			authTransition.clearPendingGuestClaim();
-			await guestStateStore.clearGuestState();
 			pb.authStore.clear();
 			this.isLoggedIn = false;
 
@@ -220,7 +217,6 @@ class UserStore {
 	async clearAllLocalData() {
 		const wasLoggedIn = this.isLoggedIn;
 
-		await guestStateStore.clearGuestState();
 		this.lastAuthSyncAt = null;
 		this.appPreferences = { theme: 'my', occurrenceView: 'compact' };
 		await storage.removeItem(APP_PREFS_KEY);

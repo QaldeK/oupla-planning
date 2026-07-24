@@ -58,12 +58,19 @@ describe('userStore — identity, auth transitions, logout', () => {
 		await db.commentState.clear();
 
 		planningStore.destroy();
-		guestStateStore.guestStates = [];
 		userStore.appPreferences = { theme: 'my', occurrenceView: 'compact' };
 		pb.authStore.clear();
 		userStore.isLoggedIn = false;
 		mastersCollection.unsubscribeAll();
 		occurrencesCollection.unsubscribeAll();
+
+		// guestStateStore.guestStates est désormais un miroir liveQuery : on monte la
+		// subscription (idempotente) APRÈS le clear de localMeta pour que la première
+		// émission reflète un état vide. Pour les tests suivants (subscription déjà
+		// montée), loadGuestState() résout immédiatement — on attend alors la
+		// propagation du clear via vi.waitFor.
+		await guestStateStore.loadGuestState();
+		await vi.waitFor(() => expect(guestStateStore.guestStates).toHaveLength(0));
 	});
 
 	afterEach(async () => {
@@ -91,8 +98,10 @@ describe('userStore — identity, auth transitions, logout', () => {
 			await guestStateStore.setGuestIdentity(master.id, identity);
 
 			// === VERIFICATION STORE ===
-			const retrieved = guestStateStore.getGuestIdentity(master.id);
-			expect(retrieved).toEqual(identity);
+			// La propagation Dexie → $state est désormais liveQuery-driven (async).
+			await vi.waitFor(() => {
+				expect(guestStateStore.getGuestIdentity(master.id)).toEqual(identity);
+			});
 
 			// === VERIFICATION DEXIE localMeta ===
 			const dexieEntry = await db.localMeta.get(master.id);
@@ -147,6 +156,10 @@ describe('userStore — identity, auth transitions, logout', () => {
 			// Pre-registrer une identite guest dans localMeta
 			const guestIdentity: PlanningIdentity = { id: 'guest1', name: 'Guest', email: '' };
 			await guestStateStore.setGuestIdentity(master.id, guestIdentity);
+			// Attendre la propagation liveQuery vers le $state avant la lecture.
+			await vi.waitFor(() => {
+				expect(guestStateStore.getGuestIdentity(master.id)).toEqual(guestIdentity);
+			});
 
 			// Puis simuler un login
 			const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth User', {
@@ -193,31 +206,15 @@ describe('userStore — identity, auth transitions, logout', () => {
 			await guestStateStore.setGuestIdentity(master.id, identity2);
 
 			// === VERIFICATION ===
-			expect(guestStateStore.guestStates).toHaveLength(1);
-			const retrieved = guestStateStore.getGuestIdentity(master.id);
-			expect(retrieved!.name).toBe('Alice Updated');
+			// guestStates est un miroir liveQuery : la propagation est async.
+			await vi.waitFor(() => {
+				expect(guestStateStore.guestStates).toHaveLength(1);
+				expect(guestStateStore.getGuestIdentity(master.id)?.name).toBe('Alice Updated');
+			});
 
 			// Dexie coherent
 			const dexieEntry = await db.localMeta.get(master.id);
 			expect(dexieEntry!.currentUser!.name).toBe('Alice Updated');
-		});
-
-		it('removeGuestIdentity supprime l identite du store et de Dexie', async () => {
-			// === SEED ===
-			const { master } = await seedPlanning({ title: 'Remove Identity' });
-
-			const identity: PlanningIdentity = { id: 'guest1', name: 'Bob', email: '' };
-			await guestStateStore.setGuestIdentity(master.id, identity);
-
-			// === ACTION ===
-			await guestStateStore.removeGuestIdentity(master.id);
-
-			// === VERIFICATION ===
-			expect(guestStateStore.guestStates).toHaveLength(0);
-			expect(guestStateStore.getGuestIdentity(master.id)).toBeNull();
-
-			const dexieEntry = await db.localMeta.get(master.id);
-			expect(dexieEntry).toBeUndefined();
 		});
 
 		it('setGuestIdentity stocke mais resolveCurrentIdentity priorise l auth', async () => {
@@ -236,7 +233,10 @@ describe('userStore — identity, auth transitions, logout', () => {
 			await guestStateStore.setGuestIdentity(master.id, guestIdentity);
 
 			// === VERIFICATION : l identite guest est bien stockee ===
-			expect(guestStateStore.guestStates).toHaveLength(1);
+			// (propagation liveQuery async)
+			await vi.waitFor(() => {
+				expect(guestStateStore.guestStates).toHaveLength(1);
+			});
 
 			// Mais resolveCurrentIdentity retourne toujours le user auth
 			const result = resolveCurrentIdentity({
@@ -251,6 +251,34 @@ describe('userStore — identity, auth transitions, logout', () => {
 			// Cleanup
 			pb.authStore.clear();
 			userStore.isLoggedIn = false;
+		});
+	});
+
+	describe('Boot ordering — loadGuestState', () => {
+		it('loadGuestState est awaitable et guestStates reflète localMeta après résolution', async () => {
+			// Comportement C (boot ordering) : la séquence de boot fait
+			// `await guestStateStore.loadGuestState()` AVANT `userStore.init()`
+			// (qui branche pb.authStore.onChange, pouvant déclencher la transition).
+			// La promesse de loadGuestState résout à la première émission du liveQuery,
+			// garantissant que guestStates est peuplé avant qu'un onChange puisse fire.
+			//
+			// La subscription est montée idempotemment par beforeEach ; ce test valide
+			// le contrat apparent du boot : après `await loadGuestState()`, une entrée
+			// dans localMeta est reflétée par guestStates (propagation liveQuery).
+
+			// === SEED : une identité guest pré-existante dans localMeta ===
+			const identity: PlanningIdentity = { id: 'boot-1', name: 'Boot Guest', email: '' };
+			await db.localMeta.put({ masterId: 'boot-master', currentUser: identity });
+
+			// === ACTION ===
+			// Idempotente (subscription déjà montée) — dans le boot réel, le premier
+			// appel monte la subscription et résout à la première émission.
+			await guestStateStore.loadGuestState();
+
+			// === VERIFICATION : guestStates reflète localMeta ===
+			await vi.waitFor(() => {
+				expect(guestStateStore.getGuestIdentity('boot-master')).toEqual(identity);
+			});
 		});
 	});
 
@@ -409,12 +437,16 @@ describe('userStore — identity, auth transitions, logout', () => {
 				{ timeout: 5000 }
 			);
 
-			// === VERIFICATION : localMeta est vide (identités guest effacées) ===
+			// === VERIFICATION : localMeta est vidé par runAuthTransition (étape 5) ===
+			// L'identité guest est effacée ; le curseur lastFetchAt n'est pas réécrit
+			// ici (step 8 early-return car #activeMasterId déjà master.id).
 			const localMetaEntries = await db.localMeta.toArray();
 			expect(localMetaEntries).toHaveLength(0);
 
-			// guestStates est vide
-			expect(guestStateStore.guestStates).toHaveLength(0);
+			// guestStates est vide (miroir liveQuery de localMeta — propagation async)
+			await vi.waitFor(() => {
+				expect(guestStateStore.guestStates).toHaveLength(0);
+			});
 
 			// L'identité pour ce planning est celle du user auth (via pb.authStore)
 			const result = resolveCurrentIdentity({
@@ -425,6 +457,75 @@ describe('userStore — identity, auth transitions, logout', () => {
 			});
 			expect(result.identity).not.toBeNull();
 			expect(result.identity!.id).toBe(user.id);
+
+			// Cleanup
+			pb.authStore.clear();
+			userStore.isLoggedIn = false;
+			planningStore.destroy();
+		});
+
+		it('préserve un curseur lastFetchAt coexistant après la transition guest→auth', async () => {
+			// Garde-fou du contrat de coexistence multi-écrivains sur localMeta
+			// (ADR 0009) : guestStateStore (currentUser/hasQuit) et planningStore
+			// (lastFetchAt) écrivent des champs distincts via patch partiel.
+			// Après une transition guest→auth, l'identité guest est effacée
+			// (runAuthTransition étape 5), mais un curseur lastFetchAt écrit
+			// ultérieurement (markFetched, lors d'une activation/delta-sync) doit
+			// coexister avec un guestStates sans identité guest.
+
+			// === SEED ===
+			const { master, participantToken } = await seedPlanning({ title: 'Cursor Survival' });
+			const user = await seedUser(USER_EMAIL, USER_PWD, 'Cursor User');
+			trackIds('users', user.id);
+
+			await planningStore.setActiveToken(participantToken);
+			await guestStateStore.setGuestIdentity(master.id, {
+				id: 'guest-cursor',
+				name: 'Cursor Guest',
+				email: ''
+			});
+
+			// === AUTH + TRANSITION ===
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+			userStore.isLoggedIn = true;
+
+			await authTransition.transitionToAuth();
+			await vi.waitFor(
+				async () => {
+					const dexieMaster = await db.masters.get(master.id);
+					expect(dexieMaster).toBeDefined();
+				},
+				{ timeout: 5000 }
+			);
+
+			// === VERIFICATION 1 : l'identité guest a été effacée par la transition ===
+			await vi.waitFor(() => {
+				expect(guestStateStore.getGuestIdentity(master.id)).toBeNull();
+			});
+
+			// === ACTION : écrire le curseur post-transition ===
+			// Modélise markFetched lors de la prochaine activation/delta-sync —
+			// l'étape qui, dans l'app réelle, suit immédiatement la transition.
+			await planningStore.markFetched(master.id);
+
+			// === VERIFICATION 2 : le curseur survit dans localMeta ===
+			const meta = await db.localMeta.get(master.id);
+			expect(meta).toBeDefined();
+			expect(meta!.lastFetchAt).toBeDefined();
+			// Patch partiel : l'identité guest n'est PAS restaurée par markFetched
+			expect(meta!.currentUser).toBeUndefined();
+
+			// === VERIFICATION 3 : guestStates reflète localMeta (miroir liveQuery) ===
+			// Le miroir montre l'entrée curseur SANS identité guest : pas d'identité
+			// fantôme, coexistence correcte avec le champ de planningStore.
+			await vi.waitFor(() => {
+				expect(guestStateStore.getGuestIdentity(master.id)).toBeNull();
+				const entry = guestStateStore.guestStates.find((p) => p.masterId === master.id);
+				expect(entry).toBeDefined();
+				expect(entry!.lastFetchAt).toBeDefined();
+				expect(entry!.currentUser).toBeUndefined();
+			});
 
 			// Cleanup
 			pb.authStore.clear();
@@ -544,6 +645,13 @@ describe('userStore — identity, auth transitions, logout', () => {
 
 			const dexieCommentState = await db.commentState.toArray();
 			expect(dexieCommentState).toHaveLength(0);
+
+			// guestStates (miroir liveQuery) reflète le clear de localMeta fait par
+			// userStore.#clearLocalDexie — reset automatique, sans appel explicite
+			// à une méthode de reset (clearGuestState a été supprimée).
+			await vi.waitFor(() => {
+				expect(guestStateStore.guestStates).toHaveLength(0);
+			});
 		});
 	});
 

@@ -33,10 +33,14 @@ Créer 4 modules, chacun avec une responsabilité unique :
 ### `guestStateStore` (store réactif)
 
 État guest par planning : identités locales (`currentUser`), état `hasQuit`.
-Toutes les méthodes portent le prefix `guest` (`getGuestIdentity`,
-`setGuestIdentity`, `removeGuestIdentity`, `markGuestQuit`, `getGuestQuitState`,
-`loadGuestState`, `clearGuestState`). Écrit Dexie via `db.localMeta.update`
-(partial patch) pour coexister avec `planningStore`.
+`guestStates` est un **miroir `liveQuery`** de `localMeta` (même pattern que
+`planningStore.#allMasters`) — Dexie est l'unique source of truth, les écritures
+(`setGuestIdentity`, `markGuestQuit`) ne touchent que `currentUser`/`hasQuit`
+via patch partiel (`upsertLocalMeta`). Le teardown de `localMeta` appartient à
+l'orchestrateur (`runAuthTransition` étape 5, `userStore.#clearLocalDexie`),
+jamais au store : le reset du miroir est automatique via la subscription.
+`loadGuestState()` monte la subscription et résout à la première émission
+(attendue au boot avant `userStore.init()`).
 
 ### `userStore` (store réactif — modifié)
 

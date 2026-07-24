@@ -2,43 +2,77 @@
  * GuestStateStore — état guest par planning.
  *
  * Responsabilités :
- *   - Charger/persister les identités guest (`currentUser`) et l'état `hasQuit`
- *   - Exposer les accesseurs guest-prefixed
+ *   - Exposer les accesseurs guest-prefixed (`getGuestIdentity`, `getGuestQuitState`)
+ *   - Écrire `currentUser` / `hasQuit` dans Dexie `localMeta` (patch partiel via
+ *     `upsertLocalMeta`) — jamais d'autre champ (coexistence avec planningStore,
+ *     écrivain de `lastFetchAt` — voir ADR 0009).
+ *
+ * `guestStates` est un **miroir liveQuery** de la table Dexie `localMeta` :
+ * Dexie est l'unique source of truth, le `$state` est alimenté par la subscription
+ * (même pattern que `planningStore.#allMasters`). Aucun double-write, aucun
+ * bookkeeping manuel — le reset devient automatique quand l'orchestrateur
+ * (runAuthTransition / userStore.#clearLocalDexie) vide `localMeta`.
  *
  * N'utilise pas `getIdentityForPlanning` (qui mêle auth et guest) — cette
  * fonction vit dans `identityResolution.ts` (pure).
- *
- * Écritures via `db.localMeta.update` (partial patch) pour coexister
- * avec planningStore (écrivain de `lastFetchAt`) sans écrasement croisé.
- * Fallback `put()` si le record n'existe pas encore (première visite).
  */
-import { db, upsertLocalMeta } from '$lib/pb-sync/db';
+import { db, ensureDbReady, upsertLocalMeta } from '$lib/pb-sync/db';
+import { liveQuery, type Subscription } from 'dexie';
 import type { SavedPlanning, PlanningIdentity } from '$lib/types/planning.types';
 
 class GuestStateStore {
-	/** Identités guest par planning — chargées depuis Dexie localMeta. */
+	/** Miroir réactif de `db.localMeta` — alimenté par la subscription liveQuery. */
 	guestStates = $state<SavedPlanning[]>([]);
+
+	/**
+	 * Subscription liveQuery (singleton — jamais démontée : même cycle de vie que
+	 * `planningStore.#allMasters`). Montée idempotemment par `loadGuestState`.
+	 */
+	#sub: Subscription | null = null;
 
 	// =============================================
 	// Lifecycle
 	// =============================================
 
 	/**
-	 * Charge l'état guest depuis Dexie localMeta.
-	 * À appeler au boot, AVANT userStore.init() (qui subscribe authStore.onChange).
-	 * Skip si l'utilisateur est auth (pas d'état guest à charger).
+	 * Monte la subscription liveQuery sur `db.localMeta`. Idempotente.
+	 *
+	 * Renvoie une promesse qui **résout à la première émission** du liveQuery,
+	 * pour que la séquence de boot puisse l'attendre avant de brancher
+	 * `pb.authStore.onChange` (qui peut déclencher la transition guest→auth,
+	 * laquelle a besoin du snapshot guest). Les émissions suivantes ne font
+	 * que rafraîchir `guestStates`.
+	 *
+	 * À appeler au boot, AVANT `userStore.init()`. Skip l'initialisation si la
+	 * subscription est déjà montée (renvoie une promesse résolue).
 	 */
-	async loadGuestState(): Promise<void> {
-		this.guestStates = await db.localMeta.toArray();
-	}
-
-	/**
-	 * Vide tout l'état guest (clear Dexie + in-memory).
-	 * Appelé lors de la transition guest → auth.
-	 */
-	async clearGuestState(): Promise<void> {
-		this.guestStates = [];
-		await db.localMeta.clear();
+	loadGuestState(): Promise<void> {
+		if (this.#sub) return Promise.resolve();
+		// Rejette (au lieu de pendre indéfiniment) si la DB ne s'ouvre pas ou si
+		// le liveQuery émet une erreur avant sa première valeur — sinon le boot,
+		// qui await cette promesse, resterait bloqué sans recours.
+		return new Promise<void>((resolve, reject) => {
+			let first = true;
+			ensureDbReady()
+				.then(() => {
+					this.#sub = liveQuery(() => db.localMeta.toArray()).subscribe({
+						next: (v) => {
+							this.guestStates = v;
+							if (first) {
+								first = false;
+								resolve();
+							}
+						},
+						error: (err) => {
+							if (first) {
+								first = false;
+								reject(err);
+							}
+						}
+					});
+				})
+				.catch(reject);
+		});
 	}
 
 	// =============================================
@@ -54,19 +88,11 @@ class GuestStateStore {
 
 	/**
 	 * Définit l'identité guest pour un planning.
-	 * Effet : écrit currentUser dans Dexie (partial patch via upsertLocalMeta).
+	 * Effet : écrit `currentUser` dans Dexie (partial patch via upsertLocalMeta).
+	 * La propagation vers `guestStates` est assurée par la subscription liveQuery.
 	 */
 	async setGuestIdentity(masterId: string, identity: PlanningIdentity): Promise<void> {
-		this.#upsertGuestState(masterId, { currentUser: identity });
 		await upsertLocalMeta(masterId, { currentUser: identity });
-	}
-
-	/**
-	 * Supprime l'identité locale pour un planning.
-	 */
-	async removeGuestIdentity(masterId: string): Promise<void> {
-		this.guestStates = this.guestStates.filter((p) => p.masterId !== masterId);
-		await db.localMeta.delete(masterId);
 	}
 
 	// =============================================
@@ -75,10 +101,9 @@ class GuestStateStore {
 
 	/**
 	 * Marque l'identité guest comme ayant quitté le planning.
-	 * Effet : écrit hasQuit dans Dexie (partial patch via upsertLocalMeta).
+	 * Effet : écrit `hasQuit` dans Dexie (partial patch via upsertLocalMeta).
 	 */
 	async markGuestQuit(masterId: string): Promise<void> {
-		this.#upsertGuestState(masterId, { hasQuit: true });
 		await upsertLocalMeta(masterId, { hasQuit: true });
 	}
 
@@ -87,23 +112,6 @@ class GuestStateStore {
 	 */
 	getGuestQuitState(masterId: string): boolean {
 		return this.guestStates.find((p) => p.masterId === masterId)?.hasQuit ?? false;
-	}
-
-	// =============================================
-	// Helpers privés
-	// =============================================
-
-	/**
-	 * Met à jour l'état in-memory (patch partiel). Préserve les champs existants
-	 * (currentUser, hasQuit, lastFetchAt).
-	 */
-	#upsertGuestState(masterId: string, patch: Partial<SavedPlanning>): void {
-		const idx = this.guestStates.findIndex((p) => p.masterId === masterId);
-		if (idx >= 0) {
-			this.guestStates[idx] = { ...this.guestStates[idx], ...patch };
-		} else {
-			this.guestStates.push({ masterId, ...patch } as SavedPlanning);
-		}
 	}
 }
 

@@ -65,19 +65,25 @@
 			return;
 		}
 
-		// ORDRE IMPORTANT : loadGuestState doit être appelé AVANT userStore.init()
+		// onMount ne peut pas être async (il pourrait retourner un cleanup) : on
+		// enveloppe la séquence de boot dans une IIFE async.
+		//
+		// ORDRE IMPORTANT : loadGuestState() doit être AWAIT avant userStore.init(),
 		// car userStore.init() subscribe pb.authStore.onChange qui peut déclencher
-		// authTransition.transitionToAuth() — et la transition a besoin de l'état
-		// guest pour le snapshot.
+		// authTransition.transitionToAuth() — et la transition a besoin du snapshot
+		// guest. loadGuestState() résout à la première émission du liveQuery Dexie,
+		// garantissant que guestStates est peuplé avant qu'un onChange puisse fire.
 		// Pour les auth users, on skip le chargement (pas d'état guest à charger).
-		if (!pb.authStore.isValid) {
-			guestStateStore.loadGuestState();
-		}
+		(async () => {
+			if (!pb.authStore.isValid) {
+				await guestStateStore.loadGuestState();
+			}
 
-		userStore.init();
-		mediaQuery.init();
-		pwaStore.init();
-		commentStateStore.start();
+			userStore.init();
+			mediaQuery.init();
+			pwaStore.init();
+			commentStateStore.start();
+		})().catch((err) => console.error('[boot] échec séquence boot:', err));
 	});
 
 	// Notification de mise à jour de la PWA (Service Worker en attente d'activation).
