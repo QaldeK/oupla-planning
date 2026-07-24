@@ -2,6 +2,7 @@ import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.typ
 import { getPlanningByToken } from '$lib/services/planningActions';
 import { commentStateService } from '$lib/services/commentStateService';
 import { userStore } from '$lib/stores/userStore.svelte';
+import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
 import { networkStore } from '$lib/stores/networkStore.svelte';
 import { pb } from '$lib/pocketbase/pb';
 import { createSyncCollection } from '$lib/pb-sync/collection';
@@ -381,7 +382,7 @@ class PlanningStore {
 		// Vérifier l'existence sur le serveur (une seule fois par session)
 		if (!this.#verifiedMasterIds.has(master.id)) {
 			// Passer le _token pour satisfaire la ViewRule même si user.masterId
-			// n'est pas encore peuplé (ex: juste après onAuthTransition).
+			// n'est pas encore peuplé (ex: juste après transitionToAuth).
 			const token = master.participantToken ?? master.adminToken;
 			try {
 				await pb.collection('planning_masters').getOne(master.id, {
@@ -532,10 +533,10 @@ class PlanningStore {
 
 		this.#subscribeDexieQueries(master.id);
 
-		const identity = userStore.getIdentityForPlanning(master.id);
-		if (identity) {
+		const identityId = userStore.pbUser?.id ?? guestStateStore.getGuestIdentity(master.id)?.id;
+		if (identityId) {
 			const occs = await db.occurrences.where('master').equals(master.id).toArray();
-			commentStateService.backfillCommentState(master.id, occs, identity.id);
+			commentStateService.backfillCommentState(master.id, occs, identityId);
 		}
 
 		// Realtime via pb-sync (guest uniquement)
@@ -590,7 +591,7 @@ class PlanningStore {
 	/**
 	 * Invalide le token actuellement actif afin que le prochain appel à
 	 * setActiveToken(token) repasse un cycle complet (pas d'early return).
-	 * Utilisé après onAuthTransition() pour forcer le re-chargement du planning
+	 * Utilisé après transitionToAuth() pour forcer le re-chargement du planning
 	 * courant dans le bon mode (guest → auth).
 	 */
 	invalidateActiveToken(): void {

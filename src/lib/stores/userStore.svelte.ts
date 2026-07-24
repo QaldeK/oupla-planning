@@ -16,6 +16,8 @@ import {
 } from '$lib/stores/planningStore.svelte';
 import { db, ensureDbReady } from '$lib/pb-sync/db';
 import { commentStateService } from '$lib/services/commentStateService';
+import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
+import { authTransition } from '$lib/stores/authTransition.svelte';
 import { goto } from '$app/navigation';
 
 const APP_PREFS_KEY = 'app_preferences';
@@ -47,26 +49,7 @@ class UserStore {
 	 * En mode guest, la fraîcheur vient de `lastFetchAt` per-master (Dexie localMeta).
 	 */
 	lastAuthSyncAt = $state<Date | null>(null);
-	/**
-	 * True pendant onAuthTransition() (guest → auth).
-	 * Utilisé par les $effect des pages pour éviter de déclencher des actions
-	 * (auto-add participant, ouverture de modal) pendant que Dexie est en cours
-	 * de clear + re-fetch. Sans ce guard, l'$effect de /p/[token] peut voir un
-	 * état intermédiaire (master temporairement sans userId) et déclencher un
-	 * CAS B/C intempestif → toast d'erreur / doublon potentiel.
-	 */
-	isTransitioning = $state(false);
-	/**
-	 * Snapshot de l'identité guest de session capturé pendant onAuthTransition(),
-	 * AVANT le clear de savedPlannings. Permet à /p/[token] de proposer directement
-	 * la revendication de cette identité (modal de suggestion) au lieu de deviner
-	 * par heuristique de nom.
-	 *
-	 * In-memory uniquement (non persisté) : une transition ne survit pas à un reload.
-	 * Consommé/invalidé par la page /p/[token] après résolution.
-	 */
-	pendingGuestClaim: { masterId: string; participantId: string; name: string } | null =
-		$state(null);
+	/* isTransitioning et pendingGuestClaim sont dans authTransition (module dédié) */
 
 	async init() {
 		// Open défensif de la DB locale (reset auto si migration cassée — ADR 0006).
@@ -79,16 +62,20 @@ class UserStore {
 			const wasLoggedIn = this.isLoggedIn;
 			this.isLoggedIn = pb.authStore.isValid;
 
-			// Guest → Auth : déclencher la transition
+			// Guest → Auth : déclencher la transition via authTransition (module dédié).
+			// L'état guest est chargé par +layout.svelte AVANT userStore.init().
 			if (!wasLoggedIn && this.isLoggedIn) {
 				// Fire-and-forget — onChange callback ne supporte pas async.
-				// Les erreurs internes sont catchées dans onAuthTransition(),
+				// Les erreurs internes sont catchées dans authTransition.transitionToAuth(),
 				// ce .catch() protège contre d'éventuelles rejections résiduelles.
-				this.onAuthTransition().catch((err) => console.error('onAuthTransition failed:', err));
+				authTransition.transitionToAuth().catch((err) =>
+					console.error('authTransition failed:', err)
+				);
 			}
 		});
 
-		// 1. Identités — charger depuis Dexie localMeta
+		// 1. Identités — chargées par guestStateStore.loadGuestState() dans +layout.svelte
+		//    AVANT userStore.init() pour garantir l'ordering boot.
 		this.savedPlannings = await db.localMeta.toArray();
 
 		// 2. Initialiser le liveQuery global de planningStore (sidebar/homepage)
@@ -126,7 +113,7 @@ class UserStore {
 
 	/**
 	 * Marque le succès d'une sync globale auth (UI NetworkAlert).
-	 * À appeler après tout fetch auth réussi (syncService, #subscribeAuth, onAuthTransition).
+	 * À appeler après tout fetch auth réussi (syncService, #subscribeAuth, authTransition.transitionToAuth).
 	 */
 	async markAuthSynced(): Promise<void> {
 		this.lastAuthSyncAt = new Date();
@@ -145,114 +132,8 @@ class UserStore {
 		await commentStateService.syncCommentReadState();
 	}
 
-	/**
-	 * Transition guest → auth : clear les données guest, sync les données auth.
-	 * Appelé par pb.authStore.onChange lors du changement d'état.
-	 *
-	 * Stratégie : sync minimale — seul le planning actuellement consulté
-	 * (si sur /p/[token] ou /admin/[token]) est associé au compte PocketBase.
-	 * Le cache Dexie d'un guest est jetable (terminal potentiellement partagé).
-	 */
-	async onAuthTransition() {
-		// Guard : empêche les $effect des pages de réagir à un état intermédiaire
-		// (master cleared, userId pas encore posé, etc.) pendant la transition.
-		this.isTransitioning = true;
-		try {
-			// Réactiver le liveQuery global alimentant #allMasters (sidebar + homepage).
-			planningStore.initGlobalSync();
-
-			// 1. Snapshot AVANT clear : token + master actifs
-			const activeToken = planningStore.currentToken;
-			const activeMasterId = planningStore.activeMasterId;
-			// Snapshot de l'identité guest du planning actif. Lecture directe de
-			// this.savedPlannings (et non getIdentityForPlanning) : à ce moment
-			// this.isLoggedIn est déjà true, donc getIdentityForPlanning retournerait
-			// pbUser au lieu de l'identité guest de session.
-			const guestIdentity = activeMasterId
-				? (this.savedPlannings.find((p) => p.masterId === activeMasterId)?.currentUser ?? null)
-				: null;
-
-			// Unsubscribe guest realtime
-			mastersCollection.unsubscribeAll();
-			occurrencesCollection.unsubscribeAll();
-
-			// 2. Sync PocketBase : UNIQUEMENT le planning courant (si sur /p ou /admin)
-			//    Échec non bloquant — on clear quand même Dexie (données guest orphelines sinon)
-			if (activeToken && activeMasterId) {
-				const activeMaster = await db.masters.get(activeMasterId);
-				if (activeMaster) {
-					try {
-						await pb.send('/api/sync-plannings', {
-							method: 'POST',
-							body: {
-								tokens: [
-									{
-										masterId: activeMaster.id,
-										participantToken: activeMaster.participantToken,
-										adminToken: activeMaster.adminToken
-									}
-								]
-							}
-						});
-					} catch (err) {
-						console.error('Token sync failed:', err);
-					}
-				}
-			}
-
-			// 3. Clear local (cache technique jetable)
-			await Promise.all([db.masters.clear(), db.occurrences.clear(), db.commentState.clear()]);
-			this.savedPlannings = [];
-			await db.localMeta.clear();
-
-			// Snapshot guest posé APRÈS le clear de savedPlannings, consommable par
-			// la page /p/[token] pour ouvrir le modal de suggestion.
-			if (guestIdentity) {
-				this.pendingGuestClaim = {
-					masterId: activeMasterId!,
-					participantId: guestIdentity.id,
-					name: guestIdentity.name
-				};
-			}
-
-			// 4. Fetch depuis PB (API Rules filtrent automatiquement via user.masterId)
-			//    - CAS 1 (planning actif) : user.masterId contient le master → retrouvé
-			//    - CAS 2 (homepage) : user.masterId vide → 0 master (cohérent avec UI guest)
-			try {
-				await mastersCollection.initialFetch();
-				await occurrencesCollection.initialFetch();
-				await this.markAuthSynced();
-			} catch (err) {
-				console.error('Post-login fetch failed:', err);
-			}
-
-			// 5. Subscribe realtime global + comment state
-			mastersCollection.subscribe();
-			occurrencesCollection.subscribe();
-			await commentStateService.syncCommentReadState();
-
-			// 6. Re-charger le planning courant dans le bon mode (auth)
-			//    - invalidateActiveToken() pour bypasser l'early return de setActiveToken
-			//    - setActiveToken() re-déclenche le cycle auth complet, qui va aussi
-			//      cleaner les anciennes liveQuery guest via #subscribeDexieQueries
-			//    - Le $effect du layout ne se re-déclenche pas seul (URL inchangée),
-			//      donc on doit le faire explicitement ici
-			if (activeToken) {
-				planningStore.invalidateActiveToken();
-				await planningStore.setActiveToken(activeToken);
-			}
-		} finally {
-			this.isTransitioning = false;
-		}
-	}
-
-	/**
-	 * Invalide le snapshot pendingGuestClaim. À appeler après résolution (claim,
-	 * auto-add, refus) ou si le participant cible n'est plus claimable.
-	 */
-	clearPendingGuestClaim() {
-		this.pendingGuestClaim = null;
-	}
+	/* onAuthTransition, isTransitioning, pendingGuestClaim, clearPendingGuestClaim
+	   sont dans authTransition (module dédié). */
 
 	async setOccurrenceView(view: ViewType) {
 		this.appPreferences.occurrenceView = view;
@@ -287,66 +168,9 @@ class UserStore {
 		await db.localMeta.put(merged);
 	}
 
-	// === Gestion de l'identité par planning ===
-
-	/**
-	 * Récupère l'identité pour un planning donné.
-	 * - Si user connecté → utiliser pb.authStore.record
-	 * - Si guest → retourner currentUser du savedPlanning correspondant
-	 */
-	getIdentityForPlanning(masterId: string): PlanningIdentity | null {
-		// 1. Si user connecté → utiliser pb.authStore.record
-		if (this.isLoggedIn && pb.authStore.record) {
-			return {
-				id: pb.authStore.record.id,
-				name: (pb.authStore.record['name'] as string) ?? '',
-				email: (pb.authStore.record['email'] as string) ?? ''
-			};
-		}
-
-		// 2. Si guest → retourner currentUser du savedPlanning correspondant
-		const planning = this.savedPlannings.find((p) => p.masterId === masterId);
-		return planning?.currentUser ?? null;
-	}
-
-	/**
-	 * Définit l'identité guest pour un planning.
-	 * Ne fait rien si l'utilisateur est connecté (l'identité vient de pb.authStore).
-	 */
-	async setPlanningIdentity(masterId: string, identity: PlanningIdentity) {
-		if (this.isLoggedIn) return;
-		await this.#upsertSavedPlanning(masterId, { currentUser: identity });
-	}
-
-	/**
-	 * Supprime l'identité locale pour un planning.
-	 */
-	async removeIdentity(masterId: string) {
-		this.savedPlannings = this.savedPlannings.filter((p) => p.masterId !== masterId);
-		await db.localMeta.delete(masterId);
-	}
-
-	/**
-	 * Supprime l'identité pour un planning (wrapper pour le flux "quitter").
-	 * Pour les guests : supprime l'identité locale.
-	 * Pour les users auth : ne fait rien (l'identité vient de pb.authStore).
-	 */
-	async removePlanningIdentity(masterId: string) {
-		if (this.isLoggedIn) return;
-		await this.removeIdentity(masterId);
-	}
-
-	/**
-	 * Marque l'identité guest comme ayant quitté le planning (au lieu de la
-	 * supprimer). Permet la détection du retour après quit pour ouvrir le
-	 * modal de reconnexion.
-	 *
-	 * Ne fait rien si l'utilisateur est connecté (l'identité vient de pb.authStore).
-	 */
-	async markPlanningAsQuit(masterId: string) {
-		if (this.isLoggedIn) return;
-		await this.#upsertSavedPlanning(masterId, { hasQuit: true });
-	}
+	/* Les méthodes guest (getIdentityForPlanning, setPlanningIdentity, removeIdentity,
+	   removePlanningIdentity, markPlanningAsQuit) sont dans guestStateStore.
+	   La règle ADR-0002 résolue par resolveCurrentIdentity (utils/identityResolution). */
 
 	/**
 	 * Enregistre le timestamp du dernier fetch réussi pour un master.
@@ -395,6 +219,8 @@ class UserStore {
 
 	async logout() {
 		goto('/');
+		authTransition.clearPendingGuestClaim();
+		await guestStateStore.clearGuestState();
 		this.savedPlannings = [];
 		this.lastAuthSyncAt = null;
 		await storage.removeItem(AUTH_SYNC_AT_KEY);
@@ -425,10 +251,12 @@ class UserStore {
 	 * l'absence d'identité et ouvrira IdentifyModal automatiquement.
 	 */
 	async logoutAndStayOnPlanning(token: string) {
-		// Guard isTransitioning pour éviter qu'un $effect ne réagisse à un état
-		// intermédiaire (auth cleared, planning pas encore re-activé) pendant le clear.
-		this.isTransitioning = true;
+		// Guard authTransition.isTransitioning pour éviter qu'un $effect ne réagisse
+		// à un état intermédiaire (auth cleared, planning pas encore re-activé).
+		authTransition.isTransitioning = true;
 		try {
+			authTransition.clearPendingGuestClaim();
+			await guestStateStore.clearGuestState();
 			this.savedPlannings = [];
 			pb.authStore.clear();
 			this.isLoggedIn = false;
@@ -446,7 +274,7 @@ class UserStore {
 			planningStore.invalidateActiveToken();
 			await planningStore.setActiveToken(token);
 		} finally {
-			this.isTransitioning = false;
+			authTransition.isTransitioning = false;
 		}
 	}
 
@@ -460,6 +288,7 @@ class UserStore {
 	async clearAllLocalData() {
 		const wasLoggedIn = this.isLoggedIn;
 
+		await guestStateStore.clearGuestState();
 		this.savedPlannings = [];
 		this.lastAuthSyncAt = null;
 		this.appPreferences = { theme: 'my', occurrenceView: 'compact' };

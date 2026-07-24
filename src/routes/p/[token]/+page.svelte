@@ -18,6 +18,9 @@
 	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
+	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
+	import { authTransition } from '$lib/stores/authTransition.svelte';
+	import { resolveCurrentIdentity } from '$lib/utils/identityResolution';
 	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
 	import { formatDate, formatDateShort } from '$lib/utils/date';
 	import { hasNameConflict } from '$lib/utils/participantConflict';
@@ -68,39 +71,20 @@
 	// afin d'éviter les déclenchements multiples avant que l'update Dexie ne se propage
 	const autoAddedMasterIds = new SvelteSet<string>();
 
-	// Participant lié à l'utilisateur courant sur ce planning
-	// - Auth : recherche par `userId` (le participant peut avoir un id différent de pbUser.id)
-	// - Guest : recherche par `currentIdentity.id`
-	const myParticipant = $derived.by(() => {
-		if (!master) return null;
-		if (userStore.isLoggedIn && userStore.pbUser) {
-			return (
-				master.participants.find((p) => p.userId === userStore.pbUser!.id && !p.hasQuit) ?? null
-			);
-		}
-		const identity = userStore.getIdentityForPlanning(master.id);
-		if (identity) {
-			return master.participants.find((p) => p.id === identity.id && !p.hasQuit) ?? null;
-		}
-		return null;
-	});
-
-	// Détection cross-device : un guest dont le participant possède un `userId` alors
-	// qu'il n'est pas connecté. Cela signifie que son identité a été revendiquée par
-	// un compte sur un autre terminal (ou qu'il s'est connecté ailleurs). Dans ce
-	// cas, on entre en état « locked » : responses bloquées (currentIdentity null),
-	// bandeau dédié, pas d'auto-open d'IdentifyModal.
-	const identityClaimedByAuth = $derived(!!myParticipant?.userId && !userStore.isLoggedIn);
-
-	const currentIdentity = $derived(
-		myParticipant && !identityClaimedByAuth
-			? {
-					id: myParticipant.id,
-					name: myParticipant.name,
-					email: userStore.pbUser?.email
-				}
-			: null
+	// Règle ADR-0002 consolidée : auth > guest > identité revendiquée cross-device
+	const identityResolution = $derived(
+		master
+			? resolveCurrentIdentity({
+					isLoggedIn: !!userStore.isLoggedIn,
+					pbUser: userStore.pbUser,
+					guestIdentity: guestStateStore.getGuestIdentity(master.id),
+					participants: master.participants
+				})
+			: { participant: null, identity: null, claimedByAuth: false }
 	);
+	const myParticipant = $derived(identityResolution.participant);
+	const identityClaimedByAuth = $derived(identityResolution.claimedByAuth);
+	const currentIdentity = $derived(identityResolution.identity);
 
 	// === Détection retour après quit ===
 	// Pour l'auth : participant avec userId + hasQuit
@@ -112,9 +96,9 @@
 				master.participants.find((p) => p.userId === userStore.pbUser!.id && p.hasQuit)?.id ?? null
 			);
 		}
-		const sp = userStore.savedPlannings.find((p) => p.masterId === master.id);
-		if (sp?.hasQuit && sp?.currentUser) {
-			return master.participants.find((p) => p.id === sp.currentUser!.id && p.hasQuit)?.id ?? null;
+		const guestIdentity = guestStateStore.getGuestIdentity(master.id);
+		if (guestStateStore.getGuestQuitState(master.id) && guestIdentity) {
+			return master.participants.find((p) => p.id === guestIdentity.id && p.hasQuit)?.id ?? null;
 		}
 		return null;
 	});
@@ -144,7 +128,7 @@
 		// Guard : ne rien faire pendant la transition guest → auth.
 		// Sans ça, l'$effect verrait un état intermédiaire (master cleared,
 		// userId pas encore posé) et déclencherait un CAS B/C intempestif.
-		if (userStore.isTransitioning) return;
+		if (authTransition.isTransitioning) return;
 
 		// === PRIORITÉ : retour après quit ===
 		// L'utilisateur a déjà quitté ce planning. On ouvre un modal de
@@ -162,7 +146,7 @@
 			// CAS A : déjà participant via userId → sync silencieuse (sans renommer, préserve l'indépendance nom-par-planning)
 			// Défensif : un user déjà lié ne doit jamais voir de suggestion de claim.
 			if (myParticipant) {
-				userStore.clearPendingGuestClaim();
+				authTransition.clearPendingGuestClaim();
 				ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type).catch((err) =>
 					console.error('ensurePlanningParticipant failed:', err)
 				);
@@ -171,8 +155,8 @@
 
 			// Suggestion : transition guest → auth sur ce planning → proposer le claim du
 			// participant guest de session avant tout auto-add. Prioritaire sur CAS B/C.
-			if (userStore.pendingGuestClaim?.masterId === master.id && !showClaimModal) {
-				const claim = userStore.pendingGuestClaim;
+			if (authTransition.pendingGuestClaim?.masterId === master.id && !showClaimModal) {
+				const claim = authTransition.pendingGuestClaim;
 				const target = master.participants.find(
 					(p) => p.id === claim.participantId && !p.userId && !p.hasQuit
 				);
@@ -182,7 +166,7 @@
 					return;
 				}
 				// Participant cible invalide (claimé ailleurs, quitté, supprimé) → expirer le snapshot
-				userStore.clearPendingGuestClaim();
+				authTransition.clearPendingGuestClaim();
 			}
 			if (showClaimModal) return; // modal ouvert → ne pas déclencher CAS B/C
 
@@ -219,7 +203,7 @@
 		}
 
 		// === Guest ===
-		if (!userStore.getIdentityForPlanning(master.id)) {
+		if (!guestStateStore.getGuestIdentity(master.id)) {
 			openIdentifyModal();
 		}
 	});
@@ -257,7 +241,7 @@
 				}
 			}
 
-			await userStore.setPlanningIdentity(master.id, identity);
+			await guestStateStore.setGuestIdentity(master.id, identity);
 
 			userStore.authModal = { ...userStore.authModal, open: false };
 		} catch (error) {
@@ -268,12 +252,13 @@
 
 	/** Callback invoqué par IdentityClaimModal après un changement d'identité réussi */
 	function handleIdentityChanged(identity: PlanningIdentity) {
-		// setPlanningIdentity est no-op pour les auth, mais on l'appelle pour les guests
-		userStore
-			.setPlanningIdentity(master!.id, identity)
-			.catch((err) => console.error('setPlanningIdentity failed:', err));
+		// setGuestIdentity est no-op pour les auth (guard dans guestStateStore),
+		// mais on l'appelle pour les guests.
+		guestStateStore
+			.setGuestIdentity(master!.id, identity)
+			.catch((err) => console.error('setGuestIdentity failed:', err));
 		// Le snapshot de transition est consommé (claim ou ajout effectué).
-		userStore.clearPendingGuestClaim();
+		authTransition.clearPendingGuestClaim();
 		// Le refresh des données vient automatiquement via realtime (pb-sync → Dexie → liveQuery)
 		showClaimModal = false;
 	}
@@ -307,7 +292,7 @@
 	 * sinon on laisse l'user résoudre sur l'étape principale (conflit visible). */
 	function handleDeclineSuggestion() {
 		if (!master || !userStore.pbUser) return;
-		userStore.clearPendingGuestClaim();
+		authTransition.clearPendingGuestClaim();
 		const pbUser = userStore.pbUser;
 		// Même garde que CAS C : pas d'auto-add si un autre participant actif porte ce nom.
 		const conflict = hasNameConflict(master.participants, pbUser.name, pbUser.id);
@@ -349,7 +334,7 @@
 		if (!master || !currentIdentity) return;
 		try {
 			await quitPlanning(master.id, currentIdentity.id, token);
-			await userStore.markPlanningAsQuit(master.id);
+			await guestStateStore.markGuestQuit(master.id);
 			toast.success('Vous avez quitté le planning');
 			showQuitModal = false;
 			goto('/');

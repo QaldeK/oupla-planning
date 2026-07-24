@@ -13,6 +13,8 @@
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { pwaStore } from '$lib/stores/pwaStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
+	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
+	import { pb } from '$lib/pocketbase/pb';
 	import { recoverAllData } from '$lib/utils/recover';
 	import { Drawer, DrawerContent, DrawerOverlay } from '@abhivarde/svelte-drawer';
 	import {
@@ -63,6 +65,15 @@
 				console.error('[layout] recoverAllData failed:', err)
 			);
 			return;
+		}
+
+		// ORDRE IMPORTANT : loadGuestState doit être appelé AVANT userStore.init()
+		// car userStore.init() subscribe pb.authStore.onChange qui peut déclencher
+		// authTransition.transitionToAuth() — et la transition a besoin de l'état
+		// guest pour le snapshot.
+		// Pour les auth users, on skip le chargement (pas d'état guest à charger).
+		if (!pb.authStore.isValid) {
+			guestStateStore.loadGuestState();
 		}
 
 		userStore.init();

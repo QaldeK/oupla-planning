@@ -43,6 +43,7 @@ import {
 	occurrencesCollection
 } from '$lib/stores/planningStore.svelte';
 import { userStore } from '$lib/stores/userStore.svelte';
+import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
 import type { PlanningOccurrence } from '$lib/types/planning.types';
 
 describe('initialFetch — paramètre since explicite', () => {
@@ -223,10 +224,11 @@ describe('planningStore — delta sync per-master (bug original)', () => {
 		expect(meta!.lastFetchAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
 	});
 
-	it('préserve lastFetchAt après setPlanningIdentity (régression I1)', async () => {
+	it('préserve lastFetchAt après setGuestIdentity (régression I1)', async () => {
 		// Régression : avant le fix, #markFetched écrivait dans Dexie sans synchroniser
 		// userStore.savedPlannings. Quand le guest s'identifiait ensuite,
 		// setPlanningIdentity faisait bulkPut(savedPlannings) qui écrasait lastFetchAt.
+		// setGuestIdentity écrit seulement localMeta.currentUser, pas lastFetchAt.
 		const { master, participantToken } = await seedPlanning({
 			title: 'P régression I1',
 			occurrenceCount: 2
@@ -241,12 +243,12 @@ describe('planningStore — delta sync per-master (bug original)', () => {
 		const tsAvant = metaAvant!.lastFetchAt!;
 
 		// === ÉTAPE 2 : guest s'identifie (flux guest first-visit) ===
-		await userStore.setPlanningIdentity(master.id, {
+		await guestStateStore.setGuestIdentity(master.id, {
 			id: 'guest-1',
 			name: 'Alice'
 		});
 
-		// === VÉRIFICATION : lastFetchAt PRÉSERVÉ (pas écrasé par bulkPut) ===
+		// === VÉRIFICATION : lastFetchAt PRÉSERVÉ (pas écrasé) ===
 		const metaApres = await db.localMeta.get(master.id);
 		expect(metaApres).toBeDefined();
 		expect(metaApres!.lastFetchAt).toBe(tsAvant);

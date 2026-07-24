@@ -1,14 +1,15 @@
 /**
- * Tests d'integration — userStore : identity, auth transitions, logout
+ * Tests d'integration — userStore, guestStateStore, authTransition : identity, auth, logout
  *
  * Objectif :
  *   Verifier le pipeline de gestion des identites guest et des transitions auth :
- *     userStore.setPlanningIdentity() -> Dexie localMeta -> getIdentityForPlanning()
- *     userStore.onAuthTransition() -> /api/sync-plannings -> PB + Dexie
+ *     guestStateStore.setGuestIdentity() -> Dexie localMeta -> getGuestIdentity()
+ *     authTransition.transitionToAuth() -> /api/sync-plannings -> PB + Dexie
+ *     resolveCurrentIdentity() -> pbUser ?? guestIdentity
  *     userStore.logout() -> clear Dexie + authStore + planningStore
  *
  * Pipeline teste :
- *   1. Identity management : setPlanningIdentity -> Dexie localMeta -> getIdentityForPlanning
+ *   1. Identity management : guestStateStore -> Dexie localMeta -> resolveCurrentIdentity
  *   2. Auth transition : guest -> /api/sync-plannings -> PB masterId update -> Dexie masters
  *   3. Logout : action -> clear Dexie + authStore + planningStore
  *
@@ -34,6 +35,9 @@ import {
 } from './seed';
 import { db } from '$lib/pb-sync/db';
 import { userStore } from '$lib/stores/userStore.svelte';
+import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
+import { authTransition } from '$lib/stores/authTransition.svelte';
+import { resolveCurrentIdentity } from '$lib/utils/identityResolution';
 import {
 	planningStore,
 	mastersCollection,
@@ -55,6 +59,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 
 		planningStore.destroy();
 		userStore.savedPlannings = [];
+		guestStateStore.guestStates = [];
 		userStore.appPreferences = { theme: 'my', occurrenceView: 'compact' };
 		pb.authStore.clear();
 		userStore.isLoggedIn = false;
@@ -84,10 +89,10 @@ describe('userStore — identity, auth transitions, logout', () => {
 				name: 'Alice',
 				email: 'alice@test.com'
 			};
-			await userStore.setPlanningIdentity(master.id, identity);
+			await guestStateStore.setGuestIdentity(master.id, identity);
 
 			// === VERIFICATION STORE ===
-			const retrieved = userStore.getIdentityForPlanning(master.id);
+			const retrieved = guestStateStore.getGuestIdentity(master.id);
 			expect(retrieved).toEqual(identity);
 
 			// === VERIFICATION DEXIE localMeta ===
@@ -104,7 +109,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 			});
 
 			// === VERIFICATION ===
-			expect(userStore.getIdentityForPlanning(master.id)).toBeNull();
+			expect(guestStateStore.getGuestIdentity(master.id)).toBeNull();
 		});
 
 		it('retourne l identite du user auth quand isLoggedIn', async () => {
@@ -121,23 +126,28 @@ describe('userStore — identity, auth transitions, logout', () => {
 			userStore.isLoggedIn = true;
 
 			// === ACTION + VERIFICATION ===
-			const identity = userStore.getIdentityForPlanning(master.id);
-			expect(identity).not.toBeNull();
-			expect(identity!.id).toBe(user.id);
-			expect(identity!.name).toBe('Auth User');
+			const result = resolveCurrentIdentity({
+				isLoggedIn: true,
+				pbUser: userStore.pbUser,
+				guestIdentity: guestStateStore.getGuestIdentity(master.id),
+				participants: []
+			});
+			expect(result.identity).not.toBeNull();
+			expect(result.identity!.id).toBe(user.id);
+			expect(result.identity!.name).toBe('Auth User');
 
 			// Cleanup
 			pb.authStore.clear();
 			userStore.isLoggedIn = false;
 		});
 
-		it('priorise pb.authStore sur savedPlanning.currentUser', async () => {
+		it('priorise pb.authStore sur l identite guest stockee', async () => {
 			// === SEED ===
 			const { master } = await seedPlanning({ title: 'Priority Test' });
 
 			// Pre-registrer une identite guest dans localMeta
 			const guestIdentity: PlanningIdentity = { id: 'guest1', name: 'Guest', email: '' };
-			await userStore.setPlanningIdentity(master.id, guestIdentity);
+			await guestStateStore.setGuestIdentity(master.id, guestIdentity);
 
 			// Puis simuler un login
 			const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth User', {
@@ -150,9 +160,14 @@ describe('userStore — identity, auth transitions, logout', () => {
 			userStore.isLoggedIn = true;
 
 			// === VERIFICATION : auth identity doit primer ===
-			const identity = userStore.getIdentityForPlanning(master.id);
-			expect(identity!.id).toBe(user.id);
-			expect(identity!.name).toBe('Auth User');
+			const result = resolveCurrentIdentity({
+				isLoggedIn: true,
+				pbUser: userStore.pbUser,
+				guestIdentity: guestStateStore.getGuestIdentity(master.id),
+				participants: []
+			});
+			expect(result.identity!.id).toBe(user.id);
+			expect(result.identity!.name).toBe('Auth User');
 
 			// Cleanup
 			pb.authStore.clear();
@@ -168,7 +183,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 				name: 'Alice',
 				email: 'alice@test.com'
 			};
-			await userStore.setPlanningIdentity(master.id, identity1);
+			await guestStateStore.setGuestIdentity(master.id, identity1);
 
 			// === ACTION : mise a jour de l identite ===
 			const identity2: PlanningIdentity = {
@@ -176,11 +191,11 @@ describe('userStore — identity, auth transitions, logout', () => {
 				name: 'Alice Updated',
 				email: 'alice@test.com'
 			};
-			await userStore.setPlanningIdentity(master.id, identity2);
+			await guestStateStore.setGuestIdentity(master.id, identity2);
 
 			// === VERIFICATION ===
-			expect(userStore.savedPlannings).toHaveLength(1);
-			const retrieved = userStore.getIdentityForPlanning(master.id);
+			expect(guestStateStore.guestStates).toHaveLength(1);
+			const retrieved = guestStateStore.getGuestIdentity(master.id);
 			expect(retrieved!.name).toBe('Alice Updated');
 
 			// Dexie coherent
@@ -188,25 +203,25 @@ describe('userStore — identity, auth transitions, logout', () => {
 			expect(dexieEntry!.currentUser!.name).toBe('Alice Updated');
 		});
 
-		it('removeIdentity supprime l identite du store et de Dexie', async () => {
+		it('removeGuestIdentity supprime l identite du store et de Dexie', async () => {
 			// === SEED ===
 			const { master } = await seedPlanning({ title: 'Remove Identity' });
 
 			const identity: PlanningIdentity = { id: 'guest1', name: 'Bob', email: '' };
-			await userStore.setPlanningIdentity(master.id, identity);
+			await guestStateStore.setGuestIdentity(master.id, identity);
 
 			// === ACTION ===
-			await userStore.removeIdentity(master.id);
+			await guestStateStore.removeGuestIdentity(master.id);
 
 			// === VERIFICATION ===
-			expect(userStore.savedPlannings).toHaveLength(0);
-			expect(userStore.getIdentityForPlanning(master.id)).toBeNull();
+			expect(guestStateStore.guestStates).toHaveLength(0);
+			expect(guestStateStore.getGuestIdentity(master.id)).toBeNull();
 
 			const dexieEntry = await db.localMeta.get(master.id);
 			expect(dexieEntry).toBeUndefined();
 		});
 
-		it('setPlanningIdentity ne fait rien si l utilisateur est connecte', async () => {
+		it('setGuestIdentity stocke mais resolveCurrentIdentity priorise l auth', async () => {
 			// === SEED ===
 			const { master } = await seedPlanning({ title: 'Auth Skip' });
 
@@ -217,18 +232,22 @@ describe('userStore — identity, auth transitions, logout', () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 			userStore.isLoggedIn = true;
 
-			// === ACTION : setPlanningIdentity ne doit rien faire ===
+			// === ACTION : setGuestIdentity stocke toujours (plus de garde auth) ===
 			const guestIdentity: PlanningIdentity = { id: 'guest1', name: 'Guest', email: '' };
-			await userStore.setPlanningIdentity(master.id, guestIdentity);
+			await guestStateStore.setGuestIdentity(master.id, guestIdentity);
 
-			// === VERIFICATION : pas d'entree dans savedPlannings ===
-			expect(userStore.savedPlannings).toHaveLength(0);
+			// === VERIFICATION : l identite guest est bien stockee ===
+			expect(guestStateStore.guestStates).toHaveLength(1);
 
-			// L'identite retournee est celle de l'auth (getIdentityForPlanning
-			// retourne toujours le user auth quand isLoggedIn, quel que soit le masterId)
-			const identity = userStore.getIdentityForPlanning(master.id);
-			expect(identity).not.toBeNull();
-			expect(identity!.id).toBe(user.id);
+			// Mais resolveCurrentIdentity retourne toujours le user auth
+			const result = resolveCurrentIdentity({
+				isLoggedIn: true,
+				pbUser: userStore.pbUser,
+				guestIdentity: guestStateStore.getGuestIdentity(master.id),
+				participants: []
+			});
+			expect(result.identity).not.toBeNull();
+			expect(result.identity!.id).toBe(user.id);
 
 			// Cleanup
 			pb.authStore.clear();
@@ -267,7 +286,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 			userStore.isLoggedIn = true;
 
 			// === ACTION ===
-			await userStore.onAuthTransition();
+			await authTransition.transitionToAuth();
 
 			// Attendre que la sync complète : Dexie clearé puis re-rempli via initialFetch
 			await vi.waitFor(
@@ -330,7 +349,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 			userStore.isLoggedIn = true;
 
 			// === ACTION ===
-			await userStore.onAuthTransition();
+			await authTransition.transitionToAuth();
 
 			// === VERIFICATION POCKETBASE ===
 			// user.masterId doit rester VIDE — aucun token n'a été sync
@@ -369,7 +388,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 			await planningStore.setActiveToken(participantToken);
 
 			// Identité guest dans localMeta
-			await userStore.setPlanningIdentity(master.id, {
+			await guestStateStore.setGuestIdentity(master.id, {
 				id: 'guest1',
 				name: 'Guest',
 				email: ''
@@ -381,7 +400,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 			userStore.isLoggedIn = true;
 
 			// === ACTION ===
-			await userStore.onAuthTransition();
+			await authTransition.transitionToAuth();
 
 			await vi.waitFor(
 				async () => {
@@ -395,13 +414,18 @@ describe('userStore — identity, auth transitions, logout', () => {
 			const localMetaEntries = await db.localMeta.toArray();
 			expect(localMetaEntries).toHaveLength(0);
 
-			// savedPlannings est vide
-			expect(userStore.savedPlannings).toHaveLength(0);
+			// guestStates est vide
+			expect(guestStateStore.guestStates).toHaveLength(0);
 
 			// L'identité pour ce planning est celle du user auth (via pb.authStore)
-			const identity = userStore.getIdentityForPlanning(master.id);
-			expect(identity).not.toBeNull();
-			expect(identity!.id).toBe(user.id);
+			const result = resolveCurrentIdentity({
+				isLoggedIn: true,
+				pbUser: userStore.pbUser,
+				guestIdentity: guestStateStore.getGuestIdentity(master.id),
+				participants: []
+			});
+			expect(result.identity).not.toBeNull();
+			expect(result.identity!.id).toBe(user.id);
 
 			// Cleanup
 			pb.authStore.clear();
@@ -443,7 +467,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 			userStore.isLoggedIn = true;
 
 			// === ACTION ===
-			await userStore.onAuthTransition();
+			await authTransition.transitionToAuth();
 
 			// === VERIFICATION DEXIE ===
 			// Masters chargés en Dexie via initialFetch (API Rule filtre par user.masterId).
@@ -491,7 +515,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 			const { master } = await seedPlanning({ title: 'Logout Test' });
 
 			// Identite dans localMeta
-			await userStore.setPlanningIdentity(master.id, {
+			await guestStateStore.setGuestIdentity(master.id, {
 				id: 'guest1',
 				name: 'Guest',
 				email: ''

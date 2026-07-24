@@ -16,6 +16,8 @@
 	} from '$lib/services/lockService';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { userStore } from '$lib/stores/userStore.svelte';
+	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
+	import { authTransition } from '$lib/stores/authTransition.svelte';
 	import { networkStore } from '$lib/stores/networkStore.svelte';
 	import { pb } from '$lib/pocketbase/pb';
 	import { fade } from 'svelte/transition';
@@ -145,8 +147,12 @@
 
 		const adminToken = token;
 		// Identité lue ponctuellement : on ne veut pas redémarrer le cycle lock
-		// quand savedPlannings évolue (markFetched, etc.) pendant l'édition.
-		const identity = untrack(() => userStore.getIdentityForPlanning(masterId));
+		// quand l'état guest évolue (markFetched, etc.) pendant l'édition.
+		const identity = untrack(() => {
+			if (userStore.pbUser) return { id: userStore.pbUser.id, name: userStore.pbUser.name };
+			const guest = guestStateStore.getGuestIdentity(masterId);
+			return guest ? { id: guest.id, name: guest.name } : null;
+		});
 		if (!identity) return;
 		const userId = identity.id;
 
@@ -215,9 +221,9 @@
 				master.participants.find((p) => p.userId === userStore.pbUser!.id && p.hasQuit)?.id ?? null
 			);
 		}
-		const sp = userStore.savedPlannings.find((p) => p.masterId === master.id);
-		if (sp?.hasQuit && sp?.currentUser) {
-			return master.participants.find((p) => p.id === sp.currentUser!.id && p.hasQuit)?.id ?? null;
+		const guestIdentity = guestStateStore.getGuestIdentity(master.id);
+		if (guestStateStore.getGuestQuitState(master.id) && guestIdentity) {
+			return master.participants.find((p) => p.id === guestIdentity.id && p.hasQuit)?.id ?? null;
 		}
 		return null;
 	});
@@ -230,7 +236,7 @@
 		// Guard : ne rien faire pendant la transition guest → auth, au même
 		// titre que sur /p/[token]. Sans ça, l'$effect verrait un état
 		// intermédiaire (master cleared, participant pas encore posé).
-		if (userStore.isTransitioning) return;
+		if (authTransition.isTransitioning) return;
 
 		// PRIORITÉ : retour après quit
 		if (hasQuitThisPlanning) {
@@ -244,7 +250,8 @@
 		if (
 			userStore.isReady &&
 			!userStore.isLoggedIn &&
-			!userStore.getIdentityForPlanning(master.id)
+			!userStore.pbUser &&
+			!guestStateStore.getGuestIdentity(master.id)
 		) {
 			goto(`/p/${token}`);
 			return;
@@ -279,9 +286,9 @@
 
 			// Le save libère le lock : release explicite avant la navigation
 			// (l'$effect teardown relancera aussi releaseLock, idempotent côté serveur).
-			const identity = userStore.getIdentityForPlanning(master.id);
-			if (identity) {
-				await releaseLock(master.id, token, identity.id);
+			const identityId = userStore.pbUser?.id ?? guestStateStore.getGuestIdentity(master.id)?.id;
+			if (identityId) {
+				await releaseLock(master.id, token, identityId);
 			}
 
 			// Rediriger vers la vue participant après sauvegarde réussie

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/userStore.svelte';
+	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { page } from '$app/state';
 	import { Calendar, ArrowLeft, History, Info, Trash2 } from '@lucide/svelte';
@@ -16,7 +17,9 @@
 	const today = $derived(new Date().toISOString().split('T')[0]);
 	const occurrences = $derived(allOccurrences.filter((o) => o.date < today));
 	const currentUserId = $derived(
-		master ? userStore.getIdentityForPlanning(master.id)?.id : undefined
+		master
+			? (userStore.pbUser?.id ?? guestStateStore.getGuestIdentity(master.id)?.id)
+			: undefined
 	);
 
 	// Nom du participant pour l'affichage (depuis le store local)

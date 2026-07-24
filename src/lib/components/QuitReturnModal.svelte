@@ -2,6 +2,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { updateParticipant } from '$lib/services/planningActions';
 	import { userStore } from '$lib/stores/userStore.svelte';
+	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
 	import { goto } from '$app/navigation';
 	import { LogIn } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
@@ -43,7 +44,7 @@
 			// Guest : réinitialiser l'identité locale
 			const participant = master.participants.find((p) => p.id === quitParticipantId);
 			if (participant && !userStore.isLoggedIn) {
-				await userStore.setPlanningIdentity(master.id, {
+				await guestStateStore.setGuestIdentity(master.id, {
 					id: participant.id,
 					name: participant.name
 				});
