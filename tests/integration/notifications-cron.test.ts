@@ -23,7 +23,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import PocketBase from 'pocketbase';
 import {
 	authenticateAdmin,
-	seedPlanning,
 	dateInDays,
 	clearTrackedIds,
 	cleanupTrackedRecords,
@@ -32,7 +31,6 @@ import {
 import type { PlanningMaster, PlanningOccurrence, Participant } from '$lib/types/planning.types';
 import type { NotificationEventsResponse } from '$lib/types/pocketbase-types';
 
-const PB_URL = process.env.VITE_PLANNING_PB_URL || 'http://127.0.0.1:8090';
 const PARTICIPANT_ID = 'p-test-participant-0001';
 
 /**
@@ -123,7 +121,7 @@ async function seedCronScenario(
 	trackIds('planning_masters', master.id);
 
 	// 3. Occurrence avec responses mappées sur participantId
-	const occResponses = (options.responses || []).map((r, i) => ({
+	const occResponses = (options.responses || []).map((r) => ({
 		participantId: PARTICIPANT_ID,
 		response: r.response,
 		tasks: r.tasks || [],

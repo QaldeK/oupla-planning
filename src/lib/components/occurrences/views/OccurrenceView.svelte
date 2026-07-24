@@ -18,8 +18,6 @@
 		Clock,
 		MapPin,
 		MessageSquare,
-		MessageSquareText,
-		MessageSquareTextIcon,
 		MessageSquareWarning,
 		Pencil,
 		XCircle

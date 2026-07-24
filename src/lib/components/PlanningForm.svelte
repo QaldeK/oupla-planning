@@ -1569,7 +1569,9 @@
 					{/if}
 
 					{#if manualDates.length > 0}
-						{@const futureActiveDateSlotCount = views.activeDateSlots.filter((ds) => ds.date >= todayStr).length}
+						{@const futureActiveDateSlotCount = views.activeDateSlots.filter(
+							(ds) => ds.date >= todayStr
+						).length}
 						{#if futureActiveDateSlotCount > 100}
 							<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
 								<span>

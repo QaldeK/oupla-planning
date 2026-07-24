@@ -5,14 +5,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { computeDateSlotSelection, seedFromOccurrences } from '$lib/utils/dateSlotSelection';
-import type {
-	DateSlotSelectionInput,
-	DateSlotSelectionState
-} from '$lib/utils/dateSlotSelection';
-import type {
-	OccurrenceTarget,
-	TimeSlot
-} from '$lib/types/planning.types';
+import type { DateSlotSelectionInput, DateSlotSelectionState } from '$lib/utils/dateSlotSelection';
+import type { TimeSlot } from '$lib/types/planning.types';
 
 const SLOT: TimeSlot = { id: 's1', startTime: '14:00', endTime: '18:00' };
 const SLOT2: TimeSlot = { id: 's2', startTime: '18:00', endTime: '22:00' };
@@ -140,8 +134,13 @@ describe('computeDateSlotSelection', () => {
 	});
 
 	it('maxManualDatesForLimit : ⌊100/nbSlots⌋', () => {
-		expect(computeDateSlotSelection(makeInput({ timeSlots: [SLOT] }), makeState()).maxManualDatesForLimit).toBe(100);
-		expect(computeDateSlotSelection(makeInput({ timeSlots: [SLOT, SLOT2] }), makeState()).maxManualDatesForLimit).toBe(50);
+		expect(
+			computeDateSlotSelection(makeInput({ timeSlots: [SLOT] }), makeState()).maxManualDatesForLimit
+		).toBe(100);
+		expect(
+			computeDateSlotSelection(makeInput({ timeSlots: [SLOT, SLOT2] }), makeState())
+				.maxManualDatesForLimit
+		).toBe(50);
 		expect(
 			computeDateSlotSelection(
 				makeInput({ timeSlots: [SLOT, SLOT2, { id: 's3', startTime: '08:00', endTime: '12:00' }] }),
@@ -151,7 +150,9 @@ describe('computeDateSlotSelection', () => {
 	});
 
 	it('maxManualDatesForLimit : 0 slots → 100 (fallback)', () => {
-		expect(computeDateSlotSelection(makeInput({ timeSlots: [] }), makeState()).maxManualDatesForLimit).toBe(100);
+		expect(
+			computeDateSlotSelection(makeInput({ timeSlots: [] }), makeState()).maxManualDatesForLimit
+		).toBe(100);
 	});
 
 	it('CUSTOM : toutes les dates sont manuelles', () => {
@@ -246,7 +247,16 @@ describe('computeDateSlotSelection', () => {
 describe('seedFromOccurrences', () => {
 	it('occurrence deleted → disabledKeys', () => {
 		const result = seedFromOccurrences(
-			[{ id: 'occ-1', date: '2026-01-07', slotId: 's1', startTime: '14:00', endTime: '18:00', deleted: true }],
+			[
+				{
+					id: 'occ-1',
+					date: '2026-01-07',
+					slotId: 's1',
+					startTime: '14:00',
+					endTime: '18:00',
+					deleted: true
+				}
+			],
 			new Set(['2026-01-07', '2026-01-14'])
 		);
 		expect(result.disabledKeys.has('2026-01-07|s1')).toBe(true);
@@ -286,7 +296,14 @@ describe('seedFromOccurrences', () => {
 	it('mix deleted + active + hors-cycle', () => {
 		const result = seedFromOccurrences(
 			[
-				{ id: 'occ-1', date: '2026-01-07', slotId: 's1', startTime: '14:00', endTime: '18:00', deleted: true },
+				{
+					id: 'occ-1',
+					date: '2026-01-07',
+					slotId: 's1',
+					startTime: '14:00',
+					endTime: '18:00',
+					deleted: true
+				},
 				{ id: 'occ-2', date: '2026-01-14', slotId: 's1', startTime: '14:00', endTime: '18:00' },
 				{ id: 'occ-3', date: '2026-01-08', slotId: 's1', startTime: '14:00', endTime: '18:00' }
 			],
@@ -306,7 +323,15 @@ describe('seedFromOccurrences', () => {
 
 	it('normalise les dates (split espace + T)', () => {
 		const result = seedFromOccurrences(
-			[{ id: 'occ-1', date: '2026-01-07 14:00', slotId: 's1', startTime: '14:00', endTime: '18:00' }],
+			[
+				{
+					id: 'occ-1',
+					date: '2026-01-07 14:00',
+					slotId: 's1',
+					startTime: '14:00',
+					endTime: '18:00'
+				}
+			],
 			new Set(['2026-01-07'])
 		);
 		const seeded = result.seeded.get('2026-01-07|s1');

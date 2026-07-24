@@ -8,7 +8,12 @@
  */
 import { generateRecurrenceDates } from './recurrence';
 import { formatSlotKey } from './slots';
-import type { DateSlot, OccurrenceTarget, RecurrenceType, TimeSlot } from '$lib/types/planning.types';
+import type {
+	DateSlot,
+	OccurrenceTarget,
+	RecurrenceType,
+	TimeSlot
+} from '$lib/types/planning.types';
 
 // =============================================
 // Types d'entrée / sortie

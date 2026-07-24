@@ -12,7 +12,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, within } from '@testing-library/svelte';
-import userEvent, { type UserEvent } from '@testing-library/user-event';
+import { type UserEvent } from '@testing-library/user-event';
 import { format, addDays } from 'date-fns';
 import { renderForm } from './_helpers/planningForm.js';
 
