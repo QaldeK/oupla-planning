@@ -28,13 +28,19 @@ vite.config.ts.timestamp-*
 # agent and conf
 .ignore
 agent/
-docs/
+# docs/
+docs/agents/
 .claude
 .agent
 CLAUDE.md
 .mcp.json
 .vscode
 .zed
+AGENTS.md
+.agents/
+opencode.json
+# CONTEXT.md
+.scratch/
 
 # pocketbase
 **/pb_data
@@ -54,8 +60,3 @@ src-tauri/gen/schemas
 
 # Git Worktrees
 .worktrees/
-AGENTS.md
-.agents/
-opencode.json
-CONTEXT.md
-.scratch/
