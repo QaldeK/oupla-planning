@@ -14,6 +14,18 @@ _Avoid_: event, meeting, rendez-vous, sondage
 Une instance individuelle d'un planning, à une date précise. Chaque occurrence reçoit les réponses et commentaires des participants.
 _Avoid_: instance, session, slot, événement
 
+**Message** (UI) / Comment (code) :
+Un texte posté sur le fil de discussion d'une occurrence. Affiché en UI comme « message », stocké en base comme `OccurrenceComment` dans le champ JSON `planning_occurrences.comments`. Les identifiants de code (type d'event `new_comment`, pref `newCommentScope`) suivent le nom interne `comment`, les libellés utilisateur (push, email, UI) suivent « message ».
+_Avoid_: commentaire (UI), message (code), post, reply
+
+**Scope des messages** (`newCommentScope`) :
+Préférence participant qui fixe le périmètre des notifications de nouveaux messages sur un planning. Trois valeurs exclusives : `off` (aucune notif), `concerned` (uniquement les occurrences où le participant est concerné), `all` (toutes les occurrences du planning).
+_Avoid_: filtre message, niveau message, option message
+
+**Concerné** (participant, pour une occurrence) :
+Un participant est dit « concerné » par une occurrence s'il a répondu quelque chose d'autre que `absent` (`present`, `if_needed`, `maybe`) **ou** s'il est inscrit à au moins une tâche. Ce filtre est déjà utilisé pour les events `reminder` sous le nom `present-or-task`. Couvre explicitement le cas « planning avec tâches mais sans réponse ». Un participant sans réponse et sans tâche n'est jamais concerné.
+_Avoid_: impliqué, participant actif, inscrit
+
 **Récurrence** :
 Le motif de répétition d'un planning — les valeurs possibles sont `WEEKLY`, `BIWEEKLY`, `MONTHLY_BY_DATE`, `MONTHLY_BY_DAY`.
 _Avoid_: répétition, fréquence, pattern

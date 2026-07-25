@@ -85,7 +85,8 @@ function mkPlanningParticipant({
 	onOccurrenceChange = false,
 	onConfirmationNeeded = false,
 	reminderDays = [],
-	missingDays = []
+	missingDays = [],
+	newCommentScope
 }: {
 	userId: string;
 	email?: boolean;
@@ -94,6 +95,7 @@ function mkPlanningParticipant({
 	onConfirmationNeeded?: boolean;
 	reminderDays?: Array<string | number>;
 	missingDays?: Array<string | number>;
+	newCommentScope?: string;
 }): any {
 	return mkRecord({
 		user: userId,
@@ -102,7 +104,8 @@ function mkPlanningParticipant({
 		onOccurrenceChange,
 		onConfirmationNeeded,
 		reminderDays,
-		missingDays
+		missingDays,
+		newCommentScope
 	});
 }
 
@@ -548,6 +551,138 @@ describe('Multi-destinataires', () => {
 			expect(got).toEqual(normalize(c.expected));
 		});
 	}
+});
+
+describe('new_comment (newCommentScope dynamic)', () => {
+	const newCommentEvent = { type: 'new_comment', reminderValue: 0 };
+
+	const cases = [
+		{
+			name: "newCommentScope 'off' → exclu",
+			scope: 'off',
+			responses: [{ participantId: 'p1', response: 'present', tasks: [] }],
+			excludeUserId: undefined,
+			expected: []
+		},
+		{
+			name: "newCommentScope null → traité comme 'off' (exclu)",
+			scope: undefined,
+			responses: [{ participantId: 'p1', response: 'present', tasks: [] }],
+			excludeUserId: undefined,
+			expected: []
+		},
+		{
+			name: "'concerned' + response present → inclus",
+			scope: 'concerned',
+			responses: [{ participantId: 'p1', response: 'present', tasks: [] }],
+			excludeUserId: undefined,
+			expected: [
+				{
+					userId: 'u1',
+					participantId: 'p1',
+					response: 'present',
+					tasks: [],
+					email: true,
+					push: false
+				}
+			]
+		},
+		{
+			name: "'concerned' + response absent sans tâche → exclu",
+			scope: 'concerned',
+			responses: [{ participantId: 'p1', response: 'absent', tasks: [] }],
+			excludeUserId: undefined,
+			expected: []
+		},
+		{
+			name: "'concerned' + sans réponse (null) + inscrit tâche → inclus",
+			scope: 'concerned',
+			responses: [{ participantId: 'p1', tasks: ['t1'] }],
+			excludeUserId: undefined,
+			expected: [
+				{
+					userId: 'u1',
+					participantId: 'p1',
+					response: null,
+					tasks: ['t1'],
+					email: true,
+					push: false
+				}
+			]
+		},
+		{
+			name: "'concerned' + sans-réponse sans tâche → exclu",
+			scope: 'concerned',
+			responses: [],
+			excludeUserId: undefined,
+			expected: []
+		},
+		{
+			name: "'all' + response absent → inclus (pas de filtre response)",
+			scope: 'all',
+			responses: [{ participantId: 'p1', response: 'absent', tasks: [] }],
+			excludeUserId: undefined,
+			expected: [
+				{
+					userId: 'u1',
+					participantId: 'p1',
+					response: 'absent',
+					tasks: [],
+					email: true,
+					push: false
+				}
+			]
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const master = mkMaster({ participants: [mkParticipant({ id: 'p1', userId: 'u1' })] });
+			const planningParticipants = [
+				mkPlanningParticipant({ userId: 'u1', newCommentScope: c.scope })
+			];
+			const occ = mkOcc({ responses: c.responses });
+			const got = normalize(
+				computeRecipients(newCommentEvent, master, planningParticipants, occ, c.excludeUserId)
+			);
+			expect(got).toEqual(normalize(c.expected as any));
+		});
+	}
+
+	it('excludeUserId exclut le participant correspondant (auteur du message)', () => {
+		const master = mkMaster({
+			participants: [
+				mkParticipant({ id: 'p1', userId: 'author' }),
+				mkParticipant({ id: 'p2', userId: 'other' })
+			]
+		});
+		const planningParticipants = [
+			mkPlanningParticipant({ userId: 'author', newCommentScope: 'all' }),
+			mkPlanningParticipant({ userId: 'other', newCommentScope: 'all' })
+		];
+		const occ = mkOcc({
+			responses: [
+				{ participantId: 'p1', response: 'present', tasks: [] },
+				{ participantId: 'p2', response: 'present', tasks: [] }
+			]
+		});
+
+		const got = normalize(
+			computeRecipients(newCommentEvent, master, planningParticipants, occ, 'author')
+		);
+		expect(got).toEqual(
+			normalize([
+				{
+					userId: 'other',
+					participantId: 'p2',
+					response: 'present',
+					tasks: [],
+					email: true,
+					push: false
+				}
+			])
+		);
+	});
 });
 
 describe('Type inconnu', () => {

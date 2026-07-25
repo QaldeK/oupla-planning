@@ -6,6 +6,15 @@ import type {
 import type { RecurrenceType } from '$lib/types/planning.types';
 
 /**
+ * Périmètre des notifications de nouveaux messages sur les occurrences.
+ * - `off` : aucune notification
+ * - `concerned` : uniquement les occurrences où le participant est impliqué
+ *   (réponse présente/if_needed/maybe OU inscrit à une tâche)
+ * - `all` : toutes les occurrences du planning
+ */
+export type NewCommentScope = 'off' | 'concerned' | 'all';
+
+/**
  * Préférences de notification d'un participant pour un planning.
  * Reflète exactement les champs de la collection `planning_participants`
  * (hors `commentReadState`, géré séparément).
@@ -17,13 +26,18 @@ export interface PlanningParticipantPrefs {
 	onConfirmationNeeded: boolean;
 	reminderDays: PlanningParticipantsReminderDaysOptions[];
 	missingDays: PlanningParticipantsMissingDaysOptions[];
+	newCommentScope: NewCommentScope;
 }
 
 /**
- * Defaults communs (booléens), ne dépendant pas du `recurrenceType`.
- * Voir `getDefaultPlanningPrefs` pour les valeurs de `reminderDays`/`missingDays`.
+ * Defaults communs (booléens), ne dépendant ni du `recurrenceType` ni du rôle.
+ * `reminderDays`/`missingDays` dépendent du `recurrenceType`, `newCommentScope`
+ * dépend du rôle — voir `getDefaultPlanningPrefs`.
  */
-const baseDefaultPlanningPrefs: Omit<PlanningParticipantPrefs, 'reminderDays' | 'missingDays'> = {
+const baseDefaultPlanningPrefs: Omit<
+	PlanningParticipantPrefs,
+	'reminderDays' | 'missingDays' | 'newCommentScope'
+> = {
 	push: false,
 	email: true,
 	onOccurrenceChange: true,
@@ -48,12 +62,19 @@ const RECURRENCE_DEFAULTS: Record<
 /**
  * Defaults de prefs à appliquer à la création d'un `planning_participants`
  * (quand un user rejoint un planning). Les valeurs de rappel / missings
- * dépendent du `recurrenceType` du master.
+ * dépendent du `recurrenceType` du master ; `newCommentScope` dépend du rôle
+ * (un admin suit toutes les conversations, un participant uniquement ce qui
+ * le concerne). Ce default n'est posé qu'à la création — les transitions de
+ * rôle ultérieures ne le réécrivent jamais.
  */
-export function getDefaultPlanningPrefs(recurrenceType: RecurrenceType): PlanningParticipantPrefs {
+export function getDefaultPlanningPrefs(
+	recurrenceType: RecurrenceType,
+	isAdmin = false
+): PlanningParticipantPrefs {
 	return {
 		...baseDefaultPlanningPrefs,
-		...RECURRENCE_DEFAULTS[recurrenceType]
+		...RECURRENCE_DEFAULTS[recurrenceType],
+		newCommentScope: isAdmin ? 'all' : 'concerned'
 	};
 }
 

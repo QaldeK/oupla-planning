@@ -5,11 +5,20 @@
 		getDefaultPlanningPrefs,
 		subscribeToPush,
 		unsubscribeFromPush,
+		type NewCommentScope,
 		type PlanningParticipantPrefs
 	} from '$lib/services/push';
 	import { getParticipantPrefs, updateParticipantPrefs } from '$lib/services/planningParticipants';
 	import type { RecurrenceType } from '$lib/types/planning.types';
-	import { Bell, Mail, Smartphone, Save, LoaderCircle, ShieldAlert } from '@lucide/svelte';
+	import {
+		Bell,
+		Mail,
+		MessageSquare,
+		Smartphone,
+		Save,
+		LoaderCircle,
+		ShieldAlert
+	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { untrack } from 'svelte';
 
@@ -31,7 +40,8 @@
 		onOccurrenceChange: true,
 		onConfirmationNeeded: false,
 		reminderDays: [],
-		missingDays: []
+		missingDays: [],
+		newCommentScope: 'off'
 	});
 	let isSaving = $state(false);
 	let pushSupported = $state(false);
@@ -50,6 +60,23 @@
 		{ value: '15', label: '15 jours avant' }
 	];
 
+	const newCommentScopeOptions: Array<{ value: NewCommentScope; label: string; hint: string }> = [
+		{ value: 'off', label: 'Aucune', hint: 'Aucune notification de message.' },
+		{
+			value: 'concerned',
+			label: 'Mes occurrences',
+			hint: 'Uniquement les occurrences où vous participez.'
+		},
+		{ value: 'all', label: 'Toutes', hint: 'Tous les messages du planning.' }
+	];
+
+	// Les participants existants avant le déploiement ont `newCommentScope` à null
+	// en base. Le serveur interprète null comme 'off' : on aligne l'affichage
+	// pour que le modal reflète le comportement runtime réel.
+	function normalizeNewCommentScope(value: unknown): NewCommentScope {
+		return value === 'concerned' || value === 'all' ? value : 'off';
+	}
+
 	$effect(() => {
 		if (!open) return;
 
@@ -63,14 +90,18 @@
 			// éventuellement absents du record existant.
 			getParticipantPrefs(planningId, pb.authStore.record.id)
 				.then((existing) => {
-					prefs = {
-						...getDefaultPlanningPrefs(recurrenceType),
+					const merged = {
+						...getDefaultPlanningPrefs(recurrenceType, isAdmin),
 						...(existing as Partial<PlanningParticipantPrefs>)
+					};
+					prefs = {
+						...merged,
+						newCommentScope: normalizeNewCommentScope(merged.newCommentScope)
 					};
 					initialPushState = prefs.push;
 				})
 				.catch(() => {
-					prefs = getDefaultPlanningPrefs(recurrenceType);
+					prefs = getDefaultPlanningPrefs(recurrenceType, isAdmin);
 					initialPushState = prefs.push;
 				});
 		});
@@ -93,7 +124,13 @@
 				await unsubscribeFromPush(pb.authStore.record.id);
 			}
 
-			await updateParticipantPrefs(planningId, pb.authStore.record.id, prefs, recurrenceType);
+			await updateParticipantPrefs(
+				planningId,
+				pb.authStore.record.id,
+				prefs,
+				recurrenceType,
+				isAdmin
+			);
 
 			toast.success('Préférences sauvegardées');
 			onClose();
@@ -210,6 +247,30 @@
 									class="checkbox checkbox-sm checkbox-warning"
 								/>
 								<span class="label-text text-sm">{opt.label}</span>
+							</label>
+						{/each}
+					</div>
+				</div>
+
+				<!-- Messages sur les occurrences (préférence exclusive à 3 valeurs) -->
+				<div class="bg-base-200 border-base-300 space-y-2 rounded-lg border p-3">
+					<div class="flex items-center gap-2">
+						<MessageSquare size={16} class="text-base-content/70" />
+						<p class="label-text text-sm font-medium">Nouveaux messages</p>
+					</div>
+					<div class="space-y-2 pt-1">
+						{#each newCommentScopeOptions as opt (opt.value)}
+							<label class="label cursor-pointer justify-start gap-3 rounded-md p-1">
+								<input
+									type="radio"
+									bind:group={prefs.newCommentScope}
+									value={opt.value}
+									class="radio radio-sm radio-primary"
+								/>
+								<span class="flex flex-col">
+									<span class="label-text text-sm font-medium">{opt.label}</span>
+									<span class="text-xs opacity-60">{opt.hint}</span>
+								</span>
 							</label>
 						{/each}
 					</div>

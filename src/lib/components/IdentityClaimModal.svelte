@@ -60,6 +60,9 @@
 		onDeclineSuggestion
 	}: Props = $props();
 
+	// === Est-ce que l'utilisateur courant est admin de ce planning ? ===
+	let isAdmin = $derived(!!master.adminToken);
+
 	// === Identifiant le participant auth actuel (mode "manage") ===
 	let authParticipant = $derived(
 		master.participants.find((p) => p.userId === pbUser.id && !p.hasQuit)
@@ -241,7 +244,7 @@
 					token
 				);
 				try {
-					await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type);
+					await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin);
 				} catch (err) {
 					console.error('ensurePlanningParticipant failed:', err);
 				}
@@ -325,7 +328,7 @@
 
 			// S'assurer que l'entrée planning_participants existe
 			try {
-				await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type);
+				await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin);
 			} catch (err) {
 				console.error('ensurePlanningParticipant failed:', err);
 			}

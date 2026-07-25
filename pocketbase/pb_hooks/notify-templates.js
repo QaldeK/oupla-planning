@@ -24,6 +24,7 @@
  */
 
 const { formatDateFR } = require(`${__hooks}/notify-utils.js`);
+const { truncateContentPreview } = require(`${__hooks}/notification-cron-utils.js`);
 
 // ============================================================================
 // Constantes
@@ -51,7 +52,8 @@ const TYPE_CATEGORY = {
 	quorum_missing: 'missings',
 	task_unassigned: 'missings',
 	reminder: 'reminder',
-	confirmation_needed: 'confirmation'
+	confirmation_needed: 'confirmation',
+	new_comment: 'comment'
 };
 
 /** Priorité de catégorie (plus petit = plus prioritaire dans un bloc). */
@@ -60,7 +62,8 @@ const CATEGORY_PRIORITY = {
 	change: 1,
 	confirmation: 2,
 	missings: 3,
-	reminder: 4
+	reminder: 4,
+	comment: 5
 };
 
 /** Emoji par catégorie — préfixe du bloc occurrence. */
@@ -69,7 +72,8 @@ const CATEGORY_EMOJI = {
 	change: '✏️',
 	confirmation: '⏳',
 	missings: '⚠️',
-	reminder: '🔔'
+	reminder: '🔔',
+	comment: '💬'
 };
 
 /** Libellé singulier pour le sujet d'un event unique. */
@@ -78,7 +82,8 @@ const CATEGORY_SUBJECT_LABEL = {
 	change: 'Modification',
 	confirmation: 'À confirmer',
 	missings: 'Participants manquants',
-	reminder: 'Rappel'
+	reminder: 'Rappel',
+	comment: 'Nouveau message'
 };
 
 /** Libellé pluriel pour le sujet de N events même catégorie. */
@@ -87,7 +92,8 @@ const CATEGORY_SUBJECT_PLURAL = {
 	change: 'modifications',
 	confirmation: 'événements à confirmer',
 	missings: 'alertes de participants manquants',
-	reminder: 'rappels'
+	reminder: 'rappels',
+	comment: 'nouveaux messages'
 };
 
 /** Map clé `tasks[].type` → label français pour le rendu des tâches. */
@@ -399,6 +405,35 @@ function _renderReminderLines(event, occ, user, ctx, opts) {
 	return lines;
 }
 
+/**
+ * `comment` (new_comment) — rendu **agrégé** : un seul en-tête `💬 N nouveau{x}
+ * message{s} :` suivi d'une sous-ligne par message. Contrairement aux autres
+ * renderers (1 event → 1 appel), celui-ci prend la liste complète des events
+ * `new_comment` du bloc occ pour produire un unique sous-bloc — N messages sur
+ * une même occ ne génèrent pas N blocs séparés (lisibilité email).
+ *
+ * L'aperçu est tronqué à 130 caractères via `truncateContentPreview` et mis
+ * sur une seule ligne (les `\n` sont repliés en espaces) ; le détecteur l'a déjà
+ * tronqué, on retronce défensivement au cas où le payload viendrait d'une autre
+ * source.
+ *
+ * @param {Array} events — events `new_comment` du bloc occ (≥1)
+ * @returns {Array<string>} en-tête puis sous-lignes indentées `   • auteur : aperçu`
+ */
+function _renderCommentLines(events, ctx) {
+	const n = events.length;
+	if (n === 0) return [];
+	const label = n === 1 ? '1 nouveau message' : `${n} nouveaux messages`;
+	const lines = [`💬 ${label} :`];
+	for (const ev of events) {
+		const p = ev.payload && typeof ev.payload === 'object' ? ev.payload : {};
+		const author = p.authorName || '—';
+		const preview = truncateContentPreview(p.contentPreview);
+		lines.push(`   • ${author} : ${preview}`);
+	}
+	return lines;
+}
+
 // ============================================================================
 // Collecte des blocs (cœur partagé HTML ↔ texte)
 // ============================================================================
@@ -467,8 +502,18 @@ function _collectBlocks(master, events, user, ctx) {
 function _buildOccBlock(occ, occEvents, user, ctx) {
 	const isCanceled = occ.getBool('isCanceled');
 
-	// Catégorise + ordonne les events par priorité catégorie.
-	const categorized = occEvents
+	// Les events `new_comment` sont agrégés en un seul sous-bloc (un en-tête
+	// pour N messages) et rendus en dernier. Les autres catégories conservent
+	// leur rendu par event.
+	const commentEvents = [];
+	const nonComment = [];
+	for (const ev of occEvents) {
+		if (TYPE_CATEGORY[ev.type] === 'comment') commentEvents.push(ev);
+		else nonComment.push(ev);
+	}
+
+	// Catégorise + ordonne les events non-comment par priorité catégorie.
+	const categorized = nonComment
 		.map((ev) => ({
 			ev,
 			category: TYPE_CATEGORY[ev.type] || 'change'
@@ -479,22 +524,45 @@ function _buildOccBlock(occ, occEvents, user, ctx) {
 			return pa - pb;
 		});
 
-	// Emoji + label prioritaires = ceux du 1er event trié.
-	const topCategory = categorized.length > 0 ? categorized[0].category : null;
-	const emoji = topCategory ? CATEGORY_EMOJI[topCategory] : '';
-	const typeLabel = topCategory ? CATEGORY_SUBJECT_LABEL[topCategory] || '' : '';
+	// Emoji + label prioritaires = ceux du 1er event non-comment trié. Pour un
+	// bloc pure comment, on n'expose ni emoji ni label au niveau du bloc :
+	// l'en-tête du sous-bloc "💬 N nouveaux messages :" porte déjà le type, et
+	// répéter "Nouveau message" dans la headLine serait redondant.
+	let topCategory;
+	let emoji;
+	let typeLabel;
+	if (categorized.length > 0) {
+		topCategory = categorized[0].category;
+		emoji = CATEGORY_EMOJI[topCategory] || '';
+		typeLabel = CATEGORY_SUBJECT_LABEL[topCategory] || '';
+	} else if (commentEvents.length > 0) {
+		topCategory = 'comment';
+		emoji = '';
+		typeLabel = '';
+	} else {
+		topCategory = null;
+		emoji = '';
+		typeLabel = '';
+	}
 
 	// Détection d'une confirmation dans le bloc → supprimer la ligne contexte
 	// du reminder ("dans 3 jours") pour éviter la répétition, puisque la
 	// confirmation dit déjà "L'événement est prévu dans 3 jours mais...".
 	const hasConfirmation = categorized.some((c) => c.category === 'confirmation');
 
-	// Lignes internes : rend chaque event selon sa catégorie.
+	// Lignes internes : rend chaque event non-comment selon sa catégorie.
 	const lines = [];
 	for (const { ev, category } of categorized) {
 		const opts = { suppressContextual: hasConfirmation && category === 'reminder' };
 		const rendered = _renderEventLines(category, ev, occ, user, ctx, opts);
 		for (const line of rendered) lines.push(line);
+	}
+
+	// Sous-bloc comment rendu en dernier (priorité 5 = la plus basse).
+	if (commentEvents.length > 0) {
+		for (const line of _renderCommentLines(commentEvents, ctx)) {
+			lines.push(line);
+		}
 	}
 
 	// Description override : si l'occ a une description différente du master.
@@ -559,42 +627,72 @@ function buildSubject(master, events, ctx) {
 	if (!events || events.length === 0) return title;
 
 	// Regroupement par occ pour compter les occs uniques et leur catégorie prioritaire.
+	let commentEventCount = 0;
 	const occToCategories = new Map();
 	for (const ev of events) {
 		const occId = ev.occurrence || ev.occurrenceId;
 		if (!occId) continue;
 		const category = TYPE_CATEGORY[ev.type] || 'change';
+		if (category === 'comment') commentEventCount++;
 		if (!occToCategories.has(occId)) occToCategories.set(occId, new Set());
 		occToCategories.get(occId).add(category);
 	}
 
 	const uniqueOccIds = [...occToCategories.keys()];
+	const occTopCategories = uniqueOccIds.map((id) => _pickTopCategory(occToCategories.get(id)));
+	// `comment` a la priorité la plus basse : une occ n'est "top comment" que si
+	// elle ne porte aucun autre type d'event. Le bucket est "tout comment" quand
+	// toutes les occs sont dans ce cas.
+	const allComment =
+		occTopCategories.length > 0 && occTopCategories.every((c) => c === 'comment');
 
+	if (allComment) {
+		// Le sujet compte les messages (pas les occs) : "N nouveaux messages"
+		// reflète l'activité discussion, cohérent avec le sous-bloc agrégé.
+		if (uniqueOccIds.length === 1) {
+			const occId = uniqueOccIds[0];
+			const occ = occCache.get(occId);
+			const datePart = occ ? ` — ${formatDateFR(occ.getString('date'))}` : '';
+			if (commentEventCount === 1) {
+				return `Nouveau message — ${title}${datePart}`;
+			}
+			return `${commentEventCount} nouveaux messages — ${title}${datePart}`;
+		}
+		return `${commentEventCount} nouveaux messages — ${title}`;
+	}
+
+	let base;
 	if (uniqueOccIds.length === 1) {
 		const occId = uniqueOccIds[0];
-		const categories = occToCategories.get(occId);
-		const topCategory = _pickTopCategory(categories);
+		const topCategory = occTopCategories[0];
 		const label = CATEGORY_SUBJECT_LABEL[topCategory] || 'Notification';
 		const occ = occCache.get(occId);
 		const datePart = occ ? ` — ${formatDateFR(occ.getString('date'))}` : '';
-		return `${label} — ${title}${datePart}`;
+		base = `${label} — ${title}${datePart}`;
+	} else {
+		// N occs : bucket par catégorie prioritaire pour détecter « toutes même catégorie ».
+		const topCategories = new Set();
+		for (const cats of occToCategories.values()) {
+			topCategories.add(_pickTopCategory(cats));
+		}
+
+		if (topCategories.size === 1) {
+			const category = [...topCategories][0];
+			const plural = CATEGORY_SUBJECT_PLURAL[category] || 'événements';
+			return `${uniqueOccIds.length} ${plural} — ${title}`;
+		}
+
+		const hasUrgent = topCategories.has('cancel') || topCategories.has('change');
+		const prefix = hasUrgent ? 'Important' : 'Récap';
+		base = `${prefix} — ${title} — ${uniqueOccIds.length} événements`;
 	}
 
-	// N occs : bucket par catégorie prioritaire pour détecter « toutes même catégorie ».
-	const topCategories = new Set();
-	for (const cats of occToCategories.values()) {
-		topCategories.add(_pickTopCategory(cats));
+	// Catégorie dominante ≠ comment mais des messages sont présents : on suffixe
+	// (N = total events comment du bucket, toutes occs confondues).
+	if (commentEventCount > 0) {
+		base += ` + ${commentEventCount} nouveaux messages`;
 	}
-
-	if (topCategories.size === 1) {
-		const category = [...topCategories][0];
-		const plural = CATEGORY_SUBJECT_PLURAL[category] || 'événements';
-		return `${uniqueOccIds.length} ${plural} — ${title}`;
-	}
-
-	const hasUrgent = topCategories.has('cancel') || topCategories.has('change');
-	const prefix = hasUrgent ? 'Important' : 'Récap';
-	return `${prefix} — ${title} — ${uniqueOccIds.length} événements`;
+	return base;
 }
 
 /** Retourne la catégorie prioritaire d'un Set de catégories. */
@@ -833,6 +931,7 @@ module.exports = {
 	_renderConfirmationLine,
 	_renderMissingsLine,
 	_renderReminderLines,
+	_renderCommentLines,
 	_buildContextualLine,
 	_buildConfirmationContextualLine,
 	_formatTasksToFill,

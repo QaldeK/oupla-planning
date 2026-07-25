@@ -196,39 +196,83 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	// Pré-calcul des items : pour chaque event, on résout {record, eventPlain,
 	// master, occ, recipients}. Le payload event-level (missings counts) est
 	// enrichi une seule fois par event.
+	const processedAt = nowIsoCompat();
 	const eventItems = [];
 	for (const eventRecord of pendingEvents) {
 		const masterId = eventRecord.getString('master');
 		const occId = eventRecord.getString('occurrence');
+		const type = eventRecord.getString('type');
+
 		const masterCtx = getMasterContext(masterId);
 		if (!masterCtx) continue;
 
 		const occ = getOcc(occId);
 		if (!occ || occ.getBool('deleted') || occ.getBool('isCanceled')) continue;
 
-		const type = eventRecord.getString('type');
+		// `new_comment` porte son payload dans la DB (inséré par le hook) ; les
+		// autres types le calculent à l'envoi via buildEventPayload (missings).
+		let eventPayload;
+		if (type === 'new_comment') {
+			const raw = eventRecord.getString('payload');
+			try {
+				eventPayload = raw && raw !== 'null' ? JSON.parse(raw) : null;
+			} catch {
+				eventPayload = null;
+			}
+		} else {
+			eventPayload = buildEventPayload({ type }, masterCtx.master, occ);
+		}
+
 		const eventPlain = {
 			type,
 			reminderValue: eventRecord.getInt('reminderValue'),
 			occurrence: occId,
 			master: masterId,
 			changedBy: eventRecord.getString('changedBy'),
-			payload: buildEventPayload({ type }, masterCtx.master, occ)
+			payload: eventPayload
 		};
 
-		const recipients = computeRecipients(eventPlain, masterCtx.master, masterCtx.participants, occ);
+		const recipients = computeRecipients(eventPlain, masterCtx.master, masterCtx.participants, occ, eventPlain.changedBy || undefined);
 
 		eventItems.push({
 			record: eventRecord,
 			event: eventPlain,
 			master: masterCtx.master,
 			occ,
-			recipients
+			recipients,
+			participants: masterCtx.participants
 		});
 	}
 
 	// Buffer (userId|masterId) → { userId, masterId, master, items: [{record, event, occ}] }
 	// Une entrée du buffer = 1 email agrégé à envoyer.
+
+	// Filtre "déjà lu" côté email : un destinataire qui a déjà lu le message
+	// (commentReadState[occId] ≥ commentCreatedAt) ne le reçoit pas dans l'email
+	// agrégé. Le push immédiat (temps réel) reste inchangé — ce filtre ne
+	// s'applique qu'au canal email.
+	const readStateByMasterUser = new Map();
+	const getCommentReadState = (participants, masterId, userId) => {
+		const key = `${masterId}|${userId}`;
+		if (readStateByMasterUser.has(key)) return readStateByMasterUser.get(key);
+		let rs = null;
+		for (const pp of participants) {
+			if (pp.getString('user') === userId) {
+				const raw = pp.getString('commentReadState');
+				if (raw && raw !== 'null') {
+					try {
+						rs = JSON.parse(raw);
+					} catch {
+						rs = null;
+					}
+				}
+				break;
+			}
+		}
+		readStateByMasterUser.set(key, rs);
+		return rs;
+	};
+
 	const buffer = new Map();
 	for (const item of eventItems) {
 		const occTasks = parseJsonArray(item.occ, 'tasks');
@@ -236,6 +280,23 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			// Filtre canal email : r.email vient de computeRecipients (booléen
 			// de la row planning_participants).
 			if (!r.email) continue;
+
+			// Filtre "déjà lu" par message (uniquement new_comment, uniquement
+			// email) : compare le timestamp de lecture de l'occ au timestamp de
+			// création du message stocké dans le payload.
+			if (item.event.type === 'new_comment') {
+				const readState = getCommentReadState(item.participants, item.event.master, r.userId);
+				const readAt = readState ? readState[item.event.occurrence] : null;
+				if (readAt) {
+					const createdAt = item.event.payload && item.event.payload.commentCreatedAt;
+					if (
+						createdAt &&
+						new Date(readAt).getTime() >= new Date(createdAt).getTime()
+					) {
+						continue;
+					}
+				}
+			}
 
 			const key = `${r.userId}|${item.event.master}`;
 			let bucket = buffer.get(key);
@@ -270,7 +331,6 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	let consecutiveSmtpFailures = 0;
 	let smtpErrors = 0;
 	let bufferSkipped = 0;
-	const processedAt = nowIsoCompat();
 
 	for (const [, bucket] of buffer) {
 		if (consecutiveSmtpFailures >= MAX_SMTP_FAILURES) {

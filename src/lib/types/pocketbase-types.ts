@@ -107,6 +107,7 @@ export const NotificationEventsTypeOptions = {
 	"task_unassigned": "task_unassigned",
 	"reminder": "reminder",
 	"confirmation_needed": "confirmation_needed",
+	"new_comment": "new_comment",
 } as const
 export type NotificationEventsTypeOptions = typeof NotificationEventsTypeOptions[keyof typeof NotificationEventsTypeOptions]
 export type NotificationEventsRecord<Tpayload = unknown> = {
@@ -191,12 +192,20 @@ export const PlanningParticipantsMissingDaysOptions = {
 	"E15": "15",
 } as const
 export type PlanningParticipantsMissingDaysOptions = typeof PlanningParticipantsMissingDaysOptions[keyof typeof PlanningParticipantsMissingDaysOptions]
+
+export const PlanningParticipantsNewCommentScopeOptions = {
+	"off": "off",
+	"concerned": "concerned",
+	"all": "all",
+} as const
+export type PlanningParticipantsNewCommentScopeOptions = typeof PlanningParticipantsNewCommentScopeOptions[keyof typeof PlanningParticipantsNewCommentScopeOptions]
 export type PlanningParticipantsRecord<TcommentReadState = unknown> = {
 	commentReadState?: null | TcommentReadState
 	created: IsoAutoDateString
 	email?: boolean
 	id: string
 	missingDays?: PlanningParticipantsMissingDaysOptions[]
+	newCommentScope?: PlanningParticipantsNewCommentScopeOptions
 	onConfirmationNeeded?: boolean
 	onOccurrenceChange?: boolean
 	planning?: RecordIdString

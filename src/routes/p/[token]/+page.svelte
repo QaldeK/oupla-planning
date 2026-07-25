@@ -147,8 +147,8 @@
 			// Défensif : un user déjà lié ne doit jamais voir de suggestion de claim.
 			if (myParticipant) {
 				authTransition.clearPendingGuestClaim();
-				ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type).catch((err) =>
-					console.error('ensurePlanningParticipant failed:', err)
+				ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin).catch(
+					(err) => console.error('ensurePlanningParticipant failed:', err)
 				);
 				return;
 			}
@@ -235,7 +235,12 @@
 
 			if (userStore.isLoggedIn) {
 				try {
-					await ensurePlanningParticipant(master.id, userStore.pbUser!.id, master.recurrence.type);
+					await ensurePlanningParticipant(
+						master.id,
+						userStore.pbUser!.id,
+						master.recurrence.type,
+						isAdmin
+					);
 				} catch (err) {
 					console.error('Erreur création planning_participant:', err);
 				}

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import path from 'path';
+import { readFileSync } from 'fs';
 
 // Runner isolé (pas de PocketBase nécessaire) pour dispatchPushForEvent.
 // Les fonctions de domaine (buildPushTitle, buildPushBody) et l'adaptateur
@@ -12,12 +13,43 @@ const HOOKS_DIR = path.resolve(__dirname, '../../', 'pocketbase/pb_hooks');
 const { dispatchPushForEvent } = await import('../../pocketbase/pb_hooks/push-dispatch.js');
 
 // ============================================================================
+// Chargement de notification-cron-utils.js — contournement de l'interop CJS
+// de Vite (cf. notify-templates.test.ts). Le module fait au top level
+// `require(`${__hooks}/notify-utils.js`)` et `require(`${__hooks}/pb-helpers.cjs`)`.
+// Vite ne sait pas transformer ces require dynamiques (template literal +
+// package.json "type":"module"). On pré-importe les deux dépendances via Vite
+// (qui gère leur CJS en import statique), on les injecte via des globales, puis
+// on charge le source du module via une data URL après avoir remplacé les
+// require CJS et le module.exports par des références globales.
+// ============================================================================
+const notifyUtils = await import('../../pocketbase/pb_hooks/notify-utils.js');
+(globalThis as any).__notifyUtils__ = notifyUtils;
+const pbHelpers = await import('../../pocketbase/pb_hooks/pb-helpers.cjs');
+(globalThis as any).__pbHelpers__ = pbHelpers;
+
+const cronUtilsSource = readFileSync(path.join(HOOKS_DIR, 'notification-cron-utils.js'), 'utf-8')
+	.replace(/require\(`\$\{__hooks\}\/notify-utils\.js`\)/, 'globalThis.__notifyUtils__')
+	.replace(/require\(`\$\{__hooks\}\/pb-helpers\.cjs`\)/, 'globalThis.__pbHelpers__')
+	.replace(/module\.exports\s*=\s*\{/, 'globalThis.__cronUtils_exports__ = {');
+const cronUtilsDataUrl =
+	'data:text/javascript;base64,' + Buffer.from(cronUtilsSource, 'utf-8').toString('base64');
+await import(/* @vite-ignore */ cronUtilsDataUrl);
+const { buildPushTitle, buildPushBody, MAX_CONTENT_PREVIEW } = (globalThis as any)
+	.__cronUtils_exports__;
+
+// ============================================================================
 // Mocks minimaux — pas besoin de mockRecord complet, juste getString pour
 // les champs lus (participantToken sur master, tasks sur occ).
 // ============================================================================
 
 function mkMaster(token = 'abc123'): any {
 	return { getString: (f: string) => (f === 'participantToken' ? token : '') };
+}
+
+function mkMasterWithTitle(title: string, token = 'abc123'): any {
+	return {
+		getString: (f: string) => (f === 'participantToken' ? token : f === 'title' ? title : '')
+	};
 }
 
 function mkOcc(tasks: any[] = []): any {
@@ -178,5 +210,58 @@ describe('dispatchPushForEvent', () => {
 		});
 
 		expect(sent.mock.calls[0][0]).toBe(fakeApp);
+	});
+});
+
+describe('buildPushTitle / buildPushBody — new_comment', () => {
+	it("buildPushTitle(new_comment) → 'Nouveau message — {title}'", () => {
+		const title = buildPushTitle({ type: 'new_comment' }, mkMasterWithTitle('Foot du jeudi'));
+		expect(title).toBe('Nouveau message — Foot du jeudi');
+	});
+
+	it("buildPushTitle(new_comment) fallback quand le titre est vide → 'Nouveau message — Planning'", () => {
+		const title = buildPushTitle({ type: 'new_comment' }, mkMaster());
+		expect(title).toBe('Nouveau message — Planning');
+	});
+
+	it("buildPushBody(new_comment) → '{authorName} : {contentPreview}'", () => {
+		const body = buildPushBody(
+			{ type: 'new_comment', payload: { authorName: 'Alice', contentPreview: 'On se voit à 19h' } },
+			mkOcc(),
+			{} as any,
+			[]
+		);
+		expect(body).toBe('Alice : On se voit à 19h');
+	});
+
+	it('buildPushBody(new_comment) sans auteur → juste le preview', () => {
+		const body = buildPushBody(
+			{ type: 'new_comment', payload: { authorName: '', contentPreview: 'Message anonyme' } },
+			mkOcc(),
+			{} as any,
+			[]
+		);
+		expect(body).toBe('Message anonyme');
+	});
+
+	it('buildPushBody(new_comment) tronque un preview > 130 chars avec ellipsis', () => {
+		const long = 'x'.repeat(MAX_CONTENT_PREVIEW + 40);
+		const body = buildPushBody(
+			{ type: 'new_comment', payload: { authorName: 'Bob', contentPreview: long } },
+			mkOcc(),
+			{} as any,
+			[]
+		);
+		expect(body).toBe(`Bob : ${'x'.repeat(MAX_CONTENT_PREVIEW)}…`);
+	});
+
+	it('buildPushBody(new_comment) strip les sauts de ligne du preview', () => {
+		const body = buildPushBody(
+			{ type: 'new_comment', payload: { authorName: 'Bob', contentPreview: 'ligne1\nligne2' } },
+			mkOcc(),
+			{} as any,
+			[]
+		);
+		expect(body).toBe('Bob : ligne1 ligne2');
 	});
 });

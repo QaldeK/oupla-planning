@@ -307,3 +307,214 @@ describe('Hook C2 — notify-on-occurrence-update (notification_events insertion
 		});
 	});
 });
+
+describe('Hook C2 — new_comment events (détection + push + cleanup)', () => {
+	let adminPb: Awaited<ReturnType<typeof authenticateAdmin>>;
+	let master: PlanningMaster;
+	let occurrences: PlanningOccurrence[];
+
+	beforeEach(async () => {
+		clearTrackedIds();
+		adminPb = await authenticateAdmin();
+		const result = await seedPlanning({
+			occurrenceCount: 1,
+			occurrenceDate: dateInDays(7)
+		});
+		master = result.master;
+		occurrences = result.occurrences;
+	});
+
+	afterEach(async () => {
+		const events = await adminPb
+			.collection('notification_events')
+			.getFullList({ filter: `master = "${master.id}"` });
+		for (const ev of events) {
+			await adminPb.collection('notification_events').delete(ev.id);
+		}
+		await cleanupTrackedRecords();
+	});
+
+	function mkComment(
+		id: string,
+		content: string,
+		participantId = 'p-author'
+	): {
+		id: string;
+		participantId: string;
+		content: string;
+		createdAt: string;
+	} {
+		return { id, participantId, content, createdAt: new Date().toISOString() };
+	}
+
+	it('addComment → 1 event new_comment avec payload complet', async () => {
+		const occ = occurrences[0];
+		const comment = mkComment('c1', 'On se voit à 19h');
+		await adminPb.collection('planning_occurrences').update(occ.id, {
+			comments: [comment],
+			lastModifiedBy: AUTHOR_ID
+		});
+
+		const events = await listEventsForOcc(adminPb, occ.id);
+		expect(events).toHaveLength(1);
+		expect(events[0].type).toBe('new_comment');
+		expect(events[0].reminderValue).toBe(0);
+		expect(events[0].occurrence).toBe(occ.id);
+		expect(events[0].master).toBe(master.id);
+		// changedBy porte l'auteur (utilisé comme excludeUserId pour le push).
+		expect(events[0].changedBy).toBe(AUTHOR_ID);
+
+		const payload = events[0].payload as Record<string, unknown> | null;
+		expect(payload).toBeTruthy();
+		expect(payload!.commentId).toBe('c1');
+		expect(payload!.commentCreatedAt).toBe(comment.createdAt);
+		// authorName : lastModifiedBy n'est pas un user PB ici → fallback sur l'id brut.
+		expect(payload!.authorName).toBe(AUTHOR_ID);
+		expect(payload!.contentPreview).toBe('On se voit à 19h');
+	});
+
+	it('authorName résolu depuis le user quand lastModifiedBy est un user PB', async () => {
+		// Crée un user réel pour valider la résolution du nom affichable.
+		const email = `author-${Math.random().toString(36).slice(2)}@test.com`;
+		const author = await adminPb.collection('users').create({
+			email,
+			password: 'password123',
+			passwordConfirm: 'password123',
+			name: 'Alice Author',
+			emailVisibility: true,
+			verified: true
+		});
+		trackIds('users', author.id);
+
+		const occ = occurrences[0];
+		const comment = mkComment('c1', 'Hello');
+		await adminPb.collection('planning_occurrences').update(occ.id, {
+			comments: [comment],
+			lastModifiedBy: author.id
+		});
+
+		const events = await listEventsForOcc(adminPb, occ.id);
+		const payload = events[0].payload as Record<string, unknown>;
+		expect(payload.authorName).toBe('Alice Author');
+	});
+
+	it("update d'une occ passée → 0 event new_comment (filtre temporel)", async () => {
+		const pastResult = await seedPlanning({ occurrenceCount: 0 });
+		trackIds('planning_masters', pastResult.master.id);
+		const pastOcc = await adminPb.collection('planning_occurrences').create({
+			master: pastResult.master.id,
+			date: dateInDays(-5),
+			startTime: '09:00',
+			endTime: '17:00',
+			responses: [],
+			comments: [],
+			tasks: [],
+			isConfirmed: false,
+			isCanceled: false,
+			lastModifiedBy: ''
+		});
+		trackIds('planning_occurrences', pastOcc.id);
+
+		await adminPb.collection('planning_occurrences').update(pastOcc.id, {
+			comments: [mkComment('c1', 'Message sur occ passée')],
+			lastModifiedBy: AUTHOR_ID
+		});
+
+		const events = await listEventsForOcc(adminPb, pastOcc.id);
+		expect(events).toHaveLength(0);
+
+		const eventsPast = await adminPb
+			.collection('notification_events')
+			.getFullList({ filter: `master = "${pastResult.master.id}"` });
+		for (const ev of eventsPast) {
+			await adminPb.collection('notification_events').delete(ev.id);
+		}
+	});
+
+	it('update batch avec 2 nouveaux messages → 2 events new_comment', async () => {
+		const occ = occurrences[0];
+		await adminPb.collection('planning_occurrences').update(occ.id, {
+			comments: [mkComment('c1', 'Premier'), mkComment('c2', 'Second')],
+			lastModifiedBy: AUTHOR_ID
+		});
+
+		const events = await listEventsForOcc(adminPb, occ.id);
+		expect(events).toHaveLength(2);
+		expect(events.every((e) => e.type === 'new_comment')).toBe(true);
+		const commentIds = events.map((e) => (e.payload as Record<string, unknown>).commentId);
+		expect(commentIds.sort()).toEqual(['c1', 'c2']);
+	});
+
+	it('deleteComment → cleanup : les events new_comment non-consommés sont marqués processedAt', async () => {
+		const occ = occurrences[0];
+		// 1. Ajoute un commentaire → 1 event new_comment pending.
+		await adminPb.collection('planning_occurrences').update(occ.id, {
+			comments: [mkComment('c1', 'À supprimer')],
+			lastModifiedBy: AUTHOR_ID
+		});
+		let events = await listEventsForOcc(adminPb, occ.id);
+		expect(events).toHaveLength(1);
+		expect(events[0].processedAt).toBe('');
+
+		// 2. Supprime le commentaire (superuser bypass le merge → comments=[]).
+		await adminPb.collection('planning_occurrences').update(occ.id, {
+			comments: [],
+			lastModifiedBy: AUTHOR_ID
+		});
+
+		// 3. L'event new_comment doit être marqué traité (cleanup sur suppression).
+		events = await listEventsForOcc(adminPb, occ.id);
+		// Aucun nouvel event n'a dû être inséré par la suppression.
+		expect(events).toHaveLength(1);
+		expect(events[0].processedAt).not.toBe('');
+	});
+
+	it('ne cleanup que les events liés au commentId supprimé (un autre reste pending)', async () => {
+		const occ = occurrences[0];
+		// Ajoute c1 puis c2 en deux updates (2 events distincts).
+		await adminPb.collection('planning_occurrences').update(occ.id, {
+			comments: [mkComment('c1', 'Un'), mkComment('c2', 'Deux')],
+			lastModifiedBy: AUTHOR_ID
+		});
+		let events = await listEventsForOcc(adminPb, occ.id);
+		expect(events).toHaveLength(2);
+		expect(events.every((e) => e.processedAt === '')).toBe(true);
+
+		// Supprime uniquement c1.
+		await adminPb.collection('planning_occurrences').update(occ.id, {
+			comments: [mkComment('c2', 'Deux')],
+			lastModifiedBy: AUTHOR_ID
+		});
+
+		events = await listEventsForOcc(adminPb, occ.id);
+		const byId = new Map(
+			events.map((e) => [(e.payload as Record<string, unknown>).commentId as string, e])
+		);
+		expect(byId.get('c1')!.processedAt as string).not.toBe('');
+		// c2 n'a pas été supprimé → son event reste pending.
+		expect(byId.get('c2')!.processedAt).toBe('');
+	});
+
+	it('ajout + modification simultanée (content ≠) → seul le nouvel ID est ajouté', async () => {
+		const occ = occurrences[0];
+		// Pré-existant c1.
+		await adminPb.collection('planning_occurrences').update(occ.id, {
+			comments: [mkComment('c1', 'Avant')],
+			lastModifiedBy: AUTHOR_ID
+		});
+		// Cleanup des events du premier ajout pour repartir à zéro.
+		for (const ev of await listEventsForOcc(adminPb, occ.id)) {
+			await adminPb.collection('notification_events').delete(ev.id);
+		}
+
+		// Update : c1 avec content modifié + c2 nouveau (pas de détection modified en v1).
+		await adminPb.collection('planning_occurrences').update(occ.id, {
+			comments: [mkComment('c1', 'Après'), mkComment('c2', 'Nouveau')],
+			lastModifiedBy: AUTHOR_ID
+		});
+
+		const events = await listEventsForOcc(adminPb, occ.id);
+		expect(events).toHaveLength(1);
+		expect((events[0].payload as Record<string, unknown>).commentId).toBe('c2');
+	});
+});

@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
 import { readFileSync } from 'fs';
-import { CASES, mkRecord, buildCtx } from './notify-templates.cases';
+import {
+	CASES,
+	mkRecord,
+	buildCtx,
+	MASTER_BASE,
+	OCC_31_MARS,
+	OCC_5_AVRIL,
+	OCC_6_AVRIL
+} from './notify-templates.cases';
 
 // Validation isolée (pas de PocketBase) du rendu des templates de notification.
 // Les cas de test sont définis dans notify-templates.cases.ts (source de vérité
@@ -28,10 +36,24 @@ const HOOKS_DIR = path.resolve(__dirname, '../../', 'pocketbase/pb_hooks');
 const notifyUtils = await import('../../pocketbase/pb_hooks/notify-utils.js');
 (globalThis as any).__notifyUtils__ = notifyUtils;
 
+// notification-cron-utils.js a ses propres require() internes (pb-helpers.cjs,
+// notify-utils.js) qui échoueraient en import Vite direct. On mock uniquement
+// la fonction nécessaire aux templates.
+const __cronUtils__ = {
+	truncateContentPreview(content: string) {
+		const single = String(content || '')
+			.replace(/\s*\n\s*/g, ' ')
+			.trim();
+		return single.length <= 130 ? single : single.slice(0, 130) + '…';
+	}
+};
+(globalThis as any).__cronUtils__ = __cronUtils__;
+
 // Source de notify-templates.js avec le require CJS et le module.exports
 // remplacés par des références à des globales, pour exécution sous Vite ESM.
 const templatesSource = readFileSync(path.join(HOOKS_DIR, 'notify-templates.js'), 'utf-8')
 	.replace(/require\(`\$\{__hooks\}\/notify-utils\.js`\)/, 'globalThis.__notifyUtils__')
+	.replace(/require\(`\$\{__hooks\}\/notification-cron-utils\.js`\)/, 'globalThis.__cronUtils__')
 	.replace(/module\.exports\s*=\s*\{/, 'globalThis.__templates_exports__ = {');
 
 const templatesDataUrl =
@@ -378,5 +400,196 @@ describe('notify-templates — edge cases', () => {
 		expect(line).toContain('Plusieurs détails ont été modifiés');
 		expect(line).toContain('horaire 19h00 → 20h00');
 		expect(line).toContain('lieu Salle → Gymnase');
+	});
+});
+
+// ============================================================================
+// new_comment — agrégation email + sujet adaptatif
+// ============================================================================
+
+function commentEvent(
+	occId: string,
+	author: string,
+	preview: string,
+	createdAt = '2026-03-30T10:00:00Z'
+) {
+	return {
+		type: 'new_comment',
+		occurrence: occId,
+		reminderValue: 0,
+		changedBy: '',
+		payload: {
+			commentId: 'c-' + author,
+			commentCreatedAt: createdAt,
+			authorName: author,
+			contentPreview: preview
+		}
+	};
+}
+
+describe('notify-templates — new_comment agrégation par bloc occ', () => {
+	it('1 occ avec 1 event new_comment → sous-bloc "💬 1 nouveau message :" + 1 sous-ligne', () => {
+		const master = mkRecord({ ...MASTER_BASE });
+		const ctx = buildCtx(master, [OCC_31_MARS]);
+		const events = [commentEvent('o1', 'Alice', 'Bonjour tout le monde')];
+
+		const body = templates.buildTextEmail(
+			master,
+			events,
+			mkRecord({ id: 'u1', name: 'Sarah' }),
+			ctx
+		);
+
+		expect(body).toContain('💬 1 nouveau message :');
+		expect(body).toContain('• Alice : Bonjour tout le monde');
+	});
+
+	it('1 occ avec 3 events new_comment → sous-bloc "💬 3 nouveaux messages :" + 3 sous-lignes', () => {
+		const master = mkRecord({ ...MASTER_BASE });
+		const ctx = buildCtx(master, [OCC_31_MARS]);
+		const events = [
+			commentEvent('o1', 'Alice', 'Premier message'),
+			commentEvent('o1', 'Bob', 'Second message'),
+			commentEvent('o1', 'Alice', 'Troisième message')
+		];
+
+		const body = templates.buildTextEmail(
+			master,
+			events,
+			mkRecord({ id: 'u1', name: 'Sarah' }),
+			ctx
+		);
+
+		expect(body).toContain('💬 3 nouveaux messages :');
+		expect(body).toContain('• Alice : Premier message');
+		expect(body).toContain('• Bob : Second message');
+		expect(body).toContain('• Alice : Troisième message');
+	});
+
+	it('1 occ avec schedule_change + 2 new_comment → ligne change puis sous-bloc comment en dernier', () => {
+		const master = mkRecord({ ...MASTER_BASE });
+		const occ = { ...OCC_31_MARS, startTime: '20:00' };
+		const ctx = buildCtx(master, [occ]);
+		const events = [
+			{
+				type: 'schedule_change',
+				occurrence: 'o1',
+				reminderValue: 0,
+				changedBy: 'u1',
+				payload: { oldStartTime: '19:00', newStartTime: '20:00' }
+			},
+			commentEvent('o1', 'Alice', 'Ok pour 20h'),
+			commentEvent('o1', 'Bob', 'Parfait')
+		];
+
+		const body = templates.buildTextEmail(
+			master,
+			events,
+			mkRecord({ id: 'u1', name: 'Sarah' }),
+			ctx
+		);
+
+		// Le bloc occurrence porte le label de la catégorie dominante (change).
+		expect(body).toContain('Modification — mar. 31 mars');
+		expect(body).toContain("L'horaire de début a été modifié");
+		// Le sous-bloc comment vient après la ligne change.
+		const changeIdx = body.indexOf("L'horaire de début a été modifié");
+		const commentIdx = body.indexOf('💬 2 nouveaux messages :');
+		expect(commentIdx).toBeGreaterThan(changeIdx);
+		expect(body).toContain('• Alice : Ok pour 20h');
+		expect(body).toContain('• Bob : Parfait');
+	});
+
+	it('_renderCommentLines : preview tronqué à 130 chars et \\n strippés', () => {
+		const long = 'a'.repeat(200);
+		const lines = templates._renderCommentLines(
+			[commentEvent('o1', 'Alice', 'ligne1\nligne2 ' + long)],
+			{}
+		);
+		expect(lines[0]).toBe('💬 1 nouveau message :');
+		// Le \n est replié en espace, la preview tronquée à 130.
+		expect(lines[1]).toContain('• Alice : ligne1 ligne2 ');
+		// Sous-ligne = préfixe "   • Alice : " + preview ≤ 130 chars.
+		expect(lines[1].length).toBeLessThanOrEqual('   • Alice : '.length + 130 + 1); // +1 pour ellipsis '…'
+		expect(lines[1]).not.toContain('\n');
+	});
+
+	it('rendu texte indenté équivalent au HTML (sous-bloc indenté)', () => {
+		const master = mkRecord({ ...MASTER_BASE });
+		const ctx = buildCtx(master, [OCC_31_MARS]);
+		const events = [commentEvent('o1', 'Alice', 'Bonjour')];
+
+		const text = templates.buildTextEmail(
+			master,
+			events,
+			mkRecord({ id: 'u1', name: 'Sarah' }),
+			ctx
+		);
+		const html = templates.buildHtmlEmail(
+			master,
+			events,
+			mkRecord({ id: 'u1', name: 'Sarah' }),
+			ctx
+		);
+
+		// Côté texte : sous-ligne indentée (préfixe 3espaces du bloc + 3espaces internes).
+		expect(text).toContain('      • Alice : Bonjour');
+		// Côté HTML : même contenu de sous-ligne présent.
+		expect(html).toContain('• Alice : Bonjour');
+		expect(html).toContain('💬 1 nouveau message :');
+	});
+});
+
+describe('notify-templates — buildSubject pour new_comment', () => {
+	it('1 occ 1 message → "Nouveau message — {title} — {date}"', () => {
+		const master = mkRecord({ ...MASTER_BASE });
+		const ctx = buildCtx(master, [OCC_31_MARS]);
+		const subject = templates.buildSubject(master, [commentEvent('o1', 'Alice', 'Bonjour')], ctx);
+		expect(subject).toBe('Nouveau message — Repas hebdo — mar. 31 mars');
+	});
+
+	it('1 occ 3 messages → "3 nouveaux messages — {title} — {date}"', () => {
+		const master = mkRecord({ ...MASTER_BASE });
+		const ctx = buildCtx(master, [OCC_31_MARS]);
+		const events = [
+			commentEvent('o1', 'Alice', 'A'),
+			commentEvent('o1', 'Bob', 'B'),
+			commentEvent('o1', 'Alice', 'C')
+		];
+		const subject = templates.buildSubject(master, events, ctx);
+		expect(subject).toBe('3 nouveaux messages — Repas hebdo — mar. 31 mars');
+	});
+
+	it('1 occ schedule_change + 2 messages → "Modification — {title} — {date} + 2 nouveaux messages"', () => {
+		const master = mkRecord({ ...MASTER_BASE });
+		const ctx = buildCtx(master, [OCC_31_MARS]);
+		const events = [
+			{
+				type: 'schedule_change',
+				occurrence: 'o1',
+				reminderValue: 0,
+				changedBy: 'u1',
+				payload: { oldStartTime: '19:00', newStartTime: '20:00' }
+			},
+			commentEvent('o1', 'Alice', 'Ok'),
+			commentEvent('o1', 'Bob', 'Ok')
+		];
+		const subject = templates.buildSubject(master, events, ctx);
+		expect(subject).toBe('Modification — Repas hebdo — mar. 31 mars + 2 nouveaux messages');
+	});
+
+	it('3 occs toutes en comment → "{N} nouveaux messages — {title}" (N = total messages)', () => {
+		const master = mkRecord({ ...MASTER_BASE });
+		const ctx = buildCtx(master, [OCC_31_MARS, OCC_5_AVRIL, OCC_6_AVRIL]);
+		const events = [
+			commentEvent('o1', 'Alice', 'A'),
+			commentEvent('o1', 'Bob', 'B'),
+			commentEvent('o2', 'Alice', 'C'),
+			commentEvent('o3', 'Bob', 'D'),
+			commentEvent('o3', 'Alice', 'E')
+		];
+		const subject = templates.buildSubject(master, events, ctx);
+		// 5 messages au total sur 3 occs → compte de messages, pas d'occs.
+		expect(subject).toBe('5 nouveaux messages — Repas hebdo');
 	});
 });

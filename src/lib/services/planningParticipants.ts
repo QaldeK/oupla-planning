@@ -22,13 +22,15 @@ export async function getParticipantPrefs(
 /**
  * Met à jour les préférences de notification d'un participant pour un planning.
  * Crée le record s'il n'existe pas, en appliquant les defaults liés au
- * `recurrenceType` du master (rappel / missings J-X).
+ * `recurrenceType` du master (rappel / missings J-X) et au rôle pour
+ * `newCommentScope`.
  */
 export async function updateParticipantPrefs(
 	planningId: string,
 	userId: string,
 	prefs: Partial<PlanningParticipantPrefs>,
-	recurrenceType: RecurrenceType = 'WEEKLY'
+	recurrenceType: RecurrenceType = 'WEEKLY',
+	isAdmin = false
 ): Promise<PlanningParticipantsResponse> {
 	if (!pb.authStore.isValid || !pb.authStore.record) {
 		throw new Error('Utilisateur non connecté');
@@ -42,7 +44,7 @@ export async function updateParticipantPrefs(
 		return await pb.collection('planning_participants').create({
 			planning: planningId,
 			user: userId,
-			...getDefaultPlanningPrefs(recurrenceType),
+			...getDefaultPlanningPrefs(recurrenceType, isAdmin),
 			...prefs
 		});
 	}
@@ -51,12 +53,14 @@ export async function updateParticipantPrefs(
 /**
  * Assure qu'un user authentifié a un record dans `planning_participants`.
  * Crée le record avec les préférences par défaut liées au `recurrenceType`
- * s'il n'existe pas.
+ * et au rôle (admin → `newCommentScope: 'all'`, sinon `'concerned'`) s'il
+ * n'existe pas.
  */
 export async function ensurePlanningParticipant(
 	planningId: string,
 	userId: string,
-	recurrenceType: RecurrenceType = 'WEEKLY'
+	recurrenceType: RecurrenceType = 'WEEKLY',
+	isAdmin = false
 ): Promise<void> {
 	try {
 		await pb
@@ -67,7 +71,7 @@ export async function ensurePlanningParticipant(
 		await pb.collection('planning_participants').create({
 			planning: planningId,
 			user: userId,
-			...getDefaultPlanningPrefs(recurrenceType)
+			...getDefaultPlanningPrefs(recurrenceType, isAdmin)
 		});
 	}
 }

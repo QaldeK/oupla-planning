@@ -53,7 +53,11 @@ const RESPONSE_FILTER = {
 	quorum_missing: 'not-absent-or-noreply',
 	task_unassigned: 'not-absent-or-noreply',
 	// `confirmation_needed` : pas de filtre response (admin uniquement, filtré via pref).
-	confirmation_needed: 'all'
+	confirmation_needed: 'all',
+	// `new_comment` : sentinelle 'dynamic' — le filtre response dépend de la pref
+	// individuelle `newCommentScope` ('concerned' → present-or-task, 'all' → tous).
+	// Géré spécifiquement dans computeRecipients (le scope décide aussi de l'opt-in).
+	new_comment: 'dynamic'
 };
 
 const ABSENT = 'absent';
@@ -141,6 +145,12 @@ function getPrefRequirement(event) {
 			return { field: 'onOccurrenceChange', value: true };
 		case 'confirmation_needed':
 			return { field: 'onConfirmationNeeded', value: true };
+		case 'new_comment':
+			// Cas spécial : l'opt-in ET le filtre response sont pilotés par
+			// `newCommentScope` (3 valeurs exclusives). `computeRecipients` lit
+			// ce champ directement dans la branche 'dynamic' — la valeur
+			// 'concerned-or-all' sert uniquement de marqueur d'introspection.
+			return { field: 'newCommentScope', value: 'concerned-or-all' };
 		default:
 			return null;
 	}
@@ -153,13 +163,15 @@ function getPrefRequirement(event) {
  * @param {core.Record} master — record `planning_masters`
  * @param {core.Record[]} planningParticipants — records `planning_participants` du master
  * @param {core.Record} occurrence — record `planning_occurrences`
+ * @param {string} [excludeUserId] — userId à exclure des destinataires (ex: auteur
+ *   d'un commentaire pour `new_comment`, lu depuis `occurrence.lastModifiedBy`).
  * @returns {Array<{userId, participantId, response, tasks, email, push}>}
  *   - `response` : 'present'|'if_needed'|'maybe'|'absent'|null (sans-réponse)
  *   - `tasks` : tableau d'IDs de tâches assignées
  *   - `email`, `push` : booléens de la row `planning_participants` — le filtre
  *     par canal est délégué au consommateur via ces champs
  */
-function computeRecipients(event, master, planningParticipants, occurrence) {
+function computeRecipients(event, master, planningParticipants, occurrence, excludeUserId) {
 	const filter = RESPONSE_FILTER[event.type];
 	if (!filter) return [];
 
@@ -168,9 +180,15 @@ function computeRecipients(event, master, planningParticipants, occurrence) {
 
 	const responses = parseJsonArray(occurrence, 'responses');
 	const prefRequirement = getPrefRequirement(event);
+	// `new_comment` : la pref `newCommentScope` décide à la fois de l'opt-in et du
+	// filtre response. La branche 'dynamic' ci-dessous subsume le prefRequirement,
+	// qu'on n'évalue donc pas pour ce type.
+	const isDynamic = filter === 'dynamic';
 
 	const recipients = [];
 	for (const ap of activeParticipants) {
+		if (excludeUserId && ap.userId === excludeUserId) continue;
+
 		const pp = findPlanningParticipant(planningParticipants, ap.userId);
 		if (!pp) continue;
 
@@ -178,8 +196,13 @@ function computeRecipients(event, master, planningParticipants, occurrence) {
 		// (cron-notifications.pb.js), pas ici. computeRecipients ne vérifie que
 		// les préférences métier liées au type d'event (reminderDays, missingDays, etc.).
 
-		// Vérification de la pref spécifique au type d'event
-		if (prefRequirement) {
+		let effectiveFilter = filter;
+		if (isDynamic) {
+			// `new_comment` : 'off'/null/autre → skip ; 'concerned' → present-or-task ; 'all' → tous.
+			const scope = pp.getString('newCommentScope');
+			if (scope !== 'concerned' && scope !== 'all') continue;
+			effectiveFilter = scope === 'concerned' ? 'present-or-task' : 'all';
+		} else if (prefRequirement) {
 			const { field, value } = prefRequirement;
 			if (field === 'reminderDays' || field === 'missingDays') {
 				if (!prefersDay(pp, value, field)) continue;
@@ -194,7 +217,7 @@ function computeRecipients(event, master, planningParticipants, occurrence) {
 		const userTasks = userResp && Array.isArray(userResp.tasks) ? userResp.tasks : [];
 
 		// Filtre response selon la catégorie du type d'event
-		if (!matchesResponseFilter(responseType, userTasks, filter)) continue;
+		if (!matchesResponseFilter(responseType, userTasks, effectiveFilter)) continue;
 
 		recipients.push({
 			userId: ap.userId,

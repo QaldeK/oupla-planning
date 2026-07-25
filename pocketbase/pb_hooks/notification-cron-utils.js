@@ -24,6 +24,9 @@ const MAX_SMTP_FAILURES = 3;
 
 const BASE_URL = 'https://planning.oupla.net';
 
+/** Longueur maximale du contenu d'un message exposé dans les notifications. */
+const MAX_CONTENT_PREVIEW = 130;
+
 const TASK_TYPE_LABEL = {
 	beforeEvent: 'avant',
 	onEvent: 'pendant',
@@ -126,7 +129,8 @@ const PUSH_TITLE_PREFIX = {
 	status_canceled: 'Annulation',
 	status_deleted: 'Annulation',
 	schedule_change: 'Modification',
-	status_confirmed: 'Confirmé'
+	status_confirmed: 'Confirmé',
+	new_comment: 'Nouveau message'
 };
 
 /** Titre court d'un push par type d'event (J-X ET change events). */
@@ -136,8 +140,28 @@ function buildPushTitle(event, master) {
 	return prefix ? `${prefix} — ${title}` : title;
 }
 
+/**
+ * Aperçu single-line tronqué d'un contenu de message.
+ * Défensif : le payload stocké est déjà tronqué par le détecteur, mais on
+ * retronce ici pour le cas (tests, futurs chemins) où il ne le serait pas.
+ */
+function truncateContentPreview(content) {
+	const single = String(content || '').replace(/\s*\n\s*/g, ' ').trim();
+	if (single.length <= MAX_CONTENT_PREVIEW) return single;
+	return single.slice(0, MAX_CONTENT_PREVIEW) + '…';
+}
+
 /** Corps court d'un push : date + horaire + message spécifique (pas de lieu). */
 function buildPushBody(event, occ, recipient, occTasks) {
+	// `new_comment` : pas de préfixe date/horaire — on renvoie directement
+	// "{auteur} : {aperçu}" pour un push compact et immédiatement lisible.
+	if (event.type === 'new_comment') {
+		const p = event.payload && typeof event.payload === 'object' ? event.payload : {};
+		const author = p.authorName || '';
+		const preview = truncateContentPreview(p.contentPreview);
+		return author ? `${author} : ${preview}` : preview;
+	}
+
 	const date = formatDateFR(occ.getString('date'));
 	const startTime = event.type === 'status_canceled' || event.type === 'status_deleted'
 		? '' : occ.getString('startTime');
@@ -187,6 +211,7 @@ function buildPushBody(event, occ, recipient, occTasks) {
 module.exports = {
 	MAX_SMTP_FAILURES,
 	BASE_URL,
+	MAX_CONTENT_PREVIEW,
 	TASK_TYPE_LABEL,
 	JX_EVENT_TYPES,
 	MISSING_EVENT_TYPES,
@@ -195,6 +220,7 @@ module.exports = {
 	buildEventPayload,
 	resolveUserTaskNames,
 	buildPushTitle,
+	truncateContentPreview,
 	buildPushBody,
 	// Ré-exporte depuis pb-helpers.cjs pour compatibilité avec les consommateurs existants
 	parseJsonArray,
