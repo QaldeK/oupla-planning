@@ -3,10 +3,11 @@
 L'UI est localisée FR/EN avec **Paraglide JS v2** (`@inlang/paraglide-sveltekit-vite`),
 i18n officiel de SvelteKit — compilé au build, messages type-safe et tree-shakables
 (bundle léger, cohérent avec la PWA). L'app étant une SPA pure sans SSR (`adapter-static`
-+ fallback, cf. ADR 0004) et les liens d'un Planning étant partagés à des personnes de
-langues différentes, la locale est **personnelle et portée par un cookie** (détection via
-`navigator.language`, surcharge depuis `/settings`), **sans stratégie d'URL** : les routes
-`/p/[token]` et `/admin/[token]` restent inchangées.
+
+- fallback, cf. ADR 0004) et les liens d'un Planning étant partagés à des personnes de
+  langues différentes, la locale est **personnelle et portée par un cookie** (détection via
+  `navigator.language`, surcharge depuis `/settings`), **sans stratégie d'URL** : les routes
+  `/p/[token]` et `/admin/[token]` restent inchangées.
 
 La locale choisie est également écrite sur `users.locale` pour les utilisateurs authentifiés
 (champ write-only pour l'instant), afin qu'un futur effort de localisation côté serveur
