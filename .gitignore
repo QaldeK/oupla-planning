@@ -28,7 +28,6 @@ vite.config.ts.timestamp-*
 # agent and conf
 .ignore
 agent/
-# docs/
 docs/agents/
 .claude
 .agent

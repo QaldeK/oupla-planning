@@ -16,18 +16,34 @@ module.exports = {
 	/**
 	 * Formater une date ISO en format court français.
 	 * "2026-03-31" → "mar. 31 mars"
+	 *
+	 * NB : n'utilise PAS `toLocaleDateString` car la JSVM Goja de PocketBase
+	 * n'implémente pas correctement `Intl` — le résultat tombe en format US
+	 * (MM/DD/YYYY) quelle que soit la locale demandée. Un mapping manuel des
+	 * jours et mois garantit le format français.
 	 */
 	formatDateFR(dateStr) {
 		try {
 			// PocketBase expose parfois la date au format SQL "YYYY-MM-DD HH:MM:SS.000Z".
 			// On extrait la partie YYYY-MM-DD pour construire une date UTC valide.
 			const iso = String(dateStr).split(' ')[0].split('T')[0];
+			const parts = iso.split('-');
+			if (parts.length !== 3) return dateStr;
+			const m = parseInt(parts[1], 10);
+			const d = parseInt(parts[2], 10);
+			if (Number.isNaN(m) || Number.isNaN(d)) return dateStr;
+
+			const jours = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+			const mois = [
+				'janv.', 'févr.', 'mars', 'avril', 'mai', 'juin',
+				'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'
+			];
+
 			const date = new Date(iso + 'T00:00:00Z');
-			return date.toLocaleDateString('fr-FR', {
-				weekday: 'short',
-				day: 'numeric',
-				month: 'short'
-			});
+			const wd = jours[date.getUTCDay()] ?? '';
+			const monthLabel = mois[m - 1] ?? parts[1];
+
+			return `${wd} ${d} ${monthLabel}`;
 		} catch {
 			return dateStr;
 		}

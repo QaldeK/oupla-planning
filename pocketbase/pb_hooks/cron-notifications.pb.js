@@ -1,5 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
-// ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7. Pièges projet : agent/doc/memo.md. Voir AGENTS.md § PRÉALABLE POCKETBASE.
+// ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7. Voir pocketbase/pb_hooks/AGENTS.md (préalable source-first + conventions projet).
 
 /**
  * Cron notifications — cron quotidien 00h UTC.
@@ -23,7 +23,7 @@
  *
  * Tous les helpers nécessaires sont importés via `require()` au début du
  * handler : les fonctions top-level d'un `.pb.js` ne sont PAS visibles depuis
- * les callbacks JSVM (scope isolé, memo.md L397-425).
+	 * les callbacks JSVM (scope isolé — voir skill pocketbase-jsvm § "Fonctions locales inaccessibles").
  */
 
 cronAdd('notifications-daily', '0 0 * * *', () => {
