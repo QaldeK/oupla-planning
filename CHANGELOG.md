@@ -5,6 +5,20 @@ Toutes les modifications notables de ce projet sont documentées ici.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-07-25
+
+### Fonctionnalités
+
+- **Notifications commentaires** — détection automatique des nouveaux
+  commentaires sur les occurrences avec envoi de notifications push et emails
+  agrégées aux participants concernés
+- **Tests notifications** — couverture d'intégration et unitaire complète pour
+  le pipeline de notifications (cron, occurrence, templates, recipients, push)
+
+### Maintenance
+
+- **Dépendances** — mise à jour de l'ensemble des dépendances du projet
+
 ## [0.3.0] — 2026-07-25
 
 ### Fonctionnalités
