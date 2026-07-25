@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { version } from '../../package.json' with { type: 'json' };
 	import { userStore } from '$lib/stores/userStore.svelte';
 	import { planningStore } from '$lib/stores/planningStore.svelte';
 	import { commentStateStore } from '$lib/stores/commentStateStore.svelte';
@@ -73,7 +74,7 @@
 			<p class="text-base-content/70 max-w-md text-lg">
 				Gérez les présences et les tâches de vos activités récurrentes.
 			</p>
-			<p class="text-base-content/70 text-sm">v.0.3-beta</p>
+			<p class="text-base-content/70 text-sm">v{version}</p>
 		</div>
 	</div>
 

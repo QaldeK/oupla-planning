@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { version } from '../../package.json' with { type: 'json' };
 	import { afterNavigate, goto } from '$app/navigation';
 	import AccountModal from '$lib/components/auth/AccountModal.svelte';
 	import CommentSection from '$lib/components/CommentSection.svelte';
@@ -170,15 +171,25 @@
 						rel="noopener noreferrer"
 						class="hover:text-primary flex items-center gap-2 transition"
 					>
-						<Code size={20} /> Git -
+						<Code size={20} /> v{version}
 					</a>
+					<span class="opacity-40">·</span>
+					<a
+						href="https://github.com/QaldeK/oupla-planning/blob/main/CHANGELOG.md"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="hover:text-primary transition"
+					>
+						Journal des modifications
+					</a>
+					<span class="opacity-40">·</span>
 					<a
 						href="https://www.gnu.org/licenses/agpl-3.0.html"
 						target="_blank"
 						rel="noopener noreferrer"
 						class="hover:text-primary transition"
 					>
-						Open Source - AGPL v3
+						AGPL v3
 					</a>
 				</div>
 			</div>
