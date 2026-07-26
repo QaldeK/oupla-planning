@@ -1,4 +1,4 @@
-import { planningStore } from './planningStore.svelte';
+import { planningStore } from "./planningStore.svelte";
 
 export interface DrawerData {
 	occurrenceId: string;

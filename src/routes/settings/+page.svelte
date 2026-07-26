@@ -1,106 +1,106 @@
 <script lang="ts">
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { pb } from '$lib/pocketbase/pb';
-	import { goto } from '$app/navigation';
-	import { User, Mail, Lock, LogOut, ShieldCheck } from '@lucide/svelte';
-	import { toast } from 'svelte-sonner';
-	import Modal from '$lib/components/ui/Modal.svelte';
+import { Lock, LogOut, Mail, ShieldCheck, User } from "@lucide/svelte";
+import { toast } from "svelte-sonner";
+import { goto } from "$app/navigation";
+import Modal from "$lib/components/ui/Modal.svelte";
+import { pb } from "$lib/pocketbase/pb";
+import { userStore } from "$lib/stores/userStore.svelte";
 
-	// Vérifier que l'utilisateur est connecté
-	if (!userStore.isLoggedIn) {
-		goto('/');
+// Vérifier que l'utilisateur est connecté
+if (!userStore.isLoggedIn) {
+	goto("/");
+}
+
+// État du formulaire
+let name = $state(userStore.pbUser?.name || "");
+let email = $state(userStore.pbUser?.email || "");
+let currentPassword = $state("");
+let newPassword = $state("");
+let confirmPassword = $state("");
+
+// État UI
+let isSaving = $state(false);
+let activeTab = $state<"profile" | "security">("profile");
+let showPasswordModal = $state(false);
+
+async function handleProfileUpdate() {
+	if (!name.trim()) {
+		toast.error("Le nom est requis");
+		return;
 	}
 
-	// État du formulaire
-	let name = $state(userStore.pbUser?.name || '');
-	let email = $state(userStore.pbUser?.email || '');
-	let currentPassword = $state('');
-	let newPassword = $state('');
-	let confirmPassword = $state('');
+	isSaving = true;
+	try {
+		// 1. Mettre à jour PocketBase
+		await pb.collection("users").update(pb.authStore.record!.id, {
+			name: name.trim(),
+			email: email.trim() || undefined
+		});
 
-	// État UI
-	let isSaving = $state(false);
-	let activeTab = $state<'profile' | 'security'>('profile');
-	let showPasswordModal = $state(false);
+		// 2. Rafraîchir le record authStore pour cohérence immédiate
+		await pb.collection("users").authRefresh();
 
-	async function handleProfileUpdate() {
-		if (!name.trim()) {
-			toast.error('Le nom est requis');
-			return;
-		}
+		toast.success("Profil mis à jour");
+	} catch (error) {
+		console.error("Error updating profile:", error);
+		toast.error("Erreur lors de la mise à jour du profil");
+	} finally {
+		isSaving = false;
+	}
+}
 
-		isSaving = true;
+async function handlePasswordChange() {
+	if (!currentPassword || !newPassword || !confirmPassword) {
+		toast.error("Tous les champs sont requis");
+		return;
+	}
+
+	if (newPassword !== confirmPassword) {
+		toast.error("Les mots de passe ne correspondent pas");
+		return;
+	}
+
+	if (newPassword.length < 8) {
+		toast.error("Le mot de passe doit contenir au moins 8 caractères");
+		return;
+	}
+
+	isSaving = true;
+	try {
+		// Vérifier l'ancien mot de passe en se reconnectant
 		try {
-			// 1. Mettre à jour PocketBase
-			await pb.collection('users').update(pb.authStore.record!.id, {
-				name: name.trim(),
-				email: email.trim() || undefined
-			});
-
-			// 2. Rafraîchir le record authStore pour cohérence immédiate
-			await pb.collection('users').authRefresh();
-
-			toast.success('Profil mis à jour');
-		} catch (error) {
-			console.error('Error updating profile:', error);
-			toast.error('Erreur lors de la mise à jour du profil');
-		} finally {
+			await pb.collection("users").authWithPassword(pb.authStore.record!.email, currentPassword);
+		} catch {
+			toast.error("L'ancien mot de passe est incorrect");
 			isSaving = false;
-		}
-	}
-
-	async function handlePasswordChange() {
-		if (!currentPassword || !newPassword || !confirmPassword) {
-			toast.error('Tous les champs sont requis');
 			return;
 		}
 
-		if (newPassword !== confirmPassword) {
-			toast.error('Les mots de passe ne correspondent pas');
-			return;
-		}
+		// Mettre à jour le mot de passe
+		await pb.collection("users").update(pb.authStore.record!.id, {
+			password: newPassword,
+			passwordConfirm: confirmPassword
+		});
 
-		if (newPassword.length < 8) {
-			toast.error('Le mot de passe doit contenir au moins 8 caractères');
-			return;
-		}
+		toast.success("Mot de passe modifié");
 
-		isSaving = true;
-		try {
-			// Vérifier l'ancien mot de passe en se reconnectant
-			try {
-				await pb.collection('users').authWithPassword(pb.authStore.record!.email, currentPassword);
-			} catch {
-				toast.error("L'ancien mot de passe est incorrect");
-				isSaving = false;
-				return;
-			}
-
-			// Mettre à jour le mot de passe
-			await pb.collection('users').update(pb.authStore.record!.id, {
-				password: newPassword,
-				passwordConfirm: confirmPassword
-			});
-
-			toast.success('Mot de passe modifié');
-
-			// Reset et fermer le modal
-			currentPassword = '';
-			newPassword = '';
-			confirmPassword = '';
-			showPasswordModal = false;
-		} catch (error) {
-			console.error('Error changing password:', error);
-			toast.error('Erreur lors du changement de mot de passe');
-		} finally {
-			isSaving = false;
-		}
+		// Reset et fermer le modal
+		currentPassword = "";
+		newPassword = "";
+		confirmPassword = "";
+		showPasswordModal = false;
+	} catch (error) {
+		console.error("Error changing password:", error);
+		toast.error("Erreur lors du changement de mot de passe");
+	} finally {
+		isSaving = false;
 	}
+}
 
-	async function handleLogout() {
-		await userStore.logout();
-		goto('/');
-	}
+async function handleLogout() {
+	await userStore.logout();
+	goto("/");
+}
 </script>
 
 <svelte:head>

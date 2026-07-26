@@ -8,14 +8,15 @@
  *
  * @vitest-environment happy-dom
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, within } from '@testing-library/svelte';
-import userEvent from '@testing-library/user-event';
-import { format, parse } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import PlanningForm from '$lib/components/PlanningForm.svelte';
-import type { PlanningFormData } from '$lib/components/PlanningForm.svelte';
-import type { PlanningMaster } from '$lib/types/planning.types';
+
+import { render, screen, within } from "@testing-library/svelte";
+import userEvent from "@testing-library/user-event";
+import { format, parse } from "date-fns";
+import { fr } from "date-fns/locale";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PlanningFormData } from "$lib/components/PlanningForm.svelte";
+import PlanningForm from "$lib/components/PlanningForm.svelte";
+import type { PlanningMaster } from "$lib/types/planning.types";
 
 // --- Helpers dates ---
 
@@ -28,7 +29,7 @@ function futureISO(offsetDays: number): string {
 
 /** Formate une date YYYY-MM-DD comme le composant (EEE d MMM, locale fr). */
 function formatDateFr(iso: string): string {
-	return format(parse(iso, 'yyyy-MM-dd', new Date()), 'EEE d MMM', { locale: fr });
+	return format(parse(iso, "yyyy-MM-dd", new Date()), "EEE d MMM", { locale: fr });
 }
 
 // --- Fixture master minimal valide (mode édition) ---
@@ -37,14 +38,14 @@ function makeMaster(overrides: Partial<PlanningMaster> = {}): PlanningMaster {
 	const firstDate = futureISO(7);
 	const lastDate = futureISO(70);
 	return {
-		id: 'm1',
-		title: 'Planning test',
-		defaultStartTime: '14:00',
-		defaultEndTime: '18:00',
-		timeSlots: [{ id: 's1', startTime: '14:00', endTime: '18:00' }],
+		id: "m1",
+		title: "Planning test",
+		defaultStartTime: "14:00",
+		defaultEndTime: "18:00",
+		timeSlots: [{ id: "s1", startTime: "14:00", endTime: "18:00" }],
 		minPresentRequired: 1,
 		allowResponses: true,
-		recurrence: { type: 'WEEKLY', firstDate, lastDate },
+		recurrence: { type: "WEEKLY", firstDate, lastDate },
 		tasks: [],
 		participants: [],
 		created: new Date().toISOString(),
@@ -71,8 +72,8 @@ afterEach(() => {
 	delete (window as unknown as { confirm?: unknown }).confirm;
 });
 
-describe('PlanningForm — retrait du window.confirm au submit (ticket 03)', () => {
-	it('porte 4 (requestDisableSlot) puis submit : ConfirmModal affichée, pas de window.confirm, submit aboutit', async () => {
+describe("PlanningForm — retrait du window.confirm au submit (ticket 03)", () => {
+	it("porte 4 (requestDisableSlot) puis submit : ConfirmModal affichée, pas de window.confirm, submit aboutit", async () => {
 		const targetDate = futureISO(7); // 1ère date du cycle hebdo
 		const onSubmit = vi.fn().mockResolvedValue(undefined);
 		const user = userEvent.setup();
@@ -86,29 +87,29 @@ describe('PlanningForm — retrait du window.confirm au submit (ticket 03)', () 
 		});
 
 		// 1. Ouvre le popover de la DateSlot pour `targetDate`.
-		const dateSlotButton = screen.getByRole('button', {
-			name: new RegExp(formatDateFr(targetDate), 'i')
+		const dateSlotButton = screen.getByRole("button", {
+			name: new RegExp(formatDateFr(targetDate), "i")
 		});
 		await user.click(dateSlotButton);
 
 		// 2. Clic sur « Désactiver » dans le popover → déclenche la porte 4.
 		//    À ce stade, la ConfirmModal n'est pas encore ouverte : un seul bouton
 		//    « Désactiver » est présent (celui du popover).
-		await user.click(screen.getByRole('button', { name: /désactiver/i }));
+		await user.click(screen.getByRole("button", { name: /désactiver/i }));
 
 		// 3. La ConfirmModal s'ouvre (porte 4, confirmLabel « Désactiver »).
-		const dialog = await screen.findByRole('dialog');
+		const dialog = await screen.findByRole("dialog");
 		expect(dialog).toHaveTextContent(/des participant/i);
-		await user.click(within(dialog).getByRole('button', { name: /désactiver/i }));
+		await user.click(within(dialog).getByRole("button", { name: /désactiver/i }));
 
 		// 4. Submit.
-		await user.click(screen.getByRole('button', { name: /enregistrer les modifications/i }));
+		await user.click(screen.getByRole("button", { name: /enregistrer les modifications/i }));
 
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 		expect(confirmSpy).not.toHaveBeenCalled();
 	});
 
-	it('porte 2 (requestDateChange) en excluant une date avec données : ConfirmModal affichée, pas de window.confirm, submit aboutit', async () => {
+	it("porte 2 (requestDateChange) en excluant une date avec données : ConfirmModal affichée, pas de window.confirm, submit aboutit", async () => {
 		const initialFirstDate = futureISO(7); // dans datesWithData
 		const newFirstDate = futureISO(14); // exclut initialFirstDate du cycle
 		const onSubmit = vi.fn().mockResolvedValue(undefined);
@@ -130,18 +131,18 @@ describe('PlanningForm — retrait du window.confirm au submit (ticket 03)', () 
 		await user.tab(); // blur → onchange → requestDateChange
 
 		// 2. ConfirmModal porte 2 (titre « Modifier la période », confirmLabel « Modifier »).
-		const dialog = await screen.findByRole('dialog');
+		const dialog = await screen.findByRole("dialog");
 		expect(dialog).toHaveTextContent(/modifier la période/i);
-		await user.click(within(dialog).getByRole('button', { name: /modifier/i }));
+		await user.click(within(dialog).getByRole("button", { name: /modifier/i }));
 
 		// 3. Submit.
-		await user.click(screen.getByRole('button', { name: /enregistrer les modifications/i }));
+		await user.click(screen.getByRole("button", { name: /enregistrer les modifications/i }));
 
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 		expect(confirmSpy).not.toHaveBeenCalled();
 	});
 
-	it('cas pathologique : date avec données hors cycle sans porte ouverte → submit sans window.confirm', async () => {
+	it("cas pathologique : date avec données hors cycle sans porte ouverte → submit sans window.confirm", async () => {
 		// La date avec données n'a jamais été dans le cycle master : aucune porte
 		// n'a eu l'occasion de se déclencher. Avant le ticket, le `window.confirm`
 		// global au submitattrapait ce cas. Il doit désormais aboutir sans dialog native.
@@ -152,11 +153,11 @@ describe('PlanningForm — retrait du window.confirm au submit (ticket 03)', () 
 			props: {
 				master: makeMaster(),
 				onSubmit: onSubmit as (data: PlanningFormData) => Promise<void>,
-				datesWithData: ['2024-01-15'] // date passée, hors cycle hebdo
+				datesWithData: ["2024-01-15"] // date passée, hors cycle hebdo
 			}
 		});
 
-		await user.click(screen.getByRole('button', { name: /enregistrer les modifications/i }));
+		await user.click(screen.getByRole("button", { name: /enregistrer les modifications/i }));
 
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 		expect(confirmSpy).not.toHaveBeenCalled();

@@ -1,7 +1,7 @@
-import { updateOccurrence } from '$lib/services/planningActions';
-import { formatDateShort } from '$lib/utils/date';
-import { toast } from 'svelte-sonner';
-import type { PlanningOccurrence, ResponseType, Task } from '$lib/types/planning.types';
+import { toast } from "svelte-sonner";
+import { updateOccurrence } from "$lib/services/planningActions";
+import type { PlanningOccurrence, ResponseType, Task } from "$lib/types/planning.types";
+import { formatDateShort } from "$lib/utils/date";
 
 interface ConfirmLogicOptions {
 	occurrence: PlanningOccurrence;
@@ -22,7 +22,7 @@ export interface ConfirmLogic {
 		message: string;
 		description: string;
 		confirmLabel: string;
-		variant: 'danger' | 'warning' | 'info' | 'success';
+		variant: "danger" | "warning" | "info" | "success";
 		onConfirm: () => void;
 	};
 	readonly missingPresences: number;
@@ -38,11 +38,11 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 
 	let confirmModalState = $state({
 		open: false,
-		title: '',
-		message: '',
-		description: '',
-		confirmLabel: '',
-		variant: 'info' as 'danger' | 'warning' | 'info' | 'success',
+		title: "",
+		message: "",
+		description: "",
+		confirmLabel: "",
+		variant: "info" as "danger" | "warning" | "info" | "success",
 		onConfirm: () => {}
 	});
 
@@ -75,7 +75,7 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 		const isPlural = taskNames.length > 1;
 		return {
 			message: isPlural
-				? `Vous êtes inscrit à ${taskNames.length} tâches nécessitant votre présence : ${taskNames.join(', ')}.`
+				? `Vous êtes inscrit à ${taskNames.length} tâches nécessitant votre présence : ${taskNames.join(", ")}.`
 				: `Vous êtes inscrit à la tâche « ${taskNames[0]} » qui nécessite votre présence.`
 		};
 	});
@@ -88,9 +88,9 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 			title: "Rétablir l'événement ?",
 			message: `L'événement du ${formatDateShort(options.occurrence.date)} sera rétabli.`,
 			description:
-				'Les participants ayant activé les notifications seront informés du rétablissement.',
-			confirmLabel: 'Rétablir',
-			variant: 'warning',
+				"Les participants ayant activé les notifications seront informés du rétablissement.",
+			confirmLabel: "Rétablir",
+			variant: "warning",
 			onConfirm: executeRestore
 		};
 	}
@@ -105,9 +105,9 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 				{ isCanceled: false, isConfirmed: !options.toConfirm },
 				token
 			);
-			toast.success('Événement rétabli');
+			toast.success("Événement rétabli");
 		} catch (_error) {
-			toast.error('Erreur lors du rétablissement');
+			toast.error("Erreur lors du rétablissement");
 			console.error(_error);
 		}
 	}
@@ -124,23 +124,23 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 				warnings.push(`${incompleteTasks.length} tâche(s) non remplie(s)`);
 		}
 
-		const warningDetail = warnings.length > 0 ? ` Détails : ${warnings.join(' et ')}.` : '';
+		const warningDetail = warnings.length > 0 ? ` Détails : ${warnings.join(" et ")}.` : "";
 
 		confirmModalState = {
 			open: true,
-			title: isCurrentlyConfirmed ? 'Annuler la confirmation ?' : "Confirmer l'événement ?",
+			title: isCurrentlyConfirmed ? "Annuler la confirmation ?" : "Confirmer l'événement ?",
 			message: isCurrentlyConfirmed
 				? `La confirmation du ${formatDateShort(options.occurrence.date)} sera annulée.`
 				: warnings.length > 0
-					? 'Le quorum ou les besoins en tâches ne sont pas atteints.'
+					? "Le quorum ou les besoins en tâches ne sont pas atteints."
 					: `Confirmer la tenue de l'événement du ${formatDateShort(options.occurrence.date)} ?`,
 			description: `Les participants ayant activé les notifications seront informés.${warningDetail}`,
 			confirmLabel: isCurrentlyConfirmed
-				? 'Annuler la confirmation'
+				? "Annuler la confirmation"
 				: warnings.length > 0
-					? 'Confirmer quand même'
-					: 'Confirmer',
-			variant: isCurrentlyConfirmed ? 'warning' : warnings.length > 0 ? 'warning' : 'success',
+					? "Confirmer quand même"
+					: "Confirmer",
+			variant: isCurrentlyConfirmed ? "warning" : warnings.length > 0 ? "warning" : "success",
 			onConfirm: executeConfirm
 		};
 	}
@@ -155,9 +155,9 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 				{ isConfirmed: !options.occurrence.isConfirmed, isCanceled: false },
 				token
 			);
-			toast.success(updated.isConfirmed ? 'Événement confirmé' : 'Confirmation annulée');
+			toast.success(updated.isConfirmed ? "Événement confirmé" : "Confirmation annulée");
 		} catch (_error) {
-			toast.error('Erreur lors de la confirmation');
+			toast.error("Erreur lors de la confirmation");
 			console.error(_error);
 		}
 	}

@@ -1,29 +1,28 @@
 <script lang="ts">
-	import { CalendarPlus, Share2, Eye } from '@lucide/svelte';
+import { CalendarPlus, Eye, Share2 } from "@lucide/svelte";
 
-	const steps = [
-		{
-			num: '1',
-			icon: CalendarPlus,
-			title: 'Créez votre planning',
-			description:
-				'Définissez la récurrence (quotidien, hebdomadaire, mensuel…), les horaires et les tâches à pourvoir.'
-		},
-		{
-			num: '2',
-			icon: Share2,
-			title: 'Partagez le lien',
-			description:
-				"Partagez le lien à votre groupe. Aucune inscription n'est requise pour répondre."
-		},
-		{
-			num: '3',
-			icon: Eye,
-			title: 'Suivez les réponses',
-			description:
-				"Chacun·e peut voir qui sera présent, qui s'occupe de quoi, et communiquer via les commentaires en temps réel."
-		}
-	];
+const steps = [
+	{
+		num: "1",
+		icon: CalendarPlus,
+		title: "Créez votre planning",
+		description:
+			"Définissez la récurrence (quotidien, hebdomadaire, mensuel…), les horaires et les tâches à pourvoir."
+	},
+	{
+		num: "2",
+		icon: Share2,
+		title: "Partagez le lien",
+		description: "Partagez le lien à votre groupe. Aucune inscription n'est requise pour répondre."
+	},
+	{
+		num: "3",
+		icon: Eye,
+		title: "Suivez les réponses",
+		description:
+			"Chacun·e peut voir qui sera présent, qui s'occupe de quoi, et communiquer via les commentaires en temps réel."
+	}
+];
 </script>
 
 <section class=" py-10">

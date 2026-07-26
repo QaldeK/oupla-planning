@@ -20,12 +20,13 @@
  *   - Admin de test créé (test@example.com / testpassword)
  *   - Collection `planning_locks` présente (étape 2 du plan R5.3)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import PocketBase from 'pocketbase';
-import { DatabaseSync } from 'node:sqlite';
-import { seedPlanning, authenticateAdmin, clearTrackedIds, cleanupTrackedRecords } from './seed';
 
-const PB_URL = process.env.VITE_PLANNING_PB_URL || 'http://127.0.0.1:8090';
+import { DatabaseSync } from "node:sqlite";
+import PocketBase from "pocketbase";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { authenticateAdmin, cleanupTrackedRecords, clearTrackedIds, seedPlanning } from "./seed";
+
+const PB_URL = process.env.VITE_PLANNING_PB_URL || "http://127.0.0.1:8090";
 
 // Client PB non authentifié, comme un vrai client guest admin (token en query).
 // Les routes custom /api/lock et /api/unlock valident le token via master.adminToken.
@@ -37,7 +38,7 @@ function tokenClient(): PocketBase {
 async function getLockRow(masterId: string): Promise<Record<string, any> | null> {
 	const adminPb = await authenticateAdmin();
 	try {
-		return await adminPb.collection('planning_locks').getFirstListItem(`master = "${masterId}"`);
+		return await adminPb.collection("planning_locks").getFirstListItem(`master = "${masterId}"`);
 	} catch {
 		return null;
 	}
@@ -48,9 +49,9 @@ async function getLockRow(masterId: string): Promise<Record<string, any> | null>
 async function cleanupLocks() {
 	const adminPb = await authenticateAdmin();
 	try {
-		const locks = await adminPb.collection('planning_locks').getFullList();
+		const locks = await adminPb.collection("planning_locks").getFullList();
 		for (const lock of locks) {
-			await adminPb.collection('planning_locks').delete(lock.id);
+			await adminPb.collection("planning_locks").delete(lock.id);
 		}
 	} catch {
 		// ignore
@@ -68,16 +69,16 @@ async function cleanupLocks() {
 // Node (pool: 'forks' = Node child processes), pas sous le runtime Bun. Le
 // runner `bun run test:integration` ne fait qu'invoquer vitest via Node.
 function ageLockInDb(masterId: string, ageMs: number): void {
-	const db = new DatabaseSync('./pocketbase/pb_data/data.db');
+	const db = new DatabaseSync("./pocketbase/pb_data/data.db");
 	const expired = new Date(Date.now() - ageMs)
 		.toISOString()
-		.replace('T', ' ')
-		.replace(/\.\d+Z$/, '.000Z');
-	db.prepare('UPDATE planning_locks SET lockedAt = ? WHERE master = ?').run(expired, masterId);
+		.replace("T", " ")
+		.replace(/\.\d+Z$/, ".000Z");
+	db.prepare("UPDATE planning_locks SET lockedAt = ? WHERE master = ?").run(expired, masterId);
 	db.close();
 }
 
-describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)', () => {
+describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)", () => {
 	beforeEach(() => {
 		clearTrackedIds();
 	});
@@ -90,37 +91,37 @@ describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 	// ---------------------------------------------------------------------------
 	// 1. Acquire sur master vierge → 200 + row créée (création lazy)
 	// ---------------------------------------------------------------------------
-	it('crée un lock (lazy) sur un master jamais locké', async () => {
-		const { master, adminToken } = await seedPlanning({ title: 'R5.3 Acquire' });
+	it("crée un lock (lazy) sur un master jamais locké", async () => {
+		const { master, adminToken } = await seedPlanning({ title: "R5.3 Acquire" });
 
 		const pb = tokenClient();
 		const res = await pb.send<{ lockedBy: string; lockedAt: string; expiresAt: string }>(
 			`/api/lock/${master.id}`,
 			{
-				method: 'POST',
-				body: { lockedBy: 'userA', lockedByName: 'Alice' },
+				method: "POST",
+				body: { lockedBy: "userA", lockedByName: "Alice" },
 				query: { _token: adminToken }
 			}
 		);
 
-		expect(res.lockedBy).toBe('userA');
+		expect(res.lockedBy).toBe("userA");
 
 		const row = await getLockRow(master.id);
 		expect(row).not.toBeNull();
-		expect(row!.lockedBy).toBe('userA');
-		expect(row!.lockedByName).toBe('Alice');
+		expect(row!.lockedBy).toBe("userA");
+		expect(row!.lockedByName).toBe("Alice");
 	});
 
 	// ---------------------------------------------------------------------------
 	// 2. Heartbeat : même userId re-acquire → 200, lockedAt rafraîchi
 	// ---------------------------------------------------------------------------
-	it('rafraîchit lockedAt sur heartbeat du même détenteur', async () => {
-		const { master, adminToken } = await seedPlanning({ title: 'R5.3 Heartbeat' });
+	it("rafraîchit lockedAt sur heartbeat du même détenteur", async () => {
+		const { master, adminToken } = await seedPlanning({ title: "R5.3 Heartbeat" });
 
 		const pb = tokenClient();
 		const first = await pb.send<{ lockedAt: string }>(`/api/lock/${master.id}`, {
-			method: 'POST',
-			body: { lockedBy: 'userA' },
+			method: "POST",
+			body: { lockedBy: "userA" },
 			query: { _token: adminToken }
 		});
 
@@ -128,8 +129,8 @@ describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		await new Promise((r) => setTimeout(r, 1100));
 
 		const second = await pb.send<{ lockedAt: string }>(`/api/lock/${master.id}`, {
-			method: 'POST',
-			body: { lockedBy: 'userA' },
+			method: "POST",
+			body: { lockedBy: "userA" },
 			query: { _token: adminToken }
 		});
 
@@ -139,14 +140,14 @@ describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 	// ---------------------------------------------------------------------------
 	// 3. Conflit : autre userId (même adminToken) → 409 avec détails du détenteur
 	// ---------------------------------------------------------------------------
-	it('renvoie 409 avec détails quand un autre admin détient un lock frais', async () => {
-		const { master, adminToken } = await seedPlanning({ title: 'R5.3 Conflit' });
+	it("renvoie 409 avec détails quand un autre admin détient un lock frais", async () => {
+		const { master, adminToken } = await seedPlanning({ title: "R5.3 Conflit" });
 
 		const pb = tokenClient();
 		// userA acquire
 		await pb.send(`/api/lock/${master.id}`, {
-			method: 'POST',
-			body: { lockedBy: 'userA', lockedByName: 'Alice' },
+			method: "POST",
+			body: { lockedBy: "userA", lockedByName: "Alice" },
 			query: { _token: adminToken }
 		});
 
@@ -154,8 +155,8 @@ describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		let caught: any;
 		try {
 			await pb.send(`/api/lock/${master.id}`, {
-				method: 'POST',
-				body: { lockedBy: 'userB' },
+				method: "POST",
+				body: { lockedBy: "userB" },
 				query: { _token: adminToken }
 			});
 		} catch (err: any) {
@@ -165,21 +166,21 @@ describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		expect(caught).toBeDefined();
 		expect(caught.status).toBe(409);
 		// Le body du 409 contient les détails du détenteur courant
-		expect(caught.response?.lockedBy).toBe('userA');
-		expect(caught.response?.lockedByName).toBe('Alice');
+		expect(caught.response?.lockedBy).toBe("userA");
+		expect(caught.response?.lockedByName).toBe("Alice");
 		expect(caught.response?.expiresAt).toBeTruthy();
 	});
 
 	// ---------------------------------------------------------------------------
 	// 4. Expiration TTL : lock avec lockedAt ancien → ré-acquisition par autrui
 	// ---------------------------------------------------------------------------
-	it('permet la ré-acquisition après expiration du TTL', async () => {
-		const { master, adminToken } = await seedPlanning({ title: 'R5.3 TTL Expiry' });
+	it("permet la ré-acquisition après expiration du TTL", async () => {
+		const { master, adminToken } = await seedPlanning({ title: "R5.3 TTL Expiry" });
 
 		const pb = tokenClient();
 		await pb.send(`/api/lock/${master.id}`, {
-			method: 'POST',
-			body: { lockedBy: 'userA' },
+			method: "POST",
+			body: { lockedBy: "userA" },
 			query: { _token: adminToken }
 		});
 
@@ -189,30 +190,30 @@ describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 
 		// userB peut maintenant acquérir
 		const res = await pb.send<{ lockedBy: string }>(`/api/lock/${master.id}`, {
-			method: 'POST',
-			body: { lockedBy: 'userB' },
+			method: "POST",
+			body: { lockedBy: "userB" },
 			query: { _token: adminToken }
 		});
 
-		expect(res.lockedBy).toBe('userB');
+		expect(res.lockedBy).toBe("userB");
 	});
 
 	// ---------------------------------------------------------------------------
 	// 5. Unlock par détenteur → 200, lockedBy vidé (row permanente)
 	// ---------------------------------------------------------------------------
-	it('libère le lock (clear lockedBy, row conservée)', async () => {
-		const { master, adminToken } = await seedPlanning({ title: 'R5.3 Unlock' });
+	it("libère le lock (clear lockedBy, row conservée)", async () => {
+		const { master, adminToken } = await seedPlanning({ title: "R5.3 Unlock" });
 
 		const pb = tokenClient();
 		await pb.send(`/api/lock/${master.id}`, {
-			method: 'POST',
-			body: { lockedBy: 'userA' },
+			method: "POST",
+			body: { lockedBy: "userA" },
 			query: { _token: adminToken }
 		});
 
 		const res = await pb.send<{ released: boolean }>(`/api/unlock/${master.id}`, {
-			method: 'POST',
-			body: { lockedBy: 'userA' },
+			method: "POST",
+			body: { lockedBy: "userA" },
 			query: { _token: adminToken }
 		});
 
@@ -221,27 +222,27 @@ describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		const row = await getLockRow(master.id);
 		// La row reste (permanente) mais lockedBy est vidé.
 		expect(row).not.toBeNull();
-		expect(row!.lockedBy).toBe('');
+		expect(row!.lockedBy).toBe("");
 	});
 
 	// ---------------------------------------------------------------------------
 	// 6. Unlock par autrui → 403 (lock frais par un autre)
 	// ---------------------------------------------------------------------------
-	it('refuse le release d un lock détenu par un autre (403)', async () => {
-		const { master, adminToken } = await seedPlanning({ title: 'R5.3 Unlock 403' });
+	it("refuse le release d un lock détenu par un autre (403)", async () => {
+		const { master, adminToken } = await seedPlanning({ title: "R5.3 Unlock 403" });
 
 		const pb = tokenClient();
 		await pb.send(`/api/lock/${master.id}`, {
-			method: 'POST',
-			body: { lockedBy: 'userA' },
+			method: "POST",
+			body: { lockedBy: "userA" },
 			query: { _token: adminToken }
 		});
 
 		let caught: any;
 		try {
 			await pb.send(`/api/unlock/${master.id}`, {
-				method: 'POST',
-				body: { lockedBy: 'userB' },
+				method: "POST",
+				body: { lockedBy: "userB" },
 				query: { _token: adminToken }
 			});
 		} catch (err: any) {
@@ -253,22 +254,22 @@ describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 
 		// Le lock de userA est toujours en place
 		const row = await getLockRow(master.id);
-		expect(row!.lockedBy).toBe('userA');
+		expect(row!.lockedBy).toBe("userA");
 	});
 
 	// ---------------------------------------------------------------------------
 	// 7. Auth : adminToken invalide → 403
 	// ---------------------------------------------------------------------------
-	it('rejette un adminToken invalide (403)', async () => {
-		const { master } = await seedPlanning({ title: 'R5.3 Bad Token' });
+	it("rejette un adminToken invalide (403)", async () => {
+		const { master } = await seedPlanning({ title: "R5.3 Bad Token" });
 
 		const pb = tokenClient();
 		let caught: any;
 		try {
 			await pb.send(`/api/lock/${master.id}`, {
-				method: 'POST',
-				body: { lockedBy: 'userA' },
-				query: { _token: 'wrongtoken' }
+				method: "POST",
+				body: { lockedBy: "userA" },
+				query: { _token: "wrongtoken" }
 			});
 		} catch (err: any) {
 			caught = err;
@@ -281,15 +282,15 @@ describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 	// ---------------------------------------------------------------------------
 	// 8. Validation : lockedBy manquant → 400
 	// ---------------------------------------------------------------------------
-	it('rejette un acquire sans lockedBy (400)', async () => {
-		const { master, adminToken } = await seedPlanning({ title: 'R5.3 No userId' });
+	it("rejette un acquire sans lockedBy (400)", async () => {
+		const { master, adminToken } = await seedPlanning({ title: "R5.3 No userId" });
 
 		const pb = tokenClient();
 		let caught: any;
 		try {
 			await pb.send(`/api/lock/${master.id}`, {
-				method: 'POST',
-				body: { lockedByName: 'NoUser' },
+				method: "POST",
+				body: { lockedByName: "NoUser" },
 				query: { _token: adminToken }
 			});
 		} catch (err: any) {
@@ -303,13 +304,13 @@ describe('R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 	// ---------------------------------------------------------------------------
 	// 9. Non-régression : unlock idempotent (rien à release)
 	// ---------------------------------------------------------------------------
-	it('unlock est idempotent si aucune row n existe', async () => {
-		const { master, adminToken } = await seedPlanning({ title: 'R5.3 Idempotent' });
+	it("unlock est idempotent si aucune row n existe", async () => {
+		const { master, adminToken } = await seedPlanning({ title: "R5.3 Idempotent" });
 
 		const pb = tokenClient();
 		const res = await pb.send<{ released: boolean }>(`/api/unlock/${master.id}`, {
-			method: 'POST',
-			body: { lockedBy: 'userA' },
+			method: "POST",
+			body: { lockedBy: "userA" },
 			query: { _token: adminToken }
 		});
 

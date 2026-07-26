@@ -8,28 +8,29 @@
  *
  * @vitest-environment happy-dom
  */
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
-import userEvent from '@testing-library/user-event';
-import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 
-describe('Smoke test — chaîne @testing-library/svelte', () => {
-	it('monte un composant Svelte et lit son rendu', () => {
+import { render, screen } from "@testing-library/svelte";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it } from "vitest";
+import ConfirmModal from "$lib/components/ui/ConfirmModal.svelte";
+
+describe("Smoke test — chaîne @testing-library/svelte", () => {
+	it("monte un composant Svelte et lit son rendu", () => {
 		render(ConfirmModal, {
 			props: {
 				open: true,
 				onClose: () => {},
 				onConfirm: () => {},
-				title: 'Titre test',
-				message: 'Message visible'
+				title: "Titre test",
+				message: "Message visible"
 			}
 		});
 
-		expect(screen.getByText('Message visible')).toBeInTheDocument();
-		expect(screen.getByRole('heading', { name: 'Titre test' })).toBeInTheDocument();
+		expect(screen.getByText("Message visible")).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "Titre test" })).toBeInTheDocument();
 	});
 
-	it('simule un clic utilisateur et vérifie le callback', async () => {
+	it("simule un clic utilisateur et vérifie le callback", async () => {
 		const user = userEvent.setup();
 		let cancelled = false;
 
@@ -40,13 +41,13 @@ describe('Smoke test — chaîne @testing-library/svelte', () => {
 					cancelled = true;
 				},
 				onConfirm: () => {},
-				title: 'T',
-				message: 'M',
-				cancelLabel: 'Annuler'
+				title: "T",
+				message: "M",
+				cancelLabel: "Annuler"
 			}
 		});
 
-		await user.click(screen.getByRole('button', { name: /annuler/i }));
+		await user.click(screen.getByRole("button", { name: /annuler/i }));
 		expect(cancelled).toBe(true);
 	});
 });

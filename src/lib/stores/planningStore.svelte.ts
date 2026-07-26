@@ -1,17 +1,17 @@
-import type { PlanningMaster, PlanningOccurrence, SavedPlanning } from '$lib/types/planning.types';
-import { getPlanningByToken } from '$lib/services/planningActions';
-import { commentStateService } from '$lib/services/commentStateService';
-import { userStore } from '$lib/stores/userStore.svelte';
-import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
-import { pb } from '$lib/pocketbase/pb';
-import { db, ensureDbReady, upsertLocalMeta, upsertRecord } from '$lib/pb-sync/db';
-import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
-import { ClientResponseError } from 'pocketbase';
-import { liveQuery } from 'dexie';
-import type { Subscription } from 'dexie';
-import { format } from 'date-fns';
-import { SvelteMap } from 'svelte/reactivity';
-import { resolveActorIdentity } from '$lib/utils/identityResolution';
+import { format } from "date-fns";
+import type { Subscription } from "dexie";
+import { liveQuery } from "dexie";
+import { ClientResponseError } from "pocketbase";
+import { SvelteMap } from "svelte/reactivity";
+import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { db, ensureDbReady, upsertLocalMeta, upsertRecord } from "$lib/pb-sync/db";
+import { pb } from "$lib/pocketbase/pb";
+import { commentStateService } from "$lib/services/commentStateService";
+import { getPlanningByToken } from "$lib/services/planningActions";
+import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
+import type { PlanningMaster, PlanningOccurrence, SavedPlanning } from "$lib/types/planning.types";
+import { resolveActorIdentity } from "$lib/utils/identityResolution";
 
 /**
  * Ordre total stable pour les occurrences : date puis startTime, avec
@@ -28,7 +28,7 @@ function compareOccurrences(a: PlanningOccurrence, b: PlanningOccurrence): numbe
 }
 
 // Type de retour pour getOrFetchMaster
-type GetOrFetchMasterResult = PlanningMaster | { error: 'network' | 'not_found' };
+type GetOrFetchMasterResult = PlanningMaster | { error: "network" | "not_found" };
 
 class PlanningStore {
 	// Cache interne : token → master (pour éviter les fetchs)
@@ -42,7 +42,7 @@ class PlanningStore {
 	#selectedOccurrenceId = $state<string | null>(null);
 	#isLoading = $state(false);
 	#error = $state<{
-		type: 'network' | 'not_found' | 'deleted';
+		type: "network" | "not_found" | "deleted";
 		message: string;
 	} | null>(null);
 
@@ -193,10 +193,10 @@ class PlanningStore {
 
 		this.#occurrencesSub = liveQuery(() =>
 			db.occurrences
-				.where('master')
+				.where("master")
 				.equals(masterId)
 				.filter((o) => !o.deleted)
-				.sortBy('date')
+				.sortBy("date")
 				.then((rows) => rows.sort(compareOccurrences))
 		).subscribe({
 			next: (val) => {
@@ -207,13 +207,13 @@ class PlanningStore {
 		// Occurrences futures soft-deleted incluses : pas de filtre `!o.deleted` (le
 		// consommateur discrimine côté UI). Le seuil `today` est figé à la souscription
 		// — acceptable : un changement de jour requiert une navigation/re-activation.
-		const today = format(new Date(), 'yyyy-MM-dd');
+		const today = format(new Date(), "yyyy-MM-dd");
 		this.#futureOccurrencesSub = liveQuery(() =>
 			db.occurrences
-				.where('master')
+				.where("master")
 				.equals(masterId)
 				.filter((o) => o.date >= today)
-				.sortBy('date')
+				.sortBy("date")
 				.then((rows) => rows.sort(compareOccurrences))
 		).subscribe({
 			next: (val) => {
@@ -246,7 +246,7 @@ class PlanningStore {
 			await db.masters.put({ ...master, deleted: true } as PlanningMaster);
 		}
 
-		const occs = await db.occurrences.where('master').equals(masterId).toArray();
+		const occs = await db.occurrences.where("master").equals(masterId).toArray();
 		if (occs.length > 0) {
 			await db.occurrences.bulkPut(
 				occs.map((o) => ({ ...o, deleted: true }) as PlanningOccurrence)
@@ -272,7 +272,7 @@ class PlanningStore {
 
 		const allOccIds: string[] = [];
 		for (const id of deletedIds) {
-			const occs = await db.occurrences.where('master').equals(id).toArray();
+			const occs = await db.occurrences.where("master").equals(id).toArray();
 			allOccIds.push(...occs.map((o) => o.id));
 		}
 		if (allOccIds.length > 0) await db.occurrences.bulkDelete(allOccIds);
@@ -298,9 +298,9 @@ class PlanningStore {
 	 * Retourne null si pas trouvé localement.
 	 */
 	async #resolveMasterFromDexie(token: string): Promise<PlanningMaster | null> {
-		let master = await db.masters.where('participantToken').equals(token).first();
+		let master = await db.masters.where("participantToken").equals(token).first();
 		if (master) return master;
-		master = await db.masters.where('adminToken').equals(token).first();
+		master = await db.masters.where("adminToken").equals(token).first();
 		return master ?? null;
 	}
 
@@ -315,7 +315,7 @@ class PlanningStore {
 	 */
 	async setActiveToken(
 		token: string | undefined,
-		_dateFilter: 'future' | 'past' | 'all' = 'future'
+		_dateFilter: "future" | "past" | "all" = "future"
 	): Promise<void> {
 		if (!token) {
 			this.#deactivate();
@@ -336,8 +336,8 @@ class PlanningStore {
 		try {
 			await this.#activatePlanning(token);
 		} catch (err) {
-			console.error('PlanningStore setActiveToken error:', err);
-			this.#error = { type: 'network', message: 'Erreur lors du chargement' };
+			console.error("PlanningStore setActiveToken error:", err);
+			this.#error = { type: "network", message: "Erreur lors du chargement" };
 		} finally {
 			this.#isLoading = false;
 		}
@@ -365,11 +365,11 @@ class PlanningStore {
 		if (!master) {
 			// Pas en Dexie (jamais visité) : chemin réseau complet.
 			const result = await this.getOrFetchMaster(token);
-			if ('error' in result) {
-				if (result.error === 'not_found') {
-					this.#error = { type: 'not_found', message: 'Planning introuvable' };
+			if ("error" in result) {
+				if (result.error === "not_found") {
+					this.#error = { type: "not_found", message: "Planning introuvable" };
 				} else {
-					this.#error = { type: result.error, message: 'Connexion impossible' };
+					this.#error = { type: result.error, message: "Connexion impossible" };
 				}
 				this.#activeMasterId = null;
 				this.#unsubscribeDexieQueries();
@@ -382,15 +382,15 @@ class PlanningStore {
 
 		// === ÉTAPE 2 : Vérifier suppression (locale puis serveur) ===
 		if (master.deleted) {
-			this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
+			this.#error = { type: "deleted", message: "Ce planning a été supprimé" };
 			return;
 		}
 		// Vérification serveur seulement si master était déjà en Dexie : un master
 		// fraîchement fetched prouve son existence par la réponse API elle-même.
 		if (wasInDexie) {
 			const status = await this.#verifyMasterExistsOnServer(master.id, token);
-			if (status === 'deleted') {
-				this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
+			if (status === "deleted") {
+				this.#error = { type: "deleted", message: "Ce planning a été supprimé" };
 				return;
 			}
 		}
@@ -436,27 +436,27 @@ class PlanningStore {
 	async #verifyMasterExistsOnServer(
 		masterId: string,
 		token: string
-	): Promise<'ok' | 'deleted' | 'unknown'> {
-		if (this.#verifiedMasterIds.has(masterId)) return 'ok';
+	): Promise<"ok" | "deleted" | "unknown"> {
+		if (this.#verifiedMasterIds.has(masterId)) return "ok";
 		try {
-			await pb.collection('planning_masters').getOne(masterId, {
-				fields: 'id',
+			await pb.collection("planning_masters").getOne(masterId, {
+				fields: "id",
 				query: { _token: token },
 				requestKey: null
 			});
 			this.#verifiedMasterIds.add(masterId);
-			return 'ok';
+			return "ok";
 		} catch (err: unknown) {
 			if (err instanceof ClientResponseError && err.status === 404) {
 				await this.#markAsDeleted(masterId);
-				return 'deleted';
+				return "deleted";
 			}
 			// Erreur réseau → non-bloquant, on garde les données locales (potentiellement obsolètes)
 			console.warn(
-				'[PlanningStore] Could not verify master existence:',
+				"[PlanningStore] Could not verify master existence:",
 				err instanceof ClientResponseError ? err.message : err
 			);
-			return 'unknown';
+			return "unknown";
 		}
 	}
 
@@ -470,11 +470,11 @@ class PlanningStore {
 	 */
 	async #deltaSyncOccurrences(masterId: string, token: string): Promise<void> {
 		const previousLastFetchAt = await this.#resolveSince(masterId);
-		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
+		const since = previousLastFetchAt ?? "2000-01-01 00:00:00";
 		await this.markFetched(masterId);
 		try {
 			await occurrencesCollection.initialFetch({
-				filter: ['master = {:masterId}', { masterId }],
+				filter: ["master = {:masterId}", { masterId }],
 				query: { _token: token },
 				since
 			});
@@ -483,9 +483,9 @@ class PlanningStore {
 			try {
 				await this.restoreLastFetchAt(masterId, previousLastFetchAt);
 			} catch (restoreErr) {
-				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
+				console.error("[PlanningStore] Failed to restore lastFetchAt:", restoreErr);
 			}
-			console.warn('[PlanningStore] Could not fetch occurrences for master:', err);
+			console.warn("[PlanningStore] Could not fetch occurrences for master:", err);
 		}
 	}
 
@@ -497,11 +497,11 @@ class PlanningStore {
 		try {
 			mastersCollection.subscribe({ record: masterId, query: { _token: token } });
 			occurrencesCollection.subscribe({
-				filter: ['master = {:masterId}', { masterId }],
+				filter: ["master = {:masterId}", { masterId }],
 				query: { _token: token }
 			});
 		} catch (err) {
-			console.warn('pb-sync subscription failed (non-blocking):', err);
+			console.warn("pb-sync subscription failed (non-blocking):", err);
 		}
 	}
 
@@ -526,12 +526,12 @@ class PlanningStore {
 		const record = pb.authStore.record;
 		if (!record) return; // Défensif : la branche auth garantit un user connecté.
 
-		const currentMasterIds: string[] = (record['masterId'] as string[] | undefined) ?? [];
+		const currentMasterIds: string[] = (record["masterId"] as string[] | undefined) ?? [];
 		if (currentMasterIds.includes(master.id)) return; // Déjà claimé.
 
 		try {
-			await pb.send('/api/sync-plannings', {
-				method: 'POST',
+			await pb.send("/api/sync-plannings", {
+				method: "POST",
 				body: {
 					tokens: [
 						{
@@ -545,7 +545,7 @@ class PlanningStore {
 			// Rafraîchir le record pour propager masterId (et adminOf si lien admin)
 			// côté client — les guards UI locales deviennent cohérents sans attendre
 			// la prochaine sync via syncService.
-			await pb.collection('users').authRefresh();
+			await pb.collection("users").authRefresh();
 		} catch (err) {
 			// Erreur réseau (status 0 = pas de réponse serveur, isAbort = annulation,
 			// TypeError = échec fetch en amont du wrapping PocketBase) → statut dégradé.
@@ -554,7 +554,7 @@ class PlanningStore {
 				err instanceof TypeError;
 			if (isNetwork) {
 				console.warn(
-					'[PlanningStore] attachMasterToUser network error (degraded — no realtime until next sync):',
+					"[PlanningStore] attachMasterToUser network error (degraded — no realtime until next sync):",
 					err instanceof ClientResponseError ? err.message : err
 				);
 				return;
@@ -576,7 +576,7 @@ class PlanningStore {
 			guestIdentity: guestStateStore.getGuestIdentity(masterId)
 		})?.id;
 		if (!identityId) return;
-		const occs = await db.occurrences.where('master').equals(masterId).toArray();
+		const occs = await db.occurrences.where("master").equals(masterId).toArray();
 		commentStateService.backfillCommentState(masterId, occs, identityId);
 	}
 
@@ -597,7 +597,7 @@ class PlanningStore {
 
 		const result = await getPlanningByToken(token);
 
-		if ('error' in result) {
+		if ("error" in result) {
 			return { error: result.error };
 		}
 

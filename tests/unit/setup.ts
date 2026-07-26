@@ -17,8 +17,8 @@
  * via `expect(el).toBeInTheDocument()` ; les tests purement Node restent
  * opérationnels sans impact.
  */
-import 'fake-indexeddb/auto';
-import { IDBKeyRange } from 'fake-indexeddb';
-import '@testing-library/jest-dom/vitest';
+import "fake-indexeddb/auto";
+import { IDBKeyRange } from "fake-indexeddb";
+import "@testing-library/jest-dom/vitest";
 
 globalThis.IDBKeyRange = IDBKeyRange;

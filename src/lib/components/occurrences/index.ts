@@ -1,9 +1,9 @@
 import type {
-	PlanningOccurrence,
-	PlanningMaster,
 	Participant,
+	PlanningMaster,
+	PlanningOccurrence,
 	ViewType
-} from '$lib/types/planning.types';
+} from "$lib/types/planning.types";
 
 export type { ViewType };
 
@@ -22,5 +22,6 @@ export interface ViewProps {
 }
 
 // Export du composant unique
-import OccurrenceView from './views/OccurrenceView.svelte';
+import OccurrenceView from "./views/OccurrenceView.svelte";
+
 export { OccurrenceView };

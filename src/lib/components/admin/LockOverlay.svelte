@@ -1,25 +1,25 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { Lock, AlertTriangle, ArrowLeft, RotateCcw } from '@lucide/svelte';
-	import type { LockInfo } from '$lib/services/lockService';
+import { AlertTriangle, ArrowLeft, Lock, RotateCcw } from "@lucide/svelte";
+import { goto } from "$app/navigation";
+import type { LockInfo } from "$lib/services/lockService";
 
-	interface Props {
-		/** 'locked-by-other' : un autre admin détient le lock (overlay read-only). */
-		/** 'lock-lost' : on a perdu le lock (inactivité / retour d'arrière-plan). */
-		mode: 'locked-by-other' | 'lock-lost';
-		/** Détails du détenteur courant (mode 'locked-by-other' uniquement). */
-		lockInfo?: LockInfo | null;
-		/** URL /p/{participantToken} pour revenir au planning. */
-		returnUrl: string;
-		/** Reprendre l'édition : recharge la page (master frais + ré-acquisition au mount). */
-		onRetry?: () => void;
-	}
+interface Props {
+	/** 'locked-by-other' : un autre admin détient le lock (overlay read-only). */
+	/** 'lock-lost' : on a perdu le lock (inactivité / retour d'arrière-plan). */
+	mode: "locked-by-other" | "lock-lost";
+	/** Détails du détenteur courant (mode 'locked-by-other' uniquement). */
+	lockInfo?: LockInfo | null;
+	/** URL /p/{participantToken} pour revenir au planning. */
+	returnUrl: string;
+	/** Reprendre l'édition : recharge la page (master frais + ré-acquisition au mount). */
+	onRetry?: () => void;
+}
 
-	let { mode, lockInfo, returnUrl, onRetry }: Props = $props();
+let { mode, lockInfo, returnUrl, onRetry }: Props = $props();
 
-	function navigateBack() {
-		goto(returnUrl);
-	}
+function navigateBack() {
+	goto(returnUrl);
+}
 </script>
 
 <!-- Overlay bloquant plein écran : backdrop semi-opaque + boîte centrée non

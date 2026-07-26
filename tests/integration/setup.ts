@@ -14,10 +14,10 @@
  * une base vide. Le cleanup entre les tests est géré dans les beforeEach
  * de chaque fichier .test.ts.
  */
-import 'fake-indexeddb/auto';
-import { IDBKeyRange } from 'fake-indexeddb';
-import { vi } from 'vitest';
-import { EventSource } from 'eventsource';
+import "fake-indexeddb/auto";
+import { EventSource } from "eventsource";
+import { IDBKeyRange } from "fake-indexeddb";
+import { vi } from "vitest";
 
 // Polyfill IDBKeyRange for fake-indexeddb
 globalThis.IDBKeyRange = IDBKeyRange;
@@ -26,7 +26,7 @@ globalThis.IDBKeyRange = IDBKeyRange;
 globalThis.EventSource = EventSource as unknown as typeof globalThis.EventSource;
 
 // Mock window.matchMedia for mediaQuery store
-Object.defineProperty(globalThis, 'matchMedia', {
+Object.defineProperty(globalThis, "matchMedia", {
 	writable: true,
 	value: (query: string) => ({
 		matches: false,
@@ -41,12 +41,12 @@ Object.defineProperty(globalThis, 'matchMedia', {
 });
 
 // Mock $app/navigation (SvelteKit)
-vi.mock('$app/navigation', () => ({
+vi.mock("$app/navigation", () => ({
 	goto: vi.fn()
 }));
 
 // Mock $app/environment (browser = false en test)
-vi.mock('$app/environment', () => ({
+vi.mock("$app/environment", () => ({
 	browser: false,
 	dev: false,
 	building: false

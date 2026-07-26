@@ -1,50 +1,49 @@
 <script lang="ts">
-	import {
-		CalendarCheck,
-		ClipboardList,
-		Repeat2,
-		MessageSquareText,
-		Bell,
-		ShieldCheck
-	} from '@lucide/svelte';
+import {
+	Bell,
+	CalendarCheck,
+	ClipboardList,
+	MessageSquareText,
+	Repeat2,
+	ShieldCheck
+} from "@lucide/svelte";
 
-	const features = [
-		{
-			icon: CalendarCheck,
-			title: 'Gestion des présences',
-			description:
-				'Chaque participant·e indique sa disponibilité (présent·e, si besoin, peut-être, absent·e). Suivi du quorum en temps réel.'
-		},
-		{
-			icon: ClipboardList,
-			title: 'Tâches',
-			description:
-				"Ajouter des tâches à se répartir (à réaliser avant, pendant, après l'événement)."
-		},
-		{
-			icon: Repeat2,
-			title: 'Récurrence flexible',
-			description: 'Quotidien, hebdomadaire, bihebdomadaire, mensuel ou dates libres.'
-		},
-		{
-			icon: MessageSquareText,
-			title: 'Commentaires',
-			description:
-				'Échangez sur chaque événement via un fil de discussion intégré. Indicateur de messages non lus.'
-		},
-		{
-			icon: Bell,
-			title: 'Notifications',
-			description:
-				'Alertes push et email pour les changements, annulations, rappels et les nouveaux messages. Configuration par planning.'
-		},
-		{
-			icon: ShieldCheck,
-			title: "Confirmation d'événements",
-			description:
-				"Activez le mode de confirmation pour valider chaque événement avant qu'il n'ait lieu."
-		}
-	];
+const features = [
+	{
+		icon: CalendarCheck,
+		title: "Gestion des présences",
+		description:
+			"Chaque participant·e indique sa disponibilité (présent·e, si besoin, peut-être, absent·e). Suivi du quorum en temps réel."
+	},
+	{
+		icon: ClipboardList,
+		title: "Tâches",
+		description: "Ajouter des tâches à se répartir (à réaliser avant, pendant, après l'événement)."
+	},
+	{
+		icon: Repeat2,
+		title: "Récurrence flexible",
+		description: "Quotidien, hebdomadaire, bihebdomadaire, mensuel ou dates libres."
+	},
+	{
+		icon: MessageSquareText,
+		title: "Commentaires",
+		description:
+			"Échangez sur chaque événement via un fil de discussion intégré. Indicateur de messages non lus."
+	},
+	{
+		icon: Bell,
+		title: "Notifications",
+		description:
+			"Alertes push et email pour les changements, annulations, rappels et les nouveaux messages. Configuration par planning."
+	},
+	{
+		icon: ShieldCheck,
+		title: "Confirmation d'événements",
+		description:
+			"Activez le mode de confirmation pour valider chaque événement avant qu'il n'ait lieu."
+	}
+];
 </script>
 
 <section class="py-10">

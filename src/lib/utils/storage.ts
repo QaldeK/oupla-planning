@@ -11,7 +11,7 @@ export interface StorageOptions {
 	persist?: boolean;
 }
 
-export const isBrowser = typeof window !== 'undefined';
+export const isBrowser = typeof window !== "undefined";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- __TAURI__ est injecté par Tauri, absent de Window
 export const isTauri = isBrowser && !!(window as any).__TAURI__;
 
@@ -23,11 +23,11 @@ async function getTauriStore() {
 	if (tauriStore) return tauriStore;
 	if (isTauri) {
 		try {
-			const { LazyStore } = await import('@tauri-apps/plugin-store');
-			tauriStore = new LazyStore('.settings.json');
+			const { LazyStore } = await import("@tauri-apps/plugin-store");
+			tauriStore = new LazyStore(".settings.json");
 			return tauriStore;
 		} catch (e) {
-			console.warn('Tauri Store plugin not found', e);
+			console.warn("Tauri Store plugin not found", e);
 		}
 	}
 	return null;

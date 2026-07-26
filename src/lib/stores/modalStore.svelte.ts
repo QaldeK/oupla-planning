@@ -16,8 +16,8 @@ class ModalStore {
 	// Collision modal
 	collision = $state<CollisionState>({
 		open: false,
-		localName: '',
-		remoteName: '',
+		localName: "",
+		remoteName: "",
 		onBackupAndReplace: async () => {},
 		onReplaceOnly: async () => {}
 	});
@@ -26,7 +26,7 @@ class ModalStore {
 	drawerNavOpen = $state(false);
 
 	// Ouvre le modal de collision
-	openCollision(options: Omit<CollisionState, 'open'>) {
+	openCollision(options: Omit<CollisionState, "open">) {
 		this.collision = { open: true, ...options };
 	}
 

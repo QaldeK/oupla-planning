@@ -4,5 +4,5 @@
  * Source unique — un changement de format ne peut pas casser silencieusement la réconciliation.
  */
 export function formatSlotKey(date: string, slotId?: string): string {
-	return `${date}|${slotId ?? ''}`;
+	return `${date}|${slotId ?? ""}`;
 }

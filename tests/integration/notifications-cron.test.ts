@@ -19,27 +19,28 @@
  *   - Admin de test créé (test@example.com / testpassword)
  *   - SMTP dev injoignable (comportement par défaut)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import PocketBase from 'pocketbase';
-import net from 'net';
+
+import net from "net";
+import type PocketBase from "pocketbase";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Participant, PlanningMaster, PlanningOccurrence } from "$lib/types/planning.types";
+import type { NotificationEventsResponse } from "$lib/types/pocketbase-types";
 import {
 	authenticateAdmin,
-	dateInDays,
-	clearTrackedIds,
 	cleanupTrackedRecords,
+	clearTrackedIds,
+	dateInDays,
 	trackIds
-} from './seed';
-import type { PlanningMaster, PlanningOccurrence, Participant } from '$lib/types/planning.types';
-import type { NotificationEventsResponse } from '$lib/types/pocketbase-types';
+} from "./seed";
 
-const PARTICIPANT_ID = 'p-test-participant-0001';
+const PARTICIPANT_ID = "p-test-participant-0001";
 
 /**
  * Déclenche le cron notifications-daily via l'API superuser et attend
  * un court délai pour que les effets de bord DB soient visibles.
  */
 async function runNotificationsCron(pb: PocketBase): Promise<void> {
-	await pb.crons.run('notifications-daily');
+	await pb.crons.run("notifications-daily");
 	// Laisser au runtime PB le temps de committer les writes du cron.
 	await new Promise((resolve) => setTimeout(resolve, 500));
 }
@@ -67,13 +68,13 @@ function decodeMimeHeader(str: string): string {
 	// deux encoded-words et rendre les assertions fragiles.
 	let merged = str;
 	while (/\?=\s+=\?/.test(merged)) {
-		merged = merged.replace(/\?=\s+=\?/g, '?==?');
+		merged = merged.replace(/\?=\s+=\?/g, "?==?");
 	}
 	return merged.replace(/=\?([^?]+)\?([BQ])\?([^?]*)\?=/gi, (_m, charset, enc, text) => {
-		const isUtf8 = charset.toLowerCase() === 'utf-8';
-		if (enc.toUpperCase() === 'Q') {
+		const isUtf8 = charset.toLowerCase() === "utf-8";
+		if (enc.toUpperCase() === "Q") {
 			const latin = text
-				.replace(/_/g, ' ')
+				.replace(/_/g, " ")
 				.replace(/=([0-9A-Fa-f]{2})/g, (_h: string, h: string) =>
 					String.fromCharCode(parseInt(h, 16))
 				);
@@ -81,71 +82,71 @@ function decodeMimeHeader(str: string): string {
 			// Les octets UTF-8 multi-bytes (—, é…) arrivent comme chars latin-1 :
 			// on reconstruit le flux d'octets puis on décode en UTF-8.
 			const bytes = Uint8Array.from(latin, (ch: string) => ch.charCodeAt(0));
-			return new TextDecoder('utf-8').decode(bytes);
+			return new TextDecoder("utf-8").decode(bytes);
 		}
-		return Buffer.from(text, 'base64').toString(isUtf8 ? 'utf8' : 'binary');
+		return Buffer.from(text, "base64").toString(isUtf8 ? "utf8" : "binary");
 	});
 }
 
 async function startSmtpStub(capture: SmtpCapture): Promise<net.Server> {
 	const server = net.createServer((socket) => {
-		let mode: 'command' | 'data' = 'command';
-		let buf = '';
-		let dataAccum = '';
-		socket.write('220 smtp.stub ESMTP\r\n');
+		let mode: "command" | "data" = "command";
+		let buf = "";
+		let dataAccum = "";
+		socket.write("220 smtp.stub ESMTP\r\n");
 		const handleLines = () => {
 			while (true) {
-				const idx = buf.indexOf('\r\n');
+				const idx = buf.indexOf("\r\n");
 				if (idx === -1) break;
 				const line = buf.slice(0, idx);
 				buf = buf.slice(idx + 2);
-				if (mode === 'data') {
-					if (line === '.') {
+				if (mode === "data") {
+					if (line === ".") {
 						capture.count++;
 						const m = dataAccum.match(/^Subject: (.*)$/m);
 						if (m) capture.subjects.push(decodeMimeHeader(m[1].trim()));
-						mode = 'command';
-						dataAccum = '';
-						socket.write('250 OK queued\r\n');
+						mode = "command";
+						dataAccum = "";
+						socket.write("250 OK queued\r\n");
 					} else {
-						dataAccum += line + '\r\n';
+						dataAccum += line + "\r\n";
 					}
 					continue;
 				}
-				if (line.startsWith('EHLO') || line.startsWith('HELO')) {
+				if (line.startsWith("EHLO") || line.startsWith("HELO")) {
 					// Pas d'AUTH ni STARTTLS annoncés → le client Go n'authentifie pas.
-					socket.write('250-smtp.stub\r\n250 OK\r\n');
+					socket.write("250-smtp.stub\r\n250 OK\r\n");
 				} else if (
-					line.startsWith('MAIL FROM:') ||
-					line.startsWith('RCPT TO:') ||
-					line.startsWith('RSET') ||
-					line.startsWith('NOOP')
+					line.startsWith("MAIL FROM:") ||
+					line.startsWith("RCPT TO:") ||
+					line.startsWith("RSET") ||
+					line.startsWith("NOOP")
 				) {
-					socket.write('250 OK\r\n');
-				} else if (line.startsWith('DATA')) {
-					mode = 'data';
-					dataAccum = '';
-					socket.write('354 End data with <CR><LF>.<CR><LF>\r\n');
-				} else if (line.startsWith('QUIT')) {
-					socket.write('221 Bye\r\n');
+					socket.write("250 OK\r\n");
+				} else if (line.startsWith("DATA")) {
+					mode = "data";
+					dataAccum = "";
+					socket.write("354 End data with <CR><LF>.<CR><LF>\r\n");
+				} else if (line.startsWith("QUIT")) {
+					socket.write("221 Bye\r\n");
 					socket.end();
 					return;
 				} else {
-					socket.write('250 OK\r\n');
+					socket.write("250 OK\r\n");
 				}
 			}
 		};
-		socket.on('data', (c: Buffer) => {
+		socket.on("data", (c: Buffer) => {
 			buf += c.toString();
 			handleLines();
 		});
-		socket.on('error', () => {
+		socket.on("error", () => {
 			/* socket fermé par le client — ignore */
 		});
 	});
 	return new Promise((resolve, reject) => {
-		server.on('error', reject);
-		server.listen(0, '127.0.0.1', () => resolve(server));
+		server.on("error", reject);
+		server.listen(0, "127.0.0.1", () => resolve(server));
 	});
 }
 
@@ -161,18 +162,18 @@ async function withSmtpStub<T>(
 	const server = await startSmtpStub(capture);
 	const originalSmtp = (await adminPb.settings.getAll()).smtp;
 	const addr = server.address();
-	if (!addr || typeof addr !== 'object') throw new Error('SMTP stub non bindé');
+	if (!addr || typeof addr !== "object") throw new Error("SMTP stub non bindé");
 	try {
 		await adminPb.settings.update({
 			smtp: {
 				enabled: true,
-				host: '127.0.0.1',
+				host: "127.0.0.1",
 				port: addr.port,
-				username: '',
-				password: '',
+				username: "",
+				password: "",
 				tls: false,
-				authMethod: 'PLAIN',
-				localName: 'localhost'
+				authMethod: "PLAIN",
+				localName: "localhost"
 			}
 		});
 		return await fn(capture);
@@ -212,24 +213,24 @@ async function seedCronScenario(
 	}
 ): Promise<{ master: PlanningMaster; occ: PlanningOccurrence; userId: string }> {
 	const { occDayOffset } = options;
-	const recurrenceType = options.recurrenceType ?? 'WEEKLY';
+	const recurrenceType = options.recurrenceType ?? "WEEKLY";
 
 	// 1. User
 	const email = `cron-${Math.random().toString(36).slice(2)}@test.com`;
-	const user = await pb.collection('users').create({
+	const user = await pb.collection("users").create({
 		email,
-		password: 'password123',
-		passwordConfirm: 'password123',
-		name: 'Cron User',
+		password: "password123",
+		passwordConfirm: "password123",
+		name: "Cron User",
 		emailVisibility: true,
 		verified: true
 	});
-	trackIds('users', user.id);
+	trackIds("users", user.id);
 
 	// 2. Master avec participant authentifié dans participants[]
 	const participant: Participant = {
 		id: PARTICIPANT_ID,
-		name: 'Cron User',
+		name: "Cron User",
 		email,
 		isAdmin: true,
 		createdAt: new Date().toISOString(),
@@ -237,27 +238,27 @@ async function seedCronScenario(
 	};
 	const adminToken = Array.from({ length: 64 }, () =>
 		Math.floor(Math.random() * 16).toString(16)
-	).join('');
+	).join("");
 	const participantToken = Array.from({ length: 32 }, () =>
 		Math.floor(Math.random() * 16).toString(16)
-	).join('');
+	).join("");
 
-	const master = await pb.collection('planning_masters').create<PlanningMaster>({
+	const master = await pb.collection("planning_masters").create<PlanningMaster>({
 		title: `Cron Test ${occDayOffset}`,
-		defaultStartTime: '09:00',
-		defaultEndTime: '17:00',
+		defaultStartTime: "09:00",
+		defaultEndTime: "17:00",
 		recurrence: { type: recurrenceType as never },
 		tasks: (options.tasks as never) || [],
 		participants: [participant as never],
 		minPresentRequired: options.minPresentRequired ?? 1,
 		allowResponses: true,
 		toConfirm: options.toConfirm ?? false,
-		availableResponseTypes: ['present', 'absent'],
+		availableResponseTypes: ["present", "absent"],
 		adminToken,
 		participantToken,
-		lastModifiedBy: ''
+		lastModifiedBy: ""
 	});
-	trackIds('planning_masters', master.id);
+	trackIds("planning_masters", master.id);
 
 	// 3. Occurrence avec responses mappées sur participantId
 	const occResponses = (options.responses || []).map((r) => ({
@@ -266,23 +267,23 @@ async function seedCronScenario(
 		tasks: r.tasks || [],
 		respondedAt: new Date().toISOString()
 	}));
-	const occ = await pb.collection('planning_occurrences').create<PlanningOccurrence>({
+	const occ = await pb.collection("planning_occurrences").create<PlanningOccurrence>({
 		master: master.id,
 		date: dateInDays(occDayOffset),
-		startTime: '09:00',
-		endTime: '17:00',
+		startTime: "09:00",
+		endTime: "17:00",
 		responses: occResponses as never,
 		comments: [],
 		tasks: (options.tasks as never) || [],
 		isConfirmed: false,
 		isCanceled: false,
-		lastModifiedBy: ''
+		lastModifiedBy: ""
 	});
-	trackIds('planning_occurrences', occ.id);
+	trackIds("planning_occurrences", occ.id);
 
 	// 4. Planning_participants prefs (liaison via user, pas via participantId)
 	const prefs = options.participantPrefs || {};
-	await pb.collection('planning_participants').create({
+	await pb.collection("planning_participants").create({
 		planning: master.id,
 		user: user.id,
 		email: prefs.email ?? true,
@@ -302,18 +303,18 @@ async function listEventsForMaster(
 	pb: PocketBase,
 	masterId: string
 ): Promise<NotificationEventsResponse[]> {
-	return pb.collection('notification_events').getFullList<NotificationEventsResponse>({
+	return pb.collection("notification_events").getFullList<NotificationEventsResponse>({
 		filter: `master = "${masterId}"`,
-		sort: 'created'
+		sort: "created"
 	});
 }
 
 /** Types d'events issus du hook C2 (notifications sur update d'occ). */
 const C2_EVENT_TYPES = new Set([
-	'schedule_change',
-	'status_canceled',
-	'status_deleted',
-	'status_confirmed'
+	"schedule_change",
+	"status_canceled",
+	"status_deleted",
+	"status_confirmed"
 ]);
 
 /**
@@ -325,7 +326,7 @@ function jxEventsOnly(events: NotificationEventsResponse[]): NotificationEventsR
 	return events.filter((e) => !C2_EVENT_TYPES.has(e.type));
 }
 
-describe('Cron notifications-daily — Phase 1 (insertion events J-X)', () => {
+describe("Cron notifications-daily — Phase 1 (insertion events J-X)", () => {
 	let adminPb: PocketBase;
 	const scenarioIds: { masterId: string; userId?: string }[] = [];
 
@@ -339,69 +340,69 @@ describe('Cron notifications-daily — Phase 1 (insertion events J-X)', () => {
 		// Cleanup : events créés pendant le test (non trackés par seed.ts)
 		for (const { masterId } of scenarioIds) {
 			const events = await adminPb
-				.collection('notification_events')
+				.collection("notification_events")
 				.getFullList({ filter: `master = "${masterId}"` });
 			for (const ev of events) {
-				await adminPb.collection('notification_events').delete(ev.id);
+				await adminPb.collection("notification_events").delete(ev.id);
 			}
 		}
 		await cleanupTrackedRecords();
 	});
 
-	it('reminder à J-3 : pref activée + response present → 1 event reminder inséré', async () => {
+	it("reminder à J-3 : pref activée + response present → 1 event reminder inséré", async () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
-			responses: [{ response: 'present' }],
-			participantPrefs: { email: true, reminderDays: ['3'] }
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
 		});
 		scenarioIds.push({ masterId: master.id });
 
 		await runNotificationsCron(adminPb);
 
 		const events = await listEventsForMaster(adminPb, master.id);
-		const reminders = events.filter((e) => e.type === 'reminder');
+		const reminders = events.filter((e) => e.type === "reminder");
 		expect(reminders).toHaveLength(1);
 		expect(reminders[0].reminderValue).toBe(3);
-		expect(reminders[0].processedAt).toBe('');
+		expect(reminders[0].processedAt).toBe("");
 	});
 
-	it('reminder à J-7 : pref activée → event reminder avec reminderValue=7', async () => {
+	it("reminder à J-7 : pref activée → event reminder avec reminderValue=7", async () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 7,
-			responses: [{ response: 'present' }],
-			participantPrefs: { email: true, reminderDays: ['7'] }
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["7"] }
 		});
 		scenarioIds.push({ masterId: master.id });
 
 		await runNotificationsCron(adminPb);
 
 		const events = await listEventsForMaster(adminPb, master.id);
-		const reminders = events.filter((e) => e.type === 'reminder');
+		const reminders = events.filter((e) => e.type === "reminder");
 		expect(reminders).toHaveLength(1);
 		expect(reminders[0].reminderValue).toBe(7);
 	});
 
-	it('quorum_missing à J-3 : pref missingDays + present < min → 1 event', async () => {
+	it("quorum_missing à J-3 : pref missingDays + present < min → 1 event", async () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			minPresentRequired: 2,
-			responses: [{ response: 'present' }], // 1 present < 2 required
-			participantPrefs: { email: true, missingDays: ['3'] }
+			responses: [{ response: "present" }], // 1 present < 2 required
+			participantPrefs: { email: true, missingDays: ["3"] }
 		});
 		scenarioIds.push({ masterId: master.id });
 
 		await runNotificationsCron(adminPb);
 
 		const events = await listEventsForMaster(adminPb, master.id);
-		const missings = events.filter((e) => e.type === 'quorum_missing');
+		const missings = events.filter((e) => e.type === "quorum_missing");
 		expect(missings).toHaveLength(1);
 		expect(missings[0].reminderValue).toBe(3);
 	});
 
-	it('confirmation_needed : master toConfirm + pref onConfirmationNeeded → 1 event', async () => {
+	it("confirmation_needed : master toConfirm + pref onConfirmationNeeded → 1 event", async () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
-			recurrenceType: 'WEEKLY',
+			recurrenceType: "WEEKLY",
 			toConfirm: true,
 			participantPrefs: { email: true, onConfirmationNeeded: true }
 		});
@@ -410,16 +411,16 @@ describe('Cron notifications-daily — Phase 1 (insertion events J-X)', () => {
 		await runNotificationsCron(adminPb);
 
 		const events = await listEventsForMaster(adminPb, master.id);
-		const confirmations = events.filter((e) => e.type === 'confirmation_needed');
+		const confirmations = events.filter((e) => e.type === "confirmation_needed");
 		expect(confirmations.length).toBeGreaterThanOrEqual(1);
 		expect(confirmations[0].reminderValue).toBe(3);
 	});
 
-	it('déduplication : 2 crons successifs sur la même occ → pas de doublon', async () => {
+	it("déduplication : 2 crons successifs sur la même occ → pas de doublon", async () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
-			responses: [{ response: 'present' }],
-			participantPrefs: { email: true, reminderDays: ['3'] }
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -427,21 +428,21 @@ describe('Cron notifications-daily — Phase 1 (insertion events J-X)', () => {
 		await runNotificationsCron(adminPb);
 
 		const events = await listEventsForMaster(adminPb, master.id);
-		const reminders = events.filter((e) => e.type === 'reminder' && e.reminderValue === 3);
+		const reminders = events.filter((e) => e.type === "reminder" && e.reminderValue === 3);
 		expect(reminders).toHaveLength(1);
 	});
 
 	it("occ annulée : isCanceled=true → ignorée par Phase 1 (pas d'event J-X)", async () => {
 		const { master, occ } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
-			responses: [{ response: 'present' }],
-			participantPrefs: { email: true, reminderDays: ['3'] }
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
 		});
 		scenarioIds.push({ masterId: master.id });
 
 		// Annuler l'occ avant le cron. Note : le hook C2 va insérer un event
 		// `status_canceled` en parallèle — c'est attendu et non testé ici.
-		await adminPb.collection('planning_occurrences').update(occ.id, { isCanceled: true });
+		await adminPb.collection("planning_occurrences").update(occ.id, { isCanceled: true });
 
 		await runNotificationsCron(adminPb);
 
@@ -451,11 +452,11 @@ describe('Cron notifications-daily — Phase 1 (insertion events J-X)', () => {
 		expect(jxEventsOnly(events)).toHaveLength(0);
 	});
 
-	it('occ hors fenêtre (J+25) → ignorée par Phase 1', async () => {
+	it("occ hors fenêtre (J+25) → ignorée par Phase 1", async () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 25,
-			responses: [{ response: 'present' }],
-			participantPrefs: { email: true, reminderDays: ['7'] }
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["7"] }
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -466,7 +467,7 @@ describe('Cron notifications-daily — Phase 1 (insertion events J-X)', () => {
 	});
 });
 
-describe('Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker)', () => {
+describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker)", () => {
 	let adminPb: PocketBase;
 	const scenarioIds: { masterId: string; userId?: string }[] = [];
 
@@ -479,23 +480,23 @@ describe('Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 	afterEach(async () => {
 		for (const { masterId } of scenarioIds) {
 			const events = await adminPb
-				.collection('notification_events')
+				.collection("notification_events")
 				.getFullList({ filter: `master = "${masterId}"` });
 			for (const ev of events) {
-				await adminPb.collection('notification_events').delete(ev.id);
+				await adminPb.collection("notification_events").delete(ev.id);
 			}
 		}
 		await cleanupTrackedRecords();
 	});
 
-	it('circuit breaker SMTP : SMTP dev injoignable → events restent pending', async () => {
+	it("circuit breaker SMTP : SMTP dev injoignable → events restent pending", async () => {
 		// En dev, smtp.oupla.net:587 est injoignable depuis le réseau local de test.
 		// Le cron doit échouer sur chaque envoi et déclencher le circuit breaker après
 		// 3 échecs consécutifs. Les events restent `processedAt=''` (non marqués traités).
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
-			responses: [{ response: 'present' }],
-			participantPrefs: { email: true, reminderDays: ['3'] }
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -505,17 +506,17 @@ describe('Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		expect(events.length).toBeGreaterThanOrEqual(1);
 
 		// Aucun event ne doit être marqué traité si le SMTP est down.
-		const pendingEvents = events.filter((e) => e.processedAt === '');
+		const pendingEvents = events.filter((e) => e.processedAt === "");
 		expect(pendingEvents.length).toBe(events.length);
 	});
 
-	it('destinataire sans pref email → pas destinataire, event reste pending', async () => {
+	it("destinataire sans pref email → pas destinataire, event reste pending", async () => {
 		// Participant sans `email: true` dans sa pref → non destinataire → bucket vide.
 		// Le cron ne tente aucun envoi pour ce master → pas d'erreur SMTP, pas d'event traité.
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
-			responses: [{ response: 'present' }],
-			participantPrefs: { email: false, reminderDays: ['3'] }
+			responses: [{ response: "present" }],
+			participantPrefs: { email: false, reminderDays: ["3"] }
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -524,14 +525,14 @@ describe('Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		const events = await listEventsForMaster(adminPb, master.id);
 		expect(events).toHaveLength(1);
 		// Pas de destinataire → event jamais traité.
-		expect(events[0].processedAt).toBe('');
+		expect(events[0].processedAt).toBe("");
 	});
 
-	it('occ annulée entre Phase 1 et Phase 2 → event J-X skippé en Phase 2', async () => {
+	it("occ annulée entre Phase 1 et Phase 2 → event J-X skippé en Phase 2", async () => {
 		const { master, occ } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
-			responses: [{ response: 'present' }],
-			participantPrefs: { email: true, reminderDays: ['3'] }
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -541,7 +542,7 @@ describe('Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		expect(jxEventsOnly(afterPhase1)).toHaveLength(1);
 
 		// Annuler l'occ avant Phase 2. Hook C2 va insérer status_canceled en parallèle.
-		await adminPb.collection('planning_occurrences').update(occ.id, { isCanceled: true });
+		await adminPb.collection("planning_occurrences").update(occ.id, { isCanceled: true });
 
 		// Phase 2 : doit skipper l'event J-X car occ est canceled
 		await runNotificationsCron(adminPb);
@@ -550,11 +551,11 @@ describe('Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		const jxEvents = jxEventsOnly(events);
 		expect(jxEvents).toHaveLength(1);
 		// L'event J-X reste pending car skipped en Phase 2.
-		expect(jxEvents[0].processedAt).toBe('');
+		expect(jxEvents[0].processedAt).toBe("");
 	});
 });
 
-describe('Cron notifications-daily — Push J-X', () => {
+describe("Cron notifications-daily — Push J-X", () => {
 	let adminPb: PocketBase;
 	const scenarioIds: { masterId: string; userId?: string }[] = [];
 
@@ -567,24 +568,24 @@ describe('Cron notifications-daily — Push J-X', () => {
 	afterEach(async () => {
 		for (const { masterId } of scenarioIds) {
 			const events = await adminPb
-				.collection('notification_events')
+				.collection("notification_events")
 				.getFullList({ filter: `master = "${masterId}"` });
 			for (const ev of events) {
-				await adminPb.collection('notification_events').delete(ev.id);
+				await adminPb.collection("notification_events").delete(ev.id);
 			}
 		}
 		await cleanupTrackedRecords();
 	});
 
-	it('participant avec push=true → 1 event inséré (push envoyé en interne)', async () => {
+	it("participant avec push=true → 1 event inséré (push envoyé en interne)", async () => {
 		// Note : sendPushNotification échoue silencieusement si l'user n'a pas de
 		// push_subscription valide. On valide ici uniquement que l'event J-X est
 		// inséré (le push lui-même est testé unitairement dans notify-utils.test.ts).
 		// L'absence d'erreur du cron confirme que la boucle push s'exécute sans crash.
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
-			responses: [{ response: 'present' }],
-			participantPrefs: { email: false, push: true, reminderDays: ['3'] }
+			responses: [{ response: "present" }],
+			participantPrefs: { email: false, push: true, reminderDays: ["3"] }
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -593,11 +594,11 @@ describe('Cron notifications-daily — Push J-X', () => {
 
 		const events = await listEventsForMaster(adminPb, master.id);
 		expect(events).toHaveLength(1);
-		expect(events[0].type).toBe('reminder');
+		expect(events[0].type).toBe("reminder");
 	});
 });
 
-describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + filtre déjà lu)', () => {
+describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + filtre déjà lu)", () => {
 	let adminPb: PocketBase;
 	const scenarioIds: { masterId: string }[] = [];
 
@@ -610,10 +611,10 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 	afterEach(async () => {
 		for (const { masterId } of scenarioIds) {
 			const events = await adminPb
-				.collection('notification_events')
+				.collection("notification_events")
 				.getFullList({ filter: `master = "${masterId}"` });
 			for (const ev of events) {
-				await adminPb.collection('notification_events').delete(ev.id);
+				await adminPb.collection("notification_events").delete(ev.id);
 			}
 		}
 		await cleanupTrackedRecords();
@@ -634,19 +635,19 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		participantRecordId: string;
 	}> {
 		const email = `cmt-${Math.random().toString(36).slice(2)}@test.com`;
-		const user = await adminPb.collection('users').create({
+		const user = await adminPb.collection("users").create({
 			email,
-			password: 'password123',
-			passwordConfirm: 'password123',
-			name: 'Comment Recipient',
+			password: "password123",
+			passwordConfirm: "password123",
+			name: "Comment Recipient",
 			emailVisibility: true,
 			verified: true
 		});
-		trackIds('users', user.id);
+		trackIds("users", user.id);
 
 		const participant: Participant = {
 			id: PARTICIPANT_ID,
-			name: 'Comment Recipient',
+			name: "Comment Recipient",
 			email,
 			isAdmin: true,
 			createdAt: new Date().toISOString(),
@@ -654,37 +655,37 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		};
 		const adminToken = Array.from({ length: 64 }, () =>
 			Math.floor(Math.random() * 16).toString(16)
-		).join('');
+		).join("");
 		const participantToken = Array.from({ length: 32 }, () =>
 			Math.floor(Math.random() * 16).toString(16)
-		).join('');
+		).join("");
 
-		const master = await adminPb.collection('planning_masters').create<PlanningMaster>({
+		const master = await adminPb.collection("planning_masters").create<PlanningMaster>({
 			title,
-			defaultStartTime: '09:00',
-			defaultEndTime: '17:00',
-			recurrence: { type: 'WEEKLY' as never },
+			defaultStartTime: "09:00",
+			defaultEndTime: "17:00",
+			recurrence: { type: "WEEKLY" as never },
 			tasks: [],
 			participants: [participant as never],
 			minPresentRequired: 1,
 			allowResponses: true,
 			toConfirm: false,
-			availableResponseTypes: ['present', 'absent'],
+			availableResponseTypes: ["present", "absent"],
 			adminToken,
 			participantToken,
-			lastModifiedBy: ''
+			lastModifiedBy: ""
 		});
-		trackIds('planning_masters', master.id);
+		trackIds("planning_masters", master.id);
 
-		const occ = await adminPb.collection('planning_occurrences').create<PlanningOccurrence>({
+		const occ = await adminPb.collection("planning_occurrences").create<PlanningOccurrence>({
 			master: master.id,
 			date: dateInDays(3),
-			startTime: '09:00',
-			endTime: '17:00',
+			startTime: "09:00",
+			endTime: "17:00",
 			responses: [
 				{
 					participantId: PARTICIPANT_ID,
-					response: 'present',
+					response: "present",
 					tasks: [],
 					respondedAt: new Date().toISOString()
 				}
@@ -693,11 +694,11 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			tasks: [],
 			isConfirmed: false,
 			isCanceled: false,
-			lastModifiedBy: ''
+			lastModifiedBy: ""
 		});
-		trackIds('planning_occurrences', occ.id);
+		trackIds("planning_occurrences", occ.id);
 
-		const pp = await adminPb.collection('planning_participants').create({
+		const pp = await adminPb.collection("planning_participants").create({
 			planning: master.id,
 			user: user.id,
 			email: true,
@@ -706,9 +707,9 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			missingDays: [],
 			onOccurrenceChange: true,
 			onConfirmationNeeded: false,
-			newCommentScope: 'all'
+			newCommentScope: "all"
 		});
-		trackIds('planning_participants', pp.id);
+		trackIds("planning_participants", pp.id);
 
 		return { master, occ, userId: user.id, participantRecordId: pp.id };
 	}
@@ -726,19 +727,19 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			commentId?: string;
 		}
 	): Promise<void> {
-		await adminPb.collection('notification_events').create({
-			type: 'new_comment',
+		await adminPb.collection("notification_events").create({
+			type: "new_comment",
 			master: masterId,
 			occurrence: occId,
 			reminderValue: 0,
-			changedBy: opts.changedBy || 'author-other-user',
+			changedBy: opts.changedBy || "author-other-user",
 			payload: {
-				commentId: opts.commentId || 'c-' + Math.random().toString(36).slice(2, 6),
+				commentId: opts.commentId || "c-" + Math.random().toString(36).slice(2, 6),
 				commentCreatedAt: opts.commentCreatedAt || new Date().toISOString(),
 				authorName: opts.authorName,
 				contentPreview: opts.contentPreview
 			},
-			processedAt: ''
+			processedAt: ""
 		});
 	}
 
@@ -752,8 +753,8 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		const { master, occ } = await seedCommentScenario(adminPb, title);
 		scenarioIds.push({ masterId: master.id });
 		await insertCommentEvent(adminPb, master.id, occ.id, {
-			authorName: 'Alice',
-			contentPreview: 'Bonjour'
+			authorName: "Alice",
+			contentPreview: "Bonjour"
 		});
 
 		await withSmtpStub(adminPb, async (capture) => {
@@ -764,26 +765,26 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 
 		// SMTP ayant réussi (stub), l'event est marqué traité.
 		const events = await listEventsForMaster(adminPb, master.id);
-		const newCommentEvents = events.filter((e) => e.type === 'new_comment');
+		const newCommentEvents = events.filter((e) => e.type === "new_comment");
 		expect(newCommentEvents).toHaveLength(1);
-		expect(newCommentEvents[0].processedAt).not.toBe('');
+		expect(newCommentEvents[0].processedAt).not.toBe("");
 	});
 
-	it('3 events new_comment sur la même occ → 1 seul email agrégé (1 sous-bloc)', async () => {
+	it("3 events new_comment sur la même occ → 1 seul email agrégé (1 sous-bloc)", async () => {
 		const title = `CmtAgg-${Math.random().toString(36).slice(2, 6)}`;
 		const { master, occ } = await seedCommentScenario(adminPb, title);
 		scenarioIds.push({ masterId: master.id });
 		await insertCommentEvent(adminPb, master.id, occ.id, {
-			authorName: 'Alice',
-			contentPreview: 'Premier'
+			authorName: "Alice",
+			contentPreview: "Premier"
 		});
 		await insertCommentEvent(adminPb, master.id, occ.id, {
-			authorName: 'Bob',
-			contentPreview: 'Second'
+			authorName: "Bob",
+			contentPreview: "Second"
 		});
 		await insertCommentEvent(adminPb, master.id, occ.id, {
-			authorName: 'Alice',
-			contentPreview: 'Troisième'
+			authorName: "Alice",
+			contentPreview: "Troisième"
 		});
 
 		await withSmtpStub(adminPb, async (capture) => {
@@ -793,24 +794,24 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		});
 
 		const events = await listEventsForMaster(adminPb, master.id);
-		expect(events.filter((e) => e.type === 'new_comment')).toHaveLength(3);
+		expect(events.filter((e) => e.type === "new_comment")).toHaveLength(3);
 	});
 
-	it('filtre déjà lu : commentReadState[occId] >= commentCreatedAt → email skippé pour ce destinataire', async () => {
+	it("filtre déjà lu : commentReadState[occId] >= commentCreatedAt → email skippé pour ce destinataire", async () => {
 		const title = `CmtRead-${Math.random().toString(36).slice(2, 6)}`;
 		const { master, occ, participantRecordId } = await seedCommentScenario(adminPb, title);
 		scenarioIds.push({ masterId: master.id });
 
 		// Message créé dans le passé ; le destinataire a lu postérieurement.
-		const oldCreatedAt = '2020-01-01T00:00:00Z';
-		const readAfter = '2025-06-01T00:00:00Z';
+		const oldCreatedAt = "2020-01-01T00:00:00Z";
+		const readAfter = "2025-06-01T00:00:00Z";
 		await insertCommentEvent(adminPb, master.id, occ.id, {
-			authorName: 'Alice',
-			contentPreview: 'Vieux message déjà lu',
+			authorName: "Alice",
+			contentPreview: "Vieux message déjà lu",
 			commentCreatedAt: oldCreatedAt
 		});
 		// Marque la conversation comme lue après la création du message.
-		await adminPb.collection('planning_participants').update(participantRecordId, {
+		await adminPb.collection("planning_participants").update(participantRecordId, {
 			commentReadState: { [occ.id]: readAfter }
 		});
 
@@ -822,18 +823,18 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 
 		// L'event n'étant dans aucun bucket, il n'est pas marqué traité.
 		const events = await listEventsForMaster(adminPb, master.id);
-		const nc = events.filter((e) => e.type === 'new_comment');
+		const nc = events.filter((e) => e.type === "new_comment");
 		expect(nc).toHaveLength(1);
-		expect(nc[0].processedAt).toBe('');
+		expect(nc[0].processedAt).toBe("");
 	});
 
-	it('filtre déjà lu : pas de commentReadState[occId] → email inclus (jamais visité = non lu)', async () => {
+	it("filtre déjà lu : pas de commentReadState[occId] → email inclus (jamais visité = non lu)", async () => {
 		const title = `CmtUnread-${Math.random().toString(36).slice(2, 6)}`;
 		const { master, occ } = await seedCommentScenario(adminPb, title);
 		scenarioIds.push({ masterId: master.id });
 		await insertCommentEvent(adminPb, master.id, occ.id, {
-			authorName: 'Alice',
-			contentPreview: 'Message non lu'
+			authorName: "Alice",
+			contentPreview: "Message non lu"
 		});
 		// Pas de commentReadState → l'event est inclus.
 
@@ -843,19 +844,19 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		});
 	});
 
-	it('filtre déjà lu : commentReadState antérieur au message → email inclus (message plus récent que la dernière lecture)', async () => {
+	it("filtre déjà lu : commentReadState antérieur au message → email inclus (message plus récent que la dernière lecture)", async () => {
 		const title = `CmtNewer-${Math.random().toString(36).slice(2, 6)}`;
 		const { master, occ, participantRecordId } = await seedCommentScenario(adminPb, title);
 		scenarioIds.push({ masterId: master.id });
 
-		const readBefore = '2020-01-01T00:00:00Z';
-		const newerCreatedAt = '2025-06-01T00:00:00Z';
+		const readBefore = "2020-01-01T00:00:00Z";
+		const newerCreatedAt = "2025-06-01T00:00:00Z";
 		await insertCommentEvent(adminPb, master.id, occ.id, {
-			authorName: 'Alice',
-			contentPreview: 'Message plus récent que la lecture',
+			authorName: "Alice",
+			contentPreview: "Message plus récent que la lecture",
 			commentCreatedAt: newerCreatedAt
 		});
-		await adminPb.collection('planning_participants').update(participantRecordId, {
+		await adminPb.collection("planning_participants").update(participantRecordId, {
 			commentReadState: { [occ.id]: readBefore }
 		});
 
@@ -866,28 +867,28 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		});
 	});
 
-	it('sujet suffixé quand la catégorie dominante ≠ comment (schedule_change + 2 messages)', async () => {
+	it("sujet suffixé quand la catégorie dominante ≠ comment (schedule_change + 2 messages)", async () => {
 		const title = `CmtSuffix-${Math.random().toString(36).slice(2, 6)}`;
 		const { master, occ } = await seedCommentScenario(adminPb, title);
 		scenarioIds.push({ masterId: master.id });
 
 		// 1 event schedule_change + 2 new_comment sur la même occ.
-		await adminPb.collection('notification_events').create({
-			type: 'schedule_change',
+		await adminPb.collection("notification_events").create({
+			type: "schedule_change",
 			master: master.id,
 			occurrence: occ.id,
 			reminderValue: 0,
-			changedBy: 'author-other-user',
-			payload: { oldStartTime: '09:00', newStartTime: '10:00' },
-			processedAt: ''
+			changedBy: "author-other-user",
+			payload: { oldStartTime: "09:00", newStartTime: "10:00" },
+			processedAt: ""
 		});
 		await insertCommentEvent(adminPb, master.id, occ.id, {
-			authorName: 'Alice',
-			contentPreview: 'Ok pour 10h'
+			authorName: "Alice",
+			contentPreview: "Ok pour 10h"
 		});
 		await insertCommentEvent(adminPb, master.id, occ.id, {
-			authorName: 'Bob',
-			contentPreview: 'Noté'
+			authorName: "Bob",
+			contentPreview: "Noté"
 		});
 
 		await withSmtpStub(adminPb, async (capture) => {
@@ -897,8 +898,8 @@ describe('Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			// Le sujet est dominé par schedule_change (Modification) puis suffixé.
 			const subject = capture.subjects.find((s) => s.includes(title));
 			expect(subject).toBeDefined();
-			expect(subject!).toContain('Modification');
-			expect(subject!).toContain('+ 2 nouveaux messages');
+			expect(subject!).toContain("Modification");
+			expect(subject!).toContain("+ 2 nouveaux messages");
 		});
 	});
 });

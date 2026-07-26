@@ -1,341 +1,340 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import AccountModal from '$lib/components/auth/AccountModal.svelte';
-	import DescriptionCard from '$lib/components/ui/DescriptionCard.svelte';
-	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
-	import IdentityClaimModal from '$lib/components/IdentityClaimModal.svelte';
-	import NetworkAlert from '$lib/components/NetworkAlert.svelte';
-	import NotificationModal from '$lib/components/notifications/NotificationModal.svelte';
-	import { OccurrenceView } from '$lib/components/occurrences/index';
-	import ViewTabs from '$lib/components/occurrences/ViewTabs.svelte';
-	import ParticipantFAB from '$lib/components/ParticipantFAB.svelte';
-	import PlanningErrorStates from '$lib/components/PlanningErrorStates.svelte';
-	import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
-	import ShareSection from '$lib/components/ShareSection.svelte';
-	import { PlanningSkeleton } from '$lib/components/ui/skeletons';
-	import { addParticipant, updateParticipant, quitPlanning } from '$lib/services/planningActions';
-	import QuitReturnModal from '$lib/components/QuitReturnModal.svelte';
-	import { ensurePlanningParticipant } from '$lib/services/planningParticipants';
-	import { planningStore } from '$lib/stores/planningStore.svelte';
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
-	import { authTransition } from '$lib/stores/authTransition.svelte';
-	import { resolveCurrentIdentity } from '$lib/utils/identityResolution';
-	import { resolveIdentityStrategy } from '$lib/utils/identityStrategy';
-	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
-	import { formatDate, formatDateShort } from '$lib/utils/date';
-	import { hasNameConflict } from '$lib/utils/participantConflict';
-	import { getRecurrenceLabel } from '$lib/utils/recurrence';
-	import { fade } from 'svelte/transition';
-	import { onMount } from 'svelte';
+import {
+	Bell,
+	Calendar,
+	CalendarX,
+	History,
+	ListFilter,
+	Lock,
+	LogOut,
+	MapPin,
+	Settings,
+	Share2,
+	User,
+	UserCheck,
+	UserCog,
+	Users
+} from "@lucide/svelte";
+import { onMount } from "svelte";
+import { SvelteSet } from "svelte/reactivity";
+import { fade } from "svelte/transition";
+import { toast } from "svelte-sonner";
+import { goto } from "$app/navigation";
+import { page } from "$app/stores";
+import AccountModal from "$lib/components/auth/AccountModal.svelte";
+import IdentityClaimModal from "$lib/components/IdentityClaimModal.svelte";
+import NetworkAlert from "$lib/components/NetworkAlert.svelte";
+import NotificationModal from "$lib/components/notifications/NotificationModal.svelte";
+import { OccurrenceView } from "$lib/components/occurrences/index";
+import ViewTabs from "$lib/components/occurrences/ViewTabs.svelte";
+import ParticipantFAB from "$lib/components/ParticipantFAB.svelte";
+import PlanningErrorStates from "$lib/components/PlanningErrorStates.svelte";
+import PwaInstallCard from "$lib/components/PwaInstallCard.svelte";
+import QuitReturnModal from "$lib/components/QuitReturnModal.svelte";
+import ShareSection from "$lib/components/ShareSection.svelte";
+import ConfirmModal from "$lib/components/ui/ConfirmModal.svelte";
+import DescriptionCard from "$lib/components/ui/DescriptionCard.svelte";
+import { PlanningSkeleton } from "$lib/components/ui/skeletons";
+import { addParticipant, quitPlanning, updateParticipant } from "$lib/services/planningActions";
+import { ensurePlanningParticipant } from "$lib/services/planningParticipants";
+import { authTransition } from "$lib/stores/authTransition.svelte";
+import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
+import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
+import { networkStore } from "$lib/stores/networkStore.svelte";
+import { planningStore } from "$lib/stores/planningStore.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
+import type { Participant, PlanningIdentity } from "$lib/types/planning.types";
+import { formatDate, formatDateShort } from "$lib/utils/date";
+import { resolveCurrentIdentity } from "$lib/utils/identityResolution";
+import { resolveIdentityStrategy } from "$lib/utils/identityStrategy";
+import { hasNameConflict } from "$lib/utils/participantConflict";
+import { getRecurrenceLabel } from "$lib/utils/recurrence";
 
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
-	import { networkStore } from '$lib/stores/networkStore.svelte';
-	import {
-		Bell,
-		Calendar,
-		CalendarX,
-		History,
-		ListFilter,
-		Lock,
-		MapPin,
-		Settings,
-		Share2,
-		Users,
-		LogOut,
-		User,
-		UserCheck,
-		UserCog
-	} from '@lucide/svelte';
-	import { toast } from 'svelte-sonner';
-	import { goto } from '$app/navigation';
-	import { SvelteSet } from 'svelte/reactivity';
+let token = $derived($page.params.token as string);
+let master = $derived(planningStore.master);
+let allOccurrences = $derived(planningStore.occurrences);
+const today = $derived(new Date().toISOString().split("T")[0]);
+const occurrences = $derived(allOccurrences.filter((o) => o.date >= today));
+let isLoading = $derived(planningStore.isLoading);
+let displayCount = $state(10);
+let showAllParticipants = $state(false);
+let showNotifModal = $state(false);
+let showAccountModal = $state(false);
+let showQuitModal = $state(false);
+let showClaimModal = $state(false);
+// Participant proposé au claim direct à l'ouverture du modal (flux de transition
+// guest → auth). Null sauf quand le modal s'ouvre via le trigger suggestion.
+let suggestionParticipant = $state<Participant | null>(null);
+let showQuitReturnModal = $state(false);
+let accountModalMode = $state<"login" | "register">("register");
 
-	let token = $derived($page.params.token as string);
-	let master = $derived(planningStore.master);
-	let allOccurrences = $derived(planningStore.occurrences);
-	const today = $derived(new Date().toISOString().split('T')[0]);
-	const occurrences = $derived(allOccurrences.filter((o) => o.date >= today));
-	let isLoading = $derived(planningStore.isLoading);
-	let displayCount = $state(10);
-	let showAllParticipants = $state(false);
-	let showNotifModal = $state(false);
-	let showAccountModal = $state(false);
-	let showQuitModal = $state(false);
-	let showClaimModal = $state(false);
-	// Participant proposé au claim direct à l'ouverture du modal (flux de transition
-	// guest → auth). Null sauf quand le modal s'ouvre via le trigger suggestion.
-	let suggestionParticipant = $state<Participant | null>(null);
-	let showQuitReturnModal = $state(false);
-	let accountModalMode = $state<'login' | 'register'>('register');
+// Mémorise les masters pour lesquels on a déjà fait un auto-add silencieux (CAS C)
+// afin d'éviter les déclenchements multiples avant que l'update Dexie ne se propage
+const autoAddedMasterIds = new SvelteSet<string>();
 
-	// Mémorise les masters pour lesquels on a déjà fait un auto-add silencieux (CAS C)
-	// afin d'éviter les déclenchements multiples avant que l'update Dexie ne se propage
-	const autoAddedMasterIds = new SvelteSet<string>();
+// Règle ADR-0002 consolidée : auth > guest > identité revendiquée cross-device
+const identityResolution = $derived(
+	master
+		? resolveCurrentIdentity({
+				isLoggedIn: !!userStore.isLoggedIn,
+				pbUser: userStore.pbUser,
+				guestIdentity: guestStateStore.getGuestIdentity(master.id),
+				participants: master.participants
+			})
+		: { participant: null, identity: null, claimedByAuth: false }
+);
+const myParticipant = $derived(identityResolution.participant);
+const identityClaimedByAuth = $derived(identityResolution.claimedByAuth);
+const currentIdentity = $derived(identityResolution.identity);
 
-	// Règle ADR-0002 consolidée : auth > guest > identité revendiquée cross-device
-	const identityResolution = $derived(
-		master
-			? resolveCurrentIdentity({
-					isLoggedIn: !!userStore.isLoggedIn,
-					pbUser: userStore.pbUser,
-					guestIdentity: guestStateStore.getGuestIdentity(master.id),
-					participants: master.participants
-				})
-			: { participant: null, identity: null, claimedByAuth: false }
-	);
-	const myParticipant = $derived(identityResolution.participant);
-	const identityClaimedByAuth = $derived(identityResolution.claimedByAuth);
-	const currentIdentity = $derived(identityResolution.identity);
+// === Détection retour après quit ===
+// Pour l'auth : participant avec userId + hasQuit
+// Pour le guest : localMeta.hasQuit + currentUser.id match
+const quitParticipantId = $derived.by(() => {
+	if (!master) return null;
+	if (userStore.isLoggedIn && userStore.pbUser) {
+		return (
+			master.participants.find((p) => p.userId === userStore.pbUser!.id && p.hasQuit)?.id ?? null
+		);
+	}
+	const guestIdentity = guestStateStore.getGuestIdentity(master.id);
+	if (guestStateStore.getGuestQuitState(master.id) && guestIdentity) {
+		return master.participants.find((p) => p.id === guestIdentity.id && p.hasQuit)?.id ?? null;
+	}
+	return null;
+});
+const hasQuitThisPlanning = $derived(quitParticipantId !== null);
 
-	// === Détection retour après quit ===
-	// Pour l'auth : participant avec userId + hasQuit
-	// Pour le guest : localMeta.hasQuit + currentUser.id match
-	const quitParticipantId = $derived.by(() => {
-		if (!master) return null;
-		if (userStore.isLoggedIn && userStore.pbUser) {
-			return (
-				master.participants.find((p) => p.userId === userStore.pbUser!.id && p.hasQuit)?.id ?? null
-			);
-		}
-		const guestIdentity = guestStateStore.getGuestIdentity(master.id);
-		if (guestStateStore.getGuestQuitState(master.id) && guestIdentity) {
-			return master.participants.find((p) => p.id === guestIdentity.id && p.hasQuit)?.id ?? null;
-		}
-		return null;
-	});
-	const hasQuitThisPlanning = $derived(quitParticipantId !== null);
+// Participants non-liés que l'user auth peut revendiquer (sans userId, sans hasQuit)
+const claimableParticipants = $derived(
+	master
+		? master.participants.filter((p) => !p.userId && !p.hasQuit && p.id !== myParticipant?.id)
+		: []
+);
 
-	// Participants non-liés que l'user auth peut revendiquer (sans userId, sans hasQuit)
-	const claimableParticipants = $derived(
-		master
-			? master.participants.filter((p) => !p.userId && !p.hasQuit && p.id !== myParticipant?.id)
-			: []
-	);
+// Mode du IdentityClaimModal selon que l'user est déjà participant ou non
+const claimModalMode = $derived(myParticipant ? "manage" : "new");
 
-	// Mode du IdentityClaimModal selon que l'user est déjà participant ou non
-	const claimModalMode = $derived(myParticipant ? 'manage' : 'new');
+// Lien profond depuis les emails de notification (footer) : /p/{token}?notif=1
+// ouvre directement le modal des préférences de notification au mount.
+onMount(() => {
+	if ($page.url.searchParams.get("notif") === "1") {
+		showNotifModal = true;
+	}
+});
 
-	// Lien profond depuis les emails de notification (footer) : /p/{token}?notif=1
-	// ouvre directement le modal des préférences de notification au mount.
-	onMount(() => {
-		if ($page.url.searchParams.get('notif') === '1') {
-			showNotifModal = true;
-		}
-	});
+$effect(() => {
+	if (!master) return;
 
-	$effect(() => {
-		if (!master) return;
-
-		// Décision (pure) : quel CAS A/B/C déclencher en fonction du contexte.
-		// La stratégie ne fait aucun effet de bord — la réaction se fait dans le switch.
-		const result = resolveIdentityStrategy({
-			master,
-			myParticipant,
-			isLoggedIn: !!userStore.isLoggedIn,
-			pbUser: userStore.pbUser,
-			guestIdentity: guestStateStore.getGuestIdentity(master.id),
-			hasQuitThisPlanning,
-			isTransitioning: authTransition.isTransitioning,
-			pendingGuestClaim: authTransition.pendingGuestClaim,
-			autoAddedMasterIds,
-			showClaimModal
-		});
-
-		if (result.expirePendingClaim) {
-			authTransition.clearPendingGuestClaim();
-		}
-
-		switch (result.action.type) {
-			case 'none':
-				break;
-			case 'block_quit':
-				if (!showQuitReturnModal) showQuitReturnModal = true;
-				break;
-			case 'silent_sync': {
-				// CAS A : déjà lié via userId → sync silencieuse (sans renommer)
-				const pbUser = userStore.pbUser!;
-				ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin).catch(
-					(err) => console.error('ensurePlanningParticipant failed:', err)
-				);
-				break;
-			}
-			case 'show_claim_suggestion':
-				// Prioritaire sur CAS B/C : snapshot guest→auth valide, propose le
-				// claim avant de créer un nouveau participant par auto-add.
-				suggestionParticipant = result.action.participant;
-				showClaimModal = true;
-				break;
-			case 'show_claim_modal':
-				// CAS B (name match) ou CAS C (conflit) → étape principale, pas suggestion
-				suggestionParticipant = result.action.suggestionParticipant;
-				showClaimModal = true;
-				break;
-			case 'auto_add': {
-				autoAddedMasterIds.add(master.id);
-				handlePlanningIdentify(result.action.identity, true, result.action.additionalFields);
-				break;
-			}
-			case 'identify_as_guest':
-				openIdentifyModal();
-				break;
-		}
+	// Décision (pure) : quel CAS A/B/C déclencher en fonction du contexte.
+	// La stratégie ne fait aucun effet de bord — la réaction se fait dans le switch.
+	const result = resolveIdentityStrategy({
+		master,
+		myParticipant,
+		isLoggedIn: !!userStore.isLoggedIn,
+		pbUser: userStore.pbUser,
+		guestIdentity: guestStateStore.getGuestIdentity(master.id),
+		hasQuitThisPlanning,
+		isTransitioning: authTransition.isTransitioning,
+		pendingGuestClaim: authTransition.pendingGuestClaim,
+		autoAddedMasterIds,
+		showClaimModal
 	});
 
-	async function handlePlanningIdentify(
-		identity: PlanningIdentity,
-		isNewParticipant: boolean,
-		additionalFields?: Partial<Participant>
-	) {
-		if (!master) return;
-
-		try {
-			const existing = master.participants.find((p) => p.id === identity.id);
-
-			if (isNewParticipant && !existing) {
-				await addParticipant(
-					master.id,
-					{
-						id: identity.id,
-						name: identity.name,
-						isAdmin: false,
-						...additionalFields
-					},
-					token
-				);
-			} else if (existing && existing.name !== identity.name) {
-				await updateParticipant(master.id, identity.id, { name: identity.name }, token);
-			}
-
-			if (userStore.isLoggedIn) {
-				try {
-					await ensurePlanningParticipant(
-						master.id,
-						userStore.pbUser!.id,
-						master.recurrence.type,
-						isAdmin
-					);
-				} catch (err) {
-					console.error('Erreur création planning_participant:', err);
-				}
-			}
-
-			await guestStateStore.setGuestIdentity(master.id, identity);
-
-			userStore.authModal = { ...userStore.authModal, open: false };
-		} catch (error) {
-			console.error('Error identifying:', error);
-			toast.error("Erreur lors de l'identification");
-		}
+	if (result.expirePendingClaim) {
+		authTransition.clearPendingGuestClaim();
 	}
 
-	/** Callback invoqué par IdentityClaimModal après un changement d'identité réussi */
-	function handleIdentityChanged(identity: PlanningIdentity) {
-		// Persiste l'identité guest. Pour un user auth, l'écriture est inerte :
-		// resolveCurrentIdentity priorise pbUser sur cette identité locale.
-		guestStateStore
-			.setGuestIdentity(master!.id, identity)
-			.catch((err) => console.error('setGuestIdentity failed:', err));
-		// Le snapshot de transition est consommé (claim ou ajout effectué).
-		authTransition.clearPendingGuestClaim();
-		// Le refresh des données vient automatiquement via realtime (pb-sync → Dexie → liveQuery)
+	switch (result.action.type) {
+		case "none":
+			break;
+		case "block_quit":
+			if (!showQuitReturnModal) showQuitReturnModal = true;
+			break;
+		case "silent_sync": {
+			// CAS A : déjà lié via userId → sync silencieuse (sans renommer)
+			const pbUser = userStore.pbUser!;
+			ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin).catch(
+				(err) => console.error("ensurePlanningParticipant failed:", err)
+			);
+			break;
+		}
+		case "show_claim_suggestion":
+			// Prioritaire sur CAS B/C : snapshot guest→auth valide, propose le
+			// claim avant de créer un nouveau participant par auto-add.
+			suggestionParticipant = result.action.participant;
+			showClaimModal = true;
+			break;
+		case "show_claim_modal":
+			// CAS B (name match) ou CAS C (conflit) → étape principale, pas suggestion
+			suggestionParticipant = result.action.suggestionParticipant;
+			showClaimModal = true;
+			break;
+		case "auto_add": {
+			autoAddedMasterIds.add(master.id);
+			handlePlanningIdentify(result.action.identity, true, result.action.additionalFields);
+			break;
+		}
+		case "identify_as_guest":
+			openIdentifyModal();
+			break;
+	}
+});
+
+async function handlePlanningIdentify(
+	identity: PlanningIdentity,
+	isNewParticipant: boolean,
+	additionalFields?: Partial<Participant>
+) {
+	if (!master) return;
+
+	try {
+		const existing = master.participants.find((p) => p.id === identity.id);
+
+		if (isNewParticipant && !existing) {
+			await addParticipant(
+				master.id,
+				{
+					id: identity.id,
+					name: identity.name,
+					isAdmin: false,
+					...additionalFields
+				},
+				token
+			);
+		} else if (existing && existing.name !== identity.name) {
+			await updateParticipant(master.id, identity.id, { name: identity.name }, token);
+		}
+
+		if (userStore.isLoggedIn) {
+			try {
+				await ensurePlanningParticipant(
+					master.id,
+					userStore.pbUser!.id,
+					master.recurrence.type,
+					isAdmin
+				);
+			} catch (err) {
+				console.error("Erreur création planning_participant:", err);
+			}
+		}
+
+		await guestStateStore.setGuestIdentity(master.id, identity);
+
+		userStore.authModal = { ...userStore.authModal, open: false };
+	} catch (error) {
+		console.error("Error identifying:", error);
+		toast.error("Erreur lors de l'identification");
+	}
+}
+
+/** Callback invoqué par IdentityClaimModal après un changement d'identité réussi */
+function handleIdentityChanged(identity: PlanningIdentity) {
+	// Persiste l'identité guest. Pour un user auth, l'écriture est inerte :
+	// resolveCurrentIdentity priorise pbUser sur cette identité locale.
+	guestStateStore
+		.setGuestIdentity(master!.id, identity)
+		.catch((err) => console.error("setGuestIdentity failed:", err));
+	// Le snapshot de transition est consommé (claim ou ajout effectué).
+	authTransition.clearPendingGuestClaim();
+	// Le refresh des données vient automatiquement via realtime (pb-sync → Dexie → liveQuery)
+	showClaimModal = false;
+}
+
+function loadMore() {
+	displayCount += 10;
+}
+
+function openIdentifyModal() {
+	if (!master) return;
+
+	const identityName = currentIdentity?.name || userStore.pbUser?.name || "";
+
+	userStore.authModal = {
+		open: true,
+		masterId: master.id,
+		existingParticipants: master.participants.filter((p) => !p.hasQuit),
+		onPlanningIdentify: handlePlanningIdentify,
+		initialName: identityName,
+		hideExistingParticipants: userStore.isLoggedIn ? true : undefined,
+		currentIdentity: currentIdentity
+	};
+}
+
+function openIdentityClaimModal() {
+	suggestionParticipant = null; // ouverture manuelle = étape principale, jamais suggestion
+	showClaimModal = true;
+}
+
+/** Refus de la suggestion de claim : auto-add du nom du compte si pas de conflit,
+ * sinon on laisse l'user résoudre sur l'étape principale (conflit visible). */
+function handleDeclineSuggestion() {
+	if (!master || !userStore.pbUser) return;
+	authTransition.clearPendingGuestClaim();
+	const pbUser = userStore.pbUser;
+	// Même garde que CAS C : pas d'auto-add si un autre participant actif porte ce nom.
+	const conflict = hasNameConflict(master.participants, pbUser.name, pbUser.id);
+	if (!conflict) {
+		// Pas de conflit → auto-add silencieux + fermer le modal
+		if (!autoAddedMasterIds.has(master.id)) {
+			autoAddedMasterIds.add(master.id);
+			handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true, {
+				userId: pbUser.id
+			});
+		}
 		showClaimModal = false;
 	}
+	// Si conflit → ne rien faire : le modal est déjà basculé sur l'étape principale
+	// (géré en interne par le composant via suggestionDeclined), conflit visible.
+}
 
-	function loadMore() {
-		displayCount += 10;
-	}
+const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
 
-	function openIdentifyModal() {
-		if (!master) return;
-
-		const identityName = currentIdentity?.name || userStore.pbUser?.name || '';
-
-		userStore.authModal = {
-			open: true,
-			masterId: master.id,
-			existingParticipants: master.participants.filter((p) => !p.hasQuit),
-			onPlanningIdentify: handlePlanningIdentify,
-			initialName: identityName,
-			hideExistingParticipants: userStore.isLoggedIn ? true : undefined,
-			currentIdentity: currentIdentity
-		};
-	}
-
-	function openIdentityClaimModal() {
-		suggestionParticipant = null; // ouverture manuelle = étape principale, jamais suggestion
-		showClaimModal = true;
-	}
-
-	/** Refus de la suggestion de claim : auto-add du nom du compte si pas de conflit,
-	 * sinon on laisse l'user résoudre sur l'étape principale (conflit visible). */
-	function handleDeclineSuggestion() {
-		if (!master || !userStore.pbUser) return;
-		authTransition.clearPendingGuestClaim();
-		const pbUser = userStore.pbUser;
-		// Même garde que CAS C : pas d'auto-add si un autre participant actif porte ce nom.
-		const conflict = hasNameConflict(master.participants, pbUser.name, pbUser.id);
-		if (!conflict) {
-			// Pas de conflit → auto-add silencieux + fermer le modal
-			if (!autoAddedMasterIds.has(master.id)) {
-				autoAddedMasterIds.add(master.id);
-				handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true, {
-					userId: pbUser.id
-				});
-			}
-			showClaimModal = false;
+async function shareLink(url: string, label: string) {
+	try {
+		if (canNativeShare) {
+			await navigator.share({ title: "Oupla - Planning", text: `Participe à ${label}`, url });
+		} else {
+			await navigator.clipboard.writeText(url);
+			toast.success(`${label} copié !`);
 		}
-		// Si conflit → ne rien faire : le modal est déjà basculé sur l'étape principale
-		// (géré en interne par le composant via suggestionDeclined), conflit visible.
-	}
-
-	const canNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
-
-	async function shareLink(url: string, label: string) {
-		try {
-			if (canNativeShare) {
-				await navigator.share({ title: 'Oupla - Planning', text: `Participe à ${label}`, url });
-			} else {
-				await navigator.clipboard.writeText(url);
-				toast.success(`${label} copié !`);
-			}
-		} catch (error) {
-			if ((error as Error).name !== 'AbortError') {
-				toast.error('Erreur lors du partage');
-			}
+	} catch (error) {
+		if ((error as Error).name !== "AbortError") {
+			toast.error("Erreur lors du partage");
 		}
 	}
+}
 
-	const isAdmin = $derived(master ? !!master.adminToken : false);
-	const adminToken = $derived(master?.adminToken ?? null);
+const isAdmin = $derived(master ? !!master.adminToken : false);
+const adminToken = $derived(master?.adminToken ?? null);
 
-	async function handleQuit() {
-		if (!master || !currentIdentity) return;
-		try {
-			await quitPlanning(master.id, currentIdentity.id, token);
-			await guestStateStore.markGuestQuit(master.id);
-			toast.success('Vous avez quitté le planning');
-			showQuitModal = false;
-			goto('/');
-		} catch (err) {
-			console.error('Error quitting planning:', err);
-			toast.error('Erreur lors de la sortie du planning');
-		}
+async function handleQuit() {
+	if (!master || !currentIdentity) return;
+	try {
+		await quitPlanning(master.id, currentIdentity.id, token);
+		await guestStateStore.markGuestQuit(master.id);
+		toast.success("Vous avez quitté le planning");
+		showQuitModal = false;
+		goto("/");
+	} catch (err) {
+		console.error("Error quitting planning:", err);
+		toast.error("Erreur lors de la sortie du planning");
 	}
+}
 
-	const displayedOccurrences = $derived(occurrences.slice(0, displayCount));
-	const hasMore = $derived(displayCount < occurrences.length);
+const displayedOccurrences = $derived(occurrences.slice(0, displayCount));
+const hasMore = $derived(displayCount < occurrences.length);
 
-	// Participants autres que l'utilisateur courant (hors ceux ayant quitté).
-	// Couvre les 3 états : identifié/verrouillé (myParticipant exclu, géré par le groupe « Vous »)
-	// ou non identifié (myParticipant null → tous les participants actifs).
-	const otherParticipants = $derived(
-		master ? master.participants.filter((p) => !p.hasQuit && p.id !== myParticipant?.id) : []
-	);
-	const visibleOtherParticipants = $derived(
-		showAllParticipants ? otherParticipants : otherParticipants.slice(0, 10)
-	);
-	const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length > 10);
+// Participants autres que l'utilisateur courant (hors ceux ayant quitté).
+// Couvre les 3 états : identifié/verrouillé (myParticipant exclu, géré par le groupe « Vous »)
+// ou non identifié (myParticipant null → tous les participants actifs).
+const otherParticipants = $derived(
+	master ? master.participants.filter((p) => !p.hasQuit && p.id !== myParticipant?.id) : []
+);
+const visibleOtherParticipants = $derived(
+	showAllParticipants ? otherParticipants : otherParticipants.slice(0, 10)
+);
+const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length > 10);
 </script>
 
 <svelte:head>

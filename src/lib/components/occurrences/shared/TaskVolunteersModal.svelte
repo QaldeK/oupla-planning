@@ -1,61 +1,60 @@
 <script lang="ts">
-	import type { Task, ParticipantResponse, TaskType } from '$lib/types/planning.types';
-	import { Clock, CalendarArrowUp, CalendarArrowDown, UserMinus, UserPlus } from '@lucide/svelte';
-	import { slide } from 'svelte/transition';
-	import Modal from '$lib/components/ui/Modal.svelte';
+import { CalendarArrowDown, CalendarArrowUp, Clock, UserMinus, UserPlus } from "@lucide/svelte";
+import { slide } from "svelte/transition";
+import Modal from "$lib/components/ui/Modal.svelte";
+import type { ParticipantResponse, Task, TaskType } from "$lib/types/planning.types";
 
-	interface Props {
-		open: boolean;
-		onClose: () => void;
-		task: Task;
-		inscribed: ParticipantResponse[];
-		currentUserId?: string;
-		isInTask: boolean;
-		isSubmitting: boolean;
-		readOnly: boolean;
-		isPastDate: boolean;
-		getParticipantName: (response: ParticipantResponse) => string;
-		onToggle: () => void;
-		quitParticipantIds?: Set<string>;
+interface Props {
+	open: boolean;
+	onClose: () => void;
+	task: Task;
+	inscribed: ParticipantResponse[];
+	currentUserId?: string;
+	isInTask: boolean;
+	isSubmitting: boolean;
+	readOnly: boolean;
+	isPastDate: boolean;
+	getParticipantName: (response: ParticipantResponse) => string;
+	onToggle: () => void;
+	quitParticipantIds?: Set<string>;
+}
+
+let {
+	open,
+	onClose,
+	task,
+	inscribed,
+	currentUserId,
+	isInTask,
+	isSubmitting,
+	readOnly,
+	isPastDate,
+	getParticipantName,
+	onToggle,
+	quitParticipantIds = new Set()
+}: Props = $props();
+
+function handleClose() {
+	onClose();
+}
+
+const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: typeof Clock }> = {
+	beforeEvent: { bgClass: "bg-accent/30", label: "Avant", icon: CalendarArrowUp },
+	onEvent: { bgClass: "bg-accent/60", label: "Pendant", icon: Clock },
+	afterEvent: { bgClass: "bg-accent", label: "Après", icon: CalendarArrowDown }
+};
+
+const config = $derived(TASK_TYPE_CONFIG[task.type]);
+const Icon = $derived(config.icon);
+const volunteers = $derived(inscribed.length);
+const isComplete = $derived(volunteers >= task.requiredVolunteers);
+
+function handleSubscribe() {
+	if (!readOnly && !isPastDate && !isSubmitting) {
+		onToggle();
 	}
-
-	let {
-		open,
-		onClose,
-		task,
-		inscribed,
-		currentUserId,
-		isInTask,
-		isSubmitting,
-		readOnly,
-		isPastDate,
-		getParticipantName,
-		onToggle,
-		quitParticipantIds = new Set()
-	}: Props = $props();
-
-	function handleClose() {
-		onClose();
-	}
-
-	const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: typeof Clock }> =
-		{
-			beforeEvent: { bgClass: 'bg-accent/30', label: 'Avant', icon: CalendarArrowUp },
-			onEvent: { bgClass: 'bg-accent/60', label: 'Pendant', icon: Clock },
-			afterEvent: { bgClass: 'bg-accent', label: 'Après', icon: CalendarArrowDown }
-		};
-
-	const config = $derived(TASK_TYPE_CONFIG[task.type]);
-	const Icon = $derived(config.icon);
-	const volunteers = $derived(inscribed.length);
-	const isComplete = $derived(volunteers >= task.requiredVolunteers);
-
-	function handleSubscribe() {
-		if (!readOnly && !isPastDate && !isSubmitting) {
-			onToggle();
-		}
-		handleClose();
-	}
+	handleClose();
+}
 </script>
 
 <Modal bind:open onClose={handleClose} title={task.name} size="sm">
@@ -79,8 +78,8 @@
 				{#each inscribed as response (response.participantId)}
 					{@const isQuit = quitParticipantIds.has(response.participantId)}
 					<div
-						class="badge bg-accent/60 {response.participantId === currentUserId
-							? 'border-accent border-2 font-bold'
+						class="badge bg-accent/50 {response.participantId === currentUserId
+							? 'border-accent border-3 font-bold'
 							: 'font-medium'} {isQuit ? 'line-through opacity-40' : ''}"
 						transition:slide
 					>

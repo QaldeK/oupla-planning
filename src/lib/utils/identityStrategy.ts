@@ -11,8 +11,8 @@
  * CAS C. Ne duplique pas la règle ADR-0002 (`resolveCurrentIdentity`) — le
  * participant résolu (`myParticipant`) est attendu en entrée.
  */
-import type { Participant, PlanningIdentity, PlanningMaster } from '$lib/types/planning.types';
-import { hasNameConflict } from '$lib/utils/participantConflict';
+import type { Participant, PlanningIdentity, PlanningMaster } from "$lib/types/planning.types";
+import { hasNameConflict } from "$lib/utils/participantConflict";
 
 // =============================================
 // Types d'entrée / sortie
@@ -47,17 +47,17 @@ export interface StrategyInput {
  * La page exécute l'action via un `switch`.
  */
 export type StrategyAction =
-	| { type: 'none' }
-	| { type: 'block_quit' }
-	| { type: 'silent_sync' }
-	| { type: 'show_claim_suggestion'; participant: Participant }
-	| { type: 'show_claim_modal'; suggestionParticipant: Participant | null }
+	| { type: "none" }
+	| { type: "block_quit" }
+	| { type: "silent_sync" }
+	| { type: "show_claim_suggestion"; participant: Participant }
+	| { type: "show_claim_modal"; suggestionParticipant: Participant | null }
 	| {
-			type: 'auto_add';
+			type: "auto_add";
 			identity: PlanningIdentity;
 			additionalFields: Partial<Participant>;
 	  }
-	| { type: 'identify_as_guest' };
+	| { type: "identify_as_guest" };
 
 /** Résultat de la stratégie. */
 export interface StrategyResult {
@@ -117,7 +117,7 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 
 	// Garde 2 : retour après quit — bloquer avant tout CAS A/B/C
 	if (hasQuitThisPlanning) {
-		return { action: { type: 'block_quit' }, expirePendingClaim: false };
+		return { action: { type: "block_quit" }, expirePendingClaim: false };
 	}
 
 	// === Utilisateur authentifié ===
@@ -125,7 +125,7 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 		// CAS A : déjà participant via userId → sync silencieuse. La suggestion
 		// éventuelle est obsolète (l'utilisateur est déjà lié à un participant).
 		if (myParticipant) {
-			return { action: { type: 'silent_sync' }, expirePendingClaim: true };
+			return { action: { type: "silent_sync" }, expirePendingClaim: true };
 		}
 
 		// Modal déjà ouvert : ne pas re-déclencher CAS B/C. Préserve l'état
@@ -143,7 +143,7 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 			);
 			if (target) {
 				return {
-					action: { type: 'show_claim_suggestion', participant: target },
+					action: { type: "show_claim_suggestion", participant: target },
 					expirePendingClaim: false
 				};
 			}
@@ -163,7 +163,7 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 		);
 		if (nameMatch) {
 			return {
-				action: { type: 'show_claim_modal', suggestionParticipant: null },
+				action: { type: "show_claim_modal", suggestionParticipant: null },
 				expirePendingClaim: isPendingClaimStale
 			};
 		}
@@ -173,7 +173,7 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 		const nameConflict = hasNameConflict(master.participants, pbUser.name, pbUser.id);
 		if (nameConflict) {
 			return {
-				action: { type: 'show_claim_modal', suggestionParticipant: null },
+				action: { type: "show_claim_modal", suggestionParticipant: null },
 				expirePendingClaim: isPendingClaimStale
 			};
 		}
@@ -183,7 +183,7 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 		if (!autoAddedMasterIds.has(master.id)) {
 			return {
 				action: {
-					type: 'auto_add',
+					type: "auto_add",
 					identity: { id: pbUser.id, name: pbUser.name, email: pbUser.email },
 					additionalFields: { userId: pbUser.id }
 				},
@@ -197,7 +197,7 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 
 	// === Guest ===
 	if (!guestIdentity) {
-		return { action: { type: 'identify_as_guest' }, expirePendingClaim: false };
+		return { action: { type: "identify_as_guest" }, expirePendingClaim: false };
 	}
 
 	// Guest identifié, aucun effet de bord nécessaire
@@ -205,5 +205,5 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 }
 
 function none(expirePendingClaim: boolean): StrategyResult {
-	return { action: { type: 'none' }, expirePendingClaim };
+	return { action: { type: "none" }, expirePendingClaim };
 }

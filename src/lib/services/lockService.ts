@@ -16,8 +16,8 @@
  * local Dexie pour les guests) fourni par l'appelant — ce service ne lit
  * jamais directement `pb.authStore`.
  */
-import { ClientResponseError } from 'pocketbase';
-import { pb } from '$lib/pocketbase/pb';
+import { ClientResponseError } from "pocketbase";
+import { pb } from "$lib/pocketbase/pb";
 
 /**
  * TTL du lock. Doit matcher `LOCK_TTL_MS` côté serveur
@@ -41,8 +41,8 @@ export class LockHeldError extends Error {
 	readonly info: LockInfo;
 
 	constructor(info: LockInfo) {
-		super('Lock held by another admin');
-		this.name = 'LockHeldError';
+		super("Lock held by another admin");
+		this.name = "LockHeldError";
 		this.info = info;
 	}
 }
@@ -96,7 +96,7 @@ async function postLock(
 ): Promise<LockInfo> {
 	try {
 		return await pb.send(`/api/lock/${masterId}`, {
-			method: 'POST',
+			method: "POST",
 			body: { lockedBy: userId, lockedByName },
 			query: { _token: adminToken }
 		});
@@ -104,7 +104,7 @@ async function postLock(
 		if (err instanceof ClientResponseError && err.status === 409 && err.response) {
 			throw new LockHeldError({
 				lockedBy: err.response.lockedBy,
-				lockedByName: err.response.lockedByName ?? '',
+				lockedByName: err.response.lockedByName ?? "",
 				lockedAt: err.response.lockedAt,
 				expiresAt: err.response.expiresAt
 			});
@@ -132,12 +132,12 @@ export async function releaseLock(
 ): Promise<void> {
 	try {
 		await pb.send(`/api/unlock/${masterId}`, {
-			method: 'POST',
+			method: "POST",
 			body: { lockedBy: userId },
 			query: { _token: adminToken }
 		});
 	} catch (err) {
-		console.error('[lockService] releaseLock failed:', err);
+		console.error("[lockService] releaseLock failed:", err);
 	}
 }
 
@@ -157,12 +157,12 @@ export async function getLock(masterId: string, adminToken: string): Promise<Loc
 	// (contrairement aux hooks JSVM `findRecordsByFilter('{:param}')`), et un ID
 	// malformé ne devrait de toute façon jamais arriver jusqu'ici.
 	if (!/^[a-zA-Z0-9]+$/.test(masterId)) {
-		throw new Error('Invalid masterId');
+		throw new Error("Invalid masterId");
 	}
 
 	let record: { lockedBy?: string; lockedByName?: string; lockedAt?: string };
 	try {
-		record = await pb.collection('planning_locks').getFirstListItem(`master = "${masterId}"`, {
+		record = await pb.collection("planning_locks").getFirstListItem(`master = "${masterId}"`, {
 			query: { _token: adminToken }
 		});
 	} catch (err: unknown) {
@@ -176,7 +176,7 @@ export async function getLock(masterId: string, adminToken: string): Promise<Loc
 	const lockedAtMs = new Date(record.lockedAt ?? Date.now()).getTime();
 	return {
 		lockedBy: record.lockedBy,
-		lockedByName: record.lockedByName ?? '',
+		lockedByName: record.lockedByName ?? "",
 		lockedAt: record.lockedAt ?? new Date().toISOString(),
 		expiresAt: new Date(lockedAtMs + LOCK_TTL_MS).toISOString()
 	};

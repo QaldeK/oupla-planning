@@ -40,10 +40,10 @@
  * - `OccurrenceView` (useLiveQuery direct) : point bleu par occurrence individuelle.
  * - `CommentSection` : appels markConversationAsRead.
  */
-import { db } from '$lib/pb-sync/db';
-import { pb } from '$lib/pocketbase/pb';
-import { getParticipantPrefs } from '$lib/services/planningParticipants';
-import type { PlanningOccurrence, CommentState } from '$lib/types/planning.types';
+import { db } from "$lib/pb-sync/db";
+import { pb } from "$lib/pocketbase/pb";
+import { getParticipantPrefs } from "$lib/services/planningParticipants";
+import type { CommentState, PlanningOccurrence } from "$lib/types/planning.types";
 
 class CommentStateService {
 	/**
@@ -58,10 +58,10 @@ class CommentStateService {
 		let participants!: { id: string; planning: string; commentReadState: unknown }[];
 		try {
 			participants = await pb
-				.collection('planning_participants')
-				.getFullList({ filter: pb.filter('user = {:userId}', { userId }) });
+				.collection("planning_participants")
+				.getFullList({ filter: pb.filter("user = {:userId}", { userId }) });
 		} catch (err) {
-			console.error('Failed to fetch comment read state from PB:', err);
+			console.error("Failed to fetch comment read state from PB:", err);
 			return;
 		}
 
@@ -155,11 +155,11 @@ class CommentStateService {
 			const currentState = (record.commentReadState as Record<string, string>) || {};
 			currentState[occId] = readAt;
 
-			await pb.collection('planning_participants').update(record.id, {
+			await pb.collection("planning_participants").update(record.id, {
 				commentReadState: currentState
 			});
 		} catch (err) {
-			console.error('Failed to sync read state to PB:', err);
+			console.error("Failed to sync read state to PB:", err);
 		}
 	}
 
@@ -220,7 +220,7 @@ class CommentStateService {
 	}
 
 	async getUnreadCountForMaster(masterId: string): Promise<number> {
-		const states = await db.commentState.where('masterId').equals(masterId).toArray();
+		const states = await db.commentState.where("masterId").equals(masterId).toArray();
 		let count = 0;
 		for (const state of states) {
 			const occ = await db.occurrences.get(state.occurrenceId);
@@ -230,7 +230,7 @@ class CommentStateService {
 		}
 
 		const occurrencesWithoutState = await db.occurrences
-			.where('master')
+			.where("master")
 			.equals(masterId)
 			.filter((occ) => occ.comments && occ.comments.length > 0)
 			.toArray();

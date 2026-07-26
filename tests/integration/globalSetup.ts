@@ -16,24 +16,24 @@
  * Note : ce fichier ne crée PAS de données de test. Le seed est géré
  * dans chaque fichier .test.ts via les helpers de seed.ts.
  */
-import PocketBase from 'pocketbase';
+import PocketBase from "pocketbase";
 
-const PB_URL = process.env.VITE_PLANNING_PB_URL || 'http://127.0.0.1:8090';
+const PB_URL = process.env.VITE_PLANNING_PB_URL || "http://127.0.0.1:8090";
 
 export default async function globalSetup() {
 	const pb = new PocketBase(PB_URL);
 
 	try {
-		await pb.collection('_superusers').authWithPassword('test@example.com', 'testpassword');
-		console.log('✅ PocketBase reachable, admin authenticated');
+		await pb.collection("_superusers").authWithPassword("test@example.com", "testpassword");
+		console.log("✅ PocketBase reachable, admin authenticated");
 	} catch {
-		console.error('❌ PocketBase unreachable. Start it with: ./pocketbase serve');
-		console.error('   Create admin with: ./pocketbase admin create test@example.com testpassword');
-		throw new Error('PocketBase not available');
+		console.error("❌ PocketBase unreachable. Start it with: ./pocketbase serve");
+		console.error("   Create admin with: ./pocketbase admin create test@example.com testpassword");
+		throw new Error("PocketBase not available");
 	}
 
 	return async () => {
 		// Cleanup after all tests
-		console.log('🧹 Integration tests finished');
+		console.log("🧹 Integration tests finished");
 	};
 }

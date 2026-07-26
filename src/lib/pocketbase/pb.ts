@@ -1,9 +1,9 @@
-import PocketBase from 'pocketbase';
-import type { TypedPocketBase } from '$lib/types/pocketbase-types';
+import PocketBase from "pocketbase";
+import type { TypedPocketBase } from "$lib/types/pocketbase-types";
 
 // URL de l'instance PocketBase dédiée au planning
 // À configurer selon votre environnement
-const PB_URL = import.meta.env.VITE_PLANNING_PB_URL || 'http://127.0.0.1:8090';
+const PB_URL = import.meta.env.VITE_PLANNING_PB_URL || "http://127.0.0.1:8090";
 
 export const pb = new PocketBase(PB_URL) as TypedPocketBase;
 

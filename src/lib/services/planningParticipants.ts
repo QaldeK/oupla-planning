@@ -1,7 +1,7 @@
-import { pb } from '$lib/pocketbase/pb';
-import { getDefaultPlanningPrefs, type PlanningParticipantPrefs } from './push';
-import type { PlanningParticipantsResponse } from '$lib/types/pocketbase-types';
-import type { RecurrenceType } from '$lib/types/planning.types';
+import { pb } from "$lib/pocketbase/pb";
+import type { RecurrenceType } from "$lib/types/planning.types";
+import type { PlanningParticipantsResponse } from "$lib/types/pocketbase-types";
+import { getDefaultPlanningPrefs, type PlanningParticipantPrefs } from "./push";
 
 /**
  * Récupère les préférences de notification d'un participant pour un planning
@@ -12,7 +12,7 @@ export async function getParticipantPrefs(
 ): Promise<PlanningParticipantsResponse | null> {
 	try {
 		return await pb
-			.collection('planning_participants')
+			.collection("planning_participants")
 			.getFirstListItem(`planning = "${planningId}" && user = "${userId}"`);
 	} catch {
 		return null;
@@ -29,19 +29,19 @@ export async function updateParticipantPrefs(
 	planningId: string,
 	userId: string,
 	prefs: Partial<PlanningParticipantPrefs>,
-	recurrenceType: RecurrenceType = 'WEEKLY',
+	recurrenceType: RecurrenceType = "WEEKLY",
 	isAdmin = false
 ): Promise<PlanningParticipantsResponse> {
 	if (!pb.authStore.isValid || !pb.authStore.record) {
-		throw new Error('Utilisateur non connecté');
+		throw new Error("Utilisateur non connecté");
 	}
 
 	const existing = await getParticipantPrefs(planningId, userId);
 
 	if (existing) {
-		return await pb.collection('planning_participants').update(existing.id, prefs);
+		return await pb.collection("planning_participants").update(existing.id, prefs);
 	} else {
-		return await pb.collection('planning_participants').create({
+		return await pb.collection("planning_participants").create({
 			planning: planningId,
 			user: userId,
 			...getDefaultPlanningPrefs(recurrenceType, isAdmin),
@@ -59,16 +59,16 @@ export async function updateParticipantPrefs(
 export async function ensurePlanningParticipant(
 	planningId: string,
 	userId: string,
-	recurrenceType: RecurrenceType = 'WEEKLY',
+	recurrenceType: RecurrenceType = "WEEKLY",
 	isAdmin = false
 ): Promise<void> {
 	try {
 		await pb
-			.collection('planning_participants')
+			.collection("planning_participants")
 			.getFirstListItem(`planning = "${planningId}" && user = "${userId}"`);
 		return;
 	} catch {
-		await pb.collection('planning_participants').create({
+		await pb.collection("planning_participants").create({
 			planning: planningId,
 			user: userId,
 			...getDefaultPlanningPrefs(recurrenceType, isAdmin)

@@ -1,22 +1,22 @@
+import { goto } from "$app/navigation";
+import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { db, ensureDbReady } from "$lib/pb-sync/db";
+import { pb } from "$lib/pocketbase/pb";
+import { commentStateService } from "$lib/services/commentStateService";
+import { authTransition } from "$lib/stores/authTransition.svelte";
+import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
+import { planningStore } from "$lib/stores/planningStore.svelte";
 import type {
-	PlanningIdentity,
+	AppPreferences,
 	Participant,
-	ViewType,
+	PlanningIdentity,
 	ThemeType,
-	AppPreferences
-} from '$lib/types/planning.types';
-import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
-import { storage } from '$lib/utils/storage';
-import { pb } from '$lib/pocketbase/pb';
-import { planningStore } from '$lib/stores/planningStore.svelte';
-import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
-import { db, ensureDbReady } from '$lib/pb-sync/db';
-import { commentStateService } from '$lib/services/commentStateService';
-import { authTransition } from '$lib/stores/authTransition.svelte';
-import { goto } from '$app/navigation';
+	ViewType
+} from "$lib/types/planning.types";
+import { storage } from "$lib/utils/storage";
 
-const APP_PREFS_KEY = 'app_preferences';
-const AUTH_SYNC_AT_KEY = 'auth_sync_at';
+const APP_PREFS_KEY = "app_preferences";
+const AUTH_SYNC_AT_KEY = "auth_sync_at";
 
 interface AuthModalState {
 	open: boolean;
@@ -31,8 +31,8 @@ interface AuthModalState {
 class UserStore {
 	authModal = $state<AuthModalState>({ open: false });
 	appPreferences = $state<AppPreferences>({
-		theme: 'my',
-		occurrenceView: 'compact'
+		theme: "my",
+		occurrenceView: "compact"
 	});
 	isReady = $state(false);
 	isLoggedIn = $state();
@@ -62,7 +62,7 @@ class UserStore {
 				// ce .catch() protège contre d'éventuelles rejections résiduelles.
 				authTransition
 					.transitionToAuth()
-					.catch((err) => console.error('authTransition failed:', err));
+					.catch((err) => console.error("authTransition failed:", err));
 			}
 		});
 
@@ -73,20 +73,20 @@ class UserStore {
 		planningStore.initGlobalSync();
 
 		// 3. Préférences de l'application (thème, vue)
-		const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-		const defaultTheme: ThemeType = prefersDark ? 'nord-dark' : 'my';
+		const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+		const defaultTheme: ThemeType = prefersDark ? "nord-dark" : "my";
 
 		const savedPrefs = await storage.getItem<AppPreferences>(APP_PREFS_KEY);
 		if (savedPrefs) {
 			this.appPreferences = {
 				theme: savedPrefs.theme || defaultTheme,
-				occurrenceView: savedPrefs.occurrenceView || (mediaQuery.isMobile ? 'minimal' : 'compact')
+				occurrenceView: savedPrefs.occurrenceView || (mediaQuery.isMobile ? "minimal" : "compact")
 			};
 		} else {
 			// Valeurs par défaut intelligentes par device + OS theme
 			this.appPreferences = {
 				theme: defaultTheme,
-				occurrenceView: mediaQuery.isMobile ? 'minimal' : 'compact'
+				occurrenceView: mediaQuery.isMobile ? "minimal" : "compact"
 			};
 		}
 
@@ -116,7 +116,7 @@ class UserStore {
 			await occurrencesCollection.initialFetch();
 			await this.markAuthSynced();
 		} catch (err) {
-			console.error('Delta sync failed:', err);
+			console.error("Delta sync failed:", err);
 		}
 		mastersCollection.subscribe();
 		occurrencesCollection.subscribe();
@@ -160,7 +160,7 @@ class UserStore {
 	// === Auth ===
 
 	async logout() {
-		goto('/');
+		goto("/");
 		authTransition.clearPendingGuestClaim();
 		this.lastAuthSyncAt = null;
 		await storage.removeItem(AUTH_SYNC_AT_KEY);
@@ -215,7 +215,7 @@ class UserStore {
 		const wasLoggedIn = this.isLoggedIn;
 
 		this.lastAuthSyncAt = null;
-		this.appPreferences = { theme: 'my', occurrenceView: 'compact' };
+		this.appPreferences = { theme: "my", occurrenceView: "compact" };
 		await storage.removeItem(APP_PREFS_KEY);
 		await storage.removeItem(AUTH_SYNC_AT_KEY);
 
@@ -238,8 +238,8 @@ class UserStore {
 		const record = pb.authStore.record;
 		return {
 			id: record.id,
-			name: (record['name'] as string) ?? '',
-			email: (record['email'] as string) ?? ''
+			name: (record["name"] as string) ?? "",
+			email: (record["email"] as string) ?? ""
 		};
 	}
 }

@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { RefreshCw, Trash2, WifiOff } from '@lucide/svelte';
+import { RefreshCw, Trash2, WifiOff } from "@lucide/svelte";
 
-	interface Props {
-		errorType: 'network' | 'deleted' | 'not-found' | null;
-		isOffline: boolean;
-	}
+interface Props {
+	errorType: "network" | "deleted" | "not-found" | null;
+	isOffline: boolean;
+}
 
-	let { errorType, isOffline }: Props = $props();
+let { errorType, isOffline }: Props = $props();
 </script>
 
 {#if errorType === 'network' || isOffline}

@@ -1,41 +1,41 @@
 <script lang="ts">
-	import Modal from '$lib/components/ui/Modal.svelte';
-	import AuthForm from './AuthForm.svelte';
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { ShieldCheck, MonitorSmartphone } from '@lucide/svelte';
+import { MonitorSmartphone, ShieldCheck } from "@lucide/svelte";
+import Modal from "$lib/components/ui/Modal.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
+import AuthForm from "./AuthForm.svelte";
 
-	interface Props {
-		open: boolean;
-		onClose: () => void;
-		onSuccess?: () => void;
-		defaultMode?: 'register' | 'login';
-		welcomeMode?: boolean;
+interface Props {
+	open: boolean;
+	onClose: () => void;
+	onSuccess?: () => void;
+	defaultMode?: "register" | "login";
+	welcomeMode?: boolean;
+}
+
+let {
+	open = $bindable(false),
+	onClose,
+	onSuccess,
+	defaultMode = "login",
+	welcomeMode = false
+}: Props = $props();
+
+// Nom par défaut depuis le profil PocketBase
+let defaultName = $derived(userStore.pbUser?.name || "");
+
+let currentMode = $state<"register" | "login">("login");
+
+// Remettre à jour le mode par défaut si on ouvre à nouveau la modale
+$effect(() => {
+	if (open) {
+		currentMode = defaultMode;
 	}
+});
 
-	let {
-		open = $bindable(false),
-		onClose,
-		onSuccess,
-		defaultMode = 'login',
-		welcomeMode = false
-	}: Props = $props();
-
-	// Nom par défaut depuis le profil PocketBase
-	let defaultName = $derived(userStore.pbUser?.name || '');
-
-	let currentMode = $state<'register' | 'login'>('login');
-
-	// Remettre à jour le mode par défaut si on ouvre à nouveau la modale
-	$effect(() => {
-		if (open) {
-			currentMode = defaultMode;
-		}
-	});
-
-	function handleSuccess() {
-		if (onSuccess) onSuccess();
-		onClose();
-	}
+function handleSuccess() {
+	if (onSuccess) onSuccess();
+	onClose();
+}
 </script>
 
 <Modal

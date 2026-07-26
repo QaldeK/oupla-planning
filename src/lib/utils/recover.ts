@@ -30,41 +30,41 @@
 // Hardcodé volontairement : ce module est importé par +error.svelte, qui doit
 // rester indépendant de db.ts (Dexie) pour pouvoir s'afficher même si db.ts
 // est la cause du crash. Si le nom change dans db.ts, le mettre à jour ici aussi.
-const APP_DB_NAME = 'appDB';
+const APP_DB_NAME = "appDB";
 
 async function clearHttpCaches(): Promise<void> {
-	if (typeof caches === 'undefined') return;
+	if (typeof caches === "undefined") return;
 	try {
 		const keys = await caches.keys();
 		await Promise.all(keys.map((k) => caches.delete(k)));
 	} catch (err) {
-		console.warn('[recover] Failed to clear caches:', err);
+		console.warn("[recover] Failed to clear caches:", err);
 	}
 }
 
 async function unregisterServiceWorkers(): Promise<void> {
-	if (!('serviceWorker' in navigator)) return;
+	if (!("serviceWorker" in navigator)) return;
 	try {
 		const regs = await navigator.serviceWorker.getRegistrations();
 		await Promise.all(regs.map((r) => r.unregister()));
 	} catch (err) {
-		console.warn('[recover] Failed to unregister service workers:', err);
+		console.warn("[recover] Failed to unregister service workers:", err);
 	}
 }
 
 async function dropIndexedDB(): Promise<void> {
-	if (typeof indexedDB === 'undefined') return;
+	if (typeof indexedDB === "undefined") return;
 	await new Promise<void>((resolve) => {
 		const req = indexedDB.deleteDatabase(APP_DB_NAME);
 		// On résout dans tous les cas : une DB déjà supprimée ou bloquée
 		// ne doit pas empêcher le reload final.
 		req.onsuccess = () => resolve();
 		req.onerror = () => {
-			console.warn('[recover] indexedDB.deleteDatabase error:', req.error);
+			console.warn("[recover] indexedDB.deleteDatabase error:", req.error);
 			resolve();
 		};
 		req.onblocked = () => {
-			console.warn('[recover] indexedDB.deleteDatabase blocked — proceeding anyway.');
+			console.warn("[recover] indexedDB.deleteDatabase blocked — proceeding anyway.");
 			resolve();
 		};
 	});
@@ -74,12 +74,12 @@ function clearWebStorage(): void {
 	try {
 		localStorage.clear();
 	} catch (err) {
-		console.warn('[recover] Failed to clear localStorage:', err);
+		console.warn("[recover] Failed to clear localStorage:", err);
 	}
 	try {
 		sessionStorage.clear();
 	} catch (err) {
-		console.warn('[recover] Failed to clear sessionStorage:', err);
+		console.warn("[recover] Failed to clear sessionStorage:", err);
 	}
 }
 
@@ -95,7 +95,7 @@ function clearWebStorage(): void {
  * @param target URL à charger après reload. Par défaut la racine, pour
  *               éviter de retomber sur une route profonde potentiellement cassée.
  */
-export async function recoverAllData(target = '/'): Promise<void> {
+export async function recoverAllData(target = "/"): Promise<void> {
 	await clearHttpCaches();
 	await unregisterServiceWorkers();
 	await dropIndexedDB();

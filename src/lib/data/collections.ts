@@ -10,11 +10,12 @@
  * cette responsabilité vers un `subscription-tracker` dédié serait plus
  * propre mais n'apporterait rien aujourd'hui (YAGNI).
  */
-import { pb } from '$lib/pocketbase/pb';
-import { createSyncCollection } from '$lib/pb-sync/collection';
-import { db } from '$lib/pb-sync/db';
-import { networkStore } from '$lib/stores/networkStore.svelte';
-import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
+
+import { createSyncCollection } from "$lib/pb-sync/collection";
+import { db } from "$lib/pb-sync/db";
+import { pb } from "$lib/pocketbase/pb";
+import { networkStore } from "$lib/stores/networkStore.svelte";
+import type { PlanningMaster, PlanningOccurrence } from "$lib/types/planning.types";
 
 let activeSubscriptionCount = 0;
 
@@ -32,7 +33,7 @@ function notifySubscriptionChange(active: boolean) {
 export const mastersCollection = createSyncCollection<PlanningMaster>(
 	pb,
 	db.masters,
-	'planning_masters',
+	"planning_masters",
 	{
 		onSubscriptionChange: notifySubscriptionChange
 	}
@@ -41,7 +42,7 @@ export const mastersCollection = createSyncCollection<PlanningMaster>(
 export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
 	pb,
 	db.occurrences,
-	'planning_occurrences',
+	"planning_occurrences",
 	{
 		onSubscriptionChange: notifySubscriptionChange
 	}

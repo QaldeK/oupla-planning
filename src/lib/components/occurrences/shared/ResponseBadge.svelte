@@ -1,13 +1,13 @@
 <script lang="ts">
-	interface Props {
-		present: number;
-		required: number;
-		size?: 'sm' | 'md';
-	}
+interface Props {
+	present: number;
+	required: number;
+	size?: "sm" | "md";
+}
 
-	let { present, required, size = 'sm' }: Props = $props();
+let { present, required, size = "sm" }: Props = $props();
 
-	const isComplete = $derived(present >= required);
+const isComplete = $derived(present >= required);
 </script>
 
 <span

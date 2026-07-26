@@ -1,66 +1,66 @@
 <script lang="ts">
-	import { drawerStore } from '$lib/stores/drawerStore.svelte';
-	import { addComment } from '$lib/services/planningActions';
-	import { commentStateService } from '$lib/services/commentStateService';
-	import { formatDate } from '$lib/utils/date';
-	import { networkStore } from '$lib/stores/networkStore.svelte';
-	import { classifyError } from '$lib/utils/errorHandler';
-	import { MessageSquare, Send, X } from '@lucide/svelte';
-	import { toast } from 'svelte-sonner';
-	import NetworkAlert from './NetworkAlert.svelte';
+import { MessageSquare, Send, X } from "@lucide/svelte";
+import { toast } from "svelte-sonner";
+import { commentStateService } from "$lib/services/commentStateService";
+import { addComment } from "$lib/services/planningActions";
+import { drawerStore } from "$lib/stores/drawerStore.svelte";
+import { networkStore } from "$lib/stores/networkStore.svelte";
+import { formatDate } from "$lib/utils/date";
+import { classifyError } from "$lib/utils/errorHandler";
+import NetworkAlert from "./NetworkAlert.svelte";
 
-	const occurrence = $derived(drawerStore.data?.occurrence);
-	const master = $derived(drawerStore.data?.master);
-	const currentUserId = $derived(drawerStore.data?.currentUserId);
-	const token = $derived(master?.participantToken || master?.adminToken);
-	const eventTitle = $derived(master?.title);
+const occurrence = $derived(drawerStore.data?.occurrence);
+const master = $derived(drawerStore.data?.master);
+const currentUserId = $derived(drawerStore.data?.currentUserId);
+const token = $derived(master?.participantToken || master?.adminToken);
+const eventTitle = $derived(master?.title);
 
-	let newComment = $state('');
-	let isSubmitting = $state(false);
-	let scrollContainer: HTMLDivElement | undefined = $state();
+let newComment = $state("");
+let isSubmitting = $state(false);
+let scrollContainer: HTMLDivElement | undefined = $state();
 
-	const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
+const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
 
-	function getParticipantName(id: string) {
-		if (!master) return id;
-		return master.participants.find((p) => p.id === id)?.name || id;
+function getParticipantName(id: string) {
+	if (!master) return id;
+	return master.participants.find((p) => p.id === id)?.name || id;
+}
+
+$effect(() => {
+	if (occurrence?.comments && scrollContainer) {
+		setTimeout(() => {
+			if (scrollContainer) {
+				scrollContainer.scrollTo({
+					top: scrollContainer.scrollHeight,
+					behavior: "smooth"
+				});
+			}
+		}, 50);
 	}
+});
 
-	$effect(() => {
-		if (occurrence?.comments && scrollContainer) {
-			setTimeout(() => {
-				if (scrollContainer) {
-					scrollContainer.scrollTo({
-						top: scrollContainer.scrollHeight,
-						behavior: 'smooth'
-					});
-				}
-			}, 50);
-		}
-	});
-
-	$effect(() => {
-		if (occurrence && drawerStore.open) {
-			commentStateService.markConversationAsRead(occurrence.id, occurrence.master);
-		}
-	});
-
-	async function handleSubmit() {
-		if (!newComment.trim() || !occurrence || !master || !currentUserId || !token) return;
-
-		isSubmitting = true;
-		try {
-			await addComment(occurrence.id, currentUserId, newComment.trim(), token, occurrence);
-			commentStateService.markConversationAsRead(occurrence.id, occurrence.master, true);
-			newComment = '';
-		} catch (error) {
-			const { message } = classifyError(error);
-			toast.error(message);
-			console.error(error);
-		} finally {
-			isSubmitting = false;
-		}
+$effect(() => {
+	if (occurrence && drawerStore.open) {
+		commentStateService.markConversationAsRead(occurrence.id, occurrence.master);
 	}
+});
+
+async function handleSubmit() {
+	if (!newComment.trim() || !occurrence || !master || !currentUserId || !token) return;
+
+	isSubmitting = true;
+	try {
+		await addComment(occurrence.id, currentUserId, newComment.trim(), token, occurrence);
+		commentStateService.markConversationAsRead(occurrence.id, occurrence.master, true);
+		newComment = "";
+	} catch (error) {
+		const { message } = classifyError(error);
+		toast.error(message);
+		console.error(error);
+	} finally {
+		isSubmitting = false;
+	}
+}
 </script>
 
 <div class="flex h-full flex-col">

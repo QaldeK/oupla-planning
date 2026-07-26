@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { HatGlasses, Mail, Smartphone, InfoIcon } from '@lucide/svelte';
+import { HatGlasses, InfoIcon, Mail, Smartphone } from "@lucide/svelte";
 </script>
 
 <div class="space-y-1">

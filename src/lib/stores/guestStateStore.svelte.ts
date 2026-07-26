@@ -16,9 +16,10 @@
  * N'utilise pas `getIdentityForPlanning` (qui mêle auth et guest) — cette
  * fonction vit dans `identityResolution.ts` (pure).
  */
-import { db, ensureDbReady, upsertLocalMeta } from '$lib/pb-sync/db';
-import { liveQuery, type Subscription } from 'dexie';
-import type { SavedPlanning, PlanningIdentity } from '$lib/types/planning.types';
+
+import { liveQuery, type Subscription } from "dexie";
+import { db, ensureDbReady, upsertLocalMeta } from "$lib/pb-sync/db";
+import type { PlanningIdentity, SavedPlanning } from "$lib/types/planning.types";
 
 class GuestStateStore {
 	/** Miroir réactif de `db.localMeta` — alimenté par la subscription liveQuery. */

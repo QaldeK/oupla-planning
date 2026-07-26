@@ -1,52 +1,52 @@
 <script lang="ts">
-	interface Option {
-		value: number;
-		label: string;
+interface Option {
+	value: number;
+	label: string;
+}
+
+interface Props {
+	selectedValues: number[];
+	options: Option[];
+	placeholder?: string;
+}
+
+let {
+	selectedValues = $bindable([]),
+	options,
+	placeholder = "Sélectionner des options"
+}: Props = $props();
+
+let isOpen = $state(false);
+
+function toggleDropdown() {
+	isOpen = !isOpen;
+}
+
+function removeOption(value: number) {
+	selectedValues = selectedValues.filter((v) => v !== value);
+}
+
+function getLabelForValue(value: number): string {
+	const option = options.find((opt) => opt.value === value);
+	return option ? option.label : "";
+}
+
+// Fermer le dropdown si on clique en dehors
+function handleClickOutside(e: MouseEvent) {
+	if (!e.target) return;
+	const target = e.target as HTMLElement;
+	if (!target.closest(".multiselect-container")) {
+		isOpen = false;
 	}
+}
 
-	interface Props {
-		selectedValues: number[];
-		options: Option[];
-		placeholder?: string;
-	}
-
-	let {
-		selectedValues = $bindable([]),
-		options,
-		placeholder = 'Sélectionner des options'
-	}: Props = $props();
-
-	let isOpen = $state(false);
-
-	function toggleDropdown() {
-		isOpen = !isOpen;
-	}
-
-	function removeOption(value: number) {
-		selectedValues = selectedValues.filter((v) => v !== value);
-	}
-
-	function getLabelForValue(value: number): string {
-		const option = options.find((opt) => opt.value === value);
-		return option ? option.label : '';
-	}
-
-	// Fermer le dropdown si on clique en dehors
-	function handleClickOutside(e: MouseEvent) {
-		if (!e.target) return;
-		const target = e.target as HTMLElement;
-		if (!target.closest('.multiselect-container')) {
-			isOpen = false;
-		}
-	}
-
-	// Ajouter le listener global au mount
-	$effect(() => {
-		document.addEventListener('click', handleClickOutside);
-		return () => {
-			document.removeEventListener('click', handleClickOutside);
-		};
-	});
+// Ajouter le listener global au mount
+$effect(() => {
+	document.addEventListener("click", handleClickOutside);
+	return () => {
+		document.removeEventListener("click", handleClickOutside);
+	};
+});
 </script>
 
 <div class="multiselect-container relative">

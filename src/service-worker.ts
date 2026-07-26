@@ -6,7 +6,7 @@
 // Ensure proper type definitions
 /// <reference types="@sveltejs/kit" />
 
-import { build, files, version } from '$service-worker';
+import { build, files, version } from "$service-worker";
 
 // Give `self` the correct types
 const self: ServiceWorkerGlobalScope = globalThis as unknown as ServiceWorkerGlobalScope;
@@ -21,8 +21,8 @@ const ASSETS = [
 ];
 
 // Installation du Service Worker
-self.addEventListener('install', (event) => {
-	console.log('📦 Service Worker installé');
+self.addEventListener("install", (event) => {
+	console.log("📦 Service Worker installé");
 
 	// Create a new cache and add all files to it
 	async function addFilesToCache() {
@@ -34,8 +34,8 @@ self.addEventListener('install', (event) => {
 });
 
 // Activation du Service Worker
-self.addEventListener('activate', (event) => {
-	console.log('✅ Service Worker activé');
+self.addEventListener("activate", (event) => {
+	console.log("✅ Service Worker activé");
 
 	async function activateSW() {
 		// Claim d'abord pour transférer le contrôle au nouveau SW (cohérent :
@@ -54,16 +54,16 @@ self.addEventListener('activate', (event) => {
 // Activation immédiate du SW en attente sur demande du client (pattern MAJ PWA).
 // Le client envoie ce message quand l'utilisateur clique « Mettre à jour ».
 // Le reload est ensuite déclenché côté client via l'événement `controllerchange`.
-self.addEventListener('message', (event) => {
-	if (event.data?.type === 'SKIP_WAITING') {
+self.addEventListener("message", (event) => {
+	if (event.data?.type === "SKIP_WAITING") {
 		event.waitUntil(self.skipWaiting());
 	}
 });
 
 // Intercepter les requêtes réseau (Cache First strategy)
-self.addEventListener('fetch', (event) => {
+self.addEventListener("fetch", (event) => {
 	// Ignore POST requests etc
-	if (event.request.method !== 'GET') return;
+	if (event.request.method !== "GET") return;
 
 	const url = new URL(event.request.url);
 
@@ -74,7 +74,7 @@ self.addEventListener('fetch', (event) => {
 	//   risqué : en cas d'échec réseau transient, le SW pourrait servir une 200
 	//   stale du cache sans propager l'erreur → données désynchronisées sans
 	//   aucune alerte réseau côté app.
-	if (url.pathname.startsWith('/api/')) {
+	if (url.pathname.startsWith("/api/")) {
 		return;
 	}
 
@@ -95,7 +95,7 @@ self.addEventListener('fetch', (event) => {
 
 			// If offline, fetch can return a non-Response value
 			if (!(response instanceof Response)) {
-				throw new Error('invalid response from fetch');
+				throw new Error("invalid response from fetch");
 			}
 
 			// Cache successful responses for future use
@@ -120,36 +120,36 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Gestion des notifications push
-self.addEventListener('push', (event) => {
+self.addEventListener("push", (event) => {
 	const data = event.data?.json() ?? {};
-	console.log('📬 Notification push reçue:', data);
+	console.log("📬 Notification push reçue:", data);
 
 	event.waitUntil(
-		self.registration.showNotification(data.title ?? 'Oupla Planning', {
+		self.registration.showNotification(data.title ?? "Oupla Planning", {
 			body: data.body,
-			icon: '/icon-192.png',
-			badge: '/badge-72.png',
-			data: { url: data.url ?? '/' },
+			icon: "/icon-192.png",
+			badge: "/badge-72.png",
+			data: { url: data.url ?? "/" },
 			requireInteraction: false
 		})
 	);
 });
 
 // Clic sur une notification → ouvre l'URL correspondante
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener("notificationclick", (event) => {
 	event.notification.close();
 
-	const urlToOpen = event.notification.data?.url ?? '/';
+	const urlToOpen = event.notification.data?.url ?? "/";
 
 	event.waitUntil(
-		self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+		self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
 			// Réutiliser un onglet existant si possible
 			for (const client of clientList) {
-				if ('navigate' in client && client.url === urlToOpen) {
+				if ("navigate" in client && client.url === urlToOpen) {
 					(client as WindowClient).focus();
 					return;
 				}
-				if ('navigate' in client) {
+				if ("navigate" in client) {
 					(client as WindowClient).focus();
 					(client as WindowClient).navigate(urlToOpen);
 					return;

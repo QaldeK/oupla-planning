@@ -1,10 +1,10 @@
-import type PocketBase from 'pocketbase';
+import type PocketBase from "pocketbase";
 
 export async function executeBatch<T extends { id: string; updated: string }>(
 	pb: PocketBase,
 	operations: {
-		type: 'create' | 'update' | 'delete' | 'tombstone';
-		table: import('dexie').Table<unknown>;
+		type: "create" | "update" | "delete" | "tombstone";
+		table: import("dexie").Table<unknown>;
 		collection: string;
 		id?: string;
 		data?: Record<string, unknown>;
@@ -15,26 +15,26 @@ export async function executeBatch<T extends { id: string; updated: string }>(
 
 	const snapshots = await Promise.all(
 		operations.map((op) =>
-			op.id ? (op.table as import('dexie').Table<{ id: string }>).get(op.id) : undefined
+			op.id ? (op.table as import("dexie").Table<{ id: string }>).get(op.id) : undefined
 		)
 	);
 
 	const tables = [...new Set(operations.map((op) => op.table))];
 	const dbInstance = tables[0].db;
 
-	await dbInstance.transaction('rw', tables, async () => {
+	await dbInstance.transaction("rw", tables, async () => {
 		for (let i = 0; i < operations.length; i++) {
 			const op = operations[i];
 			switch (op.type) {
-				case 'create':
-				case 'update':
+				case "create":
+				case "update":
 					if (op.data) {
 						const merged = op.id ? { ...(snapshots[i] ?? {}), ...op.data } : op.data;
 						await op.table.put(merged as unknown as T);
 					}
 					break;
-				case 'delete':
-				case 'tombstone':
+				case "delete":
+				case "tombstone":
 					if (op.id) await op.table.delete(op.id);
 					break;
 			}
@@ -48,16 +48,16 @@ export async function executeBatch<T extends { id: string; updated: string }>(
 			const options = op.params?.query ? { query: op.params.query } : undefined;
 
 			switch (op.type) {
-				case 'create':
+				case "create":
 					batch.collection(op.collection).create(op.data, options);
 					break;
-				case 'update':
+				case "update":
 					batch.collection(op.collection).update(op.id!, op.data, options);
 					break;
-				case 'delete':
+				case "delete":
 					batch.collection(op.collection).delete(op.id!, options);
 					break;
-				case 'tombstone':
+				case "tombstone":
 					break;
 			}
 		}
@@ -65,12 +65,12 @@ export async function executeBatch<T extends { id: string; updated: string }>(
 		const results = await batch.send();
 
 		const confirmedByTable = new Map<
-			import('dexie').Table<unknown>,
+			import("dexie").Table<unknown>,
 			{ id: string; updated: string }[]
 		>();
 		for (let i = 0; i < operations.length; i++) {
 			const op = operations[i];
-			if (op.type === 'tombstone') continue;
+			if (op.type === "tombstone") continue;
 			const body = results[i]?.body;
 			if (body) {
 				const arr = (confirmedByTable.get(op.table) ?? []) as { id: string; updated: string }[];
@@ -79,19 +79,19 @@ export async function executeBatch<T extends { id: string; updated: string }>(
 			}
 		}
 		for (const [tbl, records] of confirmedByTable) {
-			await (tbl as import('dexie').Table<Record<string, unknown>>).bulkPut(records);
+			await (tbl as import("dexie").Table<Record<string, unknown>>).bulkPut(records);
 		}
 	} catch (err) {
-		await dbInstance.transaction('rw', tables, async () => {
+		await dbInstance.transaction("rw", tables, async () => {
 			for (let i = 0; i < operations.length; i++) {
 				const op = operations[i];
 				switch (op.type) {
-					case 'create':
+					case "create":
 						if (op.id) await op.table.delete(op.id);
 						break;
-					case 'update':
-					case 'delete':
-					case 'tombstone':
+					case "update":
+					case "delete":
+					case "tombstone":
 						if (snapshots[i]) await op.table.put(snapshots[i]!);
 						break;
 				}

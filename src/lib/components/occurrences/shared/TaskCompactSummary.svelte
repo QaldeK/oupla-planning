@@ -1,69 +1,66 @@
 <script lang="ts">
-	import type { Task, ParticipantResponse, TaskType, ViewType } from '$lib/types/planning.types';
-	import {
-		Clock,
-		CalendarArrowUp,
-		CalendarArrowDown,
-		ClipboardCheck,
-		UserMinus,
-		UserPlus
-	} from '@lucide/svelte';
-	import { slide } from 'svelte/transition';
-	import TaskVolunteersModal from './TaskVolunteersModal.svelte';
+import {
+	CalendarArrowDown,
+	CalendarArrowUp,
+	ClipboardCheck,
+	Clock,
+	UserMinus,
+	UserPlus
+} from "@lucide/svelte";
+import { slide } from "svelte/transition";
+import type { ParticipantResponse, Task, TaskType, ViewType } from "$lib/types/planning.types";
+import TaskVolunteersModal from "./TaskVolunteersModal.svelte";
 
-	interface Props {
-		tasks: Task[];
-		responses: ParticipantResponse[];
-		currentUserId?: string;
-		isSubmitting: boolean;
-		readOnly: boolean;
-		isPastDate: boolean;
-		displayMode: ViewType;
-		getParticipantName: (response: ParticipantResponse) => string;
-		onToggle: (taskId: string) => void;
-		disabled?: boolean;
-		quitParticipantIds?: Set<string>;
-	}
+interface Props {
+	tasks: Task[];
+	responses: ParticipantResponse[];
+	currentUserId?: string;
+	isSubmitting: boolean;
+	readOnly: boolean;
+	isPastDate: boolean;
+	displayMode: ViewType;
+	getParticipantName: (response: ParticipantResponse) => string;
+	onToggle: (taskId: string) => void;
+	disabled?: boolean;
+	quitParticipantIds?: Set<string>;
+}
 
-	let {
-		tasks,
-		responses,
-		currentUserId,
-		isSubmitting,
-		readOnly,
-		isPastDate,
-		displayMode,
-		getParticipantName,
-		onToggle,
-		disabled = false,
-		quitParticipantIds = new Set()
-	}: Props = $props();
+let {
+	tasks,
+	responses,
+	currentUserId,
+	isSubmitting,
+	readOnly,
+	isPastDate,
+	displayMode,
+	getParticipantName,
+	onToggle,
+	disabled = false,
+	quitParticipantIds = new Set()
+}: Props = $props();
 
-	const isCompactDisplay = $derived(displayMode === 'compact');
-	const isMinimalDisplay = $derived(displayMode === 'minimal');
+const isCompactDisplay = $derived(displayMode === "compact");
+const isMinimalDisplay = $derived(displayMode === "minimal");
 
-	// Modal state
-	let modalTaskId = $state<string | null>(null);
-	const modalTask = $derived(tasks.find((t) => t.id === modalTaskId));
-	const modalOpen = $derived(modalTaskId !== null);
+// Modal state
+let modalTaskId = $state<string | null>(null);
+const modalTask = $derived(tasks.find((t) => t.id === modalTaskId));
+const modalOpen = $derived(modalTaskId !== null);
 
-	const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: typeof Clock }> =
-		{
-			beforeEvent: { bgClass: 'bg-accent/30', label: 'Avant', icon: CalendarArrowUp },
-			onEvent: { bgClass: 'bg-accent/60', label: 'Pendant', icon: Clock },
-			afterEvent: { bgClass: 'bg-accent', label: 'Après', icon: CalendarArrowDown }
-		};
+const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: typeof Clock }> = {
+	beforeEvent: { bgClass: "bg-accent/30", label: "Avant", icon: CalendarArrowUp },
+	onEvent: { bgClass: "bg-accent/60", label: "Pendant", icon: Clock },
+	afterEvent: { bgClass: "bg-accent", label: "Après", icon: CalendarArrowDown }
+};
 
-	function getInscribed(taskId: string) {
-		return responses.filter((r) => r.tasks?.includes(taskId));
-	}
+function getInscribed(taskId: string) {
+	return responses.filter((r) => r.tasks?.includes(taskId));
+}
 
-	function isUserInscribed(taskId: string) {
-		if (!currentUserId) return false;
-		return (
-			responses.find((r) => r.participantId === currentUserId)?.tasks?.includes(taskId) ?? false
-		);
-	}
+function isUserInscribed(taskId: string) {
+	if (!currentUserId) return false;
+	return responses.find((r) => r.participantId === currentUserId)?.tasks?.includes(taskId) ?? false;
+}
 </script>
 
 {#if displayMode === 'card'}

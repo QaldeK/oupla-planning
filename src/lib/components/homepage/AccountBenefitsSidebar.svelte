@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { HatGlasses, Mail, Smartphone } from '@lucide/svelte';
+import { HatGlasses, Mail, Smartphone } from "@lucide/svelte";
 </script>
 
 <div class="flex flex-1 items-center justify-center py-8">

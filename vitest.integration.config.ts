@@ -12,25 +12,26 @@
 //   bunx vitest run --config vitest.integration.config.ts
 //   bunx vitest --config vitest.integration.config.ts  (mode watch)
 //
-import { defineConfig } from 'vitest/config';
-import { sveltekit } from '@sveltejs/kit/vite';
-import path from 'path';
+
+import { sveltekit } from "@sveltejs/kit/vite";
+import path from "path";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	plugins: [sveltekit()],
 	resolve: {
 		alias: {
-			$lib: path.resolve('./src/lib')
+			$lib: path.resolve("./src/lib")
 		}
 	},
 	test: {
-		name: 'integration',
-		include: ['tests/integration/**/*.test.ts'],
-		globalSetup: ['tests/integration/globalSetup.ts'],
-		setupFiles: ['tests/integration/setup.ts'],
+		name: "integration",
+		include: ["tests/integration/**/*.test.ts"],
+		globalSetup: ["tests/integration/globalSetup.ts"],
+		setupFiles: ["tests/integration/setup.ts"],
 		testTimeout: 30_000,
 		hookTimeout: 15_000,
-		pool: 'forks',
+		pool: "forks",
 		maxWorkers: 1,
 		globals: true
 	}

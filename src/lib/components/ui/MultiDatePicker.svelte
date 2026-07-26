@@ -1,134 +1,132 @@
 <script lang="ts">
-	import {
-		startOfMonth,
-		endOfMonth,
-		startOfWeek,
-		endOfWeek,
-		eachDayOfInterval,
-		format,
-		isSameDay,
-		isSameMonth,
-		isToday,
-		addMonths,
-		subMonths,
-		isBefore,
-		isAfter,
-		parse
-	} from 'date-fns';
-	import { fr } from 'date-fns/locale';
-	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
-	import type { ClassValue } from 'svelte/elements';
+import { ChevronLeft, ChevronRight } from "@lucide/svelte";
+import {
+	addMonths,
+	eachDayOfInterval,
+	endOfMonth,
+	endOfWeek,
+	format,
+	isAfter,
+	isBefore,
+	isSameDay,
+	isSameMonth,
+	isToday,
+	parse,
+	startOfMonth,
+	startOfWeek,
+	subMonths
+} from "date-fns";
+import { fr } from "date-fns/locale";
+import type { ClassValue } from "svelte/elements";
 
-	/**
-	 * MultiDatePicker - Composant de sélection multiple de dates
-	 * Utilise des strings en format "yyyy-MM-dd" pour la compatibilité avec l'app
-	 * @component
-	 */
+/**
+ * MultiDatePicker - Composant de sélection multiple de dates
+ * Utilise des strings en format "yyyy-MM-dd" pour la compatibilité avec l'app
+ * @component
+ */
 
-	interface Props {
-		selectedDates: string[]; // Dates sélectionnées en format "yyyy-MM-dd"
-		excludeDates?: string[]; // Dates à exclure (désactivées) en format "yyyy-MM-dd"
-		maxSelection?: number; // Nombre maximum de dates sélectionnables
-		onChange: (dates: string[]) => void; // Callback quand la sélection change
-		minDate?: string; // Date minimum autorisée (format "yyyy-MM-dd")
-		maxDate?: string; // Date maximum autorisée (format "yyyy-MM-dd")
-		class?: ClassValue;
-	}
+interface Props {
+	selectedDates: string[]; // Dates sélectionnées en format "yyyy-MM-dd"
+	excludeDates?: string[]; // Dates à exclure (désactivées) en format "yyyy-MM-dd"
+	maxSelection?: number; // Nombre maximum de dates sélectionnables
+	onChange: (dates: string[]) => void; // Callback quand la sélection change
+	minDate?: string; // Date minimum autorisée (format "yyyy-MM-dd")
+	maxDate?: string; // Date maximum autorisée (format "yyyy-MM-dd")
+	class?: ClassValue;
+}
 
-	let {
-		selectedDates,
-		excludeDates = [],
-		maxSelection = 100,
-		onChange,
-		minDate,
-		maxDate,
-		class: className = ''
-	}: Props = $props();
+let {
+	selectedDates,
+	excludeDates = [],
+	maxSelection = 100,
+	onChange,
+	minDate,
+	maxDate,
+	class: className = ""
+}: Props = $props();
 
-	// État local
-	let currentMonth = $state(new Date());
+// État local
+let currentMonth = $state(new Date());
 
-	// Conversion des strings vers Date pour la logique interne
-	const selectedDatesAsDate = $derived(
-		selectedDates.map((d) => parse(d, 'yyyy-MM-dd', new Date()))
-	);
-	const excludedDatesAsDate = $derived(excludeDates.map((d) => parse(d, 'yyyy-MM-dd', new Date())));
-	const minDateParsed = $derived(minDate ? parse(minDate, 'yyyy-MM-dd', new Date()) : null);
-	const maxDateParsed = $derived(maxDate ? parse(maxDate, 'yyyy-MM-dd', new Date()) : null);
+// Conversion des strings vers Date pour la logique interne
+const selectedDatesAsDate = $derived(selectedDates.map((d) => parse(d, "yyyy-MM-dd", new Date())));
+const excludedDatesAsDate = $derived(excludeDates.map((d) => parse(d, "yyyy-MM-dd", new Date())));
+const minDateParsed = $derived(minDate ? parse(minDate, "yyyy-MM-dd", new Date()) : null);
+const maxDateParsed = $derived(maxDate ? parse(maxDate, "yyyy-MM-dd", new Date()) : null);
 
-	// Jours de la semaine (lun-dim)
-	const daysOfWeek = $derived(() => {
-		const start = startOfWeek(new Date(), { locale: fr, weekStartsOn: 1 });
-		return eachDayOfInterval({ start, end: addMonths(start, 0).setDate(start.getDate() + 6) }).map(
-			(day) => format(day, 'EEEEEE', { locale: fr })
-		); // Format court (Lu, Ma, etc.)
-	});
+// Jours de la semaine (lun-dim)
+const daysOfWeek = $derived(() => {
+	const start = startOfWeek(new Date(), { locale: fr, weekStartsOn: 1 });
+	return eachDayOfInterval({ start, end: addMonths(start, 0).setDate(start.getDate() + 6) }).map(
+		(day) => format(day, "EEEEEE", { locale: fr })
+	); // Format court (Lu, Ma, etc.)
+});
 
-	// Titre du mois
-	const monthYear = $derived(format(currentMonth, 'MMMM yyyy', { locale: fr }));
+// Titre du mois
+const monthYear = $derived(format(currentMonth, "MMMM yyyy", { locale: fr }));
 
-	// Génération des jours du calendrier
-	const calendarDays = $derived(() => {
-		const monthStart = startOfMonth(currentMonth);
-		const monthEnd = endOfMonth(currentMonth);
-		const calendarStart = startOfWeek(monthStart, { locale: fr, weekStartsOn: 1 });
-		const calendarEnd = endOfWeek(monthEnd, { locale: fr, weekStartsOn: 1 });
+// Génération des jours du calendrier
+const calendarDays = $derived(() => {
+	const monthStart = startOfMonth(currentMonth);
+	const monthEnd = endOfMonth(currentMonth);
+	const calendarStart = startOfWeek(monthStart, { locale: fr, weekStartsOn: 1 });
+	const calendarEnd = endOfWeek(monthEnd, { locale: fr, weekStartsOn: 1 });
 
-		return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-	});
+	return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+});
 
-	// Fonctions utilitaires
-	function isSelected(date: Date): boolean {
-		return selectedDatesAsDate.some((d) => isSameDay(d, date));
-	}
+// Fonctions utilitaires
+function isSelected(date: Date): boolean {
+	return selectedDatesAsDate.some((d) => isSameDay(d, date));
+}
 
-	function isDisabled(date: Date): boolean {
-		if (minDateParsed && isBefore(date, minDateParsed)) return true;
-		if (maxDateParsed && isAfter(date, maxDateParsed)) return true;
-		return excludedDatesAsDate.some((d) => isSameDay(d, date));
-	}
+function isDisabled(date: Date): boolean {
+	if (minDateParsed && isBefore(date, minDateParsed)) return true;
+	if (maxDateParsed && isAfter(date, maxDateParsed)) return true;
+	return excludedDatesAsDate.some((d) => isSameDay(d, date));
+}
 
-	function isCurrentMonthDay(date: Date): boolean {
-		return isSameMonth(date, currentMonth);
-	}
+function isCurrentMonthDay(date: Date): boolean {
+	return isSameMonth(date, currentMonth);
+}
 
-	// Actions
-	function selectDate(date: Date) {
-		if (isDisabled(date)) return;
+// Actions
+function selectDate(date: Date) {
+	if (isDisabled(date)) return;
 
-		const dateString = format(date, 'yyyy-MM-dd');
-		const index = selectedDates.findIndex((d) => d === dateString);
+	const dateString = format(date, "yyyy-MM-dd");
+	const index = selectedDates.findIndex((d) => d === dateString);
 
-		let newDates: string[];
-		if (index > -1) {
-			// Désélectionner
-			newDates = selectedDates.filter((_, i) => i !== index);
-		} else {
-			// Vérifier la limite maxSelection (seulement les dates futures)
-			const today = format(new Date(), 'yyyy-MM-dd');
-			const futureDatesCount = selectedDates.filter((d) => d >= today).length;
-			if (futureDatesCount >= maxSelection && dateString >= today) {
-				return; // Ne pas ajouter si la limite de dates futures est atteinte
-			}
-			// Sélectionner
-			newDates = [...selectedDates, dateString].sort();
+	let newDates: string[];
+	if (index > -1) {
+		// Désélectionner
+		newDates = selectedDates.filter((_, i) => i !== index);
+	} else {
+		// Vérifier la limite maxSelection (seulement les dates futures)
+		const today = format(new Date(), "yyyy-MM-dd");
+		const futureDatesCount = selectedDates.filter((d) => d >= today).length;
+		if (futureDatesCount >= maxSelection && dateString >= today) {
+			return; // Ne pas ajouter si la limite de dates futures est atteinte
 		}
-
-		// Notifier le parent
-		onChange(newDates);
+		// Sélectionner
+		newDates = [...selectedDates, dateString].sort();
 	}
 
-	function previousMonth() {
-		currentMonth = subMonths(currentMonth, 1);
-	}
+	// Notifier le parent
+	onChange(newDates);
+}
 
-	function nextMonth() {
-		currentMonth = addMonths(currentMonth, 1);
-	}
+function previousMonth() {
+	currentMonth = subMonths(currentMonth, 1);
+}
 
-	function goToToday() {
-		currentMonth = new Date();
-	}
+function nextMonth() {
+	currentMonth = addMonths(currentMonth, 1);
+}
+
+function goToToday() {
+	currentMonth = new Date();
+}
 </script>
 
 <div class="card bg-base-100 mx-auto w-full max-w-md shadow-xl {className}">

@@ -1,7 +1,9 @@
-import { withRetry } from '$lib/pb-sync/retry.utils';
-import { pb } from '$lib/pocketbase/pb';
-import { commentStateService } from '$lib/services/commentStateService';
-import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
+import { format } from "date-fns";
+import { ClientResponseError } from "pocketbase";
+import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { withRetry } from "$lib/pb-sync/retry.utils";
+import { pb } from "$lib/pocketbase/pb";
+import { commentStateService } from "$lib/services/commentStateService";
 import type {
 	OccurrenceComment,
 	OccurrenceTarget,
@@ -14,10 +16,8 @@ import type {
 	Task,
 	TaskType,
 	TimeSlot
-} from '$lib/types/planning.types';
-import { ClientResponseError } from 'pocketbase';
-import { format } from 'date-fns';
-import { formatSlotKey } from '$lib/utils/slots';
+} from "$lib/types/planning.types";
+import { formatSlotKey } from "$lib/utils/slots";
 
 // ============================================
 // Génération de tokens
@@ -26,19 +26,19 @@ import { formatSlotKey } from '$lib/utils/slots';
 export function generateAdminToken(): string {
 	const array = new Uint8Array(32);
 	crypto.getRandomValues(array);
-	return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
+	return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export function generateParticipantToken(): string {
 	const array = new Uint8Array(16);
 	crypto.getRandomValues(array);
-	return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
+	return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export function generateParticipantId(): string {
 	const array = new Uint8Array(8);
 	crypto.getRandomValues(array);
-	return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
+	return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // ============================================
@@ -91,14 +91,14 @@ export function generateTimeSlotId(existing: { id: string }[]): string {
  * `defaultStartTime`/`defaultEndTime`. Plus de sentinelle `'default'`.
  */
 export function resolveTimeSlots(
-	master: Pick<PlanningMaster, 'timeSlots' | 'defaultStartTime' | 'defaultEndTime'>
+	master: Pick<PlanningMaster, "timeSlots" | "defaultStartTime" | "defaultEndTime">
 ): TimeSlot[] {
 	if (master.timeSlots && master.timeSlots.length > 0) {
 		return master.timeSlots;
 	}
 	return [
 		{
-			id: 's1',
+			id: "s1",
 			startTime: master.defaultStartTime,
 			endTime: master.defaultEndTime
 		}
@@ -110,7 +110,7 @@ export function resolveTimeSlots(
  * Accepte aussi bien un `PlanningMaster` complet qu'un `CreatePlanningData`
  * (qui est l'état cible du master après save).
  */
-type TimeSlotResolvable = Pick<PlanningMaster, 'timeSlots' | 'defaultStartTime' | 'defaultEndTime'>;
+type TimeSlotResolvable = Pick<PlanningMaster, "timeSlots" | "defaultStartTime" | "defaultEndTime">;
 
 /**
  * Détermine si une occurrence est en override d'horaires par rapport au slot
@@ -123,7 +123,7 @@ type TimeSlotResolvable = Pick<PlanningMaster, 'timeSlots' | 'defaultStartTime' 
  * écarter une occurrence dont le template d'origine a disparu.
  */
 export function isOverridden(
-	occ: Pick<PlanningOccurrence, 'slotId' | 'startTime' | 'endTime'>,
+	occ: Pick<PlanningOccurrence, "slotId" | "startTime" | "endTime">,
 	master: TimeSlotResolvable
 ): boolean {
 	if (!occ.slotId) return false;
@@ -237,12 +237,13 @@ export async function createPlanningWithOccurrences(
 
 // Type de retour pour getPlanningByToken avec gestion d'erreur typée
 export type GetPlanningByTokenResult =
-	{ master: PlanningMaster; isAdmin: boolean } | { error: 'network' | 'not_found' };
+	| { master: PlanningMaster; isAdmin: boolean }
+	| { error: "network" | "not_found" };
 
 export async function getPlanningByToken(token: string): Promise<GetPlanningByTokenResult> {
 	try {
 		const master = await pb
-			.collection('planning_masters')
+			.collection("planning_masters")
 			.getFirstListItem<PlanningMaster>(
 				`participantToken = "${token}" || adminToken = "${token}"`,
 				{ query: { _token: token } }
@@ -256,16 +257,16 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 			const masterId = master.id;
 
 			if (!adminOf[masterId]) {
-				pb.send('/api/claim-admin', {
-					method: 'POST',
+				pb.send("/api/claim-admin", {
+					method: "POST",
 					body: { token }
 				})
 					.then(() => {
 						// Rafraîchir le record pour mettre adminOf et masterId à jour en mémoire
-						return pb.collection('users').authRefresh();
+						return pb.collection("users").authRefresh();
 					})
 					.catch((err) => {
-						console.warn('claim-admin failed:', err);
+						console.warn("claim-admin failed:", err);
 					});
 			}
 		}
@@ -274,17 +275,17 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 		return { master, isAdmin: token.length === 64 };
 	} catch (error: unknown) {
 		if (error instanceof ClientResponseError && error.status === 404) {
-			return { error: 'not_found' };
+			return { error: "not_found" };
 		}
 
 		// Annulation (auto-cancellation) → traiter comme réseau
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- isAbort est une propriété non-standard d'annulation
-		if (error instanceof Error && 'isAbort' in error && (error as any).isAbort) {
-			return { error: 'network' };
+		if (error instanceof Error && "isAbort" in error && (error as any).isAbort) {
+			return { error: "network" };
 		}
 
 		// Toutes les autres erreurs (réseau, timeout, 500, etc.) → erreur réseau
-		return { error: 'network' };
+		return { error: "network" };
 	}
 }
 
@@ -316,13 +317,13 @@ export async function updatePlanningWithOccurrences(
 	participantToken: string,
 	expectedVersion?: string
 ): Promise<PlanningMaster> {
-	const today = format(new Date(), 'yyyy-MM-dd');
-	const normalizeDate = (d: string) => d.split(' ')[0].split('T')[0];
+	const today = format(new Date(), "yyyy-MM-dd");
+	const normalizeDate = (d: string) => d.split(" ")[0].split("T")[0];
 
 	// Charger les occurrences futures, **soft-deleted incluses**. La réactivation d'une
 	// DateSlot désactivée = un-soft-delete d'une occurrence existante (préserve responses/comments/id).
 	const existingOccurrences = await pb
-		.collection('planning_occurrences')
+		.collection("planning_occurrences")
 		.getFullList<PlanningOccurrence>({
 			filter: `master = "${masterId}" && date >= "${today}"`,
 			query: { _token: adminToken }
@@ -352,7 +353,7 @@ export async function updatePlanningWithOccurrences(
 		masterQuery._version = expectedVersion;
 	}
 
-	batch.collection('planning_masters').update(
+	batch.collection("planning_masters").update(
 		masterId,
 		{
 			title: data.title,
@@ -396,10 +397,10 @@ export async function updatePlanningWithOccurrences(
 			};
 			if (data.forceTaskRefresh) updateData.tasks = sortTasks(data.tasks);
 			batch
-				.collection('planning_occurrences')
+				.collection("planning_occurrences")
 				.update(existing.id, updateData, { query: { _token: adminToken } });
 		} else {
-			batch.collection('planning_occurrences').create(
+			batch.collection("planning_occurrences").create(
 				{
 					master: masterId,
 					date: targetDate,
@@ -425,7 +426,7 @@ export async function updatePlanningWithOccurrences(
 		if (occ.deleted === true) continue;
 		if (matchedExistingIds.has(occ.id)) continue;
 		batch
-			.collection('planning_occurrences')
+			.collection("planning_occurrences")
 			.update(
 				occ.id,
 				{ deleted: true, lastModifiedBy: pb.authStore.record?.id },
@@ -437,14 +438,14 @@ export async function updatePlanningWithOccurrences(
 		await withRetry(() => batch.send());
 	} catch (e: unknown) {
 		console.error(
-			'Batch error detail:',
+			"Batch error detail:",
 			JSON.stringify(e instanceof ClientResponseError ? e.data : e, null, 2)
 		);
-		if (e instanceof ClientResponseError) console.error('Batch error response:', e.response);
+		if (e instanceof ClientResponseError) console.error("Batch error response:", e.response);
 		throw e;
 	}
 
-	return await pb.collection('planning_masters').getOne<PlanningMaster>(masterId, {
+	return await pb.collection("planning_masters").getOne<PlanningMaster>(masterId, {
 		query: { _token: adminToken }
 	});
 }
@@ -459,7 +460,7 @@ export async function deletePlanning(masterId: string, token: string): Promise<v
 
 export async function addParticipant(
 	masterId: string,
-	participant: Omit<Participant, 'id' | 'createdAt'> & { id?: string },
+	participant: Omit<Participant, "id" | "createdAt"> & { id?: string },
 	token: string
 ): Promise<PlanningMaster> {
 	const newParticipant: Participant = {
@@ -599,8 +600,8 @@ export async function claimParticipantIdentity(
 	guestParticipantId: string,
 	token: string
 ): Promise<ClaimIdentityResult> {
-	return await pb.send('/api/claim-participant-identity', {
-		method: 'POST',
+	return await pb.send("/api/claim-participant-identity", {
+		method: "POST",
 		body: { masterId, guestParticipantId },
 		query: { _token: token }
 	});

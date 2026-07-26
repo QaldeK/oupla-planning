@@ -23,8 +23,8 @@
  * Le Map utilise `occ.master` (champ de l'occurrence) comme clé, et non `state.masterId`.
  * Cela rend le store robuste même en cas de masterId corrompu dans la table commentState.
  */
-import { liveQuery, type Subscription } from 'dexie';
-import { db } from '$lib/pb-sync/db';
+import { liveQuery, type Subscription } from "dexie";
+import { db } from "$lib/pb-sync/db";
 
 const CUTOFF_DAYS = 7;
 
@@ -36,12 +36,12 @@ class CommentStateStore {
 		if (this.subscription) return;
 
 		this.subscription = liveQuery(async () => {
-			const cutoff = new Date(Date.now() - CUTOFF_DAYS * 86400000).toISOString().split('T')[0];
+			const cutoff = new Date(Date.now() - CUTOFF_DAYS * 86400000).toISOString().split("T")[0];
 
 			const [states, occurrences] = await Promise.all([
 				db.commentState.toArray(),
 				db.occurrences
-					.where('date')
+					.where("date")
 					.aboveOrEqual(cutoff)
 					.filter((o) => !o.deleted)
 					.toArray()

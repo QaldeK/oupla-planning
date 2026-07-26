@@ -55,16 +55,16 @@ export interface RetryOptions {
  */
 export function isRetryableError(err: unknown): boolean {
 	// RecordDeletedError → signal métier (404 mappé), pas de retry.
-	if (err instanceof Error && err.name === 'RecordDeletedError') return false;
+	if (err instanceof Error && err.name === "RecordDeletedError") return false;
 
-	if (err != null && typeof err === 'object') {
+	if (err != null && typeof err === "object") {
 		const status = (err as { status?: unknown }).status;
 		// status 0 → réseau down / CORS / fetch échoué → retry.
 		if (status === 0) return true;
 		// 5xx → erreurs serveur (transitoires) → retry.
-		if (typeof status === 'number' && status >= 500) return true;
+		if (typeof status === "number" && status >= 500) return true;
 		// 4xx (400, 401, 403, 404, 409...) → erreurs client, retry inutile.
-		if (typeof status === 'number' && status >= 400 && status < 500) return false;
+		if (typeof status === "number" && status >= 400 && status < 500) return false;
 	}
 
 	// TypeError → fetch failed / erreur réseau côté navigateur → retry.
@@ -72,7 +72,7 @@ export function isRetryableError(err: unknown): boolean {
 
 	if (err instanceof Error) {
 		// AbortError → timeout fetch (AbortController) → retry.
-		if (err.name === 'AbortError') return true;
+		if (err.name === "AbortError") return true;
 		// Timeout applicatif (ex: AbortSignal.timeout sur un fetch) → retry.
 		if (/timeout/i.test(err.message)) return true;
 	}

@@ -1,37 +1,37 @@
 <script lang="ts">
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
-	import { planningStore } from '$lib/stores/planningStore.svelte';
-	import { page } from '$app/state';
-	import { Calendar, ArrowLeft, History, Info, Trash2 } from '@lucide/svelte';
-	import { fade } from 'svelte/transition';
-	import OccurrenceView from '$lib/components/occurrences/views/OccurrenceView.svelte';
-	import { ArchiveSkeleton } from '$lib/components/ui/skeletons';
-	import { resolveActorIdentity } from '$lib/utils/identityResolution';
+import { ArrowLeft, Calendar, History, Info, Trash2 } from "@lucide/svelte";
+import { fade } from "svelte/transition";
+import { page } from "$app/state";
+import OccurrenceView from "$lib/components/occurrences/views/OccurrenceView.svelte";
+import { ArchiveSkeleton } from "$lib/components/ui/skeletons";
+import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
+import { planningStore } from "$lib/stores/planningStore.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
+import { resolveActorIdentity } from "$lib/utils/identityResolution";
 
-	const token = page.params.token;
+const token = page.params.token;
 
-	let master = $derived(planningStore.master);
-	let allOccurrences = $derived(planningStore.occurrences);
-	let isLoading = $derived(planningStore.isLoading);
+let master = $derived(planningStore.master);
+let allOccurrences = $derived(planningStore.occurrences);
+let isLoading = $derived(planningStore.isLoading);
 
-	const today = $derived(new Date().toISOString().split('T')[0]);
-	const occurrences = $derived(allOccurrences.filter((o) => o.date < today));
-	const currentUserId = $derived(
-		master
-			? resolveActorIdentity({
-					pbUser: userStore.pbUser,
-					guestIdentity: guestStateStore.getGuestIdentity(master.id)
-				})?.id
-			: undefined
-	);
+const today = $derived(new Date().toISOString().split("T")[0]);
+const occurrences = $derived(allOccurrences.filter((o) => o.date < today));
+const currentUserId = $derived(
+	master
+		? resolveActorIdentity({
+				pbUser: userStore.pbUser,
+				guestIdentity: guestStateStore.getGuestIdentity(master.id)
+			})?.id
+		: undefined
+);
 
-	// Nom du participant pour l'affichage (depuis le store local)
-	const currentParticipantName = $derived.by(() => {
-		if (!master || !currentUserId) return '';
-		const p = master.participants.find((p) => p.id === currentUserId);
-		return p?.name || '';
-	});
+// Nom du participant pour l'affichage (depuis le store local)
+const currentParticipantName = $derived.by(() => {
+	if (!master || !currentUserId) return "";
+	const p = master.participants.find((p) => p.id === currentUserId);
+	return p?.name || "";
+});
 </script>
 
 <svelte:head>

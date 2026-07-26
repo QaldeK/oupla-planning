@@ -1,6 +1,6 @@
-import { pb } from '$lib/pocketbase/pb';
-import { storage } from '$lib/utils/storage';
-import { on } from 'svelte/events';
+import { on } from "svelte/events";
+import { pb } from "$lib/pocketbase/pb";
+import { storage } from "$lib/utils/storage";
 
 class PwaStore {
 	isInstalled = $state(false);
@@ -32,8 +32,8 @@ class PwaStore {
 
 	constructor() {
 		// beforeinstallprompt peut se déclencher avant onMount → écoute immédiate
-		if (typeof window !== 'undefined') {
-			on(window, 'beforeinstallprompt', (e) => {
+		if (typeof window !== "undefined") {
+			on(window, "beforeinstallprompt", (e) => {
 				e.preventDefault();
 				this.canInstall = true;
 				this.deferredPrompt = e as BeforeInstallPromptEvent;
@@ -42,18 +42,18 @@ class PwaStore {
 	}
 
 	async init() {
-		if (typeof window === 'undefined') return;
+		if (typeof window === "undefined") return;
 		if (this.#initialized) return;
 		this.#initialized = true;
 
 		// 1. Détection client (display-mode, navigator.standalone)
 		this.isInstalled =
-			window.matchMedia('(display-mode: standalone)').matches ||
+			window.matchMedia("(display-mode: standalone)").matches ||
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- standalone est une propriété Safari non-standard
 			(window.navigator as any).standalone === true;
 
 		// 2. appinstalled (analytics one-shot)
-		on(window, 'appinstalled', () => {
+		on(window, "appinstalled", () => {
 			this.isInstalled = true;
 			this.canInstall = false;
 			this.deferredPrompt = null;
@@ -61,12 +61,12 @@ class PwaStore {
 		});
 
 		// 3. Changements display-mode
-		on(window.matchMedia('(display-mode: standalone)'), 'change', (e) => {
+		on(window.matchMedia("(display-mode: standalone)"), "change", (e) => {
 			this.isInstalled = e.matches;
 		});
 
 		// 4. Charger le flag de bienvenue
-		this.hasSeenWelcome = (await storage.getItem<boolean>('pwa_welcome_seen')) ?? false;
+		this.hasSeenWelcome = (await storage.getItem<boolean>("pwa_welcome_seen")) ?? false;
 
 		// 5. Détection des mises à jour du Service Worker
 		this.#initServiceWorkerUpdateDetection();
@@ -74,14 +74,14 @@ class PwaStore {
 
 	markWelcomeSeen() {
 		this.hasSeenWelcome = true;
-		storage.setItem('pwa_welcome_seen', true, { persist: true });
+		storage.setItem("pwa_welcome_seen", true, { persist: true });
 	}
 
-	async install(): Promise<'accepted' | 'dismissed' | null> {
+	async install(): Promise<"accepted" | "dismissed" | null> {
 		if (!this.deferredPrompt) return null;
 		this.deferredPrompt.prompt();
 		const { outcome } = await this.deferredPrompt.userChoice;
-		if (outcome === 'accepted') {
+		if (outcome === "accepted") {
 			this.canInstall = false;
 			this.deferredPrompt = null;
 		}
@@ -91,11 +91,11 @@ class PwaStore {
 	async #recordInstallationToPB() {
 		if (!pb.authStore.isValid) return;
 		try {
-			await pb.collection('users').update(pb.authStore.record!.id, {
+			await pb.collection("users").update(pb.authStore.record!.id, {
 				pwa_installed: true
 			});
 		} catch (e) {
-			console.error('Failed to record PWA installation:', e);
+			console.error("Failed to record PWA installation:", e);
 		}
 	}
 
@@ -121,7 +121,7 @@ class PwaStore {
 		if (reg.waiting) return; // déjà notifié (ou sur le point de l'être)
 		if (Date.now() - this.#lastUpdateCheckAt < 60_000) return;
 		this.#lastUpdateCheckAt = Date.now();
-		reg.update().catch((e) => console.debug('SW update check failed:', e));
+		reg.update().catch((e) => console.debug("SW update check failed:", e));
 	}
 
 	/**
@@ -139,7 +139,7 @@ class PwaStore {
 	 * déclenche le reload.
 	 */
 	#initServiceWorkerUpdateDetection() {
-		if (!('serviceWorker' in navigator)) return;
+		if (!("serviceWorker" in navigator)) return;
 
 		// Première prise de contrôle : null au premier install, non-null dès qu'un SW
 		// contrôle déjà la page. `clients.claim()` dans l'`activate` du premier SW
@@ -149,7 +149,7 @@ class PwaStore {
 		// les suivants (issus d'un UPDATE) déclenchent correctement le reload.
 		let firstClaimDone = !!navigator.serviceWorker.controller;
 
-		on(navigator.serviceWorker, 'controllerchange', () => {
+		on(navigator.serviceWorker, "controllerchange", () => {
 			if (!firstClaimDone) {
 				firstClaimDone = true;
 				return; // premier install : pas de reload
@@ -168,12 +168,12 @@ class PwaStore {
 				if (reg.waiting) this.hasUpdate = true;
 
 				// Nouveau SW détecté pendant la session.
-				on(reg, 'updatefound', () => {
+				on(reg, "updatefound", () => {
 					const installing = reg.installing;
 					if (!installing) return;
-					on(installing, 'statechange', () => {
+					on(installing, "statechange", () => {
 						// `navigator.serviceWorker.controller` null = premier install (pas de MAJ à signaler).
-						if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+						if (installing.state === "installed" && navigator.serviceWorker.controller) {
 							this.hasUpdate = true;
 						}
 					});
@@ -184,12 +184,12 @@ class PwaStore {
 				// session → il faut forcer `reg.update()` sur les signaux de retour
 				// d'activité. Throttle partagé de 60s via `#triggerUpdateCheck` ;
 				// pas de check au boot (redondant avec le check navigateur au load).
-				on(document, 'visibilitychange', () => {
-					if (document.visibilityState !== 'visible') return;
+				on(document, "visibilitychange", () => {
+					if (document.visibilityState !== "visible") return;
 					this.#triggerUpdateCheck(reg);
 				});
 
-				on(window, 'pageshow', (event: PageTransitionEvent) => {
+				on(window, "pageshow", (event: PageTransitionEvent) => {
 					if (!event.persisted) return;
 					this.#triggerUpdateCheck(reg);
 				});
@@ -198,7 +198,7 @@ class PwaStore {
 				// onglet jamais quitté). 1h, dans la limite spec (max 1/min).
 				setInterval(() => this.#triggerUpdateCheck(reg), 60 * 60 * 1000);
 			})
-			.catch((e) => console.warn('SW registration check failed:', e));
+			.catch((e) => console.warn("SW registration check failed:", e));
 	}
 
 	/**
@@ -212,14 +212,14 @@ class PwaStore {
 	 * page avec le SW actif courant (ne casse rien, mais ne fait rien de spécial).
 	 */
 	async applyUpdate(): Promise<void> {
-		if (!('serviceWorker' in navigator)) return;
+		if (!("serviceWorker" in navigator)) return;
 		const reg = await navigator.serviceWorker.getRegistration().catch((e) => {
-			console.warn('SW registration check failed:', e);
+			console.warn("SW registration check failed:", e);
 			return undefined;
 		});
 		const waiting = reg?.waiting;
 		if (waiting) {
-			waiting.postMessage({ type: 'SKIP_WAITING' });
+			waiting.postMessage({ type: "SKIP_WAITING" });
 		} else {
 			// État incohérent : hasUpdate était true mais aucun waiting n'est disponible.
 			// Le reload recharge avec le SW actif courant.

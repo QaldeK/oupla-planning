@@ -24,26 +24,26 @@
  *   - PocketBase démarré sur http://127.0.0.1:8090
  *   - Admin de test créé (test@example.com / testpassword)
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { createSyncCollection } from "$lib/pb-sync/collection";
+import { db } from "$lib/pb-sync/db";
+import { pb } from "$lib/pocketbase/pb";
+import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
+import { planningStore } from "$lib/stores/planningStore.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
+import type { PlanningOccurrence } from "$lib/types/planning.types";
 import {
-	seedPlanning,
-	seedUser,
 	authenticateUser,
-	clearTrackedIds,
 	cleanupTrackedRecords,
 	cleanupUsers,
+	clearTrackedIds,
+	seedPlanning,
+	seedUser,
 	trackIds
-} from './seed';
-import { db } from '$lib/pb-sync/db';
-import { pb } from '$lib/pocketbase/pb';
-import { createSyncCollection } from '$lib/pb-sync/collection';
-import { planningStore } from '$lib/stores/planningStore.svelte';
-import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
-import { userStore } from '$lib/stores/userStore.svelte';
-import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
-import type { PlanningOccurrence } from '$lib/types/planning.types';
+} from "./seed";
 
-describe('initialFetch — paramètre since explicite', () => {
+describe("initialFetch — paramètre since explicite", () => {
 	beforeEach(async () => {
 		clearTrackedIds();
 		await db.masters.clear();
@@ -54,15 +54,15 @@ describe('initialFetch — paramètre since explicite', () => {
 		await cleanupTrackedRecords();
 	});
 
-	it('utilise le since explicite fourni (filtre updated > since)', async () => {
+	it("utilise le since explicite fourni (filtre updated > since)", async () => {
 		const collection = createSyncCollection<PlanningOccurrence>(
 			pb,
 			db.occurrences,
-			'planning_occurrences'
+			"planning_occurrences"
 		);
 
 		const { participantToken } = await seedPlanning({
-			title: 'P since explicite',
+			title: "P since explicite",
 			occurrenceCount: 2
 		});
 
@@ -70,26 +70,26 @@ describe('initialFetch — paramètre since explicite', () => {
 		await collection.initialFetch({
 			filter: ['master != ""', {}],
 			query: { _token: participantToken },
-			since: '2030-01-01 00:00:00.000Z'
+			since: "2030-01-01 00:00:00.000Z"
 		});
 		expect(await db.occurrences.count()).toBe(0);
 
 		// since epoch → récupère tout
 		await collection.initialFetch({
 			query: { _token: participantToken },
-			since: '2000-01-01 00:00:00'
+			since: "2000-01-01 00:00:00"
 		});
 		expect(await db.occurrences.count()).toBe(2);
 	});
 
-	it('sans since : conserve le comportement par défaut (delta sync globale)', async () => {
+	it("sans since : conserve le comportement par défaut (delta sync globale)", async () => {
 		const collection = createSyncCollection<PlanningOccurrence>(
 			pb,
 			db.occurrences,
-			'planning_occurrences'
+			"planning_occurrences"
 		);
 
-		const { participantToken } = await seedPlanning({ title: 'P sans since', occurrenceCount: 2 });
+		const { participantToken } = await seedPlanning({ title: "P sans since", occurrenceCount: 2 });
 
 		// Premier fetch (table Dexie vide → since = epoch par défaut)
 		await collection.initialFetch({
@@ -100,7 +100,7 @@ describe('initialFetch — paramètre since explicite', () => {
 	});
 });
 
-describe('planningStore — delta sync per-master (bug original)', () => {
+describe("planningStore — delta sync per-master (bug original)", () => {
 	beforeEach(async () => {
 		clearTrackedIds();
 		await db.masters.clear();
@@ -117,18 +117,18 @@ describe('planningStore — delta sync per-master (bug original)', () => {
 		await cleanupTrackedRecords();
 	});
 
-	it('cache partiel avec occ très récente n empêche pas le fetch complet d un autre master', async () => {
+	it("cache partiel avec occ très récente n empêche pas le fetch complet d un autre master", async () => {
 		// === SEED : P1 (3 occ) et P2 (3 occ) ===
 		const {
 			master: m1,
 			occurrences: occs1,
 			participantToken: token1
 		} = await seedPlanning({
-			title: 'P1',
+			title: "P1",
 			occurrenceCount: 3
 		});
 		const { master: m2, participantToken: token2 } = await seedPlanning({
-			title: 'P2',
+			title: "P2",
 			occurrenceCount: 3
 		});
 
@@ -137,7 +137,7 @@ describe('planningStore — delta sync per-master (bug original)', () => {
 		// Avant le fix : since global = 2030, appliqué à P2 → 0 occ récupérées (bug).
 		await db.occurrences.put({
 			...occs1[0],
-			updated: '2030-01-01 00:00:00.000Z'
+			updated: "2030-01-01 00:00:00.000Z"
 		} as PlanningOccurrence);
 
 		// === ACTION : naviguer vers P2 (jamais fetché → lastFetchAt[P2] absent → epoch) ===
@@ -153,7 +153,7 @@ describe('planningStore — delta sync per-master (bug original)', () => {
 		expect(planningStore.activeMasterId).toBe(m2.id);
 		expect(planningStore.occurrences.length).toBe(3);
 
-		const dexieOccP2 = await db.occurrences.where('master').equals(m2.id).toArray();
+		const dexieOccP2 = await db.occurrences.where("master").equals(m2.id).toArray();
 		expect(dexieOccP2.length).toBe(3);
 
 		// === ACTION : naviguer vers P1 (jamais fetché via planningStore → lastFetchAt[P1] absent) ===
@@ -170,18 +170,18 @@ describe('planningStore — delta sync per-master (bug original)', () => {
 		expect(planningStore.activeMasterId).toBe(m1.id);
 		expect(planningStore.occurrences.length).toBe(3);
 
-		const dexieOccP1 = await db.occurrences.where('master').equals(m1.id).toArray();
+		const dexieOccP1 = await db.occurrences.where("master").equals(m1.id).toArray();
 		expect(dexieOccP1.length).toBe(3);
 	});
 
-	it('re-navigation vers un master déjà fetché préserve ses occurrences', async () => {
+	it("re-navigation vers un master déjà fetché préserve ses occurrences", async () => {
 		// === SEED ===
 		const { participantToken: token1 } = await seedPlanning({
-			title: 'P1 retour',
+			title: "P1 retour",
 			occurrenceCount: 3
 		});
 		const { master: m2, participantToken: token2 } = await seedPlanning({
-			title: 'P2 retour',
+			title: "P2 retour",
 			occurrenceCount: 3
 		});
 
@@ -203,9 +203,9 @@ describe('planningStore — delta sync per-master (bug original)', () => {
 		expect(planningStore.occurrences.length).toBe(3);
 	});
 
-	it('écrit lastFetchAt dans localMeta après un fetch', async () => {
+	it("écrit lastFetchAt dans localMeta après un fetch", async () => {
 		const { master, participantToken } = await seedPlanning({
-			title: 'P lastFetchAt',
+			title: "P lastFetchAt",
 			occurrenceCount: 2
 		});
 
@@ -220,13 +220,13 @@ describe('planningStore — delta sync per-master (bug original)', () => {
 		expect(meta!.lastFetchAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
 	});
 
-	it('préserve lastFetchAt après setGuestIdentity (régression I1)', async () => {
+	it("préserve lastFetchAt après setGuestIdentity (régression I1)", async () => {
 		// Régression : avant le fix, #markFetched écrivait dans Dexie sans synchroniser
 		// userStore.savedPlannings. Quand le guest s'identifiait ensuite,
 		// setPlanningIdentity faisait bulkPut(savedPlannings) qui écrasait lastFetchAt.
 		// setGuestIdentity écrit seulement localMeta.currentUser, pas lastFetchAt.
 		const { master, participantToken } = await seedPlanning({
-			title: 'P régression I1',
+			title: "P régression I1",
 			occurrenceCount: 2
 		});
 
@@ -240,19 +240,19 @@ describe('planningStore — delta sync per-master (bug original)', () => {
 
 		// === ÉTAPE 2 : guest s'identifie (flux guest first-visit) ===
 		await guestStateStore.setGuestIdentity(master.id, {
-			id: 'guest-1',
-			name: 'Alice'
+			id: "guest-1",
+			name: "Alice"
 		});
 
 		// === VÉRIFICATION : lastFetchAt PRÉSERVÉ (pas écrasé) ===
 		const metaApres = await db.localMeta.get(master.id);
 		expect(metaApres).toBeDefined();
 		expect(metaApres!.lastFetchAt).toBe(tsAvant);
-		expect(metaApres!.currentUser?.name).toBe('Alice');
+		expect(metaApres!.currentUser?.name).toBe("Alice");
 	});
 });
 
-describe('planningStore — markFetched coexistence with guestStateStore (AC 03)', () => {
+describe("planningStore — markFetched coexistence with guestStateStore (AC 03)", () => {
 	beforeEach(async () => {
 		clearTrackedIds();
 		await db.masters.clear();
@@ -269,10 +269,10 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		await cleanupTrackedRecords();
 	});
 
-	it('planningStore.markFetched preserves currentUser and hasQuit set by guestStateStore', async () => {
+	it("planningStore.markFetched preserves currentUser and hasQuit set by guestStateStore", async () => {
 		// === SEED : planning with 2 occurrences ===
 		const { master, participantToken } = await seedPlanning({
-			title: 'P coexistence',
+			title: "P coexistence",
 			occurrenceCount: 2
 		});
 
@@ -282,8 +282,8 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 
 		// === ÉTAPE 2 : guest identifies → sets currentUser via guestStateStore ===
 		await guestStateStore.setGuestIdentity(master.id, {
-			id: 'guest-coexist',
-			name: 'Coexist User'
+			id: "guest-coexist",
+			name: "Coexist User"
 		});
 
 		// === ÉTAPE 3 : guest marks quit ===
@@ -292,7 +292,7 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		// === VÉRIFICATION intermédiaire : both fields present ===
 		const metaMid = await db.localMeta.get(master.id);
 		expect(metaMid).toBeDefined();
-		expect(metaMid!.currentUser?.name).toBe('Coexist User');
+		expect(metaMid!.currentUser?.name).toBe("Coexist User");
 		expect(metaMid!.hasQuit).toBe(true);
 		expect(metaMid!.lastFetchAt).toBeDefined();
 		const tsBefore = metaMid!.lastFetchAt!;
@@ -306,15 +306,15 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		expect(metaAfter).toBeDefined();
 		expect(metaAfter!.lastFetchAt).toBeDefined();
 		expect(metaAfter!.lastFetchAt).not.toBe(tsBefore); // updated
-		expect(metaAfter!.currentUser?.name).toBe('Coexist User'); // preserved
-		expect(metaAfter!.currentUser?.id).toBe('guest-coexist'); // preserved
+		expect(metaAfter!.currentUser?.name).toBe("Coexist User"); // preserved
+		expect(metaAfter!.currentUser?.id).toBe("guest-coexist"); // preserved
 		expect(metaAfter!.hasQuit).toBe(true); // preserved
 	});
 
-	it('planningStore.restoreLastFetchAt preserves currentUser and hasQuit', async () => {
+	it("planningStore.restoreLastFetchAt preserves currentUser and hasQuit", async () => {
 		// === SEED ===
 		const { master, participantToken } = await seedPlanning({
-			title: 'P restore coexist',
+			title: "P restore coexist",
 			occurrenceCount: 2
 		});
 
@@ -323,8 +323,8 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		await vi.waitFor(() => expect(planningStore.occurrences.length).toBe(2));
 
 		await guestStateStore.setGuestIdentity(master.id, {
-			id: 'guest-restore',
-			name: 'Restore User'
+			id: "guest-restore",
+			name: "Restore User"
 		});
 		await guestStateStore.markGuestQuit(master.id);
 
@@ -334,7 +334,7 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		const tsFetched = metaMid!.lastFetchAt!;
 
 		// === ÉTAPE 3 : restoreLastFetchAt to a previous value ===
-		const previousValue = '2020-01-01T00:00:00.000Z';
+		const previousValue = "2020-01-01T00:00:00.000Z";
 		await planningStore.restoreLastFetchAt(master.id, previousValue);
 
 		// === VÉRIFICATION : lastFetchAt restored, currentUser + hasQuit preserved ===
@@ -342,14 +342,14 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		expect(metaAfter).toBeDefined();
 		expect(metaAfter!.lastFetchAt).toBe(previousValue);
 		expect(metaAfter!.lastFetchAt).not.toBe(tsFetched);
-		expect(metaAfter!.currentUser?.name).toBe('Restore User'); // preserved
+		expect(metaAfter!.currentUser?.name).toBe("Restore User"); // preserved
 		expect(metaAfter!.hasQuit).toBe(true); // preserved
 	});
 
-	it('planningStore.restoreLastFetchAt(null) clears lastFetchAt, preserves other fields', async () => {
+	it("planningStore.restoreLastFetchAt(null) clears lastFetchAt, preserves other fields", async () => {
 		// === SEED ===
 		const { master, participantToken } = await seedPlanning({
-			title: 'P restore null',
+			title: "P restore null",
 			occurrenceCount: 2
 		});
 
@@ -358,8 +358,8 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		await vi.waitFor(() => expect(planningStore.occurrences.length).toBe(2));
 
 		await guestStateStore.setGuestIdentity(master.id, {
-			id: 'guest-null',
-			name: 'Null User'
+			id: "guest-null",
+			name: "Null User"
 		});
 
 		// === ÉTAPE 2 : markFetched ===
@@ -372,10 +372,10 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		const metaAfter = await db.localMeta.get(master.id);
 		expect(metaAfter).toBeDefined();
 		expect(metaAfter!.lastFetchAt).toBeUndefined();
-		expect(metaAfter!.currentUser?.name).toBe('Null User'); // preserved
+		expect(metaAfter!.currentUser?.name).toBe("Null User"); // preserved
 	});
 
-	it('lastFetchAtFor est réactif : reflète markFetched et restoreLastFetchAt', async () => {
+	it("lastFetchAtFor est réactif : reflète markFetched et restoreLastFetchAt", async () => {
 		// Régression : un Map natif dans $state n'est PAS réactif (les mutations
 		// .set()/.delete() ne déclenchent pas de mise à jour). SvelteMap l'est.
 		// Ce test vérifie que le getter expose bien les valeurs écrites par
@@ -383,7 +383,7 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		// implicitement : si on revenait à un Map natif, le getter renverrait
 		// stale values après markFetched car le .set() ne déclencherait rien).
 		const { master, participantToken } = await seedPlanning({
-			title: 'P reactivité',
+			title: "P reactivité",
 			occurrenceCount: 1
 		});
 
@@ -397,7 +397,7 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		// Le getter doit refléter la valeur écrite par markFetched
 		const tsAfterActivate = planningStore.lastFetchAtFor(master.id);
 		expect(tsAfterActivate).toBeDefined();
-		expect(new Date(tsAfterActivate!).toString()).not.toBe('Invalid Date');
+		expect(new Date(tsAfterActivate!).toString()).not.toBe("Invalid Date");
 
 		// markFetched explicite → valeur mise à jour
 		await planningStore.markFetched(master.id);
@@ -406,7 +406,7 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 		expect(tsAfterMark).not.toBe(tsAfterActivate); // timestamp a avancé
 
 		// restoreLastFetchAt avec une valeur explicite → getter reflète la restore
-		const restored = '2019-06-15T12:00:00.000Z';
+		const restored = "2019-06-15T12:00:00.000Z";
 		await planningStore.restoreLastFetchAt(master.id, restored);
 		expect(planningStore.lastFetchAtFor(master.id)).toBe(restored);
 
@@ -416,9 +416,9 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 	});
 });
 
-describe('planningStore — #activatePlanning corrige le bug occCount === 0 (D4)', () => {
-	const USER_EMAIL = 'auth-d4@test.local';
-	const USER_PWD = 'password123';
+describe("planningStore — #activatePlanning corrige le bug occCount === 0 (D4)", () => {
+	const USER_EMAIL = "auth-d4@test.local";
+	const USER_PWD = "password123";
 
 	beforeEach(async () => {
 		clearTrackedIds();
@@ -439,16 +439,16 @@ describe('planningStore — #activatePlanning corrige le bug occCount === 0 (D4)
 		pb.authStore.clear();
 	});
 
-	it('auth user avec cache partiel → re-fetch complet des occurrences', async () => {
+	it("auth user avec cache partiel → re-fetch complet des occurrences", async () => {
 		// === SEED : master avec 3 occ + user auth associé ===
 		const { master, occurrences, participantToken } = await seedPlanning({
-			title: 'P auth D4',
+			title: "P auth D4",
 			occurrenceCount: 3
 		});
-		const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth D4', {
+		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth D4", {
 			masterIds: [master.id]
 		});
-		trackIds('users', user.id);
+		trackIds("users", user.id);
 
 		// Authentifier dans le singleton pb + setter isLoggedIn
 		const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -459,7 +459,7 @@ describe('planningStore — #activatePlanning corrige le bug occCount === 0 (D4)
 		// Nécessaire car #activatePlanning résout d'abord depuis Dexie (offline-first).
 		await db.masters.put(master);
 		await db.occurrences.put(occurrences[0]);
-		expect(await db.occurrences.where('master').equals(master.id).count()).toBe(1);
+		expect(await db.occurrences.where("master").equals(master.id).count()).toBe(1);
 
 		// === ACTION : setActiveToken → #activatePlanning (branche auth, isLoggedIn) ===
 		// Avant le fix (D4) : occCount === 1 → on skip l'initialFetch → liste figée à 1.
@@ -476,7 +476,7 @@ describe('planningStore — #activatePlanning corrige le bug occCount === 0 (D4)
 		expect(planningStore.activeMasterId).toBe(master.id);
 		expect(planningStore.occurrences.length).toBe(3);
 
-		const dexieOcc = await db.occurrences.where('master').equals(master.id).toArray();
+		const dexieOcc = await db.occurrences.where("master").equals(master.id).toArray();
 		expect(dexieOcc.length).toBe(3);
 	});
 });

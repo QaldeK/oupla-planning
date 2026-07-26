@@ -1,14 +1,14 @@
 <!-- src/lib/components/homepage/AuthSection.svelte -->
 <script lang="ts">
-	import AccountBenefitsAccordion from '$lib/components/homepage/AccountBenefitsAccordion.svelte';
-	import AuthForm from '$lib/components/auth/AuthForm.svelte';
+import AuthForm from "$lib/components/auth/AuthForm.svelte";
+import AccountBenefitsAccordion from "$lib/components/homepage/AccountBenefitsAccordion.svelte";
 
-	let authMode = $state<'register' | 'login'>('register');
+let authMode = $state<"register" | "login">("register");
 
-	async function handleAuthSuccess() {
-		// Après auth réussie, la page va se mettre à jour automatiquement
-		// grâce à la réactivité de userStore.isLoggedIn
-	}
+async function handleAuthSuccess() {
+	// Après auth réussie, la page va se mettre à jour automatiquement
+	// grâce à la réactivité de userStore.isLoggedIn
+}
 </script>
 
 <div class="space-y-6">

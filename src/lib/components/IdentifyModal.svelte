@@ -1,150 +1,150 @@
 <script lang="ts">
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
-	import { ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from '@lucide/svelte';
-	import { toast } from 'svelte-sonner';
-	import { fade } from 'svelte/transition';
-	import AuthForm from './auth/AuthForm.svelte';
-	import NameConflictHandler from './NameConflictHandler.svelte';
-	import Modal from './ui/Modal.svelte';
+import { ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from "@lucide/svelte";
+import { fade } from "svelte/transition";
+import { toast } from "svelte-sonner";
+import { userStore } from "$lib/stores/userStore.svelte";
+import type { Participant, PlanningIdentity } from "$lib/types/planning.types";
+import AuthForm from "./auth/AuthForm.svelte";
+import NameConflictHandler from "./NameConflictHandler.svelte";
+import Modal from "./ui/Modal.svelte";
 
-	interface Props {
-		open: boolean;
-		onClose: () => void;
-		masterId?: string;
-		existingParticipants?: Participant[];
-		onPlanningIdentify?: (identity: PlanningIdentity, isNewParticipant: boolean) => Promise<void>;
-		initialName?: string; // Nom prérempli pour les users auth
-		hideExistingParticipants?: boolean; // Cacher la liste des participants existants pour les users auth
-		currentIdentity?: PlanningIdentity | null; // Identité actuelle de l'utilisateur pour ce planning
-	}
+interface Props {
+	open: boolean;
+	onClose: () => void;
+	masterId?: string;
+	existingParticipants?: Participant[];
+	onPlanningIdentify?: (identity: PlanningIdentity, isNewParticipant: boolean) => Promise<void>;
+	initialName?: string; // Nom prérempli pour les users auth
+	hideExistingParticipants?: boolean; // Cacher la liste des participants existants pour les users auth
+	currentIdentity?: PlanningIdentity | null; // Identité actuelle de l'utilisateur pour ce planning
+}
 
-	let {
-		open = $bindable(false),
-		onClose,
-		masterId,
-		existingParticipants = [],
-		onPlanningIdentify,
-		initialName,
-		hideExistingParticipants = false,
-		currentIdentity = null
-	}: Props = $props();
+let {
+	open = $bindable(false),
+	onClose,
+	masterId,
+	existingParticipants = [],
+	onPlanningIdentify,
+	initialName,
+	hideExistingParticipants = false,
+	currentIdentity = null
+}: Props = $props();
 
-	let name = $state('');
-	let email = $state('');
-	let isSubmitting = $state(false);
-	let inputRef = $state<HTMLInputElement | null>(null);
-	let authMode = $state<'login' | 'register'>('register');
-	let showAccountForm = $state(false);
+let name = $state("");
+let email = $state("");
+let isSubmitting = $state(false);
+let inputRef = $state<HTMLInputElement | null>(null);
+let authMode = $state<"login" | "register">("register");
+let showAccountForm = $state(false);
 
-	// État pour la revendication d'identité protégée
-	let claimedIdentity = $state<Participant | null>(null);
+// État pour la revendication d'identité protégée
+let claimedIdentity = $state<Participant | null>(null);
 
-	// Conflit de nom : on ne peut pas créer de participant avec un nom déjà pris
-	// sur ce planning. L'utilisateur doit soit revendiquer l'identité existante
-	// (bouton "C'est moi" du NameConflictHandler), soit choisir un autre nom.
-	// On exclut l'identité courante pour autoriser l'édition sans faux positif.
-	let hasNameConflict = $derived.by(() => {
-		const trimmed = name.trim().toLowerCase();
-		if (!trimmed) return false;
-		return existingParticipants.some(
-			(p) => p.name.toLowerCase() === trimmed && p.id !== currentIdentity?.id
-		);
-	});
+// Conflit de nom : on ne peut pas créer de participant avec un nom déjà pris
+// sur ce planning. L'utilisateur doit soit revendiquer l'identité existante
+// (bouton "C'est moi" du NameConflictHandler), soit choisir un autre nom.
+// On exclut l'identité courante pour autoriser l'édition sans faux positif.
+let hasNameConflict = $derived.by(() => {
+	const trimmed = name.trim().toLowerCase();
+	if (!trimmed) return false;
+	return existingParticipants.some(
+		(p) => p.name.toLowerCase() === trimmed && p.id !== currentIdentity?.id
+	);
+});
 
-	function resetForm() {
-		name = '';
-		email = '';
-		claimedIdentity = null;
-		authMode = 'register';
-		showAccountForm = false;
-	}
+function resetForm() {
+	name = "";
+	email = "";
+	claimedIdentity = null;
+	authMode = "register";
+	showAccountForm = false;
+}
 
-	function closeModal() {
-		resetForm();
-		onClose();
-	}
+function closeModal() {
+	resetForm();
+	onClose();
+}
 
-	// Focus auto à l'ouverture et préremplissage du nom
-	$effect(() => {
-		if (open && !claimedIdentity) {
-			// Préremplir le nom si fourni (pour les users auth)
-			if (initialName) {
-				name = initialName;
-			}
-			// Focus sur l'input
-			if (inputRef) {
-				setTimeout(() => inputRef?.focus(), 50);
-			}
+// Focus auto à l'ouverture et préremplissage du nom
+$effect(() => {
+	if (open && !claimedIdentity) {
+		// Préremplir le nom si fourni (pour les users auth)
+		if (initialName) {
+			name = initialName;
 		}
-	});
-
-	// === Gestion des callbacks de NameConflictHandler ===
-
-	// Appelé quand on clique "C'est moi !" sur un participant sans compte
-	async function handleIdentifyAs(participant: Participant) {
-		isSubmitting = true;
-		try {
-			// Stocker l'association dans le planning (si masterId disponible)
-			if (masterId && onPlanningIdentify) {
-				await onPlanningIdentify(
-					{
-						id: participant.id, // L'ID du participant dans CE planning
-						name: participant.name,
-						email: participant.email
-					},
-					false // pas nouveau participant
-				);
-			}
-
-			toast.success(`Bienvenue, ${participant.name} !`);
-			closeModal();
-		} catch (error) {
-			console.error('Error identifying as participant:', error);
-			toast.error("Erreur lors de l'identification");
-		} finally {
-			isSubmitting = false;
+		// Focus sur l'input
+		if (inputRef) {
+			setTimeout(() => inputRef?.focus(), 50);
 		}
 	}
+});
 
-	// Appelé quand le participant a un compte protégé - géré en interne
-	function handleRequireLogin(participant: Participant) {
-		claimedIdentity = participant;
-		authMode = 'login';
-		// Le focus sera géré par AuthForm via focusEmail
-	}
+// === Gestion des callbacks de NameConflictHandler ===
 
-	async function handleSubmit() {
-		if (!name.trim() || isSubmitting || hasNameConflict) return;
-
-		// Cas avec masterId : identification sur un planning
+// Appelé quand on clique "C'est moi !" sur un participant sans compte
+async function handleIdentifyAs(participant: Participant) {
+	isSubmitting = true;
+	try {
+		// Stocker l'association dans le planning (si masterId disponible)
 		if (masterId && onPlanningIdentify) {
-			// Déterminer si c'est un nouveau participant ou un changement de nom
-			const hasExistingIdentity = !!currentIdentity;
-			const isNewParticipant = !hasExistingIdentity;
-
-			const newIdentity: PlanningIdentity = {
-				// Garder l'ID existant si l'utilisateur a déjà une identité, sinon en générer un nouveau
-				id: currentIdentity?.id || crypto.randomUUID(),
-				name: name.trim(),
-				email: email.trim() || undefined
-			};
-
-			await onPlanningIdentify(newIdentity, isNewParticipant);
-			closeModal();
-			return;
+			await onPlanningIdentify(
+				{
+					id: participant.id, // L'ID du participant dans CE planning
+					name: participant.name,
+					email: participant.email
+				},
+				false // pas nouveau participant
+			);
 		}
 
-		// Sans masterId : ne rien faire (ne devrait pas arriver)
-		console.warn('IdentifyModal: handleSubmit called without masterId or onPlanningIdentify');
+		toast.success(`Bienvenue, ${participant.name} !`);
+		closeModal();
+	} catch (error) {
+		console.error("Error identifying as participant:", error);
+		toast.error("Erreur lors de l'identification");
+	} finally {
+		isSubmitting = false;
+	}
+}
+
+// Appelé quand le participant a un compte protégé - géré en interne
+function handleRequireLogin(participant: Participant) {
+	claimedIdentity = participant;
+	authMode = "login";
+	// Le focus sera géré par AuthForm via focusEmail
+}
+
+async function handleSubmit() {
+	if (!name.trim() || isSubmitting || hasNameConflict) return;
+
+	// Cas avec masterId : identification sur un planning
+	if (masterId && onPlanningIdentify) {
+		// Déterminer si c'est un nouveau participant ou un changement de nom
+		const hasExistingIdentity = !!currentIdentity;
+		const isNewParticipant = !hasExistingIdentity;
+
+		const newIdentity: PlanningIdentity = {
+			// Garder l'ID existant si l'utilisateur a déjà une identité, sinon en générer un nouveau
+			id: currentIdentity?.id || crypto.randomUUID(),
+			name: name.trim(),
+			email: email.trim() || undefined
+		};
+
+		await onPlanningIdentify(newIdentity, isNewParticipant);
+		closeModal();
+		return;
 	}
 
-	// Callback après connexion réussie
-	function handleAuthSuccess() {
-		// L'identification sur le planning sera gérée par la page parente
-		// via la réactivité de userStore.isLoggedIn
-		closeModal();
-	}
+	// Sans masterId : ne rien faire (ne devrait pas arriver)
+	console.warn("IdentifyModal: handleSubmit called without masterId or onPlanningIdentify");
+}
+
+// Callback après connexion réussie
+function handleAuthSuccess() {
+	// L'identification sur le planning sera gérée par la page parente
+	// via la réactivité de userStore.isLoggedIn
+	closeModal();
+}
 </script>
 
 <Modal {open} onClose={closeModal} title="Identification" size="md" closable={!claimedIdentity}>

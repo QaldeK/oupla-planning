@@ -1,13 +1,13 @@
-import { generateRecurrenceDates } from './recurrence';
-import { formatSlotKey } from './slots';
-import type { RecurrenceType, RecurrenceConfig, TimeSlot } from '$lib/types/planning.types';
+import type { RecurrenceConfig, RecurrenceType, TimeSlot } from "$lib/types/planning.types";
+import { generateRecurrenceDates } from "./recurrence";
+import { formatSlotKey } from "./slots";
 
 export interface ComputeMaxDateArgs {
 	firstDate: string; // YYYY-MM-DD
 	lastDate: string; // YYYY-MM-DD (borne sup actuelle)
 	recurrenceType: RecurrenceType; // jamais CUSTOM en pratique (bouton non rendu)
 	monthlyByDayOccurrences?: number[]; // pour MONTHLY_BY_DAY
-	monthlyByDateMode?: RecurrenceConfig['monthlyByDateMode']; // pour MONTHLY_BY_DATE
+	monthlyByDateMode?: RecurrenceConfig["monthlyByDateMode"]; // pour MONTHLY_BY_DATE
 	manualDates: string[]; // dates arbitraires (hors cycle), comptées dans le budget
 	timeSlots: TimeSlot[];
 	disabledSlotKeys: Set<string>; // clés 'date|slotId' désactivées
@@ -38,15 +38,15 @@ export function computeMaxDateForLimit(args: ComputeMaxDateArgs): string | null 
 	} = args;
 
 	// Bouton non rendu en CUSTOM, garde-fou défensif.
-	if (recurrenceType === 'CUSTOM') return null;
+	if (recurrenceType === "CUSTOM") return null;
 
 	const cycleDates = generateRecurrenceDates({
 		type: recurrenceType,
 		firstDate,
 		lastDate,
 		monthlyByDayOccurrences:
-			recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
-		monthlyByDateMode: recurrenceType === 'MONTHLY_BY_DATE' ? monthlyByDateMode : undefined
+			recurrenceType === "MONTHLY_BY_DAY" ? monthlyByDayOccurrences : undefined,
+		monthlyByDateMode: recurrenceType === "MONTHLY_BY_DATE" ? monthlyByDateMode : undefined
 	});
 	if (cycleDates.length === 0) return null;
 

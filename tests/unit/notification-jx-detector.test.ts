@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import path from 'path';
+import path from "path";
+import { describe, expect, it } from "vitest";
 
 // Mock isolé (pas de PocketBase nécessaire) qui valide la détection des
 // events J-X (rappels, missings, confirmation) sur planning_occurrences.
@@ -19,10 +19,10 @@ import path from 'path';
 // CommonJS (le hook exporte via `module.exports`).
 // ============================================================================
 
-const HOOKS_DIR = path.resolve(__dirname, '../../', 'pocketbase/pb_hooks');
+const HOOKS_DIR = path.resolve(__dirname, "../../", "pocketbase/pb_hooks");
 (globalThis as any).__hooks = HOOKS_DIR;
 
-const { detectJxEvents } = await import('../../pocketbase/pb_hooks/notification-jx-detector.js');
+const { detectJxEvents } = await import("../../pocketbase/pb_hooks/notification-jx-detector.js");
 
 // ============================================================================
 // Factory de mock pour core.Record
@@ -35,9 +35,9 @@ function mkRecord(data: Record<string, unknown>): any {
 		},
 		getString(field: string) {
 			const v = data[field];
-			if (v === null || v === undefined) return '';
-			if (typeof v === 'string') return v;
-			if (Array.isArray(v) || typeof v === 'object') return JSON.stringify(v);
+			if (v === null || v === undefined) return "";
+			if (typeof v === "string") return v;
+			if (Array.isArray(v) || typeof v === "object") return JSON.stringify(v);
 			return String(v);
 		},
 		getBool(field: string) {
@@ -58,14 +58,14 @@ function mkRecord(data: Record<string, unknown>): any {
 // Fixtures
 // ============================================================================
 
-const NOW = new Date('2026-07-19T00:00:00Z');
+const NOW = new Date("2026-07-19T00:00:00Z");
 
 function mkDate(daysFromNow: number): string {
 	const d = new Date(NOW.getTime() + daysFromNow * 24 * 60 * 60 * 1000);
 	return d
 		.toISOString()
-		.replace('T', ' ')
-		.replace(/\.\d+Z$/, '.000Z');
+		.replace("T", " ")
+		.replace(/\.\d+Z$/, ".000Z");
 }
 
 function mkOcc(overrides: Record<string, unknown> = {}): any {
@@ -86,7 +86,7 @@ function mkMaster(overrides: Record<string, unknown> = {}): any {
 		toConfirm: false,
 		deleted: false,
 		minPresentRequired: 2,
-		recurrence: JSON.stringify({ type: 'WEEKLY' }),
+		recurrence: JSON.stringify({ type: "WEEKLY" }),
 		...overrides
 	});
 }
@@ -121,27 +121,27 @@ function normalize(events: any[]): NormalizedEvent[] {
 // Cas de test — chaque section du runner original devient un `describe`.
 // ============================================================================
 
-describe('Timing', () => {
+describe("Timing", () => {
 	const cases = [
 		{
-			name: 'daysUntil hors fenêtre (X=5) → aucun event',
+			name: "daysUntil hors fenêtre (X=5) → aucun event",
 			occ: mkOcc({ date: mkDate(5) }),
 			master: mkMaster(),
-			participants: [mkParticipant({ reminderDays: ['3', '7'], missingDays: ['3', '7'] })],
+			participants: [mkParticipant({ reminderDays: ["3", "7"], missingDays: ["3", "7"] })],
 			expected: []
 		},
 		{
-			name: 'jour même (daysUntil=0) → aucun event',
+			name: "jour même (daysUntil=0) → aucun event",
 			occ: mkOcc({ date: mkDate(0) }),
 			master: mkMaster(),
-			participants: [mkParticipant({ reminderDays: ['1'], missingDays: ['1'] })],
+			participants: [mkParticipant({ reminderDays: ["1"], missingDays: ["1"] })],
 			expected: []
 		},
 		{
-			name: 'occ passée (daysUntil=-3) → aucun event',
+			name: "occ passée (daysUntil=-3) → aucun event",
 			occ: mkOcc({ date: mkDate(-3) }),
 			master: mkMaster(),
-			participants: [mkParticipant({ reminderDays: ['3'], missingDays: ['3'] })],
+			participants: [mkParticipant({ reminderDays: ["3"], missingDays: ["3"] })],
 			expected: []
 		}
 	];
@@ -154,48 +154,48 @@ describe('Timing', () => {
 	}
 });
 
-describe('reminder', () => {
+describe("reminder", () => {
 	const cases = [
 		{
-			name: 'reminder à J-3 : pref + response present → 1 event reminder',
-			occ: mkOcc({ responses: [{ participantId: 'p1', response: 'present', tasks: [] }] }),
+			name: "reminder à J-3 : pref + response present → 1 event reminder",
+			occ: mkOcc({ responses: [{ participantId: "p1", response: "present", tasks: [] }] }),
 			master: mkMaster(),
-			participants: [mkParticipant({ reminderDays: ['3'] })],
-			expected: [{ type: 'reminder', reminderValue: 3 }]
+			participants: [mkParticipant({ reminderDays: ["3"] })],
+			expected: [{ type: "reminder", reminderValue: 3 }]
 		},
 		{
-			name: 'reminder à J-3 : pref + absent inscrit tâche → 1 event reminder',
+			name: "reminder à J-3 : pref + absent inscrit tâche → 1 event reminder",
 			occ: mkOcc({
-				responses: [{ participantId: 'p1', response: 'absent', tasks: ['t1'] }]
+				responses: [{ participantId: "p1", response: "absent", tasks: ["t1"] }]
 			}),
 			master: mkMaster(),
-			participants: [mkParticipant({ reminderDays: ['3'] })],
-			expected: [{ type: 'reminder', reminderValue: 3 }]
+			participants: [mkParticipant({ reminderDays: ["3"] })],
+			expected: [{ type: "reminder", reminderValue: 3 }]
 		},
 		{
-			name: 'reminder à J-3 : pref mais aucun engagé → pas de reminder',
+			name: "reminder à J-3 : pref mais aucun engagé → pas de reminder",
 			occ: mkOcc({
-				responses: [{ participantId: 'p1', response: 'absent', tasks: [] }]
+				responses: [{ participantId: "p1", response: "absent", tasks: [] }]
 			}),
 			master: mkMaster(),
-			participants: [mkParticipant({ reminderDays: ['3'] })],
+			participants: [mkParticipant({ reminderDays: ["3"] })],
 			expected: []
 		},
 		{
-			name: 'reminder à J-3 : engagé mais pas de pref → pas de reminder',
-			occ: mkOcc({ responses: [{ participantId: 'p1', response: 'present', tasks: [] }] }),
+			name: "reminder à J-3 : engagé mais pas de pref → pas de reminder",
+			occ: mkOcc({ responses: [{ participantId: "p1", response: "present", tasks: [] }] }),
 			master: mkMaster(),
-			participants: [mkParticipant({ reminderDays: ['1', '7'] })],
+			participants: [mkParticipant({ reminderDays: ["1", "7"] })],
 			expected: []
 		},
 		{
-			name: 'reminder à J-15 : impossible (15 ∉ reminderDays enum)',
+			name: "reminder à J-15 : impossible (15 ∉ reminderDays enum)",
 			occ: mkOcc({
 				date: mkDate(15),
-				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }]
 			}),
 			master: mkMaster(),
-			participants: [mkParticipant({ reminderDays: ['1', '3', '7'] })],
+			participants: [mkParticipant({ reminderDays: ["1", "3", "7"] })],
 			expected: []
 		}
 	];
@@ -208,37 +208,37 @@ describe('reminder', () => {
 	}
 });
 
-describe('quorum_missing', () => {
+describe("quorum_missing", () => {
 	const cases = [
 		{
-			name: 'quorum_missing à J-3 : pref + present(1) < min(2) → 1 event',
+			name: "quorum_missing à J-3 : pref + present(1) < min(2) → 1 event",
 			occ: mkOcc({
 				minPresentRequired: 2,
-				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }]
 			}),
 			master: mkMaster(),
-			participants: [mkParticipant({ missingDays: ['3'] })],
-			expected: [{ type: 'quorum_missing', reminderValue: 3 }]
+			participants: [mkParticipant({ missingDays: ["3"] })],
+			expected: [{ type: "quorum_missing", reminderValue: 3 }]
 		},
 		{
-			name: 'quorum_missing à J-3 : present >= min → pas de quorum_missing',
+			name: "quorum_missing à J-3 : present >= min → pas de quorum_missing",
 			occ: mkOcc({
 				minPresentRequired: 1,
-				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }]
 			}),
 			master: mkMaster(),
-			participants: [mkParticipant({ missingDays: ['3'] })],
+			participants: [mkParticipant({ missingDays: ["3"] })],
 			expected: []
 		},
 		{
-			name: 'quorum_missing à J-3 : min lu sur le master (occ à 0)',
+			name: "quorum_missing à J-3 : min lu sur le master (occ à 0)",
 			occ: mkOcc({
 				minPresentRequired: 0,
-				responses: [{ participantId: 'p1', response: 'present', tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }]
 			}),
 			master: mkMaster({ minPresentRequired: 2 }),
-			participants: [mkParticipant({ missingDays: ['3'] })],
-			expected: [{ type: 'quorum_missing', reminderValue: 3 }]
+			participants: [mkParticipant({ missingDays: ["3"] })],
+			expected: [{ type: "quorum_missing", reminderValue: 3 }]
 		}
 	];
 
@@ -250,41 +250,41 @@ describe('quorum_missing', () => {
 	}
 });
 
-describe('task_unassigned', () => {
+describe("task_unassigned", () => {
 	const cases = [
 		{
 			// min=0 côté occ ET master pour isoler la condition task_unassigned
 			// (sinon quorum_missing se déclenche en parallèle).
-			name: 'task_unassigned à J-3 : pref + tâche sous-dimensionnée → 1 event',
+			name: "task_unassigned à J-3 : pref + tâche sous-dimensionnée → 1 event",
 			occ: mkOcc({
 				minPresentRequired: 0,
-				tasks: [{ id: 't1', requiredVolunteers: 2, type: 'beforeEvent' }],
-				responses: [{ participantId: 'p1', response: 'present', tasks: ['t1'] }]
+				tasks: [{ id: "t1", requiredVolunteers: 2, type: "beforeEvent" }],
+				responses: [{ participantId: "p1", response: "present", tasks: ["t1"] }]
 			}),
 			master: mkMaster({ minPresentRequired: 0 }),
-			participants: [mkParticipant({ missingDays: ['3'] })],
-			expected: [{ type: 'task_unassigned', reminderValue: 3 }]
+			participants: [mkParticipant({ missingDays: ["3"] })],
+			expected: [{ type: "task_unassigned", reminderValue: 3 }]
 		},
 		{
 			name: "task_unassigned à J-3 : tâche complète → pas d'event",
 			occ: mkOcc({
 				minPresentRequired: 0,
-				tasks: [{ id: 't1', requiredVolunteers: 1, type: 'beforeEvent' }],
-				responses: [{ participantId: 'p1', response: 'present', tasks: ['t1'] }]
+				tasks: [{ id: "t1", requiredVolunteers: 1, type: "beforeEvent" }],
+				responses: [{ participantId: "p1", response: "present", tasks: ["t1"] }]
 			}),
 			master: mkMaster({ minPresentRequired: 0 }),
-			participants: [mkParticipant({ missingDays: ['3'] })],
+			participants: [mkParticipant({ missingDays: ["3"] })],
 			expected: []
 		},
 		{
-			name: 'task_unassigned à J-3 : tâche sans exigence (required=0) ignorée',
+			name: "task_unassigned à J-3 : tâche sans exigence (required=0) ignorée",
 			occ: mkOcc({
 				minPresentRequired: 0,
-				tasks: [{ id: 't1', requiredVolunteers: 0, type: 'beforeEvent' }],
+				tasks: [{ id: "t1", requiredVolunteers: 0, type: "beforeEvent" }],
 				responses: []
 			}),
 			master: mkMaster({ minPresentRequired: 0 }),
-			participants: [mkParticipant({ missingDays: ['3'] })],
+			participants: [mkParticipant({ missingDays: ["3"] })],
 			expected: []
 		}
 	];
@@ -297,14 +297,14 @@ describe('task_unassigned', () => {
 	}
 });
 
-describe('confirmation_needed', () => {
+describe("confirmation_needed", () => {
 	const cases = [
 		{
-			name: 'confirmation_needed à J-3 WEEKLY : toutes conditions → 1 event',
+			name: "confirmation_needed à J-3 WEEKLY : toutes conditions → 1 event",
 			occ: mkOcc({ isConfirmed: false }),
-			master: mkMaster({ toConfirm: true, recurrence: JSON.stringify({ type: 'WEEKLY' }) }),
+			master: mkMaster({ toConfirm: true, recurrence: JSON.stringify({ type: "WEEKLY" }) }),
 			participants: [mkParticipant({ onConfirmationNeeded: true })],
-			expected: [{ type: 'confirmation_needed', reminderValue: 3 }]
+			expected: [{ type: "confirmation_needed", reminderValue: 3 }]
 		},
 		{
 			name: "confirmation_needed : occ déjà confirmée → pas d'event",
@@ -328,18 +328,18 @@ describe('confirmation_needed', () => {
 			expected: []
 		},
 		{
-			name: 'confirmation_needed à J-15 WEEKLY : 15 ∉ CONFIRMATION_NEEDED_JX[WEEKLY]',
+			name: "confirmation_needed à J-15 WEEKLY : 15 ∉ CONFIRMATION_NEEDED_JX[WEEKLY]",
 			occ: mkOcc({ date: mkDate(15), isConfirmed: false }),
-			master: mkMaster({ toConfirm: true, recurrence: JSON.stringify({ type: 'WEEKLY' }) }),
+			master: mkMaster({ toConfirm: true, recurrence: JSON.stringify({ type: "WEEKLY" }) }),
 			participants: [mkParticipant({ onConfirmationNeeded: true })],
 			expected: []
 		},
 		{
-			name: 'confirmation_needed à J-15 BIWEEKLY : 15 ∈ CONFIRMATION_NEEDED_JX[BIWEEKLY]',
+			name: "confirmation_needed à J-15 BIWEEKLY : 15 ∈ CONFIRMATION_NEEDED_JX[BIWEEKLY]",
 			occ: mkOcc({ date: mkDate(15), isConfirmed: false }),
-			master: mkMaster({ toConfirm: true, recurrence: JSON.stringify({ type: 'BIWEEKLY' }) }),
+			master: mkMaster({ toConfirm: true, recurrence: JSON.stringify({ type: "BIWEEKLY" }) }),
 			participants: [mkParticipant({ onConfirmationNeeded: true })],
-			expected: [{ type: 'confirmation_needed', reminderValue: 15 }]
+			expected: [{ type: "confirmation_needed", reminderValue: 15 }]
 		}
 	];
 
@@ -351,58 +351,58 @@ describe('confirmation_needed', () => {
 	}
 });
 
-describe('Cas combinés', () => {
+describe("Cas combinés", () => {
 	const cases = [
 		{
-			name: 'multi-types J-3 : reminder + quorum + task + confirmation',
+			name: "multi-types J-3 : reminder + quorum + task + confirmation",
 			occ: mkOcc({
 				minPresentRequired: 5,
 				isConfirmed: false,
-				tasks: [{ id: 't1', requiredVolunteers: 3, type: 'beforeEvent' }],
+				tasks: [{ id: "t1", requiredVolunteers: 3, type: "beforeEvent" }],
 				responses: [
-					{ participantId: 'p1', response: 'present', tasks: ['t1'] },
-					{ participantId: 'p2', response: 'present', tasks: [] }
+					{ participantId: "p1", response: "present", tasks: ["t1"] },
+					{ participantId: "p2", response: "present", tasks: [] }
 				]
 			}),
-			master: mkMaster({ toConfirm: true, recurrence: JSON.stringify({ type: 'WEEKLY' }) }),
+			master: mkMaster({ toConfirm: true, recurrence: JSON.stringify({ type: "WEEKLY" }) }),
 			participants: [
-				mkParticipant({ reminderDays: ['3'], missingDays: ['3'], onConfirmationNeeded: true })
+				mkParticipant({ reminderDays: ["3"], missingDays: ["3"], onConfirmationNeeded: true })
 			],
 			expected: [
-				{ type: 'reminder', reminderValue: 3 },
-				{ type: 'quorum_missing', reminderValue: 3 },
-				{ type: 'task_unassigned', reminderValue: 3 },
-				{ type: 'confirmation_needed', reminderValue: 3 }
+				{ type: "reminder", reminderValue: 3 },
+				{ type: "quorum_missing", reminderValue: 3 },
+				{ type: "task_unassigned", reminderValue: 3 },
+				{ type: "confirmation_needed", reminderValue: 3 }
 			]
 		},
 		{
-			name: 'missings à J-15 WEEKLY : 2 rows (quorum + task), pas de reminder',
+			name: "missings à J-15 WEEKLY : 2 rows (quorum + task), pas de reminder",
 			occ: mkOcc({
 				date: mkDate(15),
 				minPresentRequired: 5,
-				tasks: [{ id: 't1', requiredVolunteers: 3, type: 'beforeEvent' }],
-				responses: [{ participantId: 'p1', response: 'present', tasks: ['t1'] }]
+				tasks: [{ id: "t1", requiredVolunteers: 3, type: "beforeEvent" }],
+				responses: [{ participantId: "p1", response: "present", tasks: ["t1"] }]
 			}),
-			master: mkMaster({ recurrence: JSON.stringify({ type: 'WEEKLY' }) }),
-			participants: [mkParticipant({ missingDays: ['15'] })],
+			master: mkMaster({ recurrence: JSON.stringify({ type: "WEEKLY" }) }),
+			participants: [mkParticipant({ missingDays: ["15"] })],
 			expected: [
-				{ type: 'quorum_missing', reminderValue: 15 },
-				{ type: 'task_unassigned', reminderValue: 15 }
+				{ type: "quorum_missing", reminderValue: 15 },
+				{ type: "task_unassigned", reminderValue: 15 }
 			]
 		},
 		{
-			name: 'quorum mais pas de task_unassigned (même pref missingDays)',
+			name: "quorum mais pas de task_unassigned (même pref missingDays)",
 			occ: mkOcc({
 				minPresentRequired: 5,
-				tasks: [{ id: 't1', requiredVolunteers: 1, type: 'beforeEvent' }],
+				tasks: [{ id: "t1", requiredVolunteers: 1, type: "beforeEvent" }],
 				responses: [
-					{ participantId: 'p1', response: 'present', tasks: ['t1'] },
-					{ participantId: 'p2', response: 'present', tasks: [] }
+					{ participantId: "p1", response: "present", tasks: ["t1"] },
+					{ participantId: "p2", response: "present", tasks: [] }
 				]
 			}),
 			master: mkMaster(),
-			participants: [mkParticipant({ missingDays: ['3'] })],
-			expected: [{ type: 'quorum_missing', reminderValue: 3 }]
+			participants: [mkParticipant({ missingDays: ["3"] })],
+			expected: [{ type: "quorum_missing", reminderValue: 3 }]
 		}
 	];
 
@@ -414,26 +414,26 @@ describe('Cas combinés', () => {
 	}
 });
 
-describe('Robustesse', () => {
+describe("Robustesse", () => {
 	const cases = [
 		{
-			name: 'occs sans responses/tasks (null) → pas de crash',
+			name: "occs sans responses/tasks (null) → pas de crash",
 			occ: mkOcc({ responses: null, tasks: null, minPresentRequired: 5 }),
 			master: mkMaster(),
-			participants: [mkParticipant({ missingDays: ['3'] })],
-			expected: [{ type: 'quorum_missing', reminderValue: 3 }]
+			participants: [mkParticipant({ missingDays: ["3"] })],
+			expected: [{ type: "quorum_missing", reminderValue: 3 }]
 		},
 		{
-			name: 'recurrence vide/malformée → fallback WEEKLY (confirmation J-3 ok)',
+			name: "recurrence vide/malformée → fallback WEEKLY (confirmation J-3 ok)",
 			occ: mkOcc({ isConfirmed: false }),
-			master: mkMaster({ toConfirm: true, recurrence: '' }),
+			master: mkMaster({ toConfirm: true, recurrence: "" }),
 			participants: [mkParticipant({ onConfirmationNeeded: true })],
-			expected: [{ type: 'confirmation_needed', reminderValue: 3 }]
+			expected: [{ type: "confirmation_needed", reminderValue: 3 }]
 		},
 		{
-			name: 'participants vide → aucun event même si responses présentes',
+			name: "participants vide → aucun event même si responses présentes",
 			occ: mkOcc({
-				responses: [{ participantId: 'p1', response: 'present', tasks: [] }],
+				responses: [{ participantId: "p1", response: "present", tasks: [] }],
 				minPresentRequired: 5
 			}),
 			master: mkMaster(),

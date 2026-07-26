@@ -1,16 +1,16 @@
 <script lang="ts">
-	import CopyLinksButtons from '$lib/components/CopyLinksButtons.svelte';
-	import { Settings, Share2, Users } from '@lucide/svelte';
+import { Settings, Share2, Users } from "@lucide/svelte";
+import CopyLinksButtons from "$lib/components/CopyLinksButtons.svelte";
 
-	interface Props {
-		isAdmin: boolean;
-		adminToken: string | null;
-		participantToken?: string;
-		allowResponses: boolean | undefined;
-		tasksCount: number;
-	}
+interface Props {
+	isAdmin: boolean;
+	adminToken: string | null;
+	participantToken?: string;
+	allowResponses: boolean | undefined;
+	tasksCount: number;
+}
 
-	let { isAdmin, adminToken, participantToken, allowResponses, tasksCount }: Props = $props();
+let { isAdmin, adminToken, participantToken, allowResponses, tasksCount }: Props = $props();
 </script>
 
 {#if !isAdmin}

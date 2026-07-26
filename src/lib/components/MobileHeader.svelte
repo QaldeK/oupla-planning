@@ -1,71 +1,71 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { Menu, PanelLeftClose, User } from '@lucide/svelte';
-	import type { PlanningMaster } from '$lib/types/planning.types';
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { planningStore } from '$lib/stores/planningStore.svelte';
-	import { modalStore } from '$lib/stores/modalStore.svelte';
-	import { goto } from '$app/navigation';
+import { Menu, PanelLeftClose, User } from "@lucide/svelte";
+import { goto } from "$app/navigation";
+import { page } from "$app/stores";
+import { modalStore } from "$lib/stores/modalStore.svelte";
+import { planningStore } from "$lib/stores/planningStore.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
+import type { PlanningMaster } from "$lib/types/planning.types";
 
-	// État du header
-	let isHeaderVisible = $state(true);
-	let lastScrollY = $state(0);
-	let isScrolling = $state(false);
-	let scrollTimeout: ReturnType<typeof setTimeout>;
+// État du header
+let isHeaderVisible = $state(true);
+let lastScrollY = $state(0);
+let isScrolling = $state(false);
+let scrollTimeout: ReturnType<typeof setTimeout>;
 
-	// Titre dynamique basé sur la route et le planning actif
-	const pathname = $derived($page.url.pathname);
-	const master = $derived(planningStore.master as PlanningMaster | null);
+// Titre dynamique basé sur la route et le planning actif
+const pathname = $derived($page.url.pathname);
+const master = $derived(planningStore.master as PlanningMaster | null);
 
-	const title = $derived(getTitle(pathname, master));
+const title = $derived(getTitle(pathname, master));
 
-	function getTitle(path: string, master: PlanningMaster | null): string {
-		if (path === '/') return 'Oupla Planning';
-		if (path === '/new') return 'Nouveau planning';
-		if (path.includes('/archive')) return master?.title ? `${master.title} (archives)` : 'Archives';
-		if (path.includes('/admin/')) return master?.title ? `${master.title} ⚙️` : 'Admin';
-		if (path.includes('/p/')) return master?.title || 'Planning';
-		return 'Oupla Planning';
-	}
+function getTitle(path: string, master: PlanningMaster | null): string {
+	if (path === "/") return "Oupla Planning";
+	if (path === "/new") return "Nouveau planning";
+	if (path.includes("/archive")) return master?.title ? `${master.title} (archives)` : "Archives";
+	if (path.includes("/admin/")) return master?.title ? `${master.title} ⚙️` : "Admin";
+	if (path.includes("/p/")) return master?.title || "Planning";
+	return "Oupla Planning";
+}
 
-	// Fonction de gestion du scroll avec requestAnimationFrame
-	function handleScroll() {
-		if (!isScrolling) {
-			isScrolling = true;
-			requestAnimationFrame(() => {
-				const currentScrollY = window.scrollY;
+// Fonction de gestion du scroll avec requestAnimationFrame
+function handleScroll() {
+	if (!isScrolling) {
+		isScrolling = true;
+		requestAnimationFrame(() => {
+			const currentScrollY = window.scrollY;
 
-				// Se rétracte au scroll vers le bas (scrollDown)
-				// S'étend au scroll vers le haut (scrollUp)
-				if (currentScrollY > lastScrollY && currentScrollY > 60) {
-					// Scroll vers le bas et au-delà de 60px
-					isHeaderVisible = false;
-				} else if (currentScrollY < lastScrollY) {
-					// Scroll vers le haut
-					isHeaderVisible = true;
-				}
+			// Se rétracte au scroll vers le bas (scrollDown)
+			// S'étend au scroll vers le haut (scrollUp)
+			if (currentScrollY > lastScrollY && currentScrollY > 60) {
+				// Scroll vers le bas et au-delà de 60px
+				isHeaderVisible = false;
+			} else if (currentScrollY < lastScrollY) {
+				// Scroll vers le haut
+				isHeaderVisible = true;
+			}
 
-				lastScrollY = currentScrollY;
-				isScrolling = false;
-			});
-		}
-
-		// Reset le timeout pour détecter la fin du scroll
-		clearTimeout(scrollTimeout);
-		scrollTimeout = setTimeout(() => {
+			lastScrollY = currentScrollY;
 			isScrolling = false;
-		}, 100);
+		});
 	}
 
-	$effect(() => {
-		lastScrollY = window.scrollY;
-		window.addEventListener('scroll', handleScroll, { passive: true });
+	// Reset le timeout pour détecter la fin du scroll
+	clearTimeout(scrollTimeout);
+	scrollTimeout = setTimeout(() => {
+		isScrolling = false;
+	}, 100);
+}
 
-		return () => {
-			window.removeEventListener('scroll', handleScroll);
-			clearTimeout(scrollTimeout);
-		};
-	});
+$effect(() => {
+	lastScrollY = window.scrollY;
+	window.addEventListener("scroll", handleScroll, { passive: true });
+
+	return () => {
+		window.removeEventListener("scroll", handleScroll);
+		clearTimeout(scrollTimeout);
+	};
+});
 </script>
 
 <!-- Header fixe avec z-index inférieur aux modals (z-40) -->

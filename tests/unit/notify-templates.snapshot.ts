@@ -10,11 +10,11 @@
 // But : servir de baseline visuelle avant retravail du templating. Re-joüer
 // après modifications pour générer un second fichier et faire un diff visuel.
 
-import path from 'path';
-import { writeFileSync, mkdirSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
-import { CASES, mkRecord, buildCtx } from './notify-templates.cases';
+import { mkdirSync, writeFileSync } from "fs";
+import { createRequire } from "module";
+import path from "path";
+import { fileURLToPath } from "url";
+import { buildCtx, CASES, mkRecord } from "./notify-templates.cases";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,10 +27,10 @@ const require = createRequire(import.meta.url);
 // avant le require. On passe par `createRequire` (au lieu d'un `require` global)
 // pour satisfaire la règle ESLint `@typescript-eslint/no-require-imports`.
 
-const HOOKS_DIR = path.resolve(__dirname, '../../', 'pocketbase/pb_hooks');
+const HOOKS_DIR = path.resolve(__dirname, "../../", "pocketbase/pb_hooks");
 (globalThis as any).__hooks = HOOKS_DIR;
 
-const templates = require(path.join(HOOKS_DIR, 'notify-templates.js')) as {
+const templates = require(path.join(HOOKS_DIR, "notify-templates.js")) as {
 	buildSubject: (m: any, e: any[], ctx: any) => string;
 	buildHtmlEmail: (m: any, e: any[], u: any, ctx: any) => string;
 	buildTextEmail: (m: any, e: any[], u: any, ctx: any) => string;
@@ -43,16 +43,16 @@ const templates = require(path.join(HOOKS_DIR, 'notify-templates.js')) as {
 /** Échappe pour insertion dans un <pre> (contenu textuel). */
 function escapeHtml(text: string): string {
 	return String(text)
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&#39;');
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
 }
 
 /** Échappe pour attribut srcdoc (double-quoted). */
 function escapeSrcdoc(text: string): string {
-	return String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+	return String(text).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
 // ============================================================================
@@ -109,13 +109,13 @@ function renderCase(idx: number, c: (typeof CASES)[number]): string {
 function renderToc(): string {
 	return CASES.map((c, i) => {
 		const num = i + 1;
-		const short = c.name.split('—')[0].trim();
+		const short = c.name.split("—")[0].trim();
 		return `<li><a href="#cas-${num}"><span class="toc-num">${num}</span>${escapeHtml(short)}</a></li>`;
-	}).join('\n');
+	}).join("\n");
 }
 
 function renderPage(): string {
-	const sections = CASES.map((c, i) => renderCase(i, c)).join('\n');
+	const sections = CASES.map((c, i) => renderCase(i, c)).join("\n");
 	const generatedAt = new Date().toISOString();
 
 	return `<!DOCTYPE html>
@@ -350,8 +350,8 @@ function renderPage(): string {
 // Écriture du fichier
 // ============================================================================
 
-const OUT_DIR = path.resolve(__dirname, '../../.scratch');
-const OUT_FILE = path.join(OUT_DIR, 'notify-templates-baseline.html');
+const OUT_DIR = path.resolve(__dirname, "../../.scratch");
+const OUT_FILE = path.join(OUT_DIR, "notify-templates-baseline.html");
 
 mkdirSync(OUT_DIR, { recursive: true });
 writeFileSync(OUT_FILE, renderPage());

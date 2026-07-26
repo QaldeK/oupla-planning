@@ -5,7 +5,7 @@
  * via le paramètre `deps`. Le wrapper réactif (`authTransition.svelte.ts`)
  * instancie les deps réelles et gère les guards (`isTransitioning`).
  */
-import type { SavedPlanning } from '$lib/types/planning.types';
+import type { SavedPlanning } from "$lib/types/planning.types";
 
 // =============================================
 // Types
@@ -135,8 +135,8 @@ export async function runAuthTransition(
 		const activeMaster = await db.masters.get(activeMasterId);
 		if (activeMaster) {
 			try {
-				await pb.send('/api/sync-plannings', {
-					method: 'POST',
+				await pb.send("/api/sync-plannings", {
+					method: "POST",
 					body: {
 						tokens: [
 							{
@@ -148,7 +148,7 @@ export async function runAuthTransition(
 					}
 				});
 			} catch (err) {
-				console.error('Token sync failed:', err);
+				console.error("Token sync failed:", err);
 			}
 		}
 	}
@@ -172,7 +172,7 @@ export async function runAuthTransition(
 		await mastersCollection.initialFetch();
 		await occurrencesCollection.initialFetch();
 	} catch (err) {
-		console.error('Post-login fetch failed:', err);
+		console.error("Post-login fetch failed:", err);
 	}
 
 	// 7. Subscribe realtime global + comment state

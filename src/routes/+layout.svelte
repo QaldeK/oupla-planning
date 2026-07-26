@@ -1,141 +1,141 @@
 <script lang="ts">
-	import { version } from '../../package.json' with { type: 'json' };
-	import { afterNavigate, goto } from '$app/navigation';
-	import AccountModal from '$lib/components/auth/AccountModal.svelte';
-	import CommentSection from '$lib/components/CommentSection.svelte';
-	import AccountBenefitsSidebar from '$lib/components/homepage/AccountBenefitsSidebar.svelte';
-	import IdentifyModal from '$lib/components/IdentifyModal.svelte';
-	import MobileHeader from '$lib/components/MobileHeader.svelte';
-	import NetworkIndicator from '$lib/components/NetworkIndicator.svelte';
-	import { commentStateStore } from '$lib/stores/commentStateStore.svelte';
-	import { drawerStore } from '$lib/stores/drawerStore.svelte';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
-	import { modalStore } from '$lib/stores/modalStore.svelte';
-	import { planningStore } from '$lib/stores/planningStore.svelte';
-	import { pwaStore } from '$lib/stores/pwaStore.svelte';
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
-	import { pb } from '$lib/pocketbase/pb';
-	import { recoverAllData } from '$lib/utils/recover';
-	import { Drawer, DrawerContent, DrawerOverlay } from '@abhivarde/svelte-drawer';
-	import {
-		CalendarPlus,
-		Download,
-		Code,
-		LogOut,
-		MessageSquareWarning,
-		Moon,
-		Settings,
-		Sun,
-		Trash2
-	} from '@lucide/svelte';
-	import { onMount } from 'svelte';
-	import { Toaster, toast } from 'svelte-sonner';
+import { Drawer, DrawerContent, DrawerOverlay } from "@abhivarde/svelte-drawer";
+import {
+	CalendarPlus,
+	Code,
+	Download,
+	LogOut,
+	MessageSquareWarning,
+	Moon,
+	Settings,
+	Sun,
+	Trash2
+} from "@lucide/svelte";
+import { onMount } from "svelte";
+import { Toaster, toast } from "svelte-sonner";
+import { afterNavigate, goto } from "$app/navigation";
+import AccountModal from "$lib/components/auth/AccountModal.svelte";
+import CommentSection from "$lib/components/CommentSection.svelte";
+import AccountBenefitsSidebar from "$lib/components/homepage/AccountBenefitsSidebar.svelte";
+import IdentifyModal from "$lib/components/IdentifyModal.svelte";
+import MobileHeader from "$lib/components/MobileHeader.svelte";
+import NetworkIndicator from "$lib/components/NetworkIndicator.svelte";
+import { pb } from "$lib/pocketbase/pb";
+import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
+import { drawerStore } from "$lib/stores/drawerStore.svelte";
+import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
+import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
+import { modalStore } from "$lib/stores/modalStore.svelte";
+import { planningStore } from "$lib/stores/planningStore.svelte";
+import { pwaStore } from "$lib/stores/pwaStore.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
+import { recoverAllData } from "$lib/utils/recover";
+import { version } from "../../package.json" with { type: "json" };
 
-	let { children } = $props();
+let { children } = $props();
 
-	import { page } from '$app/state';
+import { page } from "$app/state";
 
-	// Layout-driven : observer $page.params.token pour activer/désactiver le planning
-	$effect(() => {
-		const token = page.params.token as string | undefined;
+// Layout-driven : observer $page.params.token pour activer/désactiver le planning
+$effect(() => {
+	const token = page.params.token as string | undefined;
 
-		// Détecter si on est sur la page archive pour passer le bon dateFilter
-		const isArchivePage = page.url.pathname.includes('/archive');
-		const dateFilter = isArchivePage ? 'past' : 'future';
+	// Détecter si on est sur la page archive pour passer le bon dateFilter
+	const isArchivePage = page.url.pathname.includes("/archive");
+	const dateFilter = isArchivePage ? "past" : "future";
 
-		planningStore.setActiveToken(token, dateFilter);
-	});
+	planningStore.setActiveToken(token, dateFilter);
+});
 
-	let showAccountModal = $state(false);
-	let showWelcomeModal = $state(false);
-	// Clé forçant la destruction/reconstruction du Drawer après navigation,
-	// pour éviter un drawer fantôme quand la librairie @abhivarde/svelte-drawer
-	// ne nettoie pas son état interne (visible non réactif).
-	let drawerKey = $state(0);
+let showAccountModal = $state(false);
+let showWelcomeModal = $state(false);
+// Clé forçant la destruction/reconstruction du Drawer après navigation,
+// pour éviter un drawer fantôme quand la librairie @abhivarde/svelte-drawer
+// ne nettoie pas son état interne (visible non réactif).
+let drawerKey = $state(0);
 
-	onMount(() => {
-		// Hook de recover : déclenché par error.html (?recover=1) ou saisie manuelle.
-		// error.html tente déjà le clear navigateur avant redirect vers `/` (sans le
-		// paramètre). Ce hook est un filet pour le cas où ce script a échoué ou où
-		// l'utilisateur a saisi l'URL directement. Dans tous les cas, on relance un
-		// nettoyage complet puis on redirect vers `/` (recoverAllData inclus).
-		const params = new URLSearchParams(window.location.search);
-		if (params.get('recover') === '1') {
-			// Fire-and-forget : recoverAllData ne devrait jamais rejeter (chaque step
-			// catche ses propres erreurs), mais on ajoute un .catch défensif pour
-			// éviter une unhandled rejection pendant le boot — exactement le scénario
-			// qu'on cherche à résoudre.
-			recoverAllData().catch((err) => console.error('[layout] recoverAllData failed:', err));
-			return;
-		}
-
-		// onMount ne peut pas être async (il pourrait retourner un cleanup) : on
-		// enveloppe la séquence de boot dans une IIFE async.
-		//
-		// ORDRE IMPORTANT : loadGuestState() doit être AWAIT avant userStore.init(),
-		// car userStore.init() subscribe pb.authStore.onChange qui peut déclencher
-		// authTransition.transitionToAuth() — et la transition a besoin du snapshot
-		// guest. loadGuestState() résout à la première émission du liveQuery Dexie,
-		// garantissant que guestStates est peuplé avant qu'un onChange puisse fire.
-		// Pour les auth users, on skip le chargement (pas d'état guest à charger).
-		(async () => {
-			if (!pb.authStore.isValid) {
-				await guestStateStore.loadGuestState();
-			}
-
-			userStore.init();
-			mediaQuery.init();
-			pwaStore.init();
-			commentStateStore.start();
-		})().catch((err) => console.error('[boot] échec séquence boot:', err));
-	});
-
-	// Notification de mise à jour de la PWA (Service Worker en attente d'activation).
-	// Toast persistant (duration: Infinity) en top-center ; l'utilisateur déclenche
-	// le reload via l'action. L'ID fixe évite tout doublon si l'$effect se rejoue.
-	$effect(() => {
-		if (!pwaStore.hasUpdate) return;
-		toast('Une nouvelle version est disponible.', {
-			id: 'sw-update',
-			position: 'top-center',
-			duration: Infinity,
-			action: {
-				label: 'Mettre à jour',
-				onClick: () => pwaStore.applyUpdate()
-			}
-		});
-	});
-
-	// Ouvrir le modal de bienvenue au premier lancement PWA
-	$effect(() => {
-		if (
-			userStore.isReady &&
-			pwaStore.isInstalled &&
-			!pwaStore.hasSeenWelcome &&
-			!userStore.isLoggedIn
-		) {
-			showWelcomeModal = true;
-			pwaStore.markWelcomeSeen();
-		}
-	});
-
-	// Fermer le drawer des commentaires lors des changements de route ;
-	// la clé drawerKey force le Drawer à être détruit/reconstruit, ce qui
-	// évite un drawer fantôme (visible non réactif dans la librairie).
-	afterNavigate(() => {
-		drawerStore.close();
-		drawerKey += 1;
-	});
-
-	$effect(() => {
-		document.documentElement.setAttribute('data-theme', userStore.appPreferences.theme);
-	});
-
-	function toggleTheme() {
-		const newTheme = userStore.appPreferences.theme === 'my' ? 'nord-dark' : 'my';
-		userStore.setTheme(newTheme);
+onMount(() => {
+	// Hook de recover : déclenché par error.html (?recover=1) ou saisie manuelle.
+	// error.html tente déjà le clear navigateur avant redirect vers `/` (sans le
+	// paramètre). Ce hook est un filet pour le cas où ce script a échoué ou où
+	// l'utilisateur a saisi l'URL directement. Dans tous les cas, on relance un
+	// nettoyage complet puis on redirect vers `/` (recoverAllData inclus).
+	const params = new URLSearchParams(window.location.search);
+	if (params.get("recover") === "1") {
+		// Fire-and-forget : recoverAllData ne devrait jamais rejeter (chaque step
+		// catche ses propres erreurs), mais on ajoute un .catch défensif pour
+		// éviter une unhandled rejection pendant le boot — exactement le scénario
+		// qu'on cherche à résoudre.
+		recoverAllData().catch((err) => console.error("[layout] recoverAllData failed:", err));
+		return;
 	}
+
+	// onMount ne peut pas être async (il pourrait retourner un cleanup) : on
+	// enveloppe la séquence de boot dans une IIFE async.
+	//
+	// ORDRE IMPORTANT : loadGuestState() doit être AWAIT avant userStore.init(),
+	// car userStore.init() subscribe pb.authStore.onChange qui peut déclencher
+	// authTransition.transitionToAuth() — et la transition a besoin du snapshot
+	// guest. loadGuestState() résout à la première émission du liveQuery Dexie,
+	// garantissant que guestStates est peuplé avant qu'un onChange puisse fire.
+	// Pour les auth users, on skip le chargement (pas d'état guest à charger).
+	(async () => {
+		if (!pb.authStore.isValid) {
+			await guestStateStore.loadGuestState();
+		}
+
+		userStore.init();
+		mediaQuery.init();
+		pwaStore.init();
+		commentStateStore.start();
+	})().catch((err) => console.error("[boot] échec séquence boot:", err));
+});
+
+// Notification de mise à jour de la PWA (Service Worker en attente d'activation).
+// Toast persistant (duration: Infinity) en top-center ; l'utilisateur déclenche
+// le reload via l'action. L'ID fixe évite tout doublon si l'$effect se rejoue.
+$effect(() => {
+	if (!pwaStore.hasUpdate) return;
+	toast("Une nouvelle version est disponible.", {
+		id: "sw-update",
+		position: "top-center",
+		duration: Infinity,
+		action: {
+			label: "Mettre à jour",
+			onClick: () => pwaStore.applyUpdate()
+		}
+	});
+});
+
+// Ouvrir le modal de bienvenue au premier lancement PWA
+$effect(() => {
+	if (
+		userStore.isReady &&
+		pwaStore.isInstalled &&
+		!pwaStore.hasSeenWelcome &&
+		!userStore.isLoggedIn
+	) {
+		showWelcomeModal = true;
+		pwaStore.markWelcomeSeen();
+	}
+});
+
+// Fermer le drawer des commentaires lors des changements de route ;
+// la clé drawerKey force le Drawer à être détruit/reconstruit, ce qui
+// évite un drawer fantôme (visible non réactif dans la librairie).
+afterNavigate(() => {
+	drawerStore.close();
+	drawerKey += 1;
+});
+
+$effect(() => {
+	document.documentElement.setAttribute("data-theme", userStore.appPreferences.theme);
+});
+
+function toggleTheme() {
+	const newTheme = userStore.appPreferences.theme === "my" ? "nord-dark" : "my";
+	userStore.setTheme(newTheme);
+}
 </script>
 
 <div class="drawer lg:drawer-open min-h-dvh">

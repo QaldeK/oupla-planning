@@ -1,67 +1,67 @@
 <script lang="ts">
-	import PlanningForm, { type PlanningFormData } from '$lib/components/PlanningForm.svelte';
-	import AccountModal from '$lib/components/auth/AccountModal.svelte';
-	import {
-		createPlanningWithOccurrences,
-		generateAdminToken,
-		generateParticipantToken
-	} from '$lib/services/planningActions';
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { toast } from 'svelte-sonner';
-	import { Calendar, UserPlus } from '@lucide/svelte';
-	import { goto } from '$app/navigation';
-	import { syncService } from '$lib/services/syncService';
-	import type { Participant } from '$lib/types/planning.types';
-	import { pb } from '$lib/pocketbase/pb';
+import { Calendar, UserPlus } from "@lucide/svelte";
+import { toast } from "svelte-sonner";
+import { goto } from "$app/navigation";
+import AccountModal from "$lib/components/auth/AccountModal.svelte";
+import PlanningForm, { type PlanningFormData } from "$lib/components/PlanningForm.svelte";
+import { pb } from "$lib/pocketbase/pb";
+import {
+	createPlanningWithOccurrences,
+	generateAdminToken,
+	generateParticipantToken
+} from "$lib/services/planningActions";
+import { syncService } from "$lib/services/syncService";
+import { userStore } from "$lib/stores/userStore.svelte";
+import type { Participant } from "$lib/types/planning.types";
 
-	let isSubmitting = $state(false);
-	let showAccountModal = $state(false);
+let isSubmitting = $state(false);
+let showAccountModal = $state(false);
 
-	async function handleCreatePlanning(data: PlanningFormData) {
-		try {
-			// IMPORTANT: Générer les tokens localement avant l'appel API
-			const adminToken = generateAdminToken();
-			const participantToken = generateParticipantToken();
+async function handleCreatePlanning(data: PlanningFormData) {
+	try {
+		// IMPORTANT: Générer les tokens localement avant l'appel API
+		const adminToken = generateAdminToken();
+		const participantToken = generateParticipantToken();
 
-			// Préparer les participants : ajouter le créateur s'il est connecté
-			let participants: Participant[] = [];
-			if (userStore.pbUser) {
-				participants = [
-					{
-						id: userStore.pbUser.id,
-						name: userStore.pbUser.name,
-						isAdmin: true, // Le créateur est admin
-						userId: userStore.pbUser.id,
-						createdAt: new Date().toISOString()
-					}
-				];
-			}
-
-			// Créer le planning master et toutes les occurrences en une seule opération batch
-			await createPlanningWithOccurrences({ ...data, participants }, adminToken, participantToken);
-
-			// Peupler adminOf + masterId sur le user auth
-			if (userStore.isLoggedIn) {
-				pb.send('/api/claim-admin', {
-					method: 'POST',
-					body: { token: adminToken }
-				})
-					.then(() => pb.collection('users').authRefresh())
-					.catch(() => {});
-			}
-
-			// Déclencher la synchronisation (lit les tokens depuis db.masters)
-			await syncService.sync();
-
-			toast.success('Planning créé avec succès !');
-
-			// Rediriger vers la vue participant
-			goto(`/p/${participantToken}`);
-		} catch (error) {
-			console.error('Error creating planning:', error);
-			toast.error('Erreur lors de la création du planning');
+		// Préparer les participants : ajouter le créateur s'il est connecté
+		let participants: Participant[] = [];
+		if (userStore.pbUser) {
+			participants = [
+				{
+					id: userStore.pbUser.id,
+					name: userStore.pbUser.name,
+					isAdmin: true, // Le créateur est admin
+					userId: userStore.pbUser.id,
+					createdAt: new Date().toISOString()
+				}
+			];
 		}
+
+		// Créer le planning master et toutes les occurrences en une seule opération batch
+		await createPlanningWithOccurrences({ ...data, participants }, adminToken, participantToken);
+
+		// Peupler adminOf + masterId sur le user auth
+		if (userStore.isLoggedIn) {
+			pb.send("/api/claim-admin", {
+				method: "POST",
+				body: { token: adminToken }
+			})
+				.then(() => pb.collection("users").authRefresh())
+				.catch(() => {});
+		}
+
+		// Déclencher la synchronisation (lit les tokens depuis db.masters)
+		await syncService.sync();
+
+		toast.success("Planning créé avec succès !");
+
+		// Rediriger vers la vue participant
+		goto(`/p/${participantToken}`);
+	} catch (error) {
+		console.error("Error creating planning:", error);
+		toast.error("Erreur lors de la création du planning");
 	}
+}
 </script>
 
 <svelte:head>

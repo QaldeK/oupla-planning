@@ -24,10 +24,10 @@
  *   - cleanupTrackedRecords() : supprime uniquement les records trackés
  *   - cleanupRecords() : DEPRECIE - supprime TOUS les records (dangerux)
  */
-import PocketBase from 'pocketbase';
-import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
+import PocketBase from "pocketbase";
+import type { PlanningMaster, PlanningOccurrence } from "$lib/types/planning.types";
 
-const PB_URL = process.env.VITE_PLANNING_PB_URL || 'http://127.0.0.1:8090';
+const PB_URL = process.env.VITE_PLANNING_PB_URL || "http://127.0.0.1:8090";
 
 let adminPb: PocketBase | null = null;
 
@@ -41,14 +41,14 @@ function getAdminPb(): PocketBase {
 export async function authenticateAdmin(): Promise<PocketBase> {
 	const pb = getAdminPb();
 	if (!pb.authStore.isValid) {
-		await pb.collection('_superusers').authWithPassword('test@example.com', 'testpassword');
+		await pb.collection("_superusers").authWithPassword("test@example.com", "testpassword");
 	}
 	return pb;
 }
 
 export async function authenticateUser(email: string, password: string): Promise<PocketBase> {
 	const pb = new PocketBase(PB_URL);
-	await pb.collection('users').authWithPassword(email, password);
+	await pb.collection("users").authWithPassword(email, password);
 	return pb;
 }
 
@@ -67,19 +67,19 @@ export function dateInDays(days: number): string {
 	const d = new Date();
 	d.setUTCDate(d.getUTCDate() + days);
 	d.setUTCHours(0, 0, 0, 0);
-	return d.toISOString().split('T')[0];
+	return d.toISOString().split("T")[0];
 }
 
 function generateAdminToken(): string {
 	const array = new Uint8Array(32);
 	crypto.getRandomValues(array);
-	return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
+	return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function generateParticipantToken(): string {
 	const array = new Uint8Array(16);
 	crypto.getRandomValues(array);
-	return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
+	return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // --- Tracking des records créés pendant le test ---
@@ -96,7 +96,7 @@ const trackedIds = {
  * À appeler manuellement pour les records créés hors de seedPlanning/seedUser.
  */
 export function trackIds(
-	collection: 'planning_masters' | 'planning_occurrences' | 'planning_participants' | 'users',
+	collection: "planning_masters" | "planning_occurrences" | "planning_participants" | "users",
 	...ids: string[]
 ) {
 	const set = trackedIds[collection];
@@ -128,7 +128,7 @@ export async function cleanupTrackedRecords() {
 	// Supprimer dans l'ordre des dépendances (occurrences avant masters)
 	for (const id of trackedIds.planning_occurrences) {
 		try {
-			await pb.collection('planning_occurrences').delete(id);
+			await pb.collection("planning_occurrences").delete(id);
 		} catch {
 			// ignore (déjà supprimé ou n'existe plus)
 		}
@@ -136,7 +136,7 @@ export async function cleanupTrackedRecords() {
 
 	for (const id of trackedIds.planning_participants) {
 		try {
-			await pb.collection('planning_participants').delete(id);
+			await pb.collection("planning_participants").delete(id);
 		} catch {
 			// ignore
 		}
@@ -144,7 +144,7 @@ export async function cleanupTrackedRecords() {
 
 	for (const id of trackedIds.planning_masters) {
 		try {
-			await pb.collection('planning_masters').delete(id);
+			await pb.collection("planning_masters").delete(id);
 		} catch {
 			// ignore
 		}
@@ -152,7 +152,7 @@ export async function cleanupTrackedRecords() {
 
 	for (const id of trackedIds.users) {
 		try {
-			await pb.collection('users').delete(id);
+			await pb.collection("users").delete(id);
 		} catch {
 			// ignore
 		}
@@ -178,26 +178,26 @@ export async function seedPlanning(
 	const participantToken = overrides?.participantToken || generateParticipantToken();
 
 	const masterData = {
-		title: overrides?.title || 'Test Planning',
-		description: overrides?.description || 'Description de test',
-		place: overrides?.place || 'Lieu de test',
-		defaultStartTime: overrides?.defaultStartTime || '09:00',
-		defaultEndTime: overrides?.defaultEndTime || '17:00',
+		title: overrides?.title || "Test Planning",
+		description: overrides?.description || "Description de test",
+		place: overrides?.place || "Lieu de test",
+		defaultStartTime: overrides?.defaultStartTime || "09:00",
+		defaultEndTime: overrides?.defaultEndTime || "17:00",
 		recurrence: overrides?.recurrence || {
-			type: 'CUSTOM' as const
+			type: "CUSTOM" as const
 		},
 		tasks: overrides?.tasks || [],
 		participants: overrides?.participants || [],
 		minPresentRequired: overrides?.minPresentRequired ?? 1,
 		allowResponses: overrides?.allowResponses ?? true,
 		toConfirm: overrides?.toConfirm ?? false,
-		availableResponseTypes: overrides?.availableResponseTypes || ['present', 'absent'],
+		availableResponseTypes: overrides?.availableResponseTypes || ["present", "absent"],
 		adminToken,
 		participantToken,
-		lastModifiedBy: ''
+		lastModifiedBy: ""
 	};
 
-	const master = await pb.collection('planning_masters').create<PlanningMaster>(masterData);
+	const master = await pb.collection("planning_masters").create<PlanningMaster>(masterData);
 	trackedIds.planning_masters.add(master.id);
 
 	// Résolution des dates d'occ : occurrenceDates explicites > occurrenceDate unique >
@@ -216,17 +216,17 @@ export async function seedPlanning(
 	const occurrences: PlanningOccurrence[] = [];
 
 	for (const date of occurrenceDates) {
-		const occ = await pb.collection('planning_occurrences').create<PlanningOccurrence>({
+		const occ = await pb.collection("planning_occurrences").create<PlanningOccurrence>({
 			master: master.id,
 			date,
-			startTime: '09:00',
-			endTime: '17:00',
+			startTime: "09:00",
+			endTime: "17:00",
 			responses: [],
 			comments: [],
 			tasks: [],
 			isConfirmed: false,
 			isCanceled: false,
-			lastModifiedBy: ''
+			lastModifiedBy: ""
 		});
 		occurrences.push(occ);
 		trackedIds.planning_occurrences.add(occ.id);
@@ -244,7 +244,7 @@ export async function seedUser(
 	const pb = await authenticateAdmin();
 
 	try {
-		const user = await pb.collection('users').create({
+		const user = await pb.collection("users").create({
 			email,
 			password,
 			passwordConfirm: password,
@@ -258,7 +258,7 @@ export async function seedUser(
 		return user;
 	} catch {
 		// User might already exist — return it
-		const users = await pb.collection('users').getFullList({ filter: `email = "${email}"` });
+		const users = await pb.collection("users").getFullList({ filter: `email = "${email}"` });
 		const existing = users[0];
 		if (existing) {
 			trackedIds.users.add(existing.id);
@@ -277,27 +277,27 @@ export async function cleanupRecords() {
 	const pb = await authenticateAdmin();
 
 	try {
-		const participants = await pb.collection('planning_participants').getFullList();
+		const participants = await pb.collection("planning_participants").getFullList();
 		for (const p of participants) {
-			await pb.collection('planning_participants').delete(p.id);
+			await pb.collection("planning_participants").delete(p.id);
 		}
 	} catch {
 		// ignore
 	}
 
 	try {
-		const occurrences = await pb.collection('planning_occurrences').getFullList();
+		const occurrences = await pb.collection("planning_occurrences").getFullList();
 		for (const occ of occurrences) {
-			await pb.collection('planning_occurrences').delete(occ.id);
+			await pb.collection("planning_occurrences").delete(occ.id);
 		}
 	} catch {
 		// ignore
 	}
 
 	try {
-		const masters = await pb.collection('planning_masters').getFullList();
+		const masters = await pb.collection("planning_masters").getFullList();
 		for (const master of masters) {
-			await pb.collection('planning_masters').delete(master.id);
+			await pb.collection("planning_masters").delete(master.id);
 		}
 	} catch {
 		// ignore
@@ -308,11 +308,11 @@ export async function cleanupUsers(emails: string[]) {
 	const adminPb = await authenticateAdmin();
 	for (const email of emails) {
 		try {
-			const users = await adminPb.collection('users').getFullList({
+			const users = await adminPb.collection("users").getFullList({
 				filter: `email = "${email}"`
 			});
 			for (const user of users) {
-				await adminPb.collection('users').delete(user.id);
+				await adminPb.collection("users").delete(user.id);
 			}
 		} catch {
 			// ignore
@@ -336,7 +336,7 @@ export async function seedParticipantPrefs(
 ) {
 	const pb = await authenticateAdmin();
 
-	const record = await pb.collection('planning_participants').create({
+	const record = await pb.collection("planning_participants").create({
 		planning: planningId,
 		user: userId,
 		push: options?.push ?? false,

@@ -1,4 +1,4 @@
-import type { Table } from 'dexie';
+import type { Table } from "dexie";
 
 export type WithMeta = { id: string; updated: string };
 
@@ -61,7 +61,7 @@ export interface SubscriptionRef {
 }
 
 export interface BatchOp<T extends WithMeta = WithMeta> {
-	type: 'create' | 'update' | 'delete' | 'tombstone';
+	type: "create" | "update" | "delete" | "tombstone";
 	table: Table<T>;
 	collection: string;
 	id?: string;

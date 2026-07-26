@@ -1,10 +1,10 @@
-import Dexie, { type Table, type UpdateSpec } from 'dexie';
+import Dexie, { type Table, type UpdateSpec } from "dexie";
 import type {
+	CommentState,
 	PlanningMaster,
 	PlanningOccurrence,
-	SavedPlanning,
-	CommentState
-} from '$lib/types/planning.types';
+	SavedPlanning
+} from "$lib/types/planning.types";
 
 /**
  * Nom de la base IndexedDB. Single source of truth — repris par :
@@ -13,7 +13,7 @@ import type {
  *   - `error.html` script inline (en string littérale — template statique,
  *     pas d'import possible ; un commentaire y pointe vers cette constante).
  */
-export const APP_DB_NAME = 'appDB';
+export const APP_DB_NAME = "appDB";
 
 export class AppDB extends Dexie {
 	masters!: Table<PlanningMaster>;
@@ -25,27 +25,27 @@ export class AppDB extends Dexie {
 	constructor() {
 		super(APP_DB_NAME);
 		this.version(1).stores({
-			masters: 'id, updated, participantToken, adminToken, deleted',
-			occurrences: 'id, updated, master, deleted',
-			deletions: 'id, collection, deletedAt, recordId'
+			masters: "id, updated, participantToken, adminToken, deleted",
+			occurrences: "id, updated, master, deleted",
+			deletions: "id, collection, deletedAt, recordId"
 		});
 		this.version(2).stores({
-			masters: 'id, updated, participantToken, adminToken, deleted',
-			occurrences: 'id, updated, master, date, deleted',
-			deletions: 'id, collection, deletedAt, recordId'
+			masters: "id, updated, participantToken, adminToken, deleted",
+			occurrences: "id, updated, master, date, deleted",
+			deletions: "id, collection, deletedAt, recordId"
 		});
 		this.version(3).stores({
-			masters: 'id, updated, participantToken, adminToken, deleted',
-			occurrences: 'id, updated, master, date, deleted',
-			deletions: 'id, collection, deletedAt, recordId',
-			localMeta: 'masterId'
+			masters: "id, updated, participantToken, adminToken, deleted",
+			occurrences: "id, updated, master, date, deleted",
+			deletions: "id, collection, deletedAt, recordId",
+			localMeta: "masterId"
 		});
 		this.version(4).stores({
-			commentState: 'occurrenceId, masterId, isUserInConversation, lastReadAt'
+			commentState: "occurrenceId, masterId, isUserInConversation, lastReadAt"
 		});
 		this.version(5).upgrade((tx) => {
 			return tx
-				.table('localMeta')
+				.table("localMeta")
 				.toCollection()
 				.modify((record) => {
 					delete record.title;
@@ -62,8 +62,8 @@ export class AppDB extends Dexie {
 // IndexedDB uses structuredClone internally, which cannot handle Proxy objects.
 function applyProxyStripper(db: AppDB) {
 	db.use({
-		stack: 'dbcore',
-		name: 'stripSvelteProxies',
+		stack: "dbcore",
+		name: "stripSvelteProxies",
 		create(downlevelDatabase) {
 			return {
 				...downlevelDatabase,
@@ -72,7 +72,7 @@ function applyProxyStripper(db: AppDB) {
 					return {
 						...table,
 						mutate(req) {
-							if (req.type === 'put' || req.type === 'add') {
+							if (req.type === "put" || req.type === "add") {
 								req = {
 									...req,
 									values: req.values.map((v: unknown) =>
@@ -135,20 +135,20 @@ export function ensureDbReady(): Promise<void> {
 export async function openAppDB(): Promise<AppDB> {
 	// SSR (Node, prerender build) : pas d'IndexedDB. On ne fait rien — en SSR
 	// les composants n'accèdent jamais à la DB (pas de localStorage, pas d'authStore).
-	if (typeof indexedDB === 'undefined') return db;
+	if (typeof indexedDB === "undefined") return db;
 
 	try {
 		await db.open();
 		return db;
 	} catch (err) {
-		console.error('[Dexie] Open failed, attempting full reset:', err);
+		console.error("[Dexie] Open failed, attempting full reset:", err);
 		try {
 			await db.delete();
 		} catch (deleteErr) {
-			console.error('[Dexie] Reset (delete) also failed:', deleteErr);
+			console.error("[Dexie] Reset (delete) also failed:", deleteErr);
 		}
 		await db.open();
-		console.warn('[Dexie] Database reset successful — local cache rebuilt from scratch.');
+		console.warn("[Dexie] Database reset successful — local cache rebuilt from scratch.");
 		return db;
 	}
 }

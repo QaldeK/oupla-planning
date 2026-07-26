@@ -1,5 +1,5 @@
-import { liveQuery } from 'dexie';
-import type { Subscription } from 'dexie';
+import type { Subscription } from "dexie";
+import { liveQuery } from "dexie";
 
 /**
  * Svelte 5 reactive wrapper around Dexie liveQuery.

@@ -8,7 +8,7 @@ declare global {
 	 */
 	interface BeforeInstallPromptEvent extends Event {
 		prompt(): Promise<void>;
-		userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+		userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 	}
 
 	namespace App {

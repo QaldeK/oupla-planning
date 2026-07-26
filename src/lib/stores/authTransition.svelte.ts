@@ -8,14 +8,15 @@
  * Le wrapper instancie les deps réelles et appelle la fonction pure
  * `runAuthTransition` qui contient la logique d'orchestration.
  */
-import { planningStore } from '$lib/stores/planningStore.svelte';
-import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
-import { commentStateService } from '$lib/services/commentStateService';
-import { pb } from '$lib/pocketbase/pb';
-import { db } from '$lib/pb-sync/db';
-import { runAuthTransition } from '$lib/utils/authTransition';
-import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
-import type { AuthTransitionResult } from '$lib/utils/authTransition';
+
+import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { db } from "$lib/pb-sync/db";
+import { pb } from "$lib/pocketbase/pb";
+import { commentStateService } from "$lib/services/commentStateService";
+import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
+import { planningStore } from "$lib/stores/planningStore.svelte";
+import type { AuthTransitionResult } from "$lib/utils/authTransition";
+import { runAuthTransition } from "$lib/utils/authTransition";
 
 class AuthTransitionWrapper {
 	/**
@@ -71,7 +72,7 @@ class AuthTransitionWrapper {
 			// activation ou delta-sync doit pouvoir coexister sans être wipe hors
 			// du périmètre de guestStateStore (modèle de propriété ADR 0009).
 		} catch (err) {
-			console.error('transitionToAuth failed:', err);
+			console.error("transitionToAuth failed:", err);
 		} finally {
 			this.isTransitioning = false;
 		}

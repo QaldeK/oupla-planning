@@ -1,24 +1,24 @@
 <script lang="ts">
-	import type { ResponseType } from '$lib/types/planning.types';
-	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from '$lib/constants';
+import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from "$lib/constants";
+import type { ResponseType } from "$lib/types/planning.types";
 
-	interface Props {
-		availableTypes?: ResponseType[];
-		selectedResponse: ResponseType | undefined;
-		isSubmitting: boolean;
-		onSelect: (response: ResponseType) => void;
-	}
+interface Props {
+	availableTypes?: ResponseType[];
+	selectedResponse: ResponseType | undefined;
+	isSubmitting: boolean;
+	onSelect: (response: ResponseType) => void;
+}
 
-	let { availableTypes, selectedResponse, isSubmitting, onSelect }: Props = $props();
+let { availableTypes, selectedResponse, isSubmitting, onSelect }: Props = $props();
 
-	function getButtonActiveClass(responseType: ResponseType): string {
-		return RESPONSE_TYPE_CONFIG[responseType].btnClass;
-	}
+function getButtonActiveClass(responseType: ResponseType): string {
+	return RESPONSE_TYPE_CONFIG[responseType].btnClass;
+}
 
-	function getButtonInactiveClass(responseType: ResponseType): string {
-		const btnClass = RESPONSE_TYPE_CONFIG[responseType].btnClass;
-		return `text-${btnClass}-content btn-soft ${btnClass}`;
-	}
+function getButtonInactiveClass(responseType: ResponseType): string {
+	const btnClass = RESPONSE_TYPE_CONFIG[responseType].btnClass;
+	return `text-${btnClass}-content btn-soft ${btnClass}`;
+}
 </script>
 
 <div class="join">

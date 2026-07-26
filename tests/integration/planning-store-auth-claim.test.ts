@@ -30,25 +30,25 @@
  *   - Admin de test créé (test@example.com / testpassword)
  *   - fake-indexeddb polyfill (via setup.ts)
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { db } from "$lib/pb-sync/db";
+import { pb } from "$lib/pocketbase/pb";
+import { planningStore } from "$lib/stores/planningStore.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
 import {
-	seedPlanning,
-	seedUser,
-	authenticateUser,
 	authenticateAdmin,
-	clearTrackedIds,
+	authenticateUser,
 	cleanupTrackedRecords,
 	cleanupUsers,
+	clearTrackedIds,
+	seedPlanning,
+	seedUser,
 	trackIds
-} from './seed';
-import { db } from '$lib/pb-sync/db';
-import { planningStore } from '$lib/stores/planningStore.svelte';
-import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
-import { userStore } from '$lib/stores/userStore.svelte';
-import { pb } from '$lib/pocketbase/pb';
+} from "./seed";
 
-const USER_EMAIL = 'auth-claim@test.local';
-const USER_PWD = 'password123';
+const USER_EMAIL = "auth-claim@test.local";
+const USER_PWD = "password123";
 
 /**
  * Helper : retourne le masterId courant du user authentifié dans le singleton pb.
@@ -57,10 +57,10 @@ const USER_PWD = 'password123';
  */
 function currentAuthMasterIds(): string[] {
 	const record = pb.authStore.record;
-	return (record?.['masterId'] as string[] | undefined) ?? [];
+	return (record?.["masterId"] as string[] | undefined) ?? [];
 }
 
-describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', () => {
+describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", () => {
 	beforeEach(async () => {
 		clearTrackedIds();
 		await db.masters.clear();
@@ -84,14 +84,14 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 		userStore.isLoggedIn = false;
 	});
 
-	it('user auth visitant pour la première fois un planning tiers → master ajouté à pbUser.masterId', async () => {
+	it("user auth visitant pour la première fois un planning tiers → master ajouté à pbUser.masterId", async () => {
 		// === SEED : planning + user SANS masterIds ===
 		const { master, participantToken } = await seedPlanning({
-			title: 'Planning Tiers',
+			title: "Planning Tiers",
 			occurrenceCount: 2
 		});
-		const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth Claim', {});
-		trackIds('users', user.id);
+		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Claim", {});
+		trackIds("users", user.id);
 
 		// === AUTH ===
 		const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -105,7 +105,7 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 		// Attendre que le liveQuery Dexie émette (master + occurrences)
 		await vi.waitFor(
 			() => {
-				expect(planningStore.master?.title).toBe('Planning Tiers');
+				expect(planningStore.master?.title).toBe("Planning Tiers");
 				expect(planningStore.occurrences.length).toBe(2);
 			},
 			{ timeout: 3000 }
@@ -118,7 +118,7 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 
 		// === VÉRIFICATION CLAIM — user.masterId mis à jour côté serveur ===
 		const adminPb = await authenticateAdmin();
-		const pbUser = await adminPb.collection('users').getOne(user.id);
+		const pbUser = await adminPb.collection("users").getOne(user.id);
 		expect(pbUser.masterId).toContain(master.id);
 
 		// === VÉRIFICATION CLAIM — authStore client rafraîchi ===
@@ -128,23 +128,23 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 		// === VÉRIFICATION DEXIE ===
 		const dexieMaster = await db.masters.get(master.id);
 		expect(dexieMaster).toBeDefined();
-		expect(dexieMaster!.title).toBe('Planning Tiers');
+		expect(dexieMaster!.title).toBe("Planning Tiers");
 		expect(dexieMaster!.participantToken).toBe(participantToken);
 
-		const dexieOcc = await db.occurrences.where('master').equals(master.id).toArray();
+		const dexieOcc = await db.occurrences.where("master").equals(master.id).toArray();
 		expect(dexieOcc.length).toBe(2);
 	});
 
-	it('user auth visitant un planning déjà dans user.masterId → skip du claim', async () => {
+	it("user auth visitant un planning déjà dans user.masterId → skip du claim", async () => {
 		// === SEED : planning + user AVEC le master en masterId ===
 		const { master, participantToken } = await seedPlanning({
-			title: 'Planning Connu',
+			title: "Planning Connu",
 			occurrenceCount: 2
 		});
-		const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth Skip', {
+		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Skip", {
 			masterIds: [master.id]
 		});
-		trackIds('users', user.id);
+		trackIds("users", user.id);
 
 		// === AUTH ===
 		const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -154,7 +154,7 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 
 		// === SPIE sur pb.send pour détecter un éventuel appel /api/sync-plannings ===
 		// (le claim doit être skippé car master.id est déjà dans masterId)
-		const sendSpy = vi.spyOn(pb, 'send');
+		const sendSpy = vi.spyOn(pb, "send");
 
 		// === ACTION : activation du planning déjà connu ===
 		// Note : le master n'est pas encore en Dexie → résolution réseau → upsertRecord
@@ -162,7 +162,7 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 
 		await vi.waitFor(
 			() => {
-				expect(planningStore.master?.title).toBe('Planning Connu');
+				expect(planningStore.master?.title).toBe("Planning Connu");
 				expect(planningStore.occurrences.length).toBe(2);
 			},
 			{ timeout: 3000 }
@@ -173,20 +173,20 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 		expect(planningStore.error).toBeNull();
 
 		// === VÉRIFICATION : aucun appel /api/sync-plannings déclenché ===
-		const syncCalls = sendSpy.mock.calls.filter(([url]) => url === '/api/sync-plannings');
+		const syncCalls = sendSpy.mock.calls.filter(([url]) => url === "/api/sync-plannings");
 		expect(syncCalls.length).toBe(0);
 
 		sendSpy.mockRestore();
 	});
 
-	it('user auth visitant un planning admin tiers → pas de double claim', async () => {
+	it("user auth visitant un planning admin tiers → pas de double claim", async () => {
 		// === SEED : planning + user SANS masterIds ===
 		const { master, adminToken, participantToken } = await seedPlanning({
-			title: 'Planning Admin Tiers',
+			title: "Planning Admin Tiers",
 			occurrenceCount: 1
 		});
-		const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth Admin', {});
-		trackIds('users', user.id);
+		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Admin", {});
+		trackIds("users", user.id);
 
 		// === AUTH ===
 		const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -195,14 +195,14 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 
 		// === SPIE : compte les appels /api/sync-plannings (claim principal)
 		// et /api/claim-admin (fire-and-forget dans getPlanningByToken pour les liens admin)
-		const sendSpy = vi.spyOn(pb, 'send');
+		const sendSpy = vi.spyOn(pb, "send");
 
 		// === ACTION : activation via adminToken (lien admin tiers) ===
 		await planningStore.setActiveToken(adminToken);
 
 		await vi.waitFor(
 			() => {
-				expect(planningStore.master?.title).toBe('Planning Admin Tiers');
+				expect(planningStore.master?.title).toBe("Planning Admin Tiers");
 				expect(planningStore.occurrences.length).toBe(1);
 			},
 			{ timeout: 3000 }
@@ -218,7 +218,7 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 		// === VÉRIFICATION : master.id présent exactement 1 fois dans user.masterId ===
 		// (pas de double claim malgré claim-admin + attachMasterToUser — le hook est idempotent)
 		const adminPb = await authenticateAdmin();
-		const pbUser = await adminPb.collection('users').getOne(user.id);
+		const pbUser = await adminPb.collection("users").getOne(user.id);
 		const masterIdCount = pbUser.masterId.filter((id: string) => id === master.id).length;
 		expect(masterIdCount).toBe(1);
 
@@ -233,14 +233,14 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 		sendSpy.mockRestore();
 	});
 
-	it('réseau en panne pendant le claim → statut dégradé (warn + continue), pas derreur fatale', async () => {
+	it("réseau en panne pendant le claim → statut dégradé (warn + continue), pas derreur fatale", async () => {
 		// === SEED ===
 		const { master, participantToken } = await seedPlanning({
-			title: 'Planning Claim Fail',
+			title: "Planning Claim Fail",
 			occurrenceCount: 2
 		});
-		const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth Net Fail', {});
-		trackIds('users', user.id);
+		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Net Fail", {});
+		trackIds("users", user.id);
 
 		// === AUTH ===
 		const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -250,11 +250,11 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 		// === MOCK : pb.send reject pour /api/sync-plannings uniquement ===
 		// Les autres URLs (notamment /api/realtime pour SSE) doivent continuer à
 		// fonctionner pour ne pas casser les subscriptions déjà montées.
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const originalSend = pb.send.bind(pb);
-		const sendSpy = vi.spyOn(pb, 'send').mockImplementation(async (url, options) => {
-			if (url === '/api/sync-plannings') {
-				throw new TypeError('Network error simulated');
+		const sendSpy = vi.spyOn(pb, "send").mockImplementation(async (url, options) => {
+			if (url === "/api/sync-plannings") {
+				throw new TypeError("Network error simulated");
 			}
 			return originalSend(url, options);
 		});
@@ -264,7 +264,7 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 
 		await vi.waitFor(
 			() => {
-				expect(planningStore.master?.title).toBe('Planning Claim Fail');
+				expect(planningStore.master?.title).toBe("Planning Claim Fail");
 				expect(planningStore.occurrences.length).toBe(2);
 			},
 			{ timeout: 3000 }
@@ -277,47 +277,47 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 		// === VÉRIFICATION : master quand même chargé en Dexie ===
 		const dexieMaster = await db.masters.get(master.id);
 		expect(dexieMaster).toBeDefined();
-		expect(dexieMaster!.title).toBe('Planning Claim Fail');
+		expect(dexieMaster!.title).toBe("Planning Claim Fail");
 
 		// === VÉRIFICATION : warn émis (statut dégradé signalé) ===
 		expect(warnSpy).toHaveBeenCalled();
-		const warnArgs = warnSpy.mock.calls.flat().join(' ');
+		const warnArgs = warnSpy.mock.calls.flat().join(" ");
 		expect(warnArgs).toMatch(/attachMasterToUser|degraded|claim/i);
 
 		// === VÉRIFICATION : master.id PAS dans user.masterId (claim a échoué) ===
 		const adminPb = await authenticateAdmin();
-		const pbUser = await adminPb.collection('users').getOne(user.id);
+		const pbUser = await adminPb.collection("users").getOne(user.id);
 		expect(pbUser.masterId).not.toContain(master.id);
 
 		sendSpy.mockRestore();
 		warnSpy.mockRestore();
 	});
 
-	it('erreur fatale pendant le claim (4xx serveur) → #error fatal, pas de degraded', async () => {
+	it("erreur fatale pendant le claim (4xx serveur) → #error fatal, pas de degraded", async () => {
 		// Complément du test précédent : une erreur NON réseau (ex: 400 serveur)
 		// doit remonter au caller et setter #error = 'network'. La spec exige
 		// cette distinction fatal/non-bloquant (US 7).
 		const { participantToken } = await seedPlanning({
-			title: 'Planning Fatal Claim',
+			title: "Planning Fatal Claim",
 			occurrenceCount: 1
 		});
-		const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth Fatal', {});
-		trackIds('users', user.id);
+		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Fatal", {});
+		trackIds("users", user.id);
 
 		const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
 		pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 		userStore.isLoggedIn = true;
 
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const originalSend = pb.send.bind(pb);
-		const sendSpy = vi.spyOn(pb, 'send').mockImplementation(async (url, options) => {
-			if (url === '/api/sync-plannings') {
+		const sendSpy = vi.spyOn(pb, "send").mockImplementation(async (url, options) => {
+			if (url === "/api/sync-plannings") {
 				// 400 Bad Request — erreur fatale, pas réseau
-				const { ClientResponseError } = await import('pocketbase');
+				const { ClientResponseError } = await import("pocketbase");
 				throw new ClientResponseError({
-					url: 'http://test/api/sync-plannings',
+					url: "http://test/api/sync-plannings",
 					status: 400,
-					response: { code: 400, message: 'Bad request', data: {} }
+					response: { code: 400, message: "Bad request", data: {} }
 				});
 			}
 			return originalSend(url, options);
@@ -328,24 +328,24 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 
 		// === VÉRIFICATION : #error fatal positionné (type 'network' selon spec) ===
 		expect(planningStore.error).not.toBeNull();
-		expect(planningStore.error!.type).toBe('network');
+		expect(planningStore.error!.type).toBe("network");
 
 		// Le warn "degraded" ne doit PAS être émis (l'erreur est fatale, pas réseau)
-		const warnArgs = warnSpy.mock.calls.flat().join(' ');
+		const warnArgs = warnSpy.mock.calls.flat().join(" ");
 		expect(warnArgs).not.toMatch(/attachMasterToUser.*degraded/i);
 
 		sendSpy.mockRestore();
 		warnSpy.mockRestore();
 	});
 
-	it('realtime (global, mode auth) activé dès la fin du setActiveToken', async () => {
+	it("realtime (global, mode auth) activé dès la fin du setActiveToken", async () => {
 		// === SEED ===
 		const { master, participantToken } = await seedPlanning({
-			title: 'Realtime Auth Test',
+			title: "Realtime Auth Test",
 			occurrenceCount: 1
 		});
-		const user = await seedUser(USER_EMAIL, USER_PWD, 'Auth Realtime', {});
-		trackIds('users', user.id);
+		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Realtime", {});
+		trackIds("users", user.id);
 
 		// === AUTH ===
 		const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -364,7 +364,7 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 
 		await vi.waitFor(
 			() => {
-				expect(planningStore.master?.title).toBe('Realtime Auth Test');
+				expect(planningStore.master?.title).toBe("Realtime Auth Test");
 				expect(planningStore.occurrences.length).toBe(1);
 			},
 			{ timeout: 3000 }
@@ -372,8 +372,8 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 
 		// === MODIFICATION EXTERNE via client indépendant (admin) ===
 		const adminPb = await authenticateAdmin();
-		await adminPb.collection('planning_masters').update(master.id, {
-			title: 'Updated via Realtime Auth'
+		await adminPb.collection("planning_masters").update(master.id, {
+			title: "Updated via Realtime Auth"
 		});
 
 		// === VÉRIFICATION : realtime → Dexie → liveQuery → store ===
@@ -383,12 +383,12 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 		// fait dans le flow d'activation avant la fin de setActiveToken.
 		await vi.waitFor(
 			() => {
-				expect(planningStore.master?.title).toBe('Updated via Realtime Auth');
+				expect(planningStore.master?.title).toBe("Updated via Realtime Auth");
 			},
 			{ timeout: 5000 }
 		);
 
 		const dexieMaster = await db.masters.get(master.id);
-		expect(dexieMaster?.title).toBe('Updated via Realtime Auth');
+		expect(dexieMaster?.title).toBe("Updated via Realtime Auth");
 	});
 });

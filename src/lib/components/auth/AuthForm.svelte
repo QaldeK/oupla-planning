@@ -1,170 +1,170 @@
 <script lang="ts">
-	import { pb } from '$lib/pocketbase/pb';
-	import { ClientResponseError } from 'pocketbase';
-	import { toast } from 'svelte-sonner';
-	import { Mail, KeyRound, LoaderCircle, User } from '@lucide/svelte';
+import { KeyRound, LoaderCircle, Mail, User } from "@lucide/svelte";
+import { ClientResponseError } from "pocketbase";
+import { toast } from "svelte-sonner";
+import { pb } from "$lib/pocketbase/pb";
 
-	interface Props {
-		mode?: 'register' | 'login';
-		compact?: boolean;
-		name?: string;
-		initialEmail?: string;
-		focusEmail?: boolean;
-		showNameInput?: boolean;
-		onSuccess?: () => void;
+interface Props {
+	mode?: "register" | "login";
+	compact?: boolean;
+	name?: string;
+	initialEmail?: string;
+	focusEmail?: boolean;
+	showNameInput?: boolean;
+	onSuccess?: () => void;
+}
+
+let {
+	mode = "login",
+	compact = false,
+	name = "",
+	initialEmail = "",
+	focusEmail = false,
+	showNameInput = true,
+	onSuccess
+}: Props = $props();
+
+let email = $state(initialEmail);
+let password = $state("");
+let passwordConfirm = $state("");
+let emailInputRef = $state<HTMLInputElement | null>(null);
+
+// État local pour le nom.
+// - Si showNameInput=false (cas IdentifyModal) : sync réactif avec la prop `name`
+//   car l'utilisateur tape dans le champ parent et localName doit suivre.
+// - Si showNameInput=true (cas AccountModal) : init unique au montage seulement,
+//   pour ne pas écraser la saisie de l'utilisateur si la prop change.
+let localName = $state("");
+let localNameInitialized = false;
+$effect(() => {
+	if (!showNameInput) {
+		// Sync réactif (champ invisible, l'utilisateur tape ailleurs)
+		localName = name;
+	} else if (!localNameInitialized && name) {
+		// Init unique (champ visible, l'utilisateur tape ici)
+		localName = name;
+		localNameInitialized = true;
+	}
+});
+
+let isSubmitting = $state(false);
+let errorMsg = $state("");
+
+// États de validation
+let emailError = $state("");
+let passwordError = $state("");
+let passwordConfirmError = $state("");
+
+// Focus auto sur l'email si demandé
+$effect(() => {
+	if (focusEmail && emailInputRef) {
+		setTimeout(() => emailInputRef?.focus(), 50);
+	}
+});
+
+function clearErrors() {
+	if (emailError) emailError = "";
+	if (passwordError) passwordError = "";
+	if (passwordConfirmError) passwordConfirmError = "";
+}
+
+function clearPasswordConfirmError() {
+	if (passwordConfirmError && password === passwordConfirm) {
+		passwordConfirmError = "";
+	}
+}
+
+function validateEmail(): boolean {
+	if (!email) {
+		emailError = "Email requis";
+		return false;
+	}
+	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	if (!emailRegex.test(email)) {
+		emailError = "Email invalide";
+		return false;
+	}
+	emailError = "";
+	return true;
+}
+
+function validatePassword(): boolean {
+	if (!password) {
+		passwordError = "Mot de passe requis";
+		return false;
+	}
+	if (password.length < 8) {
+		passwordError = "Minimum 8 caractères";
+		return false;
+	}
+	passwordError = "";
+	return true;
+}
+
+function validatePasswordConfirm(): boolean {
+	if (mode === "register" && password !== passwordConfirm) {
+		passwordConfirmError = "Les mots de passe ne correspondent pas";
+		return false;
+	}
+	passwordConfirmError = "";
+	return true;
+}
+
+async function handleSubmit(e: Event) {
+	e.preventDefault();
+
+	// Valider tous les champs
+	const isEmailValid = validateEmail();
+	const isPasswordValid = validatePassword();
+	const isPasswordConfirmValid = mode === "register" ? validatePasswordConfirm() : true;
+
+	if (!isEmailValid || !isPasswordValid || !isPasswordConfirmValid) {
+		return;
 	}
 
-	let {
-		mode = 'login',
-		compact = false,
-		name = '',
-		initialEmail = '',
-		focusEmail = false,
-		showNameInput = true,
-		onSuccess
-	}: Props = $props();
+	isSubmitting = true;
+	errorMsg = "";
 
-	let email = $state(initialEmail);
-	let password = $state('');
-	let passwordConfirm = $state('');
-	let emailInputRef = $state<HTMLInputElement | null>(null);
+	try {
+		if (mode === "register") {
+			// Si le nom n'est pas renseigné, extraire la partie avant '@' de l'email
+			const userName = localName.trim() || email.split("@")[0];
 
-	// État local pour le nom.
-	// - Si showNameInput=false (cas IdentifyModal) : sync réactif avec la prop `name`
-	//   car l'utilisateur tape dans le champ parent et localName doit suivre.
-	// - Si showNameInput=true (cas AccountModal) : init unique au montage seulement,
-	//   pour ne pas écraser la saisie de l'utilisateur si la prop change.
-	let localName = $state('');
-	let localNameInitialized = false;
-	$effect(() => {
-		if (!showNameInput) {
-			// Sync réactif (champ invisible, l'utilisateur tape ailleurs)
-			localName = name;
-		} else if (!localNameInitialized && name) {
-			// Init unique (champ visible, l'utilisateur tape ici)
-			localName = name;
-			localNameInitialized = true;
+			// Créer l'utilisateur PocketBase
+			await pb.collection("users").create({
+				email,
+				password,
+				passwordConfirm,
+				name: userName
+			});
+
+			// Authentification auto
+			await pb.collection("users").authWithPassword(email, password);
+
+			// La synchronisation des plannings est gérée par userStore via pb.authStore.onChange
+
+			toast.success("Compte créé avec succès !");
+		} else {
+			// Mode Login
+			await pb.collection("users").authWithPassword(email, password);
+
+			// La synchronisation des plannings est gérée par userStore via pb.authStore.onChange
+
+			toast.success("Connexion réussie !");
 		}
-	});
 
-	let isSubmitting = $state(false);
-	let errorMsg = $state('');
-
-	// États de validation
-	let emailError = $state('');
-	let passwordError = $state('');
-	let passwordConfirmError = $state('');
-
-	// Focus auto sur l'email si demandé
-	$effect(() => {
-		if (focusEmail && emailInputRef) {
-			setTimeout(() => emailInputRef?.focus(), 50);
+		if (onSuccess) onSuccess();
+	} catch (error: unknown) {
+		if (error instanceof ClientResponseError) {
+			console.error("Auth error", error);
+			errorMsg = error.response?.message || "Une erreur inattendue s'est produite.";
+		} else {
+			errorMsg = "Une erreur inattendue s'est produite.";
 		}
-	});
-
-	function clearErrors() {
-		if (emailError) emailError = '';
-		if (passwordError) passwordError = '';
-		if (passwordConfirmError) passwordConfirmError = '';
+	} finally {
+		isSubmitting = false;
 	}
-
-	function clearPasswordConfirmError() {
-		if (passwordConfirmError && password === passwordConfirm) {
-			passwordConfirmError = '';
-		}
-	}
-
-	function validateEmail(): boolean {
-		if (!email) {
-			emailError = 'Email requis';
-			return false;
-		}
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(email)) {
-			emailError = 'Email invalide';
-			return false;
-		}
-		emailError = '';
-		return true;
-	}
-
-	function validatePassword(): boolean {
-		if (!password) {
-			passwordError = 'Mot de passe requis';
-			return false;
-		}
-		if (password.length < 8) {
-			passwordError = 'Minimum 8 caractères';
-			return false;
-		}
-		passwordError = '';
-		return true;
-	}
-
-	function validatePasswordConfirm(): boolean {
-		if (mode === 'register' && password !== passwordConfirm) {
-			passwordConfirmError = 'Les mots de passe ne correspondent pas';
-			return false;
-		}
-		passwordConfirmError = '';
-		return true;
-	}
-
-	async function handleSubmit(e: Event) {
-		e.preventDefault();
-
-		// Valider tous les champs
-		const isEmailValid = validateEmail();
-		const isPasswordValid = validatePassword();
-		const isPasswordConfirmValid = mode === 'register' ? validatePasswordConfirm() : true;
-
-		if (!isEmailValid || !isPasswordValid || !isPasswordConfirmValid) {
-			return;
-		}
-
-		isSubmitting = true;
-		errorMsg = '';
-
-		try {
-			if (mode === 'register') {
-				// Si le nom n'est pas renseigné, extraire la partie avant '@' de l'email
-				const userName = localName.trim() || email.split('@')[0];
-
-				// Créer l'utilisateur PocketBase
-				await pb.collection('users').create({
-					email,
-					password,
-					passwordConfirm,
-					name: userName
-				});
-
-				// Authentification auto
-				await pb.collection('users').authWithPassword(email, password);
-
-				// La synchronisation des plannings est gérée par userStore via pb.authStore.onChange
-
-				toast.success('Compte créé avec succès !');
-			} else {
-				// Mode Login
-				await pb.collection('users').authWithPassword(email, password);
-
-				// La synchronisation des plannings est gérée par userStore via pb.authStore.onChange
-
-				toast.success('Connexion réussie !');
-			}
-
-			if (onSuccess) onSuccess();
-		} catch (error: unknown) {
-			if (error instanceof ClientResponseError) {
-				console.error('Auth error', error);
-				errorMsg = error.response?.message || "Une erreur inattendue s'est produite.";
-			} else {
-				errorMsg = "Une erreur inattendue s'est produite.";
-			}
-		} finally {
-			isSubmitting = false;
-		}
-	}
+}
 </script>
 
 <form onsubmit={handleSubmit} class="space-y-4">

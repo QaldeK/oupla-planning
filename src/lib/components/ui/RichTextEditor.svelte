@@ -1,216 +1,216 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
-	import { Editor } from '@tiptap/core';
-	import Document from '@tiptap/extension-document';
-	import Bold from '@tiptap/extension-bold';
-	import Italic from '@tiptap/extension-italic';
-	import Paragraph from '@tiptap/extension-paragraph';
-	import Text from '@tiptap/extension-text';
-	import Heading from '@tiptap/extension-heading';
-	import BulletList from '@tiptap/extension-bullet-list';
-	import ListItem from '@tiptap/extension-list-item';
-	import OrderedList from '@tiptap/extension-ordered-list';
-	import Link from '@tiptap/extension-link';
-	import {
-		Bold as BoldIcon,
-		Italic as ItalicIcon,
-		List,
-		ListOrdered,
-		Heading2,
-		Heading3,
-		Link as LinkIcon,
-		Unlink
-	} from '@lucide/svelte';
-	import { toast } from 'svelte-sonner';
+import {
+	Bold as BoldIcon,
+	Heading2,
+	Heading3,
+	Italic as ItalicIcon,
+	Link as LinkIcon,
+	List,
+	ListOrdered,
+	Unlink
+} from "@lucide/svelte";
+import { Editor } from "@tiptap/core";
+import Bold from "@tiptap/extension-bold";
+import BulletList from "@tiptap/extension-bullet-list";
+import Document from "@tiptap/extension-document";
+import Heading from "@tiptap/extension-heading";
+import Italic from "@tiptap/extension-italic";
+import Link from "@tiptap/extension-link";
+import ListItem from "@tiptap/extension-list-item";
+import OrderedList from "@tiptap/extension-ordered-list";
+import Paragraph from "@tiptap/extension-paragraph";
+import Text from "@tiptap/extension-text";
+import { onDestroy, onMount } from "svelte";
+import { toast } from "svelte-sonner";
 
-	interface Props {
-		/** HTML contenu. Bindable pour usage `bind:value`. */
-		value?: string;
-		placeholder?: string;
-		disabled?: boolean;
-		class?: string;
-		/** Callback alternative au binding (utile pour notifications hors formulaire). */
-		onchange?: (html: string) => void;
-	}
+interface Props {
+	/** HTML contenu. Bindable pour usage `bind:value`. */
+	value?: string;
+	placeholder?: string;
+	disabled?: boolean;
+	class?: string;
+	/** Callback alternative au binding (utile pour notifications hors formulaire). */
+	onchange?: (html: string) => void;
+}
 
-	let {
-		value = $bindable(''),
-		placeholder = '',
-		disabled = false,
-		class: className = '',
-		onchange
-	}: Props = $props();
+let {
+	value = $bindable(""),
+	placeholder = "",
+	disabled = false,
+	class: className = "",
+	onchange
+}: Props = $props();
 
-	let element = $state<HTMLDivElement>();
-	// Pattern officiel TipTap/Svelte 5 : on réassigne l'objet entier dans onTransaction
-	// pour forcer la réactivité (l'état interne de l'Editor n'est pas tracé par Svelte).
-	let editorState = $state<{ editor: Editor | null }>({ editor: null });
+let element = $state<HTMLDivElement>();
+// Pattern officiel TipTap/Svelte 5 : on réassigne l'objet entier dans onTransaction
+// pour forcer la réactivité (l'état interne de l'Editor n'est pas tracé par Svelte).
+let editorState = $state<{ editor: Editor | null }>({ editor: null });
 
-	// Garde anti-boucle : empêche l'`$effect` de sync externe de redéclencher `onUpdate`.
-	let isSettingContent = false;
+// Garde anti-boucle : empêche l'`$effect` de sync externe de redéclencher `onUpdate`.
+let isSettingContent = false;
 
-	// TipTap renvoie `<p></p>` pour un contenu vide ; on normalise pour la comparaison.
-	function normalizeHtml(html: string): string {
-		if (html === '<p></p>' || html === '<p><br></p>') return '';
-		return html;
-	}
+// TipTap renvoie `<p></p>` pour un contenu vide ; on normalise pour la comparaison.
+function normalizeHtml(html: string): string {
+	if (html === "<p></p>" || html === "<p><br></p>") return "";
+	return html;
+}
 
-	onMount(() => {
-		if (!element) return;
-		editorState.editor = new Editor({
-			element,
-			extensions: [
-				Document,
-				Text,
-				Paragraph,
-				Bold,
-				Italic,
-				Heading.configure({ levels: [2, 3] }),
-				BulletList,
-				ListItem,
-				OrderedList,
-				Link.configure({
-					openOnClick: false,
-					autolink: true,
-					HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' }
-				})
-			],
-			content: value || '',
-			editable: !disabled,
-			editorProps: {
-				attributes: {
-					class:
-						'rich-text-content prose prose-sm max-w-none focus:outline-none min-h-[60px] px-3 py-2',
-					'data-placeholder': placeholder
-				}
-			},
-			onUpdate: ({ editor: e }) => {
-				if (isSettingContent) return;
-				const html = normalizeHtml(e.getHTML());
-				value = html;
-				onchange?.(html);
-			},
-			onTransaction: ({ editor }) => {
-				editorState = { editor };
+onMount(() => {
+	if (!element) return;
+	editorState.editor = new Editor({
+		element,
+		extensions: [
+			Document,
+			Text,
+			Paragraph,
+			Bold,
+			Italic,
+			Heading.configure({ levels: [2, 3] }),
+			BulletList,
+			ListItem,
+			OrderedList,
+			Link.configure({
+				openOnClick: false,
+				autolink: true,
+				HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" }
+			})
+		],
+		content: value || "",
+		editable: !disabled,
+		editorProps: {
+			attributes: {
+				class:
+					"rich-text-content prose prose-sm max-w-none focus:outline-none min-h-[60px] px-3 py-2",
+				"data-placeholder": placeholder
 			}
-		});
-	});
-
-	// Sync externe → interne : quand `value` change hors de l'éditeur (init, reset, sync realtime).
-	$effect(() => {
-		void value;
-		const e = editorState.editor;
-		if (!e) return;
-		const current = normalizeHtml(e.getHTML());
-		if (current !== value) {
-			isSettingContent = true;
-			e.commands.setContent(value || '', { emitUpdate: false });
-			isSettingContent = false;
+		},
+		onUpdate: ({ editor: e }) => {
+			if (isSettingContent) return;
+			const html = normalizeHtml(e.getHTML());
+			value = html;
+			onchange?.(html);
+		},
+		onTransaction: ({ editor }) => {
+			editorState = { editor };
 		}
 	});
+});
 
-	$effect(() => {
-		editorState.editor?.setEditable(!disabled);
-	});
+// Sync externe → interne : quand `value` change hors de l'éditeur (init, reset, sync realtime).
+$effect(() => {
+	void value;
+	const e = editorState.editor;
+	if (!e) return;
+	const current = normalizeHtml(e.getHTML());
+	if (current !== value) {
+		isSettingContent = true;
+		e.commands.setContent(value || "", { emitUpdate: false });
+		isSettingContent = false;
+	}
+});
 
-	onDestroy(() => {
-		editorState.editor?.destroy();
-		editorState = { editor: null };
-	});
+$effect(() => {
+	editorState.editor?.setEditable(!disabled);
+});
 
-	// Popover lien (rendu inline sous la toolbar).
-	let linkPopoverOpen = $state(false);
-	let linkUrl = $state('');
+onDestroy(() => {
+	editorState.editor?.destroy();
+	editorState = { editor: null };
+});
 
-	function openLinkPopover() {
-		const e = editorState.editor;
-		if (!e) return;
-		const { from, to } = e.state.selection;
-		if (from === to) {
-			toast.warning('Sélectionnez le texte à transformer en lien');
-			return;
+// Popover lien (rendu inline sous la toolbar).
+let linkPopoverOpen = $state(false);
+let linkUrl = $state("");
+
+function openLinkPopover() {
+	const e = editorState.editor;
+	if (!e) return;
+	const { from, to } = e.state.selection;
+	if (from === to) {
+		toast.warning("Sélectionnez le texte à transformer en lien");
+		return;
+	}
+	const attrs = e.getAttributes("link");
+	linkUrl = (attrs?.href as string) || "";
+	linkPopoverOpen = true;
+}
+
+function applyLink() {
+	const e = editorState.editor;
+	if (!e) return;
+	const url = linkUrl.trim();
+	if (!url) {
+		removeLink();
+		return;
+	}
+	// Préfixer le protocole si manquant (ex: `example.com` → `https://example.com`).
+	const normalized = /^https?:\/\//i.test(url) || /^mailto:/i.test(url) ? url : `https://${url}`;
+	e.chain().focus().extendMarkRange("link").setLink({ href: normalized }).run();
+	linkPopoverOpen = false;
+}
+
+function removeLink() {
+	editorState.editor?.chain().focus().extendMarkRange("link").unsetLink().run();
+	linkPopoverOpen = false;
+}
+
+// Boutons de la barre d'outils. Le `$derived.by` se re-déclenche à chaque transaction
+// car `editorState` est réassigné dans `onTransaction` (cf. pattern officiel TipTap).
+interface ToolbarButton {
+	icon: typeof BoldIcon;
+	label: string;
+	active: boolean;
+	run: () => void;
+}
+
+const toolbar: ToolbarButton[] = $derived.by(() => {
+	const e = editorState.editor;
+	if (!e) return [];
+	return [
+		{
+			icon: BoldIcon,
+			label: "Gras",
+			active: e.isActive("bold"),
+			run: () => e.chain().focus().toggleBold().run()
+		},
+		{
+			icon: ItalicIcon,
+			label: "Italique",
+			active: e.isActive("italic"),
+			run: () => e.chain().focus().toggleItalic().run()
+		},
+		{
+			icon: Heading2,
+			label: "Titre",
+			active: e.isActive("heading", { level: 2 }),
+			run: () => e.chain().focus().toggleHeading({ level: 2 }).run()
+		},
+		{
+			icon: Heading3,
+			label: "Sous-titre",
+			active: e.isActive("heading", { level: 3 }),
+			run: () => e.chain().focus().toggleHeading({ level: 3 }).run()
+		},
+		{
+			icon: List,
+			label: "Liste à puces",
+			active: e.isActive("bulletList"),
+			run: () => e.chain().focus().toggleBulletList().run()
+		},
+		{
+			icon: ListOrdered,
+			label: "Liste numérotée",
+			active: e.isActive("orderedList"),
+			run: () => e.chain().focus().toggleOrderedList().run()
+		},
+		{
+			icon: LinkIcon,
+			label: "Lien",
+			active: e.isActive("link"),
+			run: openLinkPopover
 		}
-		const attrs = e.getAttributes('link');
-		linkUrl = (attrs?.href as string) || '';
-		linkPopoverOpen = true;
-	}
-
-	function applyLink() {
-		const e = editorState.editor;
-		if (!e) return;
-		const url = linkUrl.trim();
-		if (!url) {
-			removeLink();
-			return;
-		}
-		// Préfixer le protocole si manquant (ex: `example.com` → `https://example.com`).
-		const normalized = /^https?:\/\//i.test(url) || /^mailto:/i.test(url) ? url : `https://${url}`;
-		e.chain().focus().extendMarkRange('link').setLink({ href: normalized }).run();
-		linkPopoverOpen = false;
-	}
-
-	function removeLink() {
-		editorState.editor?.chain().focus().extendMarkRange('link').unsetLink().run();
-		linkPopoverOpen = false;
-	}
-
-	// Boutons de la barre d'outils. Le `$derived.by` se re-déclenche à chaque transaction
-	// car `editorState` est réassigné dans `onTransaction` (cf. pattern officiel TipTap).
-	interface ToolbarButton {
-		icon: typeof BoldIcon;
-		label: string;
-		active: boolean;
-		run: () => void;
-	}
-
-	const toolbar: ToolbarButton[] = $derived.by(() => {
-		const e = editorState.editor;
-		if (!e) return [];
-		return [
-			{
-				icon: BoldIcon,
-				label: 'Gras',
-				active: e.isActive('bold'),
-				run: () => e.chain().focus().toggleBold().run()
-			},
-			{
-				icon: ItalicIcon,
-				label: 'Italique',
-				active: e.isActive('italic'),
-				run: () => e.chain().focus().toggleItalic().run()
-			},
-			{
-				icon: Heading2,
-				label: 'Titre',
-				active: e.isActive('heading', { level: 2 }),
-				run: () => e.chain().focus().toggleHeading({ level: 2 }).run()
-			},
-			{
-				icon: Heading3,
-				label: 'Sous-titre',
-				active: e.isActive('heading', { level: 3 }),
-				run: () => e.chain().focus().toggleHeading({ level: 3 }).run()
-			},
-			{
-				icon: List,
-				label: 'Liste à puces',
-				active: e.isActive('bulletList'),
-				run: () => e.chain().focus().toggleBulletList().run()
-			},
-			{
-				icon: ListOrdered,
-				label: 'Liste numérotée',
-				active: e.isActive('orderedList'),
-				run: () => e.chain().focus().toggleOrderedList().run()
-			},
-			{
-				icon: LinkIcon,
-				label: 'Lien',
-				active: e.isActive('link'),
-				run: openLinkPopover
-			}
-		];
-	});
+	];
+});
 </script>
 
 <div

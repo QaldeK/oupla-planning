@@ -1,7 +1,7 @@
-import type { LucideIcon } from '@lucide/svelte';
+import type { LucideIcon } from "@lucide/svelte";
 
 // === Réponses ===
-export type ResponseType = 'present' | 'if_needed' | 'maybe' | 'absent';
+export type ResponseType = "present" | "if_needed" | "maybe" | "absent";
 
 // === Participant ===
 export interface Participant {
@@ -46,7 +46,7 @@ export interface OccurrenceComment {
 }
 
 // === Tâche ===
-export type TaskType = 'beforeEvent' | 'onEvent' | 'afterEvent';
+export type TaskType = "beforeEvent" | "onEvent" | "afterEvent";
 
 export interface Task {
 	id: string;
@@ -108,7 +108,7 @@ export interface OccurrenceTarget {
 }
 
 // === Occurrence ===
-export type OccurrenceStatus = 'pending' | 'confirmed' | 'canceled';
+export type OccurrenceStatus = "pending" | "confirmed" | "canceled";
 
 export interface PlanningOccurrence {
 	id: string;
@@ -142,7 +142,12 @@ export interface PlanningOccurrence {
 
 // === Récurrence ===
 export type RecurrenceType =
-	'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY_BY_DATE' | 'MONTHLY_BY_DAY' | 'CUSTOM';
+	| "DAILY"
+	| "WEEKLY"
+	| "BIWEEKLY"
+	| "MONTHLY_BY_DATE"
+	| "MONTHLY_BY_DAY"
+	| "CUSTOM";
 
 export interface RecurrenceConfig {
 	type: RecurrenceType;
@@ -155,7 +160,7 @@ export interface RecurrenceConfig {
 	// qui n'ont pas ce jour (RFC 5545) ; 'last-day' place chaque occurrence en fin
 	// de mois. Inertie implicite : si firstDate n'est pas dernier de mois, l'algorithme
 	// retombe sur 'fixed-day' quelle que soit la valeur.
-	monthlyByDateMode?: 'fixed-day' | 'last-day';
+	monthlyByDateMode?: "fixed-day" | "last-day";
 }
 
 // === Planning Master ===
@@ -175,7 +180,7 @@ export interface PlanningMaster {
 	toConfirm?: boolean;
 	minPresentRequired: number; // Valeur par défaut pour les occurrences
 	allowResponses: boolean;
-	availableResponseTypes?: Exclude<ResponseType, 'no_response'>[]; // Types de réponses possibles
+	availableResponseTypes?: Exclude<ResponseType, "no_response">[]; // Types de réponses possibles
 	recurrence: RecurrenceConfig;
 	tasks: Task[];
 	adminToken?: string; // 64 caractères hex (généré par le serveur)
@@ -187,8 +192,8 @@ export interface PlanningMaster {
 	deleted?: boolean; // Flag local Dexie (planning supprimé côté serveur)
 }
 
-export type ViewType = 'card' | 'compact' | 'minimal';
-export type ThemeType = 'my' | 'nord-dark';
+export type ViewType = "card" | "compact" | "minimal";
+export type ThemeType = "my" | "nord-dark";
 
 // === App Preferences ===
 

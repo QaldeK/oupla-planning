@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { Bell, EllipsisVertical, Settings, Share2 } from '@lucide/svelte';
+import { Bell, EllipsisVertical, Settings, Share2 } from "@lucide/svelte";
 
-	interface Props {
-		isAdmin: boolean;
-		adminToken: string | null;
-		token: string;
-		onShare: (url: string, label: string) => void;
-		onNotifClick: () => void;
-	}
+interface Props {
+	isAdmin: boolean;
+	adminToken: string | null;
+	token: string;
+	onShare: (url: string, label: string) => void;
+	onNotifClick: () => void;
+}
 
-	let { isAdmin, adminToken, token, onShare, onNotifClick }: Props = $props();
+let { isAdmin, adminToken, token, onShare, onNotifClick }: Props = $props();
 
-	function closeFab() {
-		(document.activeElement as HTMLElement)?.blur();
-	}
+function closeFab() {
+	(document.activeElement as HTMLElement)?.blur();
+}
 </script>
 
 <div class="fab z-50">

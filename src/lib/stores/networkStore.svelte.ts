@@ -1,8 +1,8 @@
-import { browser } from '$app/environment';
-import { pb } from '$lib/pocketbase/pb';
-import { syncService } from '$lib/services/syncService';
-import { on } from 'svelte/events';
-import { planningStore } from './planningStore.svelte';
+import { on } from "svelte/events";
+import { browser } from "$app/environment";
+import { pb } from "$lib/pocketbase/pb";
+import { syncService } from "$lib/services/syncService";
+import { planningStore } from "./planningStore.svelte";
 
 interface NetworkStatus {
 	online: boolean;
@@ -80,7 +80,7 @@ async function runResyncOnce(): Promise<boolean> {
 		}
 		return true;
 	} catch (err) {
-		console.warn('[networkStore] resync attempt failed:', err);
+		console.warn("[networkStore] resync attempt failed:", err);
 		return false;
 	}
 }
@@ -120,11 +120,11 @@ function setRealtimeConnected(connected: boolean): void {
 
 // Écouter online/offline (Svelte 5 way)
 if (browser) {
-	on(window, 'online', () => {
+	on(window, "online", () => {
 		status.online = true;
 	});
 
-	on(window, 'offline', () => {
+	on(window, "offline", () => {
 		status.online = false;
 		setRealtimeConnected(false);
 	});
@@ -134,14 +134,14 @@ if (browser) {
 	// 2s ne tourne plus et ne détecte pas la reconnexion SSE au retour. On force une
 	// re-sync indépendamment du flag `realtimeConnected` (qui peut être faux : SSE
 	// "connectée" mais events droppés silencieusement pendant le freeze, TCP half-open).
-	on(document, 'visibilitychange', () => {
-		if (document.visibilityState !== 'visible') return;
+	on(document, "visibilitychange", () => {
+		if (document.visibilityState !== "visible") return;
 		// Rien à synchroniser sans subscription active (ex: landing page /)
 		if (!status.hasActiveSubscription) return;
 		// Throttle 5s : évite le spam sur switches d'onglets rapides
 		const last = status.lastSyncAt?.getTime() ?? 0;
 		if (Date.now() - last < 5000) return;
-		console.log('👁️ visibilitychange — re-sync foreground (R6)');
+		console.log("👁️ visibilitychange — re-sync foreground (R6)");
 		// Re-sync du flag local (peut être désynchronisé après un freeze iOS)
 		setRealtimeConnected(pb.realtime.isConnected);
 		triggerResync();
@@ -150,10 +150,10 @@ if (browser) {
 	// R6 — Restauration depuis bfcache (iOS Safari navigation back/forward).
 	// `event.persisted` true = page restaurée depuis le cache, pas un load normal.
 	// Non throttled : un restore bfcache est rare et signifie que la page a été gelée.
-	on(window, 'pageshow', (event: PageTransitionEvent) => {
+	on(window, "pageshow", (event: PageTransitionEvent) => {
 		if (!event.persisted) return;
 		if (!status.hasActiveSubscription) return;
-		console.log('📄 pageshow (bfcache) — re-sync (R6)');
+		console.log("📄 pageshow (bfcache) — re-sync (R6)");
 		setRealtimeConnected(pb.realtime.isConnected);
 		triggerResync();
 	});
@@ -162,7 +162,7 @@ if (browser) {
 	pb.realtime.onDisconnect = () => {
 		// Ignorer si aucune souscription active (évite race condition lors de la transition guest→auth)
 		if (!status.hasActiveSubscription) return;
-		console.log('🔴 Realtime déconnecté');
+		console.log("🔴 Realtime déconnecté");
 		setRealtimeConnected(false);
 		status.lastError = new Date();
 	};
@@ -172,7 +172,7 @@ if (browser) {
 		// Reconnexion realtime avec subscription active
 		// Lecture de realtimeLive (état brut) pour détecter la transition vite, indépendamment du debounce UI.
 		if (status.hasActiveSubscription && pb.realtime.isConnected && !realtimeLive) {
-			console.log('🟢 Realtime reconnecté (polling)');
+			console.log("🟢 Realtime reconnecté (polling)");
 			setRealtimeConnected(true);
 			status.lastError = null;
 			triggerResync();

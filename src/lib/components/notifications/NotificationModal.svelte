@@ -1,146 +1,146 @@
 <script lang="ts">
-	import Modal from '$lib/components/ui/Modal.svelte';
-	import { pb } from '$lib/pocketbase/pb';
-	import {
-		getDefaultPlanningPrefs,
-		subscribeToPush,
-		unsubscribeFromPush,
-		type NewCommentScope,
-		type PlanningParticipantPrefs
-	} from '$lib/services/push';
-	import { getParticipantPrefs, updateParticipantPrefs } from '$lib/services/planningParticipants';
-	import type { RecurrenceType } from '$lib/types/planning.types';
-	import {
-		Bell,
-		Mail,
-		MessageSquare,
-		Smartphone,
-		Save,
-		LoaderCircle,
-		ShieldAlert
-	} from '@lucide/svelte';
-	import { toast } from 'svelte-sonner';
-	import { untrack } from 'svelte';
+import {
+	Bell,
+	LoaderCircle,
+	Mail,
+	MessageSquare,
+	Save,
+	ShieldAlert,
+	Smartphone
+} from "@lucide/svelte";
+import { untrack } from "svelte";
+import { toast } from "svelte-sonner";
+import Modal from "$lib/components/ui/Modal.svelte";
+import { pb } from "$lib/pocketbase/pb";
+import { getParticipantPrefs, updateParticipantPrefs } from "$lib/services/planningParticipants";
+import {
+	getDefaultPlanningPrefs,
+	type NewCommentScope,
+	type PlanningParticipantPrefs,
+	subscribeToPush,
+	unsubscribeFromPush
+} from "$lib/services/push";
+import type { RecurrenceType } from "$lib/types/planning.types";
 
-	interface Props {
-		open: boolean;
-		onClose: () => void;
-		planningId: string;
-		recurrenceType: RecurrenceType;
-		isAdmin: boolean;
-	}
+interface Props {
+	open: boolean;
+	onClose: () => void;
+	planningId: string;
+	recurrenceType: RecurrenceType;
+	isAdmin: boolean;
+}
 
-	let { open = $bindable(false), onClose, planningId, recurrenceType, isAdmin }: Props = $props();
+let { open = $bindable(false), onClose, planningId, recurrenceType, isAdmin }: Props = $props();
 
-	// Placeholder initial : les vraies prefs sont chargées dans le $effect ci-dessous
-	// à l'ouverture du modal (selon le recurrenceType courant et l'état en DB).
-	let prefs = $state<PlanningParticipantPrefs>({
-		push: false,
-		email: true,
-		onOccurrenceChange: true,
-		onConfirmationNeeded: false,
-		reminderDays: [],
-		missingDays: [],
-		newCommentScope: 'off'
-	});
-	let isSaving = $state(false);
-	let pushSupported = $state(false);
-	let initialPushState = $state(false); // Track l'état initial pour éviter les désinscriptions inutiles
+// Placeholder initial : les vraies prefs sont chargées dans le $effect ci-dessous
+// à l'ouverture du modal (selon le recurrenceType courant et l'état en DB).
+let prefs = $state<PlanningParticipantPrefs>({
+	push: false,
+	email: true,
+	onOccurrenceChange: true,
+	onConfirmationNeeded: false,
+	reminderDays: [],
+	missingDays: [],
+	newCommentScope: "off"
+});
+let isSaving = $state(false);
+let pushSupported = $state(false);
+let initialPushState = $state(false); // Track l'état initial pour éviter les désinscriptions inutiles
 
-	const reminderOptions: Array<{ value: '1' | '3' | '7'; label: string }> = [
-		{ value: '1', label: '1 jour avant' },
-		{ value: '3', label: '3 jours avant' },
-		{ value: '7', label: '1 semaine avant' }
-	];
+const reminderOptions: Array<{ value: "1" | "3" | "7"; label: string }> = [
+	{ value: "1", label: "1 jour avant" },
+	{ value: "3", label: "3 jours avant" },
+	{ value: "7", label: "1 semaine avant" }
+];
 
-	const missingOptions: Array<{ value: '1' | '3' | '7' | '15'; label: string }> = [
-		{ value: '1', label: '1 jour avant' },
-		{ value: '3', label: '3 jours avant' },
-		{ value: '7', label: '1 semaine avant' },
-		{ value: '15', label: '15 jours avant' }
-	];
+const missingOptions: Array<{ value: "1" | "3" | "7" | "15"; label: string }> = [
+	{ value: "1", label: "1 jour avant" },
+	{ value: "3", label: "3 jours avant" },
+	{ value: "7", label: "1 semaine avant" },
+	{ value: "15", label: "15 jours avant" }
+];
 
-	const newCommentScopeOptions: Array<{ value: NewCommentScope; label: string; hint: string }> = [
-		{ value: 'off', label: 'Aucune', hint: 'Aucune notification de message.' },
-		{
-			value: 'concerned',
-			label: 'Mes occurrences',
-			hint: 'Uniquement les occurrences où vous participez.'
-		},
-		{ value: 'all', label: 'Toutes', hint: 'Tous les messages du planning.' }
-	];
+const newCommentScopeOptions: Array<{ value: NewCommentScope; label: string; hint: string }> = [
+	{ value: "off", label: "Aucune", hint: "Aucune notification de message." },
+	{
+		value: "concerned",
+		label: "Mes occurrences",
+		hint: "Uniquement les occurrences où vous participez."
+	},
+	{ value: "all", label: "Toutes", hint: "Tous les messages du planning." }
+];
 
-	// Les participants existants avant le déploiement ont `newCommentScope` à null
-	// en base. Le serveur interprète null comme 'off' : on aligne l'affichage
-	// pour que le modal reflète le comportement runtime réel.
-	function normalizeNewCommentScope(value: unknown): NewCommentScope {
-		return value === 'concerned' || value === 'all' ? value : 'off';
-	}
+// Les participants existants avant le déploiement ont `newCommentScope` à null
+// en base. Le serveur interprète null comme 'off' : on aligne l'affichage
+// pour que le modal reflète le comportement runtime réel.
+function normalizeNewCommentScope(value: unknown): NewCommentScope {
+	return value === "concerned" || value === "all" ? value : "off";
+}
 
-	$effect(() => {
-		if (!open) return;
+$effect(() => {
+	if (!open) return;
 
-		untrack(() => {
-			if (!pb.authStore.isValid || !pb.authStore.record) return;
-
-			pushSupported = 'serviceWorker' in navigator && 'PushManager' in window;
-
-			// Charger les préférences par planning, fusionnées avec les defaults liés
-			// au `recurrenceType` du master (rappels / missings J-X) pour les champs
-			// éventuellement absents du record existant.
-			getParticipantPrefs(planningId, pb.authStore.record.id)
-				.then((existing) => {
-					const merged = {
-						...getDefaultPlanningPrefs(recurrenceType, isAdmin),
-						...(existing as Partial<PlanningParticipantPrefs>)
-					};
-					prefs = {
-						...merged,
-						newCommentScope: normalizeNewCommentScope(merged.newCommentScope)
-					};
-					initialPushState = prefs.push;
-				})
-				.catch(() => {
-					prefs = getDefaultPlanningPrefs(recurrenceType, isAdmin);
-					initialPushState = prefs.push;
-				});
-		});
-	});
-
-	async function handleSave() {
+	untrack(() => {
 		if (!pb.authStore.isValid || !pb.authStore.record) return;
 
-		isSaving = true;
-		try {
-			// Gestion de la souscription Push
-			if (prefs.push && pushSupported) {
-				const success = await subscribeToPush(pb.authStore.record.id);
-				if (!success) {
-					toast.error("Impossible d'activer les notifications push. Vérifiez les permissions.");
-					prefs.push = false;
-				}
-			} else if (!prefs.push && pushSupported && initialPushState) {
-				// Désinscrire uniquement si c'était activé au chargement
-				await unsubscribeFromPush(pb.authStore.record.id);
+		pushSupported = "serviceWorker" in navigator && "PushManager" in window;
+
+		// Charger les préférences par planning, fusionnées avec les defaults liés
+		// au `recurrenceType` du master (rappels / missings J-X) pour les champs
+		// éventuellement absents du record existant.
+		getParticipantPrefs(planningId, pb.authStore.record.id)
+			.then((existing) => {
+				const merged = {
+					...getDefaultPlanningPrefs(recurrenceType, isAdmin),
+					...(existing as Partial<PlanningParticipantPrefs>)
+				};
+				prefs = {
+					...merged,
+					newCommentScope: normalizeNewCommentScope(merged.newCommentScope)
+				};
+				initialPushState = prefs.push;
+			})
+			.catch(() => {
+				prefs = getDefaultPlanningPrefs(recurrenceType, isAdmin);
+				initialPushState = prefs.push;
+			});
+	});
+});
+
+async function handleSave() {
+	if (!pb.authStore.isValid || !pb.authStore.record) return;
+
+	isSaving = true;
+	try {
+		// Gestion de la souscription Push
+		if (prefs.push && pushSupported) {
+			const success = await subscribeToPush(pb.authStore.record.id);
+			if (!success) {
+				toast.error("Impossible d'activer les notifications push. Vérifiez les permissions.");
+				prefs.push = false;
 			}
-
-			await updateParticipantPrefs(
-				planningId,
-				pb.authStore.record.id,
-				prefs,
-				recurrenceType,
-				isAdmin
-			);
-
-			toast.success('Préférences sauvegardées');
-			onClose();
-		} catch (error) {
-			console.error('Erreur de sauvegarde', error);
-			toast.error('Erreur lors de la sauvegarde');
-		} finally {
-			isSaving = false;
+		} else if (!prefs.push && pushSupported && initialPushState) {
+			// Désinscrire uniquement si c'était activé au chargement
+			await unsubscribeFromPush(pb.authStore.record.id);
 		}
+
+		await updateParticipantPrefs(
+			planningId,
+			pb.authStore.record.id,
+			prefs,
+			recurrenceType,
+			isAdmin
+		);
+
+		toast.success("Préférences sauvegardées");
+		onClose();
+	} catch (error) {
+		console.error("Erreur de sauvegarde", error);
+		toast.error("Erreur lors de la sauvegarde");
+	} finally {
+		isSaving = false;
 	}
+}
 </script>
 
 <Modal {open} {onClose} title="Préférences de notifications" size="md">

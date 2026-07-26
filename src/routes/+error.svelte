@@ -1,27 +1,27 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import { recoverAllData } from '$lib/utils/recover';
-	import { AlertTriangle, RefreshCw, Trash2 } from '@lucide/svelte';
+import { AlertTriangle, RefreshCw, Trash2 } from "@lucide/svelte";
+import { page } from "$app/state";
+import { recoverAllData } from "$lib/utils/recover";
 
-	let isRecovering = $state(false);
+let isRecovering = $state(false);
 
-	const isInternalServerError = $derived(page.status >= 500);
-	const isNotFound = $derived(page.status === 404);
+const isInternalServerError = $derived(page.status >= 500);
+const isNotFound = $derived(page.status === 404);
 
-	async function handleRecover() {
-		if (isRecovering) return;
-		isRecovering = true;
-		try {
-			await recoverAllData();
-		} catch (err) {
-			console.error('[error] recoverAllData failed:', err);
-			isRecovering = false;
-		}
+async function handleRecover() {
+	if (isRecovering) return;
+	isRecovering = true;
+	try {
+		await recoverAllData();
+	} catch (err) {
+		console.error("[error] recoverAllData failed:", err);
+		isRecovering = false;
 	}
+}
 
-	function reloadPage() {
-		window.location.reload();
-	}
+function reloadPage() {
+	window.location.reload();
+}
 </script>
 
 <svelte:head>

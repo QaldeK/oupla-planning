@@ -1,9 +1,9 @@
-import { pb } from '$lib/pocketbase/pb';
+import { pb } from "$lib/pocketbase/pb";
+import type { RecurrenceType } from "$lib/types/planning.types";
 import type {
 	PlanningParticipantsMissingDaysOptions,
 	PlanningParticipantsReminderDaysOptions
-} from '$lib/types/pocketbase-types';
-import type { RecurrenceType } from '$lib/types/planning.types';
+} from "$lib/types/pocketbase-types";
 
 /**
  * Périmètre des notifications de nouveaux messages sur les occurrences.
@@ -12,7 +12,7 @@ import type { RecurrenceType } from '$lib/types/planning.types';
  *   (réponse présente/if_needed/maybe OU inscrit à une tâche)
  * - `all` : toutes les occurrences du planning
  */
-export type NewCommentScope = 'off' | 'concerned' | 'all';
+export type NewCommentScope = "off" | "concerned" | "all";
 
 /**
  * Préférences de notification d'un participant pour un planning.
@@ -36,7 +36,7 @@ export interface PlanningParticipantPrefs {
  */
 const baseDefaultPlanningPrefs: Omit<
 	PlanningParticipantPrefs,
-	'reminderDays' | 'missingDays' | 'newCommentScope'
+	"reminderDays" | "missingDays" | "newCommentScope"
 > = {
 	push: false,
 	email: true,
@@ -49,14 +49,14 @@ const baseDefaultPlanningPrefs: Omit<
  */
 const RECURRENCE_DEFAULTS: Record<
 	RecurrenceType,
-	Pick<PlanningParticipantPrefs, 'reminderDays' | 'missingDays'>
+	Pick<PlanningParticipantPrefs, "reminderDays" | "missingDays">
 > = {
-	WEEKLY: { reminderDays: ['1', '3'], missingDays: ['1', '3'] },
-	BIWEEKLY: { reminderDays: ['1', '3'], missingDays: ['1', '3', '7'] },
-	MONTHLY_BY_DATE: { reminderDays: ['1', '3', '7'], missingDays: ['1', '3', '7'] },
-	MONTHLY_BY_DAY: { reminderDays: ['1', '3', '7'], missingDays: ['1', '3', '7'] },
-	DAILY: { reminderDays: ['1'], missingDays: ['1'] },
-	CUSTOM: { reminderDays: ['1', '3', '7'], missingDays: ['1', '3', '7', '15'] }
+	WEEKLY: { reminderDays: ["1", "3"], missingDays: ["1", "3"] },
+	BIWEEKLY: { reminderDays: ["1", "3"], missingDays: ["1", "3", "7"] },
+	MONTHLY_BY_DATE: { reminderDays: ["1", "3", "7"], missingDays: ["1", "3", "7"] },
+	MONTHLY_BY_DAY: { reminderDays: ["1", "3", "7"], missingDays: ["1", "3", "7"] },
+	DAILY: { reminderDays: ["1"], missingDays: ["1"] },
+	CUSTOM: { reminderDays: ["1", "3", "7"], missingDays: ["1", "3", "7", "15"] }
 };
 
 /**
@@ -74,13 +74,13 @@ export function getDefaultPlanningPrefs(
 	return {
 		...baseDefaultPlanningPrefs,
 		...RECURRENCE_DEFAULTS[recurrenceType],
-		newCommentScope: isAdmin ? 'all' : 'concerned'
+		newCommentScope: isAdmin ? "all" : "concerned"
 	};
 }
 
 function urlBase64ToUint8Array(base64String: string) {
-	const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-	const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+	const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+	const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
 
 	const rawData = window.atob(base64);
 	const outputArray = new Uint8Array(rawData.length);
@@ -106,15 +106,15 @@ async function getServiceWorkerWithTimeout(): Promise<ServiceWorkerRegistration 
 }
 
 export async function subscribeToPush(userId: string): Promise<boolean> {
-	if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+	if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
 
 	const permission = await Notification.requestPermission();
-	if (permission !== 'granted') return false;
+	if (permission !== "granted") return false;
 
 	try {
 		const reg = await getServiceWorkerWithTimeout();
 		if (!reg) {
-			console.error('ServiceWorker non disponible ou timeout');
+			console.error("ServiceWorker non disponible ou timeout");
 			return false;
 		}
 
@@ -123,7 +123,7 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
 		if (!sub) {
 			const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 			if (!vapidKey) {
-				console.error('VITE_VAPID_PUBLIC_KEY missing');
+				console.error("VITE_VAPID_PUBLIC_KEY missing");
 				return false;
 			}
 			sub = await reg.pushManager.subscribe({
@@ -132,12 +132,12 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
 			});
 		}
 
-		await pb.collection('users').update(userId, {
+		await pb.collection("users").update(userId, {
 			push_subscription: JSON.parse(JSON.stringify(sub))
 		});
 		return true;
 	} catch (error) {
-		console.error('Erreur lors de la souscription push', error);
+		console.error("Erreur lors de la souscription push", error);
 		return false;
 	}
 }
@@ -146,7 +146,7 @@ export async function unsubscribeFromPush(userId: string): Promise<void> {
 	try {
 		const reg = await getServiceWorkerWithTimeout();
 		if (!reg) {
-			console.warn('ServiceWorker non disponible, skip unsubscribe');
+			console.warn("ServiceWorker non disponible, skip unsubscribe");
 			return;
 		}
 
@@ -154,8 +154,8 @@ export async function unsubscribeFromPush(userId: string): Promise<void> {
 		if (sub) {
 			await sub.unsubscribe();
 		}
-		await pb.collection('users').update(userId, { push_subscription: null });
+		await pb.collection("users").update(userId, { push_subscription: null });
 	} catch (error) {
-		console.error('Erreur unsubscribe push', error);
+		console.error("Erreur unsubscribe push", error);
 	}
 }

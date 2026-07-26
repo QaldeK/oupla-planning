@@ -1,1145 +1,1140 @@
 <script lang="ts">
-	import type {
-		RecurrenceConfig,
-		Task,
-		PlanningMaster,
-		PlanningOccurrence,
-		OccurrenceTarget,
-		TaskType,
-		ResponseType,
-		TimeSlot,
-		DateSlot
-	} from '$lib/types/planning.types';
-	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
-	import MultiSelect from './MultiSelect.svelte';
-	import MultiDatePicker from './ui/MultiDatePicker.svelte';
-	import ConfirmModal from './ui/ConfirmModal.svelte';
-	import Modal from './ui/Modal.svelte';
-	import { networkStore } from '$lib/stores/networkStore.svelte';
-	import { classifyError } from '$lib/utils/errorHandler';
-	import { generateTimeSlotId } from '$lib/services/planningActions';
-	import {
-		Plus,
-		Trash2,
-		Calendar,
-		Clock,
-		MapPin,
-		AlignLeft,
-		Pencil,
-		ClipboardCheck,
-		Check,
-		RotateCcw
-	} from '@lucide/svelte';
-	import {
-		generateRecurrenceDates,
-		getRecurrenceLabel,
-		isLastDayOfMonth
-	} from '$lib/utils/recurrence';
-	import { computeMaxDateForLimit } from '$lib/utils/dateSlotLimit';
-	import { computeDateSlotSelection, seedFromOccurrences } from '$lib/utils/dateSlotSelection';
-	import { formatSlotKey } from '$lib/utils/slots';
-	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from '$lib/constants';
-	import { toast } from 'svelte-sonner';
-	import { format, parse, addWeeks, addMonths } from 'date-fns';
-	import { fr } from 'date-fns/locale';
-	import { untrack } from 'svelte';
-	import { onMount } from 'svelte';
-	import NetworkAlert from './NetworkAlert.svelte';
-	import RichTextEditor from './ui/RichTextEditor.svelte';
-	import { slide } from 'svelte/transition';
-
-	interface Props {
-		master?: PlanningMaster; // Si présent, on est en mode édition
-		onSubmit: (data: PlanningFormData) => Promise<void>;
-		isSubmitting?: boolean;
-		datesWithData?: string[]; // Liste des dates (YYYY-MM-DD) ayant des réponses ou commentaires
-		datesWithSpecificTasks?: string[]; // Liste des dates ayant des tâches personnalisées
-		occurrences?: PlanningOccurrence[]; // Occurrences futures (soft-deleted incluses) pour le seeding édition
-	}
-
-	export interface PlanningFormData {
-		title: string;
-		description?: string;
-		place?: string;
-		// Champs legacy conservés : requis par PocketBase (champ `defaultStartTime`/`defaultEndTime`
-		// obligatoires sur la collection) et utilisés comme fallback mono-slot côté service.
-		// Valorisés depuis le 1er slot du répéteur (référence legacy) dans handleSubmit.
-		defaultStartTime: string;
-		defaultEndTime: string;
-		timeSlots: TimeSlot[];
-		recurrence: RecurrenceConfig;
-		/** Occurrences cibles voulues (source unique côté UI, contrat formulaire↔service). */
-		occurrenceTargets: OccurrenceTarget[];
-		tasks: Task[];
-		minPresentRequired: number;
-		allowResponses: boolean;
-		toConfirm?: boolean;
-		availableResponseTypes?: ResponseType[];
-		forceTaskRefresh?: boolean;
-	}
-
-	let {
-		master,
-		onSubmit,
-		isSubmitting = $bindable(false),
-		datesWithData = [],
-		datesWithSpecificTasks = [],
-		occurrences = []
-	}: Props = $props();
-
-	// Formulaire (initialisé avec le master si présent)
-	const m = (() => master)() || {};
-	const {
-		title: initTitle = '',
-		description: initDesc = '',
-		place: initPlace = '',
-		defaultStartTime: initStartTime = '14:00',
-		defaultEndTime: initEndTime = '18:00',
-		timeSlots: initMasterTimeSlots,
-		minPresentRequired: initMinPresent = 1,
-		allowResponses: initAllowResponses = true,
-		toConfirm: initToConfirm = false,
-		recurrence = {},
-		tasks: initTasks = []
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- la prop m est très polymorphe (PlanningMaster avec champs optionnels)
-	} = m as any;
-
-	const {
-		type: initRecType = 'WEEKLY',
-		firstDate: initFirstDate = '',
-		lastDate: initLastDate = '',
-		monthlyByDayOccurrences: initMonthlyByDay = [],
-		monthlyByDateMode: initMonthlyByDateMode
-	} = recurrence || {};
-
-	let title = $state(initTitle || '');
-	let description = $state(initDesc || '');
-	let place = $state(initPlace || '');
-
-	// Répéteur de créneaux (multi-slots). En édition on réutilise master.timeSlots ;
-	// sinon fallback mono-slot depuis defaultStartTime/defaultEndTime (cohérent avec
-	// resolveTimeSlots côté service, qui synthétise un slot `s1`). En création, valeurs
-	// par défaut du formulaire.
-	let timeSlots = $state<TimeSlot[]>(
-		initMasterTimeSlots && initMasterTimeSlots.length > 0
-			? initMasterTimeSlots.map((s: TimeSlot) => ({ ...s }))
-			: [{ id: 's1', startTime: initStartTime || '14:00', endTime: initEndTime || '18:00' }]
-	);
-	let minPresentRequired = $state(initMinPresent ?? 1);
-	let allowResponses = $state(initAllowResponses ?? true);
-	let toConfirm = $state(initToConfirm ?? false);
-
-	// Récurrence
-	let recurrenceType = $state(initRecType || 'WEEKLY');
-	let firstDate = $state(initFirstDate || '');
-	let lastDate = $state(initLastDate || '');
-	let monthlyByDayOccurrences = $state<number[]>(initMonthlyByDay || []);
-	// 'fixed-day' (défaut) | 'last-day' | undefined (neutre = fixed-day implicite).
-	// Conservé à travers les changements de firstDate non-dernier-de-mois : le mode
-	// devient inerte (l'algorithme retombe sur fixed-day) sans reset.
-	let monthlyByDateMode = $state<'fixed-day' | 'last-day' | undefined>(initMonthlyByDateMode);
-
-	// Dates candidates ajoutées manuellement : dates arbitraires (hors cycle en mode récurrent)
-	// ou toutes les dates (mode CUSTOM). C'est la *liste à afficher*, distincte de la sélection
-	// active (portée par `disabledSlotKeys`). En édition, le seeding y ajoute les dates
-	// d'occurrences actives hors-cycle (rétrécissement de bornes, changement de type, dates
-	// arbitraires d'origine) — en CUSTOM, toutes les occurrences sont hors-cycle et y passent.
-	let manualDates = $state<string[]>([]);
-
-	let showArbitraryDatePicker = $state(false); // Afficher le picker inline pour dates arbitraires
-
-	// « Aujourd'hui » figé à la résolution du dérivé. Source unique partagée par
-	// le picker minDate, la validation des DateSlots futurs, et le masquage des badges passés.
-	const todayStr = $derived(format(new Date(), 'yyyy-MM-dd'));
-
-	// Multi-créneaux : afficher le badge slotId uniquement en mode multi-slot.
-	const showSlot = $derived(timeSlots.length > 1);
-
-	// Toggle MONTHLY_BY_DATE : visible si et seulement si firstDate est dernier
-	// jour de son mois. Couvre 31 (mois 31j), 30 (mois 30j), 29 fév bis, 28 fév
-	// non-bis. Sinon, le mode est inerte (l'algorithme retombe sur fixed-day).
-	const showMonthlyByDateMode = $derived(
-		recurrenceType === 'MONTHLY_BY_DATE' &&
-			firstDate !== '' &&
-			isLastDayOfMonth(parse(firstDate, 'yyyy-MM-dd', new Date()))
-	);
-
-	// Valeur effective du mode pour les calculs et la soumission. Quand le toggle
-	// est caché (firstDate non-dernier-de-mois), le mode est silencieusement
-	// inactif — on ne le propage pas à la payload pour ne pas le persisted inutilement.
-	const effectiveMonthlyByDateMode = $derived(
-		showMonthlyByDateMode ? monthlyByDateMode : undefined
-	);
-
-	// --- Sélection unifiée : disabledSlotKeys + seededOccurrences ---
-	// États canoniques mutés uniquement par les handlers purs (setSlotEnabled,
-	// addTimeSlot/commitRemoveTimeSlot) et le seeding édition one-shot.
-	//  - disabledSlotKeys : clés `date|slotId` explicitement désactivées par l'admin.
-	//  - seededOccurrences : overrides portés (id occurrence + horaires réels) par clé.
-	let disabledSlotKeys = new SvelteSet<string>();
-	let seededOccurrences = new SvelteMap<string, OccurrenceTarget>();
-
-	// --- Moteur pur de sélection DateSlot ---
-	// Toute la logique de calcul (produit cartésien, filtrage désactivées, overrides,
-	// masquage passées, comptages) vit dans `dateSlotSelection.ts`. Le composant ne
-	// fait plus que binding Svelte + template + état réactif mutable (disabledSlotKeys,
-	// seededOccurrences).
-	const views = $derived(
-		computeDateSlotSelection(
-			{
-				recurrenceType,
-				firstDate,
-				lastDate,
-				monthlyByDayOccurrences:
-					recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
-				monthlyByDateMode:
-					recurrenceType === 'MONTHLY_BY_DATE' ? effectiveMonthlyByDateMode : undefined,
-				manualDates,
-				timeSlots,
-				todayStr
-			},
-			{
-				disabledSlotKeys: new Set(disabledSlotKeys),
-				seededOccurrences: new Map(seededOccurrences)
-			}
-		)
-	);
-
-	/** True si la DateSlot est active (non désactivée). Unifie mono/multi/CUSTOM. */
-	function isSlotActive(ds: DateSlot): boolean {
-		return !disabledSlotKeys.has(formatSlotKey(ds.date, ds.slotId));
-	}
-
-	/** Active/désactive une DateSlot (popover multi-slot). Mute disabledSlotKeys. */
-	function setSlotEnabled(ds: DateSlot, enabled: boolean) {
-		const key = formatSlotKey(ds.date, ds.slotId);
-		if (enabled) disabledSlotKeys.delete(key);
-		else disabledSlotKeys.add(key);
-	}
-
-	/** Horaires à afficher : override seedé (édition) sinon template du slot. */
-	function displayTimes(ds: DateSlot): { startTime: string; endTime: string } {
-		const seeded = seededOccurrences.get(formatSlotKey(ds.date, ds.slotId));
-		return seeded
-			? { startTime: seeded.startTime, endTime: seeded.endTime }
-			: { startTime: ds.startTime, endTime: ds.endTime };
-	}
-
-	// --- Seeding édition (one-shot, seul `$effect` autorisé) ---
-	// Se déclenche à l'ouverture en édition (master + occurrences). Remplit les deux états
-	// canoniques depuis l'état persisté, puis pose un flag pour ne JAMAIS re-seeder.
-	let seedingDone = $state(false);
-	$effect(() => {
-		if (seedingDone) return;
-		if (!master || occurrences.length === 0) return;
-		const result = seedFromOccurrences(occurrences, new Set(views.allGeneratedDates));
-		for (const key of result.disabledKeys) disabledSlotKeys.add(key);
-		for (const [key, target] of result.seeded) seededOccurrences.set(key, target);
-		if (result.manualDatesToAdd.length > 0) {
-			manualDates.push(...result.manualDatesToAdd);
-		}
-		seedingDone = true;
-	});
-
-	// --- Vues dérivées (consommées par le rendu) ---
-	const hiddenPastLabel = $derived(
-		views.hiddenPastDateCount > 0
-			? `${views.hiddenPastDateCount} date${views.hiddenPastDateCount > 1 ? 's' : ''} passée${views.hiddenPastDateCount > 1 ? 's' : ''}, consultables depuis la page archives.`
-			: ''
-	);
-
-	// Dernière date de cycle ramenant le compte de DateSlots futurs à ≤ 100, pour
-	// le bouton « Ajuster au ... » de l'alerte (mode récurrent uniquement).
-	const maxAdjustDate = $derived(
-		recurrenceType !== 'CUSTOM' && firstDate && lastDate
-			? computeMaxDateForLimit({
-					firstDate,
-					lastDate,
-					recurrenceType,
-					monthlyByDayOccurrences:
-						recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
-					monthlyByDateMode:
-						recurrenceType === 'MONTHLY_BY_DATE' ? effectiveMonthlyByDateMode : undefined,
-					manualDates,
-					timeSlots,
-					disabledSlotKeys: new Set(disabledSlotKeys),
-					todayStr
-				})
-			: null
-	);
-	const maxAdjustDateLabel = $derived(
-		maxAdjustDate
-			? format(parse(maxAdjustDate, 'yyyy-MM-dd', new Date()), 'd MMM yyyy', { locale: fr })
-			: ''
-	);
-
-	// === Popover par badge (multi-slot uniquement) ===
-	// Popover en position fixe pour échapper au conteneur `overflow-y-auto` (sinon clippé).
-	// Fermeture extérieure via listener document (pas de backdrop bloquant).
-	let activePopoverKey = $state<string | null>(null);
-	let popoverPos = $state<{ top: number; left: number }>({ top: 0, left: 0 });
-
-	// Draft des horaires du popover ouvert (édition inline, 3.3). Initialisé à
-	// l'ouverture (displayTimes = override seedé sinon template), commité sur
-	// « Appliquer ». Fermeture sans apply = revert gratuit (state non muté).
-	let popoverTimeDraft = $state<{ startTime: string; endTime: string }>({
-		startTime: '',
-		endTime: ''
-	});
-
-	function togglePopoverFor(ds: DateSlot, btn: HTMLElement) {
-		const key = formatSlotKey(ds.date, ds.slotId);
-		if (activePopoverKey === key) {
-			activePopoverKey = null;
-			return;
-		}
-		const times = displayTimes(ds);
-		popoverTimeDraft = { startTime: times.startTime, endTime: times.endTime };
-		const rect = btn.getBoundingClientRect();
-		// Garde le popover (~220×160px) dans la fenêtre : à droite horizontalement,
-		// et bascule au-dessus du badge si manque de place en bas.
-		const left = Math.min(rect.left, window.innerWidth - 230);
-		const below = rect.bottom + 170 < window.innerHeight;
-		activePopoverKey = key;
-		popoverPos = {
-			top: below ? rect.bottom + 6 : rect.top - 160,
-			left: Math.max(8, left)
-		};
-	}
-
-	function closePopover() {
-		activePopoverKey = null;
-	}
-
-	/** True si la DateSlot porte un override (horaires divergeant du slot template). */
-	function isOverriddenDateSlot(ds: DateSlot): boolean {
-		const seeded = seededOccurrences.get(formatSlotKey(ds.date, ds.slotId));
-		const slot = timeSlots.find((s) => s.id === ds.slotId);
-		if (!seeded || !slot) return false;
-		return seeded.startTime !== slot.startTime || seeded.endTime !== slot.endTime;
-	}
-
-	/** Applique le draft comme override sur la DateSlot (3.3). Préserve l'id seedé. */
-	function commitPopoverOverride(ds: DateSlot) {
-		const { startTime, endTime } = popoverTimeDraft;
-		if (!startTime || !endTime) {
-			toast.error('Horaires incomplets', {
-				description: 'Indiquez une heure de début et de fin.'
-			});
-			return;
-		}
-		if (startTime >= endTime) {
-			toast.error('Horaires invalides', {
-				description: "L'heure de fin doit être après l'heure de début."
-			});
-			return;
-		}
-		const key = formatSlotKey(ds.date, ds.slotId);
-		const seeded = seededOccurrences.get(key);
-		seededOccurrences.set(
-			key,
-			seeded
-				? { ...seeded, startTime, endTime }
-				: { date: ds.date, startTime, endTime, slotId: ds.slotId }
-		);
-		closePopover();
-	}
-
-	/** Remet les horaires de la DateSlot au template du slot (retire l'override). */
-	function resetPopoverToTemplate(ds: DateSlot) {
-		const slot = timeSlots.find((s) => s.id === ds.slotId);
-		if (!slot) return;
-		const key = formatSlotKey(ds.date, ds.slotId);
-		const seeded = seededOccurrences.get(key);
-		if (!seeded) {
-			popoverTimeDraft = { startTime: slot.startTime, endTime: slot.endTime };
-			return;
-		}
-		seededOccurrences.set(key, { ...seeded, startTime: slot.startTime, endTime: slot.endTime });
-		popoverTimeDraft = { startTime: slot.startTime, endTime: slot.endTime };
-	}
-
-	// === Confirmations destructrices (pattern intercept → confirm → commit/revert) ===
-	// Une seule instance de ConfirmModal pilotée par `confirmState`. Chaque handler `request*`
-	// peuple la config puis ouvre ; `onConfirm` exécute le commit puis ferme. L'annulation =
-	// ne rien faire (revert automatique pour les inputs one-way : la valeur non mutée du
-	// state est réaffichée). `occurrenceTargets` reste un `$derived` pur, jamais écrit.
-	interface ConfirmConfig {
-		title: string;
-		message: string;
-		description?: string;
-		variant: 'danger' | 'warning' | 'info' | 'success';
-		confirmLabel?: string;
-		onConfirm: () => void;
-	}
-	let confirmState = $state<{ open: boolean; config: ConfirmConfig | null }>({
-		open: false,
-		config: null
-	});
-
-	function openConfirm(config: ConfirmConfig) {
-		confirmState = { open: true, config };
-	}
-
-	function closeConfirm() {
-		confirmState = { open: false, config: null };
-	}
-
-	function handleConfirm() {
-		confirmState.config?.onConfirm();
-		closeConfirm();
-	}
-
-	$effect(() => {
-		const open = activePopoverKey;
-		if (!open) return;
-		const onPointerDown = (e: PointerEvent) => {
-			const t = e.target as HTMLElement | null;
-			if (t && !t.closest('[data-slot-ui]')) activePopoverKey = null;
-		};
-		document.addEventListener('pointerdown', onPointerDown);
-		return () => document.removeEventListener('pointerdown', onPointerDown);
-	});
-
-	// Tâches
-	let tasks = $state<Task[]>(initTasks || []);
-	let newTaskName = $state('');
-	let newTaskDescription = $state('');
-	let newTaskVolunteers = $state(1);
-	let newTaskType = $state<TaskType>('onEvent');
-	let forceTaskRefresh = $state(false);
-
-	let availableResponseTypes = $state<ResponseType[]>(
-		untrack(() => {
-			if (!master) {
-				return allowResponses ? [...AVAILABLE_RESPONSE_TYPES] : [];
-			}
-			return master.availableResponseTypes || (allowResponses ? [...AVAILABLE_RESPONSE_TYPES] : []);
-		})
-	);
-
-	// === Édition de tâches ===
-	let editingTaskId = $state<string | null>(null);
-	const isEditingTask = $derived(editingTaskId !== null);
-
-	let taskNameInput: HTMLInputElement;
-
-	// Focus automatique sur l'input quand on entre en mode édition
-	$effect(() => {
-		if (editingTaskId && taskNameInput) {
-			taskNameInput.focus();
-			taskNameInput.select();
-		}
-	});
-
-	// Vérifier si des changements ont été effectués en mode édition
-	const taskHasChanges = $derived.by(() => {
-		if (!editingTaskId) return false;
-		const task = tasks.find((t) => t.id === editingTaskId);
-		if (!task) return false;
-		return (
-			newTaskName.trim() !== task.name ||
-			(newTaskDescription.trim() || '') !== (task.description || '') ||
-			newTaskVolunteers !== task.requiredVolunteers ||
-			newTaskType !== task.type
-		);
-	});
-
-	// === État de validation ===
-	let validationErrors = $state<{
-		title?: boolean;
-		dates?: boolean;
-		responses?: boolean;
-		tasks?: boolean;
-		taskInProgress?: boolean;
-	}>({});
-
-	let hasAttemptedSubmit = $state(false);
-
-	const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
-
-	let isMounted = $state(false);
-	// Note: En création, l'utilisateur peut modifier manuellement lastDate, mais elle sera réinitialisée
-	// automatiquement si firstDate ou recurrenceType change. Comportement acceptable pour KISS.
-	let lastDateWasManuallySet = $state(!!(() => master)());
-
-	onMount(() => {
-		isMounted = true;
-	});
-
-	// Calcul automatique de la date de fin (création uniquement)
-	$effect(() => {
-		if (!isMounted || master || lastDateWasManuallySet) return;
-		if (!firstDate || !recurrenceType) return;
-
-		untrack(() => {
-			const start = parse(firstDate, 'yyyy-MM-dd', new Date());
-			let end: Date;
-
-			switch (recurrenceType) {
-				case 'DAILY':
-					end = addWeeks(start, 1);
-					break;
-				case 'WEEKLY':
-				case 'BIWEEKLY':
-					end = addMonths(start, 6);
-					break;
-				case 'MONTHLY_BY_DATE':
-				case 'MONTHLY_BY_DAY':
-					end = addMonths(start, 12);
-					break;
-				default:
-					return;
-			}
-
-			lastDate = format(end, 'yyyy-MM-dd');
-		});
-	});
-
-	// Aucune sync supplémentaire de la sélection n'est nécessaire : les changements de
-	// firstDate/lastDate/recurrenceType/monthlyByDay recalculent réactivement les dérivés
-	// (allGeneratedDates → allDateSlots → occurrenceTargets). Les nouvelles dates générées
-	// sont actives par défaut (disabledSlotKeys vide en création) ; les dates hors-cycle
-	// sortent de allDateSlots donc de occurrenceTargets ; les clés orphelines éventuelles
-	// dans disabledSlotKeys sont inoffensives (elles ne filtrent que des DateSlots existantes).
-
-	// Effet pour effacer les erreurs de validation quand l'utilisateur corrige
-	$effect(() => {
-		if (!hasAttemptedSubmit) return;
-
-		// Effacer l'erreur du titre si corrigé
-		if (validationErrors.title && title.trim()) {
-			validationErrors.title = false;
-		}
-
-		// Effacer l'erreur des dates si corrigée (basée sur la sélection réelle active)
-		if (validationErrors.dates && views.activeDateSlots.length > 0) {
-			const hasValidDateSlots = views.activeDateSlots.some((ds) => ds.date >= todayStr);
-			if (hasValidDateSlots) {
-				validationErrors.dates = false;
-			}
-		}
-
-		// Effacer l'erreur des responses si corrigé
-		if (validationErrors.responses) {
-			const hasTasks = tasks.length > 0;
-			const hasResponseTypes = availableResponseTypes.length > 0;
-			const isValidResponses = !allowResponses || hasResponseTypes;
-			if (hasTasks || isValidResponses) {
-				validationErrors.responses = false;
-			}
-		}
-
-		// Effacer l'erreur des tasks si corrigé
-		if (validationErrors.tasks && tasks.length > 0) {
-			validationErrors.tasks = false;
-		}
-
-		// Effacer l'erreur de tâche en cours si corrigé
-		if (validationErrors.taskInProgress && !newTaskName.trim()) {
-			validationErrors.taskInProgress = false;
-		}
-	});
-
-	function addTask() {
-		if (!newTaskName.trim()) {
-			toast.error('Le nom de la tâche est requis');
-			return;
-		}
-
-		if (isEditingTask && editingTaskId) {
-			// Mode édition : mettre à jour la tâche existante
-			tasks = tasks.map((t) =>
-				t.id === editingTaskId
-					? {
-							...t,
-							name: newTaskName.trim(),
-							description: newTaskDescription.trim() || undefined,
-							requiredVolunteers: newTaskVolunteers,
-							type: newTaskType
-						}
-					: t
-			);
-			// toast.success('Tâche modifiée');
-		} else {
-			// Mode création : ajouter une nouvelle tâche
-			const task: Task = {
-				id: crypto.randomUUID(),
-				name: newTaskName.trim(),
-				description: newTaskDescription.trim() || undefined,
-				requiredVolunteers: newTaskVolunteers,
-				type: newTaskType
-			};
-
-			tasks = [...tasks, task];
-			// toast.success('Tâche ajoutée');
-		}
-
-		resetTaskForm();
-	}
-
-	function removeTask(taskId: string) {
-		tasks = tasks.filter((t) => t.id !== taskId);
-	}
-
-	function editTask(taskId: string) {
-		const task = tasks.find((t) => t.id === taskId);
-		if (!task) return;
-
-		newTaskName = task.name;
-		newTaskDescription = task.description || '';
-		newTaskVolunteers = task.requiredVolunteers;
-		newTaskType = task.type;
-		editingTaskId = taskId;
-	}
-
-	function cancelTaskEdit() {
-		resetTaskForm();
-	}
-
-	function cancelTaskInput() {
-		newTaskName = '';
-		newTaskDescription = '';
-		newTaskVolunteers = 1;
-		newTaskType = 'onEvent';
-	}
-
-	function resetTaskForm() {
-		newTaskName = '';
-		newTaskDescription = '';
-		newTaskVolunteers = 1;
-		newTaskType = 'onEvent';
-		editingTaskId = null;
-	}
-
-	// Retire une date manuelle (popover « Supprimer » mono-slot) : la sort de
-	// manualDates, donc de l'affichage. Distinct de la désactivation d'une DateSlot
-	// (setSlotEnabled / disabledSlotKeys), qui préserve la date candidate.
-	function removeManualDate(dateToRemove: string) {
-		manualDates = manualDates.filter((d) => d !== dateToRemove);
-	}
-
-	// Affecte manualDates depuis un picker (CUSTOM ou arbitraires récurrent). Une date
-	// (re)ajoutée est entièrement réactivée : on retire toutes ses DateSlots de
-	// disabledSlotKeys. Sans cela, une date dont toutes les DateSlots avaient été
-	// désactivées puis (re)sélectionnées au picker réapparaîtrait grisée — car ses clés
-	// persistent dans disabledSlotKeys (notamment après réouverture : le seeding y met
-	// les occurrences soft-deleted, sans les compter dans manualDates). Au save, le
-	// service un-soft-delete l'occurrence existante (match par date|slotId) en
-	// préservant id/responses/comments (décision 2.2).
-	function setManualDates(dates: string[]) {
-		const prev = new Set(manualDates);
-		for (const d of dates) {
-			if (prev.has(d)) continue;
-			for (const slot of timeSlots) {
-				disabledSlotKeys.delete(formatSlotKey(d, slot.id));
-			}
-		}
-		manualDates = dates;
-	}
-
-	// --- Portes de confirmation (intercept → confirm → commit/revert) ---
-	// Une action destructrice ne mute jamais le state directement depuis le rendu :
-	// elle passe par un handler `request*` qui décide commit direct vs confirmation.
-	//
-	// Deux patterns :
-	// - **changement structurel** : confirme en édition indépendamment des données
-	//   (reset, propagation d'horaires, suppression de créneau) — Portes 1, 5, 6
-	// - **suppression de données** : confirme seulement si une date avec données
-	//   participant est affectée — Portes 2, 3, 4
-
-	// Porte 1 — Changement de récurrence : modification fondamentale. Ne se confirme
-	// qu'en édition (`master`) : en création, aucune occurrence existante à détruire, le
-	// reset est sans risque. Sur confirm : reset des opt-out (`disabledSlotKeys`) et des
-	// dates candidates (`manualDates`). Ne touche ni à `seededOccurrences` (mémoire des
-	// overrides d'édition) ni à `timeSlots`. `lastDateWasManuallySet = false` permet le
-	// recalc de lastDate en création (cohérent avec un reset complet de config).
-	function applyRecurrenceTypeChange(newValue: string) {
-		recurrenceType = newValue;
-		disabledSlotKeys.clear();
-		manualDates = [];
-		lastDateWasManuallySet = false;
-	}
-
-	function requestRecurrenceTypeChange(newValue: string) {
-		if (newValue === recurrenceType) return;
-		if (!master) {
-			applyRecurrenceTypeChange(newValue);
-			return;
-		}
-		openConfirm({
-			title: 'Changer le type de récurrence',
-			message:
-				'Changer le type de récurrence est une modification fondamentale : les désactivations et les dates manuelles seront réinitialisées, et les occurrences hors nouveau cycle seront supprimées.',
-			variant: 'warning',
-			confirmLabel: 'Changer',
-			onConfirm: () => applyRecurrenceTypeChange(newValue)
-		});
-	}
-
-	// Porte 2 — Changement de borne (firstDate/lastDate) : confirme seulement si des
-	// occurrences avec données sortent du nouveau cycle. Calcule le cycle candidat avec
-	// la nouvelle borne (fonction pure) et compare à l'actuel `allGeneratedDates`. Une
-	// date manuelle (sticky) reste couverte par `manualDates` même hors cycle → non à risque.
-	function commitDateChange(field: 'firstDate' | 'lastDate', newValue: string) {
-		if (field === 'firstDate') {
-			firstDate = newValue;
-		} else {
-			lastDate = newValue;
-			lastDateWasManuallySet = true;
-		}
-	}
-
-	function requestDateChange(field: 'firstDate' | 'lastDate', newValue: string) {
-		if (
-			(field === 'firstDate' && newValue === firstDate) ||
-			(field === 'lastDate' && newValue === lastDate)
-		)
-			return;
-		if (recurrenceType === 'CUSTOM' || datesWithData.length === 0) {
-			commitDateChange(field, newValue);
-			return;
-		}
-		const newCycle = new Set(
-			generateRecurrenceDates({
-				type: recurrenceType,
-				firstDate: field === 'firstDate' ? newValue : firstDate,
-				lastDate: field === 'lastDate' ? newValue : lastDate,
-				monthlyByDayOccurrences:
-					recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
-				monthlyByDateMode:
-					recurrenceType === 'MONTHLY_BY_DATE' ? effectiveMonthlyByDateMode : undefined
-			})
-		);
-		const atRisk = views.allGeneratedDates.some(
-			(d) => !newCycle.has(d) && datesWithData.includes(d) && !manualDates.includes(d)
-		);
-		if (!atRisk) {
-			commitDateChange(field, newValue);
-			return;
-		}
-		openConfirm({
-			title: 'Modifier la période',
-			message: 'Cette modification supprimera des dates contenant des réponses. Continuer ?',
-			variant: 'warning',
-			confirmLabel: 'Modifier',
-			onConfirm: () => commitDateChange(field, newValue)
-		});
-	}
-
-	// Porte 3 — Suppression d'une date manuelle : confirme si la date a des données.
-	// Ferme le popover après commit (idempotent si appelé hors popover).
-	function requestRemoveManualDate(dateToRemove: string) {
-		if (!datesWithData.includes(dateToRemove)) {
-			removeManualDate(dateToRemove);
-			closePopover();
-			return;
-		}
-		openConfirm({
-			title: 'Supprimer la date',
-			message:
-				'Des participant·es au planning ont répondu ou commenté sur cette date. Êtes-vous sure de vouloir la supprimer ?',
-			variant: 'warning',
-			confirmLabel: 'Supprimer',
-			onConfirm: () => {
-				removeManualDate(dateToRemove);
-				closePopover();
-			}
-		});
-	}
-
-	// Porte 4 — Désactivation d'une DateSlot générée : confirme si la date a des données.
-	// La réactivation ne se confirme jamais.
-	function requestDisableSlot(ds: DateSlot) {
-		if (!datesWithData.includes(ds.date)) {
-			setSlotEnabled(ds, false);
-			closePopover();
-			return;
-		}
-		openConfirm({
-			title: 'Retirer cette date',
-			message:
-				'Des participant·es au planning ont répondu ou commenté sur cette date. Êtes-vous sure de vouloir la supprimer ?',
-			variant: 'warning',
-			confirmLabel: 'Désactiver',
-			onConfirm: () => {
-				setSlotEnabled(ds, false);
-				closePopover();
-			}
-		});
-	}
-
-	// Applique un preset horaire au draft courant du modal (utilisé pour l'aperçu
-	// avant Apply). Muter directement le draft garantit que la validation du bouton
-	// Appliquer et les inputs restent synchrones.
-	function applyTimePreset(startTime: string, endTime: string) {
-		if (!slotModal.state) return;
-		slotModal.state.draft = { startTime, endTime };
-	}
-
-	function addTimeSlot() {
-		openSlotModalCreate();
-	}
-
-	function removeTimeSlot(slotId: string) {
-		// En création, suppression directe (aucune occurrence persistée). En édition,
-		// la suppression d'un slot soft-deletera au save les occurrences liées à ce slot.
-		// Pattern "changement structurel" : on confirme seulement si des occurrences
-		// actives existent pour ce slot (`count > 0`). Sinon, suppression directe —
-		// l'action n'est pas destructive.
-		if (!master) {
-			commitRemoveTimeSlot(slotId);
-			return;
-		}
-		const count = views.activeDateSlots.filter((ds) => ds.slotId === slotId).length;
-		if (count === 0) {
-			commitRemoveTimeSlot(slotId);
-			return;
-		}
-		const message =
-			count === 1
-				? "L'occurrence de ce créneau sera supprimée à l'enregistrement, ainsi que les réponses et commentaires éventuels."
-				: `Les ${count} occurrences de ce créneau seront supprimées à l'enregistrement, ainsi que les réponses et commentaires éventuels.`;
-		openConfirm({
-			title: 'Supprimer ce créneau',
-			message,
-			variant: 'danger',
-			confirmLabel: 'Supprimer',
-			onConfirm: () => commitRemoveTimeSlot(slotId)
-		});
-	}
-
-	function commitRemoveTimeSlot(slotId: string) {
-		const index = timeSlots.findIndex((s) => s.id === slotId);
-		if (index === -1) return;
-		timeSlots.splice(index, 1);
-		// Réinitialiser une éventuelle session d'édition sur le slot supprimé
-		if (slotModal.state?.slotId === slotId) closeSlotModal();
-	}
-
-	// === Modal unifié d'ajout/édition d'un créneau ===
-	// Un seul modal sert aux deux flux : ajout (mode create) et modification (mode
-	// edit). À l'ouverture, le draft est pré-rempli (valeurs du slot édité, ou héritage
-	// du dernier slot à l'ajout, ou vide avec validation bloquante). Les presets
-	// horaires mute le draft. « Appliquer » branche sur le bon commit : push direct
-	// en create, flux confirm de propagation en edit (préservation overrides).
-	interface SlotModalState {
-		mode: 'create' | 'edit';
-		slotId: string | null;
-		draft: { startTime: string; endTime: string };
-	}
-	let slotModal = $state<{ open: boolean; state: SlotModalState | null }>({
-		open: false,
-		state: null
-	});
-	let slotStartInput = $state<HTMLInputElement | undefined>(undefined);
-
-	$effect(() => {
-		if (slotModal.open && slotStartInput) {
-			slotStartInput.focus();
-			slotStartInput.select();
-		}
-	});
-
-	function openSlotModalCreate() {
-		const last = timeSlots.at(-1);
-		slotModal = {
-			open: true,
-			state: {
-				mode: 'create',
-				slotId: null,
-				draft: last
-					? { startTime: last.startTime, endTime: last.endTime }
-					: { startTime: '', endTime: '' }
-			}
-		};
-	}
-
-	function startSlotEdit(slotId: string) {
-		const slot = timeSlots.find((s) => s.id === slotId);
-		if (!slot) return;
-		slotModal = {
-			open: true,
-			state: {
-				mode: 'edit',
-				slotId,
-				draft: { startTime: slot.startTime, endTime: slot.endTime }
-			}
-		};
-	}
-
-	function closeSlotModal() {
-		slotModal = { open: false, state: null };
-	}
-
-	function applySlotEdit() {
-		if (!slotModal.state) return;
-		const { mode, slotId, draft } = slotModal.state;
-		const { startTime: newStart, endTime: newEnd } = draft;
-		if (!newStart || !newEnd) {
-			toast.error('Créneau incomplet', {
-				description: 'Chaque créneau doit avoir une heure de début et une heure de fin.'
-			});
-			return;
-		}
-		if (mode === 'create') {
-			timeSlots.push({
-				id: generateTimeSlotId(timeSlots),
-				startTime: newStart,
-				endTime: newEnd
-			});
-			closeSlotModal();
-			return;
-		}
-		// mode 'edit'
-		if (!slotId) {
-			closeSlotModal();
-			return;
-		}
-		const slot = timeSlots.find((s) => s.id === slotId);
-		if (!slot) {
-			closeSlotModal();
-			return;
-		}
-		const oldStart = slot.startTime;
-		const oldEnd = slot.endTime;
-		if (newStart === oldStart && newEnd === oldEnd) {
-			closeSlotModal();
-			return;
-		}
-		// Sans master (pas d'occurrences seedées à propager), on mute directement
-		// le slot. Avec master, on ferme d'abord le modal slot puis on ouvre le
-		// ConfirmModal de propagation (on ne peut pas empiler deux modals) ; le
-		// commit préserve les overrides individuels d'occurrences.
-		if (!master) {
-			slot.startTime = newStart;
-			slot.endTime = newEnd;
-			closeSlotModal();
-			return;
-		}
-		closeSlotModal();
-		openConfirm({
-			title: 'Appliquer les nouveaux horaires',
-			message:
-				'Les occurrences de ce créneau suivront les nouveaux horaires, sauf celles que vous avez modifiées individuellement (elles conservent leurs horaires personnalisés).',
-			variant: 'warning',
-			confirmLabel: 'Appliquer',
-			onConfirm: () => commitSlotEdit(slotId, newStart, newEnd, oldStart, oldEnd)
-		});
-	}
-
-	// Applique la modification d'un créneau : propage aux occurrences seedées
-	// non-overridées (celles dont les horaires == ancien template) et mute le
-	// template. Les occurrences overridées restent intactes dans seededOccurrences.
-	// Les DateSlots non-seedées suivent automatiquement via le `$derived` occurrenceTargets.
-	function commitSlotEdit(
-		slotId: string,
-		newStart: string,
-		newEnd: string,
-		oldStart: string,
-		oldEnd: string
-	) {
-		for (const [key, seeded] of seededOccurrences) {
-			if (seeded.slotId !== slotId) continue;
-			if (seeded.startTime === oldStart && seeded.endTime === oldEnd) {
-				seededOccurrences.set(key, { ...seeded, startTime: newStart, endTime: newEnd });
-			}
-		}
-		const slot = timeSlots.find((s) => s.id === slotId);
-		if (slot) {
-			slot.startTime = newStart;
-			slot.endTime = newEnd;
-		}
-	}
-
-	async function handleSubmit() {
-		// Marquer qu'une tentative de soumission a eu lieu
-		hasAttemptedSubmit = true;
-
-		// Reset des erreurs
-		validationErrors = {};
-
-		// Limite Phase 1 : 100 DateSlots futurs maximum (remplace l'ancienne
-		// limite de 100 dates). En mono-slot, 1 slot = 1 DateSlot/date, donc équivalent.
-		const futureActiveDateSlotCount = views.futureActiveDateSlotCount;
-		if (futureActiveDateSlotCount > 100) {
-			toast.error('Trop de créneaux planifiés', {
-				description: `Vous avez ${futureActiveDateSlotCount} combinaisons date×créneau futures. La limite est de 100.`
-			});
-			return;
-		}
-
-		// Validation du titre
-		if (!title.trim()) {
-			validationErrors.title = true;
-			toast.error('Le titre est requis');
-			return;
-		}
-
-		// Validation des créneaux : au moins 1 slot, et chacun doit avoir des horaires complets.
-		// Les chevauchements et l'ordre chronologique ne sont PAS vérifiés en Phase 1.
-		if (timeSlots.length === 0) {
-			toast.error('Aucun créneau défini', {
-				description: 'Veuillez conserver au moins un créneau horaire.'
-			});
-			return;
-		}
-		const incompleteSlot = timeSlots.find((s) => !s.startTime || !s.endTime);
-		if (incompleteSlot) {
-			toast.error('Créneau incomplet', {
-				description: 'Chaque créneau doit avoir une heure de début et une heure de fin.'
-			});
-			return;
-		}
-
-		// Validation : tâche en cours de création/modification
-		if (newTaskName.trim()) {
-			validationErrors.taskInProgress = true;
-			toast.error('Tâche en cours de saisie', {
-				description:
-					isEditingTask && editingTaskId
-						? "Veuillez terminer la modification de la tâche en cours ou l'annuler avant de sauvegarder."
-						: 'Veuillez terminer la création de la tâche en cours avant de sauvegarder.'
-			});
-			return;
-		}
-
-		// Validation : session d'édition de slot ouverte (modal non appliqué)
-		if (slotModal.open) {
-			toast.error('Créneau en cours de modification', {
-				description:
-					'Veuillez appliquer ou annuler les modifications du créneau avant de sauvegarder.'
-			});
-			return;
-		}
-
-		// Validation : au moins une tâche OU allowResponses activé
-		const hasTasks = tasks.length > 0;
-		const hasResponsesEnabled = allowResponses;
-
-		if (!hasTasks && !hasResponsesEnabled) {
-			validationErrors.tasks = true;
-			validationErrors.responses = true;
-			toast.error('Configuration incomplète', {
-				description: 'Vous devez soit créer des tâches, soit activer le formulaire de présence.'
-			});
-			return;
-		}
-
-		// Validation : au moins une réponse possible si allowResponses = true
-		if (allowResponses && availableResponseTypes.length === 0) {
-			validationErrors.responses = true;
-			toast.error('Réponses possibles requises', {
-				description: 'Veuillez sélectionner au moins un type de réponse possible.'
-			});
-			return;
-		}
-
-		// Validation : au moins un DateSlot futur actif (unifie CUSTOM et récurrent).
-		// En mono-slot cela équivaut à « au moins une date future sélectionnée ».
-		const hasFutureActiveDateSlot = views.activeDateSlots.some((ds) => ds.date >= todayStr);
-		if (views.activeDateSlots.length === 0) {
-			validationErrors.dates = true;
-			toast.error('Aucune date sélectionnée', {
-				description: 'Veuillez sélectionner au moins une date pour le planning.'
-			});
-			return;
-		}
-		if (!hasFutureActiveDateSlot) {
-			validationErrors.dates = true;
-			toast.error('Dates passées', {
-				description:
-					'Toutes les dates sélectionnées sont passées. Veuillez sélectionner au moins une date future.'
-			});
-			return;
-		}
-		if (recurrenceType !== 'CUSTOM' && (!firstDate || !lastDate)) {
-			toast.error('Les dates de début et de fin sont requises');
-			return;
-		}
-
-		// Pas de porte globale au submit : les 6 ConfirmModal just-in-time
-		// couvrent déjà tous les chemins destructeurs. Une seconde porte serait
-		// une double confirmation UX.
-
-		// recurrence : seed déclaratif (type + bornes + monthlyByDay). La source
-		// unique des occurrences est occurrenceTargets ci-dessous.
-		const recurrence: RecurrenceConfig = {
-			type: recurrenceType,
-			...(recurrenceType !== 'CUSTOM' && {
-				firstDate,
-				lastDate
-			}),
-			monthlyByDayOccurrences:
-				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
-			// effectiveMonthlyByDateMode est undefined quand le toggle est caché :
-			// on ne persisted pas le mode inactif (inertie implicite).
-			monthlyByDateMode:
-				recurrenceType === 'MONTHLY_BY_DATE' ? effectiveMonthlyByDateMode : undefined
-		};
-
-		const data: PlanningFormData = {
-			title: title.trim(),
-			description: description.trim() || undefined,
-			place: place.trim() || undefined,
-			// Référence legacy depuis le 1er slot : defaultStartTime/defaultEndTime restent
-			// requis côté PocketBase et servent de fallback mono-slot côté service.
-			defaultStartTime: timeSlots[0].startTime,
-			defaultEndTime: timeSlots[0].endTime,
-			timeSlots: timeSlots.map((s) => ({ ...s })),
-			minPresentRequired,
-			allowResponses,
-			toConfirm,
-			availableResponseTypes,
-			recurrence,
-			// Source unique : c'est ce tableau qui pilote create/update côté service.
-			occurrenceTargets: views.occurrenceTargets.map((t) => ({ ...t })),
-			tasks,
-			forceTaskRefresh
-		};
-
-		isSubmitting = true;
-		try {
-			await onSubmit(data);
-		} catch (error) {
-			const { message } = classifyError(error);
-			toast.error(message);
-			console.error(error);
-		} finally {
-			isSubmitting = false;
-		}
-	}
-
-	const recurrenceLabel = $derived.by(() => {
-		// Mode CUSTOM : afficher le nombre de dates définies
-		if (recurrenceType === 'CUSTOM') {
-			return manualDates.length === 0
-				? 'Dates libres'
-				: `${manualDates.length} date${manualDates.length > 1 ? 's' : ''} définie${manualDates.length > 1 ? 's' : ''}`;
-		}
-
-		// Pas de date de début définie
-		if (!firstDate || !recurrenceType) return '';
-
-		// Label de base de la récurrence
-		const baseLabel = getRecurrenceLabel({
-			type: recurrenceType,
+import {
+	AlignLeft,
+	Calendar,
+	Check,
+	ClipboardCheck,
+	Clock,
+	MapPin,
+	Pencil,
+	Plus,
+	RotateCcw,
+	Trash2
+} from "@lucide/svelte";
+import { addMonths, addWeeks, format, parse } from "date-fns";
+import { fr } from "date-fns/locale";
+import { onMount, untrack } from "svelte";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+import { slide } from "svelte/transition";
+import { toast } from "svelte-sonner";
+import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from "$lib/constants";
+import { generateTimeSlotId } from "$lib/services/planningActions";
+import { networkStore } from "$lib/stores/networkStore.svelte";
+import type {
+	DateSlot,
+	OccurrenceTarget,
+	PlanningMaster,
+	PlanningOccurrence,
+	RecurrenceConfig,
+	ResponseType,
+	Task,
+	TaskType,
+	TimeSlot
+} from "$lib/types/planning.types";
+import { computeMaxDateForLimit } from "$lib/utils/dateSlotLimit";
+import { computeDateSlotSelection, seedFromOccurrences } from "$lib/utils/dateSlotSelection";
+import { classifyError } from "$lib/utils/errorHandler";
+import {
+	generateRecurrenceDates,
+	getRecurrenceLabel,
+	isLastDayOfMonth
+} from "$lib/utils/recurrence";
+import { formatSlotKey } from "$lib/utils/slots";
+import MultiSelect from "./MultiSelect.svelte";
+import NetworkAlert from "./NetworkAlert.svelte";
+import ConfirmModal from "./ui/ConfirmModal.svelte";
+import Modal from "./ui/Modal.svelte";
+import MultiDatePicker from "./ui/MultiDatePicker.svelte";
+import RichTextEditor from "./ui/RichTextEditor.svelte";
+
+interface Props {
+	master?: PlanningMaster; // Si présent, on est en mode édition
+	onSubmit: (data: PlanningFormData) => Promise<void>;
+	isSubmitting?: boolean;
+	datesWithData?: string[]; // Liste des dates (YYYY-MM-DD) ayant des réponses ou commentaires
+	datesWithSpecificTasks?: string[]; // Liste des dates ayant des tâches personnalisées
+	occurrences?: PlanningOccurrence[]; // Occurrences futures (soft-deleted incluses) pour le seeding édition
+}
+
+export interface PlanningFormData {
+	title: string;
+	description?: string;
+	place?: string;
+	// Champs legacy conservés : requis par PocketBase (champ `defaultStartTime`/`defaultEndTime`
+	// obligatoires sur la collection) et utilisés comme fallback mono-slot côté service.
+	// Valorisés depuis le 1er slot du répéteur (référence legacy) dans handleSubmit.
+	defaultStartTime: string;
+	defaultEndTime: string;
+	timeSlots: TimeSlot[];
+	recurrence: RecurrenceConfig;
+	/** Occurrences cibles voulues (source unique côté UI, contrat formulaire↔service). */
+	occurrenceTargets: OccurrenceTarget[];
+	tasks: Task[];
+	minPresentRequired: number;
+	allowResponses: boolean;
+	toConfirm?: boolean;
+	availableResponseTypes?: ResponseType[];
+	forceTaskRefresh?: boolean;
+}
+
+let {
+	master,
+	onSubmit,
+	isSubmitting = $bindable(false),
+	datesWithData = [],
+	datesWithSpecificTasks = [],
+	occurrences = []
+}: Props = $props();
+
+// Formulaire (initialisé avec le master si présent)
+const m = (() => master)() || {};
+const {
+	title: initTitle = "",
+	description: initDesc = "",
+	place: initPlace = "",
+	defaultStartTime: initStartTime = "14:00",
+	defaultEndTime: initEndTime = "18:00",
+	timeSlots: initMasterTimeSlots,
+	minPresentRequired: initMinPresent = 1,
+	allowResponses: initAllowResponses = true,
+	toConfirm: initToConfirm = false,
+	recurrence = {},
+	tasks: initTasks = []
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- la prop m est très polymorphe (PlanningMaster avec champs optionnels)
+} = m as any;
+
+const {
+	type: initRecType = "WEEKLY",
+	firstDate: initFirstDate = "",
+	lastDate: initLastDate = "",
+	monthlyByDayOccurrences: initMonthlyByDay = [],
+	monthlyByDateMode: initMonthlyByDateMode
+} = recurrence || {};
+
+let title = $state(initTitle || "");
+let description = $state(initDesc || "");
+let place = $state(initPlace || "");
+
+// Répéteur de créneaux (multi-slots). En édition on réutilise master.timeSlots ;
+// sinon fallback mono-slot depuis defaultStartTime/defaultEndTime (cohérent avec
+// resolveTimeSlots côté service, qui synthétise un slot `s1`). En création, valeurs
+// par défaut du formulaire.
+let timeSlots = $state<TimeSlot[]>(
+	initMasterTimeSlots && initMasterTimeSlots.length > 0
+		? initMasterTimeSlots.map((s: TimeSlot) => ({ ...s }))
+		: [{ id: "s1", startTime: initStartTime || "14:00", endTime: initEndTime || "18:00" }]
+);
+let minPresentRequired = $state(initMinPresent ?? 1);
+let allowResponses = $state(initAllowResponses ?? true);
+let toConfirm = $state(initToConfirm ?? false);
+
+// Récurrence
+let recurrenceType = $state(initRecType || "WEEKLY");
+let firstDate = $state(initFirstDate || "");
+let lastDate = $state(initLastDate || "");
+let monthlyByDayOccurrences = $state<number[]>(initMonthlyByDay || []);
+// 'fixed-day' (défaut) | 'last-day' | undefined (neutre = fixed-day implicite).
+// Conservé à travers les changements de firstDate non-dernier-de-mois : le mode
+// devient inerte (l'algorithme retombe sur fixed-day) sans reset.
+let monthlyByDateMode = $state<"fixed-day" | "last-day" | undefined>(initMonthlyByDateMode);
+
+// Dates candidates ajoutées manuellement : dates arbitraires (hors cycle en mode récurrent)
+// ou toutes les dates (mode CUSTOM). C'est la *liste à afficher*, distincte de la sélection
+// active (portée par `disabledSlotKeys`). En édition, le seeding y ajoute les dates
+// d'occurrences actives hors-cycle (rétrécissement de bornes, changement de type, dates
+// arbitraires d'origine) — en CUSTOM, toutes les occurrences sont hors-cycle et y passent.
+let manualDates = $state<string[]>([]);
+
+let showArbitraryDatePicker = $state(false); // Afficher le picker inline pour dates arbitraires
+
+// « Aujourd'hui » figé à la résolution du dérivé. Source unique partagée par
+// le picker minDate, la validation des DateSlots futurs, et le masquage des badges passés.
+const todayStr = $derived(format(new Date(), "yyyy-MM-dd"));
+
+// Multi-créneaux : afficher le badge slotId uniquement en mode multi-slot.
+const showSlot = $derived(timeSlots.length > 1);
+
+// Toggle MONTHLY_BY_DATE : visible si et seulement si firstDate est dernier
+// jour de son mois. Couvre 31 (mois 31j), 30 (mois 30j), 29 fév bis, 28 fév
+// non-bis. Sinon, le mode est inerte (l'algorithme retombe sur fixed-day).
+const showMonthlyByDateMode = $derived(
+	recurrenceType === "MONTHLY_BY_DATE" &&
+		firstDate !== "" &&
+		isLastDayOfMonth(parse(firstDate, "yyyy-MM-dd", new Date()))
+);
+
+// Valeur effective du mode pour les calculs et la soumission. Quand le toggle
+// est caché (firstDate non-dernier-de-mois), le mode est silencieusement
+// inactif — on ne le propage pas à la payload pour ne pas le persisted inutilement.
+const effectiveMonthlyByDateMode = $derived(showMonthlyByDateMode ? monthlyByDateMode : undefined);
+
+// --- Sélection unifiée : disabledSlotKeys + seededOccurrences ---
+// États canoniques mutés uniquement par les handlers purs (setSlotEnabled,
+// addTimeSlot/commitRemoveTimeSlot) et le seeding édition one-shot.
+//  - disabledSlotKeys : clés `date|slotId` explicitement désactivées par l'admin.
+//  - seededOccurrences : overrides portés (id occurrence + horaires réels) par clé.
+let disabledSlotKeys = new SvelteSet<string>();
+let seededOccurrences = new SvelteMap<string, OccurrenceTarget>();
+
+// --- Moteur pur de sélection DateSlot ---
+// Toute la logique de calcul (produit cartésien, filtrage désactivées, overrides,
+// masquage passées, comptages) vit dans `dateSlotSelection.ts`. Le composant ne
+// fait plus que binding Svelte + template + état réactif mutable (disabledSlotKeys,
+// seededOccurrences).
+const views = $derived(
+	computeDateSlotSelection(
+		{
+			recurrenceType,
 			firstDate,
 			lastDate,
 			monthlyByDayOccurrences:
-				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
+				recurrenceType === "MONTHLY_BY_DAY" ? monthlyByDayOccurrences : undefined,
 			monthlyByDateMode:
-				recurrenceType === 'MONTHLY_BY_DATE' ? effectiveMonthlyByDateMode : undefined
-		});
+				recurrenceType === "MONTHLY_BY_DATE" ? effectiveMonthlyByDateMode : undefined,
+			manualDates,
+			timeSlots,
+			todayStr
+		},
+		{
+			disabledSlotKeys: new Set(disabledSlotKeys),
+			seededOccurrences: new Map(seededOccurrences)
+		}
+	)
+);
 
-		// Ajouter les dates arbitraires si présentes
-		const arbitraryCount = views.arbitraryDates.length;
-		if (arbitraryCount > 0) {
-			return `${baseLabel} + ${arbitraryCount} date${arbitraryCount > 1 ? 's' : ''}`;
+/** True si la DateSlot est active (non désactivée). Unifie mono/multi/CUSTOM. */
+function isSlotActive(ds: DateSlot): boolean {
+	return !disabledSlotKeys.has(formatSlotKey(ds.date, ds.slotId));
+}
+
+/** Active/désactive une DateSlot (popover multi-slot). Mute disabledSlotKeys. */
+function setSlotEnabled(ds: DateSlot, enabled: boolean) {
+	const key = formatSlotKey(ds.date, ds.slotId);
+	if (enabled) disabledSlotKeys.delete(key);
+	else disabledSlotKeys.add(key);
+}
+
+/** Horaires à afficher : override seedé (édition) sinon template du slot. */
+function displayTimes(ds: DateSlot): { startTime: string; endTime: string } {
+	const seeded = seededOccurrences.get(formatSlotKey(ds.date, ds.slotId));
+	return seeded
+		? { startTime: seeded.startTime, endTime: seeded.endTime }
+		: { startTime: ds.startTime, endTime: ds.endTime };
+}
+
+// --- Seeding édition (one-shot, seul `$effect` autorisé) ---
+// Se déclenche à l'ouverture en édition (master + occurrences). Remplit les deux états
+// canoniques depuis l'état persisté, puis pose un flag pour ne JAMAIS re-seeder.
+let seedingDone = $state(false);
+$effect(() => {
+	if (seedingDone) return;
+	if (!master || occurrences.length === 0) return;
+	const result = seedFromOccurrences(occurrences, new Set(views.allGeneratedDates));
+	for (const key of result.disabledKeys) disabledSlotKeys.add(key);
+	for (const [key, target] of result.seeded) seededOccurrences.set(key, target);
+	if (result.manualDatesToAdd.length > 0) {
+		manualDates.push(...result.manualDatesToAdd);
+	}
+	seedingDone = true;
+});
+
+// --- Vues dérivées (consommées par le rendu) ---
+const hiddenPastLabel = $derived(
+	views.hiddenPastDateCount > 0
+		? `${views.hiddenPastDateCount} date${views.hiddenPastDateCount > 1 ? "s" : ""} passée${views.hiddenPastDateCount > 1 ? "s" : ""}, consultables depuis la page archives.`
+		: ""
+);
+
+// Dernière date de cycle ramenant le compte de DateSlots futurs à ≤ 100, pour
+// le bouton « Ajuster au ... » de l'alerte (mode récurrent uniquement).
+const maxAdjustDate = $derived(
+	recurrenceType !== "CUSTOM" && firstDate && lastDate
+		? computeMaxDateForLimit({
+				firstDate,
+				lastDate,
+				recurrenceType,
+				monthlyByDayOccurrences:
+					recurrenceType === "MONTHLY_BY_DAY" ? monthlyByDayOccurrences : undefined,
+				monthlyByDateMode:
+					recurrenceType === "MONTHLY_BY_DATE" ? effectiveMonthlyByDateMode : undefined,
+				manualDates,
+				timeSlots,
+				disabledSlotKeys: new Set(disabledSlotKeys),
+				todayStr
+			})
+		: null
+);
+const maxAdjustDateLabel = $derived(
+	maxAdjustDate
+		? format(parse(maxAdjustDate, "yyyy-MM-dd", new Date()), "d MMM yyyy", { locale: fr })
+		: ""
+);
+
+// === Popover par badge (multi-slot uniquement) ===
+// Popover en position fixe pour échapper au conteneur `overflow-y-auto` (sinon clippé).
+// Fermeture extérieure via listener document (pas de backdrop bloquant).
+let activePopoverKey = $state<string | null>(null);
+let popoverPos = $state<{ top: number; left: number }>({ top: 0, left: 0 });
+
+// Draft des horaires du popover ouvert (édition inline, 3.3). Initialisé à
+// l'ouverture (displayTimes = override seedé sinon template), commité sur
+// « Appliquer ». Fermeture sans apply = revert gratuit (state non muté).
+let popoverTimeDraft = $state<{ startTime: string; endTime: string }>({
+	startTime: "",
+	endTime: ""
+});
+
+function togglePopoverFor(ds: DateSlot, btn: HTMLElement) {
+	const key = formatSlotKey(ds.date, ds.slotId);
+	if (activePopoverKey === key) {
+		activePopoverKey = null;
+		return;
+	}
+	const times = displayTimes(ds);
+	popoverTimeDraft = { startTime: times.startTime, endTime: times.endTime };
+	const rect = btn.getBoundingClientRect();
+	// Garde le popover (~220×160px) dans la fenêtre : à droite horizontalement,
+	// et bascule au-dessus du badge si manque de place en bas.
+	const left = Math.min(rect.left, window.innerWidth - 230);
+	const below = rect.bottom + 170 < window.innerHeight;
+	activePopoverKey = key;
+	popoverPos = {
+		top: below ? rect.bottom + 6 : rect.top - 160,
+		left: Math.max(8, left)
+	};
+}
+
+function closePopover() {
+	activePopoverKey = null;
+}
+
+/** True si la DateSlot porte un override (horaires divergeant du slot template). */
+function isOverriddenDateSlot(ds: DateSlot): boolean {
+	const seeded = seededOccurrences.get(formatSlotKey(ds.date, ds.slotId));
+	const slot = timeSlots.find((s) => s.id === ds.slotId);
+	if (!seeded || !slot) return false;
+	return seeded.startTime !== slot.startTime || seeded.endTime !== slot.endTime;
+}
+
+/** Applique le draft comme override sur la DateSlot (3.3). Préserve l'id seedé. */
+function commitPopoverOverride(ds: DateSlot) {
+	const { startTime, endTime } = popoverTimeDraft;
+	if (!startTime || !endTime) {
+		toast.error("Horaires incomplets", {
+			description: "Indiquez une heure de début et de fin."
+		});
+		return;
+	}
+	if (startTime >= endTime) {
+		toast.error("Horaires invalides", {
+			description: "L'heure de fin doit être après l'heure de début."
+		});
+		return;
+	}
+	const key = formatSlotKey(ds.date, ds.slotId);
+	const seeded = seededOccurrences.get(key);
+	seededOccurrences.set(
+		key,
+		seeded
+			? { ...seeded, startTime, endTime }
+			: { date: ds.date, startTime, endTime, slotId: ds.slotId }
+	);
+	closePopover();
+}
+
+/** Remet les horaires de la DateSlot au template du slot (retire l'override). */
+function resetPopoverToTemplate(ds: DateSlot) {
+	const slot = timeSlots.find((s) => s.id === ds.slotId);
+	if (!slot) return;
+	const key = formatSlotKey(ds.date, ds.slotId);
+	const seeded = seededOccurrences.get(key);
+	if (!seeded) {
+		popoverTimeDraft = { startTime: slot.startTime, endTime: slot.endTime };
+		return;
+	}
+	seededOccurrences.set(key, { ...seeded, startTime: slot.startTime, endTime: slot.endTime });
+	popoverTimeDraft = { startTime: slot.startTime, endTime: slot.endTime };
+}
+
+// === Confirmations destructrices (pattern intercept → confirm → commit/revert) ===
+// Une seule instance de ConfirmModal pilotée par `confirmState`. Chaque handler `request*`
+// peuple la config puis ouvre ; `onConfirm` exécute le commit puis ferme. L'annulation =
+// ne rien faire (revert automatique pour les inputs one-way : la valeur non mutée du
+// state est réaffichée). `occurrenceTargets` reste un `$derived` pur, jamais écrit.
+interface ConfirmConfig {
+	title: string;
+	message: string;
+	description?: string;
+	variant: "danger" | "warning" | "info" | "success";
+	confirmLabel?: string;
+	onConfirm: () => void;
+}
+let confirmState = $state<{ open: boolean; config: ConfirmConfig | null }>({
+	open: false,
+	config: null
+});
+
+function openConfirm(config: ConfirmConfig) {
+	confirmState = { open: true, config };
+}
+
+function closeConfirm() {
+	confirmState = { open: false, config: null };
+}
+
+function handleConfirm() {
+	confirmState.config?.onConfirm();
+	closeConfirm();
+}
+
+$effect(() => {
+	const open = activePopoverKey;
+	if (!open) return;
+	const onPointerDown = (e: PointerEvent) => {
+		const t = e.target as HTMLElement | null;
+		if (t && !t.closest("[data-slot-ui]")) activePopoverKey = null;
+	};
+	document.addEventListener("pointerdown", onPointerDown);
+	return () => document.removeEventListener("pointerdown", onPointerDown);
+});
+
+// Tâches
+let tasks = $state<Task[]>(initTasks || []);
+let newTaskName = $state("");
+let newTaskDescription = $state("");
+let newTaskVolunteers = $state(1);
+let newTaskType = $state<TaskType>("onEvent");
+let forceTaskRefresh = $state(false);
+
+let availableResponseTypes = $state<ResponseType[]>(
+	untrack(() => {
+		if (!master) {
+			return allowResponses ? [...AVAILABLE_RESPONSE_TYPES] : [];
+		}
+		return master.availableResponseTypes || (allowResponses ? [...AVAILABLE_RESPONSE_TYPES] : []);
+	})
+);
+
+// === Édition de tâches ===
+let editingTaskId = $state<string | null>(null);
+const isEditingTask = $derived(editingTaskId !== null);
+
+let taskNameInput: HTMLInputElement;
+
+// Focus automatique sur l'input quand on entre en mode édition
+$effect(() => {
+	if (editingTaskId && taskNameInput) {
+		taskNameInput.focus();
+		taskNameInput.select();
+	}
+});
+
+// Vérifier si des changements ont été effectués en mode édition
+const taskHasChanges = $derived.by(() => {
+	if (!editingTaskId) return false;
+	const task = tasks.find((t) => t.id === editingTaskId);
+	if (!task) return false;
+	return (
+		newTaskName.trim() !== task.name ||
+		(newTaskDescription.trim() || "") !== (task.description || "") ||
+		newTaskVolunteers !== task.requiredVolunteers ||
+		newTaskType !== task.type
+	);
+});
+
+// === État de validation ===
+let validationErrors = $state<{
+	title?: boolean;
+	dates?: boolean;
+	responses?: boolean;
+	tasks?: boolean;
+	taskInProgress?: boolean;
+}>({});
+
+let hasAttemptedSubmit = $state(false);
+
+const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
+
+let isMounted = $state(false);
+// Note: En création, l'utilisateur peut modifier manuellement lastDate, mais elle sera réinitialisée
+// automatiquement si firstDate ou recurrenceType change. Comportement acceptable pour KISS.
+let lastDateWasManuallySet = $state(!!(() => master)());
+
+onMount(() => {
+	isMounted = true;
+});
+
+// Calcul automatique de la date de fin (création uniquement)
+$effect(() => {
+	if (!isMounted || master || lastDateWasManuallySet) return;
+	if (!firstDate || !recurrenceType) return;
+
+	untrack(() => {
+		const start = parse(firstDate, "yyyy-MM-dd", new Date());
+		let end: Date;
+
+		switch (recurrenceType) {
+			case "DAILY":
+				end = addWeeks(start, 1);
+				break;
+			case "WEEKLY":
+			case "BIWEEKLY":
+				end = addMonths(start, 6);
+				break;
+			case "MONTHLY_BY_DATE":
+			case "MONTHLY_BY_DAY":
+				end = addMonths(start, 12);
+				break;
+			default:
+				return;
 		}
 
-		return baseLabel;
+		lastDate = format(end, "yyyy-MM-dd");
 	});
+});
+
+// Aucune sync supplémentaire de la sélection n'est nécessaire : les changements de
+// firstDate/lastDate/recurrenceType/monthlyByDay recalculent réactivement les dérivés
+// (allGeneratedDates → allDateSlots → occurrenceTargets). Les nouvelles dates générées
+// sont actives par défaut (disabledSlotKeys vide en création) ; les dates hors-cycle
+// sortent de allDateSlots donc de occurrenceTargets ; les clés orphelines éventuelles
+// dans disabledSlotKeys sont inoffensives (elles ne filtrent que des DateSlots existantes).
+
+// Effet pour effacer les erreurs de validation quand l'utilisateur corrige
+$effect(() => {
+	if (!hasAttemptedSubmit) return;
+
+	// Effacer l'erreur du titre si corrigé
+	if (validationErrors.title && title.trim()) {
+		validationErrors.title = false;
+	}
+
+	// Effacer l'erreur des dates si corrigée (basée sur la sélection réelle active)
+	if (validationErrors.dates && views.activeDateSlots.length > 0) {
+		const hasValidDateSlots = views.activeDateSlots.some((ds) => ds.date >= todayStr);
+		if (hasValidDateSlots) {
+			validationErrors.dates = false;
+		}
+	}
+
+	// Effacer l'erreur des responses si corrigé
+	if (validationErrors.responses) {
+		const hasTasks = tasks.length > 0;
+		const hasResponseTypes = availableResponseTypes.length > 0;
+		const isValidResponses = !allowResponses || hasResponseTypes;
+		if (hasTasks || isValidResponses) {
+			validationErrors.responses = false;
+		}
+	}
+
+	// Effacer l'erreur des tasks si corrigé
+	if (validationErrors.tasks && tasks.length > 0) {
+		validationErrors.tasks = false;
+	}
+
+	// Effacer l'erreur de tâche en cours si corrigé
+	if (validationErrors.taskInProgress && !newTaskName.trim()) {
+		validationErrors.taskInProgress = false;
+	}
+});
+
+function addTask() {
+	if (!newTaskName.trim()) {
+		toast.error("Le nom de la tâche est requis");
+		return;
+	}
+
+	if (isEditingTask && editingTaskId) {
+		// Mode édition : mettre à jour la tâche existante
+		tasks = tasks.map((t) =>
+			t.id === editingTaskId
+				? {
+						...t,
+						name: newTaskName.trim(),
+						description: newTaskDescription.trim() || undefined,
+						requiredVolunteers: newTaskVolunteers,
+						type: newTaskType
+					}
+				: t
+		);
+		// toast.success('Tâche modifiée');
+	} else {
+		// Mode création : ajouter une nouvelle tâche
+		const task: Task = {
+			id: crypto.randomUUID(),
+			name: newTaskName.trim(),
+			description: newTaskDescription.trim() || undefined,
+			requiredVolunteers: newTaskVolunteers,
+			type: newTaskType
+		};
+
+		tasks = [...tasks, task];
+		// toast.success('Tâche ajoutée');
+	}
+
+	resetTaskForm();
+}
+
+function removeTask(taskId: string) {
+	tasks = tasks.filter((t) => t.id !== taskId);
+}
+
+function editTask(taskId: string) {
+	const task = tasks.find((t) => t.id === taskId);
+	if (!task) return;
+
+	newTaskName = task.name;
+	newTaskDescription = task.description || "";
+	newTaskVolunteers = task.requiredVolunteers;
+	newTaskType = task.type;
+	editingTaskId = taskId;
+}
+
+function cancelTaskEdit() {
+	resetTaskForm();
+}
+
+function cancelTaskInput() {
+	newTaskName = "";
+	newTaskDescription = "";
+	newTaskVolunteers = 1;
+	newTaskType = "onEvent";
+}
+
+function resetTaskForm() {
+	newTaskName = "";
+	newTaskDescription = "";
+	newTaskVolunteers = 1;
+	newTaskType = "onEvent";
+	editingTaskId = null;
+}
+
+// Retire une date manuelle (popover « Supprimer » mono-slot) : la sort de
+// manualDates, donc de l'affichage. Distinct de la désactivation d'une DateSlot
+// (setSlotEnabled / disabledSlotKeys), qui préserve la date candidate.
+function removeManualDate(dateToRemove: string) {
+	manualDates = manualDates.filter((d) => d !== dateToRemove);
+}
+
+// Affecte manualDates depuis un picker (CUSTOM ou arbitraires récurrent). Une date
+// (re)ajoutée est entièrement réactivée : on retire toutes ses DateSlots de
+// disabledSlotKeys. Sans cela, une date dont toutes les DateSlots avaient été
+// désactivées puis (re)sélectionnées au picker réapparaîtrait grisée — car ses clés
+// persistent dans disabledSlotKeys (notamment après réouverture : le seeding y met
+// les occurrences soft-deleted, sans les compter dans manualDates). Au save, le
+// service un-soft-delete l'occurrence existante (match par date|slotId) en
+// préservant id/responses/comments (décision 2.2).
+function setManualDates(dates: string[]) {
+	const prev = new Set(manualDates);
+	for (const d of dates) {
+		if (prev.has(d)) continue;
+		for (const slot of timeSlots) {
+			disabledSlotKeys.delete(formatSlotKey(d, slot.id));
+		}
+	}
+	manualDates = dates;
+}
+
+// --- Portes de confirmation (intercept → confirm → commit/revert) ---
+// Une action destructrice ne mute jamais le state directement depuis le rendu :
+// elle passe par un handler `request*` qui décide commit direct vs confirmation.
+//
+// Deux patterns :
+// - **changement structurel** : confirme en édition indépendamment des données
+//   (reset, propagation d'horaires, suppression de créneau) — Portes 1, 5, 6
+// - **suppression de données** : confirme seulement si une date avec données
+//   participant est affectée — Portes 2, 3, 4
+
+// Porte 1 — Changement de récurrence : modification fondamentale. Ne se confirme
+// qu'en édition (`master`) : en création, aucune occurrence existante à détruire, le
+// reset est sans risque. Sur confirm : reset des opt-out (`disabledSlotKeys`) et des
+// dates candidates (`manualDates`). Ne touche ni à `seededOccurrences` (mémoire des
+// overrides d'édition) ni à `timeSlots`. `lastDateWasManuallySet = false` permet le
+// recalc de lastDate en création (cohérent avec un reset complet de config).
+function applyRecurrenceTypeChange(newValue: string) {
+	recurrenceType = newValue;
+	disabledSlotKeys.clear();
+	manualDates = [];
+	lastDateWasManuallySet = false;
+}
+
+function requestRecurrenceTypeChange(newValue: string) {
+	if (newValue === recurrenceType) return;
+	if (!master) {
+		applyRecurrenceTypeChange(newValue);
+		return;
+	}
+	openConfirm({
+		title: "Changer le type de récurrence",
+		message:
+			"Changer le type de récurrence est une modification fondamentale : les désactivations et les dates manuelles seront réinitialisées, et les occurrences hors nouveau cycle seront supprimées.",
+		variant: "warning",
+		confirmLabel: "Changer",
+		onConfirm: () => applyRecurrenceTypeChange(newValue)
+	});
+}
+
+// Porte 2 — Changement de borne (firstDate/lastDate) : confirme seulement si des
+// occurrences avec données sortent du nouveau cycle. Calcule le cycle candidat avec
+// la nouvelle borne (fonction pure) et compare à l'actuel `allGeneratedDates`. Une
+// date manuelle (sticky) reste couverte par `manualDates` même hors cycle → non à risque.
+function commitDateChange(field: "firstDate" | "lastDate", newValue: string) {
+	if (field === "firstDate") {
+		firstDate = newValue;
+	} else {
+		lastDate = newValue;
+		lastDateWasManuallySet = true;
+	}
+}
+
+function requestDateChange(field: "firstDate" | "lastDate", newValue: string) {
+	if (
+		(field === "firstDate" && newValue === firstDate) ||
+		(field === "lastDate" && newValue === lastDate)
+	)
+		return;
+	if (recurrenceType === "CUSTOM" || datesWithData.length === 0) {
+		commitDateChange(field, newValue);
+		return;
+	}
+	const newCycle = new Set(
+		generateRecurrenceDates({
+			type: recurrenceType,
+			firstDate: field === "firstDate" ? newValue : firstDate,
+			lastDate: field === "lastDate" ? newValue : lastDate,
+			monthlyByDayOccurrences:
+				recurrenceType === "MONTHLY_BY_DAY" ? monthlyByDayOccurrences : undefined,
+			monthlyByDateMode:
+				recurrenceType === "MONTHLY_BY_DATE" ? effectiveMonthlyByDateMode : undefined
+		})
+	);
+	const atRisk = views.allGeneratedDates.some(
+		(d) => !newCycle.has(d) && datesWithData.includes(d) && !manualDates.includes(d)
+	);
+	if (!atRisk) {
+		commitDateChange(field, newValue);
+		return;
+	}
+	openConfirm({
+		title: "Modifier la période",
+		message: "Cette modification supprimera des dates contenant des réponses. Continuer ?",
+		variant: "warning",
+		confirmLabel: "Modifier",
+		onConfirm: () => commitDateChange(field, newValue)
+	});
+}
+
+// Porte 3 — Suppression d'une date manuelle : confirme si la date a des données.
+// Ferme le popover après commit (idempotent si appelé hors popover).
+function requestRemoveManualDate(dateToRemove: string) {
+	if (!datesWithData.includes(dateToRemove)) {
+		removeManualDate(dateToRemove);
+		closePopover();
+		return;
+	}
+	openConfirm({
+		title: "Supprimer la date",
+		message:
+			"Des participant·es au planning ont répondu ou commenté sur cette date. Êtes-vous sure de vouloir la supprimer ?",
+		variant: "warning",
+		confirmLabel: "Supprimer",
+		onConfirm: () => {
+			removeManualDate(dateToRemove);
+			closePopover();
+		}
+	});
+}
+
+// Porte 4 — Désactivation d'une DateSlot générée : confirme si la date a des données.
+// La réactivation ne se confirme jamais.
+function requestDisableSlot(ds: DateSlot) {
+	if (!datesWithData.includes(ds.date)) {
+		setSlotEnabled(ds, false);
+		closePopover();
+		return;
+	}
+	openConfirm({
+		title: "Retirer cette date",
+		message:
+			"Des participant·es au planning ont répondu ou commenté sur cette date. Êtes-vous sure de vouloir la supprimer ?",
+		variant: "warning",
+		confirmLabel: "Désactiver",
+		onConfirm: () => {
+			setSlotEnabled(ds, false);
+			closePopover();
+		}
+	});
+}
+
+// Applique un preset horaire au draft courant du modal (utilisé pour l'aperçu
+// avant Apply). Muter directement le draft garantit que la validation du bouton
+// Appliquer et les inputs restent synchrones.
+function applyTimePreset(startTime: string, endTime: string) {
+	if (!slotModal.state) return;
+	slotModal.state.draft = { startTime, endTime };
+}
+
+function addTimeSlot() {
+	openSlotModalCreate();
+}
+
+function removeTimeSlot(slotId: string) {
+	// En création, suppression directe (aucune occurrence persistée). En édition,
+	// la suppression d'un slot soft-deletera au save les occurrences liées à ce slot.
+	// Pattern "changement structurel" : on confirme seulement si des occurrences
+	// actives existent pour ce slot (`count > 0`). Sinon, suppression directe —
+	// l'action n'est pas destructive.
+	if (!master) {
+		commitRemoveTimeSlot(slotId);
+		return;
+	}
+	const count = views.activeDateSlots.filter((ds) => ds.slotId === slotId).length;
+	if (count === 0) {
+		commitRemoveTimeSlot(slotId);
+		return;
+	}
+	const message =
+		count === 1
+			? "L'occurrence de ce créneau sera supprimée à l'enregistrement, ainsi que les réponses et commentaires éventuels."
+			: `Les ${count} occurrences de ce créneau seront supprimées à l'enregistrement, ainsi que les réponses et commentaires éventuels.`;
+	openConfirm({
+		title: "Supprimer ce créneau",
+		message,
+		variant: "danger",
+		confirmLabel: "Supprimer",
+		onConfirm: () => commitRemoveTimeSlot(slotId)
+	});
+}
+
+function commitRemoveTimeSlot(slotId: string) {
+	const index = timeSlots.findIndex((s) => s.id === slotId);
+	if (index === -1) return;
+	timeSlots.splice(index, 1);
+	// Réinitialiser une éventuelle session d'édition sur le slot supprimé
+	if (slotModal.state?.slotId === slotId) closeSlotModal();
+}
+
+// === Modal unifié d'ajout/édition d'un créneau ===
+// Un seul modal sert aux deux flux : ajout (mode create) et modification (mode
+// edit). À l'ouverture, le draft est pré-rempli (valeurs du slot édité, ou héritage
+// du dernier slot à l'ajout, ou vide avec validation bloquante). Les presets
+// horaires mute le draft. « Appliquer » branche sur le bon commit : push direct
+// en create, flux confirm de propagation en edit (préservation overrides).
+interface SlotModalState {
+	mode: "create" | "edit";
+	slotId: string | null;
+	draft: { startTime: string; endTime: string };
+}
+let slotModal = $state<{ open: boolean; state: SlotModalState | null }>({
+	open: false,
+	state: null
+});
+let slotStartInput = $state<HTMLInputElement | undefined>(undefined);
+
+$effect(() => {
+	if (slotModal.open && slotStartInput) {
+		slotStartInput.focus();
+		slotStartInput.select();
+	}
+});
+
+function openSlotModalCreate() {
+	const last = timeSlots.at(-1);
+	slotModal = {
+		open: true,
+		state: {
+			mode: "create",
+			slotId: null,
+			draft: last
+				? { startTime: last.startTime, endTime: last.endTime }
+				: { startTime: "", endTime: "" }
+		}
+	};
+}
+
+function startSlotEdit(slotId: string) {
+	const slot = timeSlots.find((s) => s.id === slotId);
+	if (!slot) return;
+	slotModal = {
+		open: true,
+		state: {
+			mode: "edit",
+			slotId,
+			draft: { startTime: slot.startTime, endTime: slot.endTime }
+		}
+	};
+}
+
+function closeSlotModal() {
+	slotModal = { open: false, state: null };
+}
+
+function applySlotEdit() {
+	if (!slotModal.state) return;
+	const { mode, slotId, draft } = slotModal.state;
+	const { startTime: newStart, endTime: newEnd } = draft;
+	if (!newStart || !newEnd) {
+		toast.error("Créneau incomplet", {
+			description: "Chaque créneau doit avoir une heure de début et une heure de fin."
+		});
+		return;
+	}
+	if (mode === "create") {
+		timeSlots.push({
+			id: generateTimeSlotId(timeSlots),
+			startTime: newStart,
+			endTime: newEnd
+		});
+		closeSlotModal();
+		return;
+	}
+	// mode 'edit'
+	if (!slotId) {
+		closeSlotModal();
+		return;
+	}
+	const slot = timeSlots.find((s) => s.id === slotId);
+	if (!slot) {
+		closeSlotModal();
+		return;
+	}
+	const oldStart = slot.startTime;
+	const oldEnd = slot.endTime;
+	if (newStart === oldStart && newEnd === oldEnd) {
+		closeSlotModal();
+		return;
+	}
+	// Sans master (pas d'occurrences seedées à propager), on mute directement
+	// le slot. Avec master, on ferme d'abord le modal slot puis on ouvre le
+	// ConfirmModal de propagation (on ne peut pas empiler deux modals) ; le
+	// commit préserve les overrides individuels d'occurrences.
+	if (!master) {
+		slot.startTime = newStart;
+		slot.endTime = newEnd;
+		closeSlotModal();
+		return;
+	}
+	closeSlotModal();
+	openConfirm({
+		title: "Appliquer les nouveaux horaires",
+		message:
+			"Les occurrences de ce créneau suivront les nouveaux horaires, sauf celles que vous avez modifiées individuellement (elles conservent leurs horaires personnalisés).",
+		variant: "warning",
+		confirmLabel: "Appliquer",
+		onConfirm: () => commitSlotEdit(slotId, newStart, newEnd, oldStart, oldEnd)
+	});
+}
+
+// Applique la modification d'un créneau : propage aux occurrences seedées
+// non-overridées (celles dont les horaires == ancien template) et mute le
+// template. Les occurrences overridées restent intactes dans seededOccurrences.
+// Les DateSlots non-seedées suivent automatiquement via le `$derived` occurrenceTargets.
+function commitSlotEdit(
+	slotId: string,
+	newStart: string,
+	newEnd: string,
+	oldStart: string,
+	oldEnd: string
+) {
+	for (const [key, seeded] of seededOccurrences) {
+		if (seeded.slotId !== slotId) continue;
+		if (seeded.startTime === oldStart && seeded.endTime === oldEnd) {
+			seededOccurrences.set(key, { ...seeded, startTime: newStart, endTime: newEnd });
+		}
+	}
+	const slot = timeSlots.find((s) => s.id === slotId);
+	if (slot) {
+		slot.startTime = newStart;
+		slot.endTime = newEnd;
+	}
+}
+
+async function handleSubmit() {
+	// Marquer qu'une tentative de soumission a eu lieu
+	hasAttemptedSubmit = true;
+
+	// Reset des erreurs
+	validationErrors = {};
+
+	// Limite Phase 1 : 100 DateSlots futurs maximum (remplace l'ancienne
+	// limite de 100 dates). En mono-slot, 1 slot = 1 DateSlot/date, donc équivalent.
+	const futureActiveDateSlotCount = views.futureActiveDateSlotCount;
+	if (futureActiveDateSlotCount > 100) {
+		toast.error("Trop de créneaux planifiés", {
+			description: `Vous avez ${futureActiveDateSlotCount} combinaisons date×créneau futures. La limite est de 100.`
+		});
+		return;
+	}
+
+	// Validation du titre
+	if (!title.trim()) {
+		validationErrors.title = true;
+		toast.error("Le titre est requis");
+		return;
+	}
+
+	// Validation des créneaux : au moins 1 slot, et chacun doit avoir des horaires complets.
+	// Les chevauchements et l'ordre chronologique ne sont PAS vérifiés en Phase 1.
+	if (timeSlots.length === 0) {
+		toast.error("Aucun créneau défini", {
+			description: "Veuillez conserver au moins un créneau horaire."
+		});
+		return;
+	}
+	const incompleteSlot = timeSlots.find((s) => !s.startTime || !s.endTime);
+	if (incompleteSlot) {
+		toast.error("Créneau incomplet", {
+			description: "Chaque créneau doit avoir une heure de début et une heure de fin."
+		});
+		return;
+	}
+
+	// Validation : tâche en cours de création/modification
+	if (newTaskName.trim()) {
+		validationErrors.taskInProgress = true;
+		toast.error("Tâche en cours de saisie", {
+			description:
+				isEditingTask && editingTaskId
+					? "Veuillez terminer la modification de la tâche en cours ou l'annuler avant de sauvegarder."
+					: "Veuillez terminer la création de la tâche en cours avant de sauvegarder."
+		});
+		return;
+	}
+
+	// Validation : session d'édition de slot ouverte (modal non appliqué)
+	if (slotModal.open) {
+		toast.error("Créneau en cours de modification", {
+			description:
+				"Veuillez appliquer ou annuler les modifications du créneau avant de sauvegarder."
+		});
+		return;
+	}
+
+	// Validation : au moins une tâche OU allowResponses activé
+	const hasTasks = tasks.length > 0;
+	const hasResponsesEnabled = allowResponses;
+
+	if (!hasTasks && !hasResponsesEnabled) {
+		validationErrors.tasks = true;
+		validationErrors.responses = true;
+		toast.error("Configuration incomplète", {
+			description: "Vous devez soit créer des tâches, soit activer le formulaire de présence."
+		});
+		return;
+	}
+
+	// Validation : au moins une réponse possible si allowResponses = true
+	if (allowResponses && availableResponseTypes.length === 0) {
+		validationErrors.responses = true;
+		toast.error("Réponses possibles requises", {
+			description: "Veuillez sélectionner au moins un type de réponse possible."
+		});
+		return;
+	}
+
+	// Validation : au moins un DateSlot futur actif (unifie CUSTOM et récurrent).
+	// En mono-slot cela équivaut à « au moins une date future sélectionnée ».
+	const hasFutureActiveDateSlot = views.activeDateSlots.some((ds) => ds.date >= todayStr);
+	if (views.activeDateSlots.length === 0) {
+		validationErrors.dates = true;
+		toast.error("Aucune date sélectionnée", {
+			description: "Veuillez sélectionner au moins une date pour le planning."
+		});
+		return;
+	}
+	if (!hasFutureActiveDateSlot) {
+		validationErrors.dates = true;
+		toast.error("Dates passées", {
+			description:
+				"Toutes les dates sélectionnées sont passées. Veuillez sélectionner au moins une date future."
+		});
+		return;
+	}
+	if (recurrenceType !== "CUSTOM" && (!firstDate || !lastDate)) {
+		toast.error("Les dates de début et de fin sont requises");
+		return;
+	}
+
+	// Pas de porte globale au submit : les 6 ConfirmModal just-in-time
+	// couvrent déjà tous les chemins destructeurs. Une seconde porte serait
+	// une double confirmation UX.
+
+	// recurrence : seed déclaratif (type + bornes + monthlyByDay). La source
+	// unique des occurrences est occurrenceTargets ci-dessous.
+	const recurrence: RecurrenceConfig = {
+		type: recurrenceType,
+		...(recurrenceType !== "CUSTOM" && {
+			firstDate,
+			lastDate
+		}),
+		monthlyByDayOccurrences:
+			recurrenceType === "MONTHLY_BY_DAY" ? monthlyByDayOccurrences : undefined,
+		// effectiveMonthlyByDateMode est undefined quand le toggle est caché :
+		// on ne persisted pas le mode inactif (inertie implicite).
+		monthlyByDateMode: recurrenceType === "MONTHLY_BY_DATE" ? effectiveMonthlyByDateMode : undefined
+	};
+
+	const data: PlanningFormData = {
+		title: title.trim(),
+		description: description.trim() || undefined,
+		place: place.trim() || undefined,
+		// Référence legacy depuis le 1er slot : defaultStartTime/defaultEndTime restent
+		// requis côté PocketBase et servent de fallback mono-slot côté service.
+		defaultStartTime: timeSlots[0].startTime,
+		defaultEndTime: timeSlots[0].endTime,
+		timeSlots: timeSlots.map((s) => ({ ...s })),
+		minPresentRequired,
+		allowResponses,
+		toConfirm,
+		availableResponseTypes,
+		recurrence,
+		// Source unique : c'est ce tableau qui pilote create/update côté service.
+		occurrenceTargets: views.occurrenceTargets.map((t) => ({ ...t })),
+		tasks,
+		forceTaskRefresh
+	};
+
+	isSubmitting = true;
+	try {
+		await onSubmit(data);
+	} catch (error) {
+		const { message } = classifyError(error);
+		toast.error(message);
+		console.error(error);
+	} finally {
+		isSubmitting = false;
+	}
+}
+
+const recurrenceLabel = $derived.by(() => {
+	// Mode CUSTOM : afficher le nombre de dates définies
+	if (recurrenceType === "CUSTOM") {
+		return manualDates.length === 0
+			? "Dates libres"
+			: `${manualDates.length} date${manualDates.length > 1 ? "s" : ""} définie${manualDates.length > 1 ? "s" : ""}`;
+	}
+
+	// Pas de date de début définie
+	if (!firstDate || !recurrenceType) return "";
+
+	// Label de base de la récurrence
+	const baseLabel = getRecurrenceLabel({
+		type: recurrenceType,
+		firstDate,
+		lastDate,
+		monthlyByDayOccurrences:
+			recurrenceType === "MONTHLY_BY_DAY" ? monthlyByDayOccurrences : undefined,
+		monthlyByDateMode: recurrenceType === "MONTHLY_BY_DATE" ? effectiveMonthlyByDateMode : undefined
+	});
+
+	// Ajouter les dates arbitraires si présentes
+	const arbitraryCount = views.arbitraryDates.length;
+	if (arbitraryCount > 0) {
+		return `${baseLabel} + ${arbitraryCount} date${arbitraryCount > 1 ? "s" : ""}`;
+	}
+
+	return baseLabel;
+});
 </script>
 
 <form

@@ -1,14 +1,14 @@
-import { toast } from 'svelte-sonner';
-import { submitResponse } from '$lib/services/planningActions';
-import { classifyError } from '$lib/utils/errorHandler';
-import { networkStore } from '$lib/stores/networkStore.svelte';
+import { toast } from "svelte-sonner";
+import { submitResponse } from "$lib/services/planningActions";
+import { networkStore } from "$lib/stores/networkStore.svelte";
 import type {
-	PlanningOccurrence,
-	PlanningMaster,
 	ParticipantResponse,
+	PlanningMaster,
+	PlanningOccurrence,
 	ResponseType,
 	Task
-} from '$lib/types/planning.types';
+} from "$lib/types/planning.types";
+import { classifyError } from "$lib/utils/errorHandler";
 
 interface OccurrenceStateOptions {
 	occurrence: PlanningOccurrence;
@@ -82,10 +82,10 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 	);
 
 	const stats = $derived({
-		present: activeResponses.filter((r) => r.response === 'present').length,
-		ifNeeded: activeResponses.filter((r) => r.response === 'if_needed').length,
-		maybe: activeResponses.filter((r) => r.response === 'maybe').length,
-		absent: activeResponses.filter((r) => r.response === 'absent').length,
+		present: activeResponses.filter((r) => r.response === "present").length,
+		ifNeeded: activeResponses.filter((r) => r.response === "if_needed").length,
+		maybe: activeResponses.filter((r) => r.response === "maybe").length,
+		absent: activeResponses.filter((r) => r.response === "absent").length,
 		noResponse: activeParticipants.length - activeResponses.length
 	});
 
@@ -104,10 +104,10 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 	const masterConfig = $derived.by(() => ({
 		allowResponses: options.master.allowResponses ?? true,
 		availableResponseTypes: options.master.availableResponseTypes ?? [
-			'present',
-			'if_needed',
-			'maybe',
-			'absent'
+			"present",
+			"if_needed",
+			"maybe",
+			"absent"
 		]
 	}));
 
@@ -137,7 +137,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			if (options.onNeedReidentify) {
 				options.onNeedReidentify();
 			} else {
-				toast.error('Nom de participant invalide. Identifiez-vous à nouveau.');
+				toast.error("Nom de participant invalide. Identifiez-vous à nouveau.");
 			}
 			return;
 		}
@@ -147,7 +147,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 
 		const response: ParticipantResponse = {
 			participantId: options.currentUserId,
-			response: selectedResponse || 'present',
+			response: selectedResponse || "present",
 			tasks: selectedTasks,
 			respondedAt: new Date().toISOString()
 		};
@@ -175,7 +175,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			if (options.onNeedReidentify) {
 				options.onNeedReidentify();
 			} else {
-				toast.error('Vous devez être identifié pour répondre');
+				toast.error("Vous devez être identifié pour répondre");
 			}
 			return;
 		}
@@ -184,9 +184,9 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		// réponse doit être confirmé car il désinscrira ces tâches. Seules les
 		// onEvent sont concernées (beforeEvent/afterEvent ne sont jamais liées
 		// à la présence et ne sont jamais retirées ici).
-		if (response !== 'present') {
+		if (response !== "present") {
 			const onEventInscribed = inherited.tasks
-				.filter((t) => t.type === 'onEvent' && selectedTasks.includes(t.id))
+				.filter((t) => t.type === "onEvent" && selectedTasks.includes(t.id))
 				.map((t) => t.id);
 			if (onEventInscribed.length > 0) {
 				pendingResponseChange = {
@@ -219,7 +219,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			if (options.onNeedReidentify) {
 				options.onNeedReidentify();
 			} else {
-				toast.error('Vous devez être identifié pour vous inscrire à une tâche');
+				toast.error("Vous devez être identifié pour vous inscrire à une tâche");
 			}
 			return;
 		}
@@ -229,12 +229,12 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 
 		// Pour les tâches "pendant" (onEvent), l'utilisateur doit être présent
 		// Auto-inscription "présent" uniquement pour ces tâches
-		if (task.type === 'onEvent' && masterConfig.allowResponses) {
-			if (selectedResponse && selectedResponse !== 'present') {
-				toast.error('Vous devez être présent pour vous inscrire à une tâche');
+		if (task.type === "onEvent" && masterConfig.allowResponses) {
+			if (selectedResponse && selectedResponse !== "present") {
+				toast.error("Vous devez être présent pour vous inscrire à une tâche");
 				return;
 			}
-			if (!selectedResponse) selectedResponse = 'present';
+			if (!selectedResponse) selectedResponse = "present";
 		}
 		// Pour les tâches "avant" (beforeEvent) et "après" (afterEvent):
 		// Pas d'auto-inscription - l'utilisateur peut s'inscrire quel que soit son response
@@ -248,7 +248,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 	}
 
 	function getParticipantName(source: ParticipantResponse | string): string {
-		const id = typeof source === 'string' ? source : source.participantId;
+		const id = typeof source === "string" ? source : source.participantId;
 		const participant = options.master.participants.find((p) => p.id === id);
 		return participant?.name || id;
 	}

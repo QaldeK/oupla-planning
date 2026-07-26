@@ -8,7 +8,7 @@ export class MediaQueryStore {
 	isDesktop = $derived(this.width >= 1024);
 
 	init() {
-		if (typeof window === 'undefined') return;
+		if (typeof window === "undefined") return;
 
 		this.width = window.innerWidth;
 		this.height = window.innerHeight;
@@ -18,8 +18,8 @@ export class MediaQueryStore {
 			this.height = window.innerHeight;
 		};
 
-		window.addEventListener('resize', updateSize);
-		return () => window.removeEventListener('resize', updateSize);
+		window.addEventListener("resize", updateSize);
+		return () => window.removeEventListener("resize", updateSize);
 	}
 }
 

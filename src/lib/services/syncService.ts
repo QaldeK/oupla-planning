@@ -1,7 +1,7 @@
-import { pb } from '$lib/pocketbase/pb';
-import { userStore } from '$lib/stores/userStore.svelte';
-import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
-import { db } from '$lib/pb-sync/db';
+import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { db } from "$lib/pb-sync/db";
+import { pb } from "$lib/pocketbase/pb";
+import { userStore } from "$lib/stores/userStore.svelte";
 
 class SyncService {
 	#syncPromise: Promise<void> | null = null;
@@ -32,8 +32,8 @@ class SyncService {
 			adminToken: m.adminToken
 		}));
 
-		await pb.send('/api/sync-plannings', {
-			method: 'POST',
+		await pb.send("/api/sync-plannings", {
+			method: "POST",
 			body: { tokens }
 		});
 

@@ -1,63 +1,63 @@
 <script lang="ts">
-	import type {
-		ResponseType,
-		ParticipantResponse,
-		ViewType,
-		ResponseTypeConfig
-	} from '$lib/types/planning.types';
-	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from '$lib/constants';
-	import type { LucideIcon } from '@lucide/svelte';
-	import { UserPlus } from '@lucide/svelte';
-	import { slide } from 'svelte/transition';
+import type { LucideIcon } from "@lucide/svelte";
+import { UserPlus } from "@lucide/svelte";
+import { slide } from "svelte/transition";
+import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from "$lib/constants";
+import type {
+	ParticipantResponse,
+	ResponseType,
+	ResponseTypeConfig,
+	ViewType
+} from "$lib/types/planning.types";
 
-	interface Props {
-		responses: ParticipantResponse[];
-		getParticipantName: (response: ParticipantResponse) => string;
-		availableTypes?: ResponseType[];
-		onResponseSelect: (type: ResponseType) => void;
-		displayMode: ViewType;
-		currentUserId?: string;
-		disabled?: boolean;
-		isPastDate?: boolean;
-		quitParticipantIds?: Set<string>;
+interface Props {
+	responses: ParticipantResponse[];
+	getParticipantName: (response: ParticipantResponse) => string;
+	availableTypes?: ResponseType[];
+	onResponseSelect: (type: ResponseType) => void;
+	displayMode: ViewType;
+	currentUserId?: string;
+	disabled?: boolean;
+	isPastDate?: boolean;
+	quitParticipantIds?: Set<string>;
+}
+
+let {
+	responses,
+	getParticipantName,
+	availableTypes,
+	onResponseSelect,
+	displayMode,
+	currentUserId,
+	disabled = false,
+	isPastDate = false,
+	quitParticipantIds = new Set()
+}: Props = $props();
+
+const types = $derived(availableTypes || AVAILABLE_RESPONSE_TYPES);
+const isCompactDisplay = $derived(displayMode === "compact");
+const isMinimalDisplay = $derived(displayMode === "minimal");
+const currentUserResponseType = $derived(
+	currentUserId ? responses.find((r) => r.participantId === currentUserId)?.response : null
+);
+
+const responsesByType = $derived.by(() => {
+	const grouped: Record<ResponseType, ParticipantResponse[]> = {
+		present: [],
+		if_needed: [],
+		maybe: [],
+		absent: []
+	};
+	for (const response of responses) {
+		const responseType = response.response;
+		if (responseType in grouped) grouped[responseType].push(response);
 	}
+	return grouped;
+});
 
-	let {
-		responses,
-		getParticipantName,
-		availableTypes,
-		onResponseSelect,
-		displayMode,
-		currentUserId,
-		disabled = false,
-		isPastDate = false,
-		quitParticipantIds = new Set()
-	}: Props = $props();
-
-	const types = $derived(availableTypes || AVAILABLE_RESPONSE_TYPES);
-	const isCompactDisplay = $derived(displayMode === 'compact');
-	const isMinimalDisplay = $derived(displayMode === 'minimal');
-	const currentUserResponseType = $derived(
-		currentUserId ? responses.find((r) => r.participantId === currentUserId)?.response : null
-	);
-
-	const responsesByType = $derived.by(() => {
-		const grouped: Record<ResponseType, ParticipantResponse[]> = {
-			present: [],
-			if_needed: [],
-			maybe: [],
-			absent: []
-		};
-		for (const response of responses) {
-			const responseType = response.response;
-			if (responseType in grouped) grouped[responseType].push(response);
-		}
-		return grouped;
-	});
-
-	const sizeResponse = $derived(
-		types.length === 2 ? 'max-w-1/2' : types.length === 3 ? 'max-w-1/3' : 'max-w-1/4'
-	);
+const sizeResponse = $derived(
+	types.length === 2 ? "max-w-1/2" : types.length === 3 ? "max-w-1/3" : "max-w-1/4"
+);
 </script>
 
 {#snippet responseRegular(

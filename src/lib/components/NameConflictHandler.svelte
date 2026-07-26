@@ -1,62 +1,62 @@
 <script lang="ts">
-	import type { Participant } from '$lib/types/planning.types';
-	import { CircleAlert, InfoIcon } from '@lucide/svelte';
-	import { slide } from 'svelte/transition';
+import { CircleAlert, InfoIcon } from "@lucide/svelte";
+import { slide } from "svelte/transition";
+import type { Participant } from "$lib/types/planning.types";
 
-	interface Props {
-		name: string;
-		existingParticipants: Participant[];
-		currentIdentityId?: string; // ID du participant courant (exclu de la détection de conflit)
-		onIdentifyAs: (participant: Participant) => Promise<void>;
-		onRequireLogin?: (participant: Participant) => void; // Appelé quand le participant a un compte
-		hideExistingParticipants?: boolean; // Cacher la liste des participants existants
+interface Props {
+	name: string;
+	existingParticipants: Participant[];
+	currentIdentityId?: string; // ID du participant courant (exclu de la détection de conflit)
+	onIdentifyAs: (participant: Participant) => Promise<void>;
+	onRequireLogin?: (participant: Participant) => void; // Appelé quand le participant a un compte
+	hideExistingParticipants?: boolean; // Cacher la liste des participants existants
+}
+
+let {
+	name,
+	existingParticipants,
+	currentIdentityId,
+	onIdentifyAs,
+	onRequireLogin,
+	hideExistingParticipants = false
+}: Props = $props();
+
+// État interne
+let isSubmitting = $state(false);
+
+// === Détection de conflit ===
+
+let matchedParticipant = $derived(
+	name.trim()
+		? existingParticipants.find(
+				(p) => p.name.toLowerCase() === name.trim().toLowerCase() && p.id !== currentIdentityId
+			)
+		: null
+);
+
+let hasConflict = $derived(!!matchedParticipant);
+
+// === Actions ===
+
+async function attemptIdentifyAs(participant: Participant) {
+	// Vérification locale : participant déjà lié à un compte (userId posé).
+	// Remplace l'appel réseau /api/has-account désormais obsolète : celui-ci
+	// ne détectait pas les participants claimés dont l'id ≠ userId (un guest
+	// revendiqué garde son UUID original tout en recevant un userId).
+	if (participant.userId) {
+		onRequireLogin?.(participant);
+		return;
 	}
 
-	let {
-		name,
-		existingParticipants,
-		currentIdentityId,
-		onIdentifyAs,
-		onRequireLogin,
-		hideExistingParticipants = false
-	}: Props = $props();
-
-	// État interne
-	let isSubmitting = $state(false);
-
-	// === Détection de conflit ===
-
-	let matchedParticipant = $derived(
-		name.trim()
-			? existingParticipants.find(
-					(p) => p.name.toLowerCase() === name.trim().toLowerCase() && p.id !== currentIdentityId
-				)
-			: null
-	);
-
-	let hasConflict = $derived(!!matchedParticipant);
-
-	// === Actions ===
-
-	async function attemptIdentifyAs(participant: Participant) {
-		// Vérification locale : participant déjà lié à un compte (userId posé).
-		// Remplace l'appel réseau /api/has-account désormais obsolète : celui-ci
-		// ne détectait pas les participants claimés dont l'id ≠ userId (un guest
-		// revendiqué garde son UUID original tout en recevant un userId).
-		if (participant.userId) {
-			onRequireLogin?.(participant);
-			return;
-		}
-
-		// Pas de compte -> identification directe.
-		// Les erreurs réseau sont gérées par le parent (IdentifyModal.handleIdentifyAs).
-		isSubmitting = true;
-		try {
-			await onIdentifyAs(participant);
-		} finally {
-			isSubmitting = false;
-		}
+	// Pas de compte -> identification directe.
+	// Les erreurs réseau sont gérées par le parent (IdentifyModal.handleIdentifyAs).
+	isSubmitting = true;
+	try {
+		await onIdentifyAs(participant);
+	} finally {
+		isSubmitting = false;
 	}
+}
 </script>
 
 {#if hasConflict && matchedParticipant}

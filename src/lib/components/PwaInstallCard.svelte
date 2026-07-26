@@ -1,39 +1,39 @@
 <!-- src/lib/components/PwaInstallCard.svelte -->
 <script lang="ts">
-	import { pwaStore } from '$lib/stores/pwaStore.svelte';
-	import { Download, Bell, Users, CalendarX, Share, EllipsisVerticalIcon } from '@lucide/svelte';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
-	import Modal from '$lib/components/ui/Modal.svelte';
+import { Bell, CalendarX, Download, EllipsisVerticalIcon, Share, Users } from "@lucide/svelte";
+import Modal from "$lib/components/ui/Modal.svelte";
+import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
+import { pwaStore } from "$lib/stores/pwaStore.svelte";
 
-	interface Props {
-		isDismissible?: boolean;
-		/** Mode compact : banner une ligne, pour les pages de planning */
-		compact?: boolean;
-	}
+interface Props {
+	isDismissible?: boolean;
+	/** Mode compact : banner une ligne, pour les pages de planning */
+	compact?: boolean;
+}
 
-	let { isDismissible = true, compact = false }: Props = $props();
-	let dismissed = $state(false);
-	let showInstallModal = $state(false);
+let { isDismissible = true, compact = false }: Props = $props();
+let dismissed = $state(false);
+let showInstallModal = $state(false);
 
-	// Détection iOS pour les instructions spécifiques (Safari = Partage → Écran d'accueil)
-	let isIos = $derived(
-		typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
-	);
+// Détection iOS pour les instructions spécifiques (Safari = Partage → Écran d'accueil)
+let isIos = $derived(
+	typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent)
+);
 
-	// Afficher si :
-	// - Chromium (canInstall) → bouton d'install natif
-	// - Non-Chrome mobile (showNativeHint + isMobile) → instructions manuelles
-	let showCard = $derived(
-		!pwaStore.isInstalled &&
-			!dismissed &&
-			(pwaStore.canInstall || (mediaQuery.isMobile && pwaStore.showNativeHint))
-	);
+// Afficher si :
+// - Chromium (canInstall) → bouton d'install natif
+// - Non-Chrome mobile (showNativeHint + isMobile) → instructions manuelles
+let showCard = $derived(
+	!pwaStore.isInstalled &&
+		!dismissed &&
+		(pwaStore.canInstall || (mediaQuery.isMobile && pwaStore.showNativeHint))
+);
 
-	const whyInstall =
-		'Activez les notifications 	sur votre téléphone, ne perdez jamais vos plannings, et retrouvez les sur tous vos appareils';
-	async function handleInstall() {
-		await pwaStore.install();
-	}
+const whyInstall =
+	"Activez les notifications 	sur votre téléphone, ne perdez jamais vos plannings, et retrouvez les sur tous vos appareils";
+async function handleInstall() {
+	await pwaStore.install();
+}
 </script>
 
 {#snippet installBenefits()}

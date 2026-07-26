@@ -6,15 +6,16 @@
  * toutes les vues dérivées dans un objet plat. Les ~12 étapes internes vivent
  * en helpers privés non exportés.
  */
-import { generateRecurrenceDates } from './recurrence';
-import { formatSlotKey } from './slots';
+
 import type {
 	DateSlot,
 	OccurrenceTarget,
 	RecurrenceConfig,
 	RecurrenceType,
 	TimeSlot
-} from '$lib/types/planning.types';
+} from "$lib/types/planning.types";
+import { generateRecurrenceDates } from "./recurrence";
+import { formatSlotKey } from "./slots";
 
 // =============================================
 // Types d'entrée / sortie
@@ -26,7 +27,7 @@ export interface DateSlotSelectionInput {
 	firstDate: string;
 	lastDate: string;
 	monthlyByDayOccurrences?: number[];
-	monthlyByDateMode?: RecurrenceConfig['monthlyByDateMode'];
+	monthlyByDateMode?: RecurrenceConfig["monthlyByDateMode"];
 	manualDates: string[];
 	timeSlots: TimeSlot[];
 	todayStr: string; // YYYY-MM-DD, figé par le composant
@@ -73,10 +74,10 @@ function computeGeneratedDates(
 	firstDate: string,
 	lastDate: string,
 	monthlyByDayOccurrences: number[] | undefined,
-	monthlyByDateMode: RecurrenceConfig['monthlyByDateMode'],
+	monthlyByDateMode: RecurrenceConfig["monthlyByDateMode"],
 	todayStr: string
 ): string[] {
-	if (recurrenceType === 'CUSTOM') return [];
+	if (recurrenceType === "CUSTOM") return [];
 	if (!firstDate || !lastDate || !recurrenceType) return [];
 
 	const generated = generateRecurrenceDates({
@@ -84,8 +85,8 @@ function computeGeneratedDates(
 		firstDate,
 		lastDate,
 		monthlyByDayOccurrences:
-			recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
-		monthlyByDateMode: recurrenceType === 'MONTHLY_BY_DATE' ? monthlyByDateMode : undefined
+			recurrenceType === "MONTHLY_BY_DAY" ? monthlyByDayOccurrences : undefined,
+		monthlyByDateMode: recurrenceType === "MONTHLY_BY_DATE" ? monthlyByDateMode : undefined
 	});
 
 	// On ne retient que les dates futures (inutiles au rendu), sans tronquer à 100 :
@@ -100,7 +101,7 @@ function computeArbitraryDates(
 	allGeneratedDates: string[],
 	manualDates: string[]
 ): string[] {
-	if (recurrenceType === 'CUSTOM') return [];
+	if (recurrenceType === "CUSTOM") return [];
 	const generatedSet = new Set(allGeneratedDates);
 	return manualDates.filter((d) => !generatedSet.has(d));
 }
@@ -110,7 +111,7 @@ function computeDatesToDisplay(
 	allGeneratedDates: string[],
 	manualDates: string[]
 ): string[] {
-	if (recurrenceType === 'CUSTOM') {
+	if (recurrenceType === "CUSTOM") {
 		return manualDates;
 	}
 	return [...new Set([...allGeneratedDates, ...manualDates])].sort();
@@ -271,7 +272,7 @@ export function seedFromOccurrences(
 	const manualAdded = new Set<string>();
 
 	for (const occ of occurrences) {
-		const d = occ.date.split(' ')[0].split('T')[0];
+		const d = occ.date.split(" ")[0].split("T")[0];
 		const key = formatSlotKey(d, occ.slotId);
 		if (occ.deleted === true) {
 			disabledKeys.add(key);

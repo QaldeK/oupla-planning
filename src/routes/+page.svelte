@@ -1,40 +1,39 @@
 <script lang="ts">
-	import { version } from '../../package.json' with { type: 'json' };
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { planningStore } from '$lib/stores/planningStore.svelte';
-	import { commentStateStore } from '$lib/stores/commentStateStore.svelte';
-	import { pwaStore } from '$lib/stores/pwaStore.svelte';
-	import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
-	import AuthSection from '$lib/components/homepage/AuthSection.svelte';
-	import HowItWorks from '$lib/components/homepage/HowItWorks.svelte';
-	import FeaturesGrid from '$lib/components/homepage/FeaturesGrid.svelte';
-	import BenefitsBanner from '$lib/components/homepage/BenefitsBanner.svelte';
+import { MessageSquareWarning, Plus, Trash2 } from "@lucide/svelte";
+import { goto } from "$app/navigation";
+import AuthSection from "$lib/components/homepage/AuthSection.svelte";
+import BenefitsBanner from "$lib/components/homepage/BenefitsBanner.svelte";
+import FeaturesGrid from "$lib/components/homepage/FeaturesGrid.svelte";
+import HowItWorks from "$lib/components/homepage/HowItWorks.svelte";
+import PwaInstallCard from "$lib/components/PwaInstallCard.svelte";
+import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
+import { planningStore } from "$lib/stores/planningStore.svelte";
+import { pwaStore } from "$lib/stores/pwaStore.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
+import { version } from "../../package.json" with { type: "json" };
 
-	import { goto } from '$app/navigation';
-	import { MessageSquareWarning, Plus, Trash2 } from '@lucide/svelte';
+function navigateToPlanning(participantToken: string) {
+	goto(`/p/${participantToken}`);
+}
 
-	function navigateToPlanning(participantToken: string) {
-		goto(`/p/${participantToken}`);
-	}
-
-	// JSON-LD structured data — construit dans le script pour éviter les problèmes de parsing HTML
-	const jsonLdScript =
-		`<script type="application/ld+json">${JSON.stringify({
-			'@context': 'https://schema.org',
-			'@type': 'WebApplication',
-			name: 'Oupla Planning',
-			url: 'https://planning.oupla.net/',
-			description:
-				'Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise.',
-			applicationCategory: 'LifestyleApplication',
-			operatingSystem: 'Web',
-			inLanguage: 'fr',
-			offers: {
-				'@type': 'Offer',
-				price: '0',
-				priceCurrency: 'EUR'
-			}
-		})}</` + 'script>';
+// JSON-LD structured data — construit dans le script pour éviter les problèmes de parsing HTML
+const jsonLdScript =
+	`<script type="application/ld+json">${JSON.stringify({
+		"@context": "https://schema.org",
+		"@type": "WebApplication",
+		name: "Oupla Planning",
+		url: "https://planning.oupla.net/",
+		description:
+			"Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise.",
+		applicationCategory: "LifestyleApplication",
+		operatingSystem: "Web",
+		inLanguage: "fr",
+		offers: {
+			"@type": "Offer",
+			price: "0",
+			priceCurrency: "EUR"
+		}
+	})}</` + "script>";
 </script>
 
 <svelte:head>

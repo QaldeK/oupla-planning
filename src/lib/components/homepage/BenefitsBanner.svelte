@@ -1,25 +1,25 @@
 <script lang="ts">
-	import { UserX, HatGlasses, Smartphone } from '@lucide/svelte';
+import { HatGlasses, Smartphone, UserX } from "@lucide/svelte";
 
-	const benefits = [
-		{
-			icon: UserX,
-			title: "Pas d'inscription obligatoir",
-			description:
-				'Participez simplement avec votre nom. Créez un planning sans créer de compte, ou bien créer en un pour retrouver vos différents planning simplement.'
-		},
-		{
-			icon: HatGlasses,
-			title: 'Open source',
-			description: '...et sans pub, ni tracking, ni collecte de donnée'
-		},
-		{
-			icon: Smartphone,
-			title: 'Installable en un clic',
-			description:
-				"Ajoutez l'app à votre écran d'accueil pour une expérience native avec notifications push."
-		}
-	];
+const benefits = [
+	{
+		icon: UserX,
+		title: "Pas d'inscription obligatoir",
+		description:
+			"Participez simplement avec votre nom. Créez un planning sans créer de compte, ou bien créer en un pour retrouver vos différents planning simplement."
+	},
+	{
+		icon: HatGlasses,
+		title: "Open source",
+		description: "...et sans pub, ni tracking, ni collecte de donnée"
+	},
+	{
+		icon: Smartphone,
+		title: "Installable en un clic",
+		description:
+			"Ajoutez l'app à votre écran d'accueil pour une expérience native avec notifications push."
+	}
+];
 </script>
 
 <section class="py-10">

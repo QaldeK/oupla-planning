@@ -1,4 +1,4 @@
-import type { Participant } from '$lib/types/planning.types';
+import type { Participant } from "$lib/types/planning.types";
 
 /**
  * Détecte un conflit de nom (case-insensitive) entre un nom donné et les participants

@@ -28,20 +28,20 @@
  * @module pb-sync/collection
  */
 
-import type { Table, UpdateSpec } from 'dexie';
-import type PocketBase from 'pocketbase';
-import { ClientResponseError } from 'pocketbase';
+import type { Table, UpdateSpec } from "dexie";
+import type PocketBase from "pocketbase";
+import { ClientResponseError } from "pocketbase";
+import { upsertRecord } from "./db";
+import { withRetry } from "./retry.utils";
 import type {
-	WithMeta,
+	InitialFetchOptions,
+	PbListOptions,
 	PbQueryOptions,
 	PbSubscribeOptions,
-	PbListOptions,
-	InitialFetchOptions,
 	SubscriptionRef,
-	SyncCollectionOptions
-} from './types';
-import { withRetry } from './retry.utils';
-import { upsertRecord } from './db';
+	SyncCollectionOptions,
+	WithMeta
+} from "./types";
 
 /**
  * Thrown when a PocketBase operation returns 404 — the record was hard-deleted on the server.
@@ -53,7 +53,7 @@ export class RecordDeletedError extends Error {
 
 	constructor(recordId: string, collection: string) {
 		super(`Record "${recordId}" was deleted from "${collection}"`);
-		this.name = 'RecordDeletedError';
+		this.name = "RecordDeletedError";
 		this.recordId = recordId;
 		this.collection = collection;
 	}
@@ -98,7 +98,7 @@ export function mergeByKey<T>(key: keyof T & string): (local: T[], remote: T[]) 
 function applyMergeStrategies<T extends WithMeta>(
 	payload: Partial<T>,
 	serverRecord: T,
-	strategies: SyncCollectionOptions<T>['mergeStrategies']
+	strategies: SyncCollectionOptions<T>["mergeStrategies"]
 ): Partial<T> {
 	const merged = { ...payload };
 	if (!strategies) return merged;
@@ -147,8 +147,8 @@ export function createSyncCollection<T extends WithMeta>(
 	let subCounter = 0;
 
 	async function initialFetch(params?: InitialFetchOptions): Promise<void> {
-		const latest = params?.since ? null : await table.orderBy('updated').last();
-		const since = params?.since ?? latest?.updated ?? '2000-01-01 00:00:00';
+		const latest = params?.since ? null : await table.orderBy("updated").last();
+		const since = params?.since ?? latest?.updated ?? "2000-01-01 00:00:00";
 
 		// Extraire le template et les vars du filtre utilisateur s'il existe
 		const userFilterTemplate = Array.isArray(params?.filter) ? params.filter[0] : params?.filter;
@@ -165,7 +165,7 @@ export function createSyncCollection<T extends WithMeta>(
 
 		const fresh = await pb.collection(collectionName).getFullList<T>({
 			filter: pb.filter(filter, combinedVars),
-			sort: 'updated',
+			sort: "updated",
 			...(params?.fields ? { fields: params.fields } : {}),
 			...(params?.expand ? { expand: params.expand } : {}),
 			...(params?.query && { query: params.query })
@@ -173,7 +173,7 @@ export function createSyncCollection<T extends WithMeta>(
 
 		if (fresh.length > 0) {
 			// upsertRecord préserve les champs locaux non présents dans le fetch distant.
-			await table.db.transaction('rw', table, async () => {
+			await table.db.transaction("rw", table, async () => {
 				for (const record of fresh) {
 					await upsertRecord(table, record);
 				}
@@ -191,7 +191,7 @@ export function createSyncCollection<T extends WithMeta>(
 			});
 
 			if (tombs.length > 0) {
-				await table.db.transaction('rw', table, async () => {
+				await table.db.transaction("rw", table, async () => {
 					for (const tomb of tombs) {
 						if (localTrash) {
 							const existing = await table.get(tomb.recordId);
@@ -215,18 +215,18 @@ export function createSyncCollection<T extends WithMeta>(
 		onSubscriptionChange?.(true);
 		const subId = `${collectionName}_${++subCounter}`;
 		const resolvedFilter = resolveFilter(pb, params);
-		const topic = params?.record ?? '*';
+		const topic = params?.record ?? "*";
 		const ref: SubscriptionRef = {
 			id: subId,
 			collection: collectionName,
 			filter: resolvedFilter
 		};
-		console.log('realtime subscribe', ref);
+		console.log("realtime subscribe", ref);
 		const subscribePromise = pb.collection(collectionName).subscribe<T>(
 			topic,
 
 			async (event) => {
-				if (event.action === 'delete') {
+				if (event.action === "delete") {
 					if (localTrash) {
 						await table.put({
 							...event.record,
@@ -239,7 +239,7 @@ export function createSyncCollection<T extends WithMeta>(
 				} else {
 					// upsertRecord préserve les champs locaux non présents dans le realtime.
 					await upsertRecord(table, event.record);
-					console.log('realtime to idb:', event.record);
+					console.log("realtime to idb:", event.record);
 				}
 			},
 			{
@@ -258,10 +258,10 @@ export function createSyncCollection<T extends WithMeta>(
 	}
 
 	async function unsubscribe(subRefOrId: SubscriptionRef | string): Promise<void> {
-		const subId = typeof subRefOrId === 'string' ? subRefOrId : subRefOrId.id;
+		const subId = typeof subRefOrId === "string" ? subRefOrId : subRefOrId.id;
 		const entry = subscriptions.get(subId);
 		if (entry) {
-			console.log('realtime unsubscribe', subId);
+			console.log("realtime unsubscribe", subId);
 			const unsub = entry.unsub ?? (await entry.promise);
 			await unsub();
 			subscriptions.delete(subId);
@@ -282,7 +282,7 @@ export function createSyncCollection<T extends WithMeta>(
 	}
 
 	async function create(
-		data: Omit<T, 'id' | 'updated' | 'created'>,
+		data: Omit<T, "id" | "updated" | "created">,
 		params?: PbQueryOptions
 	): Promise<T> {
 		const confirmed = await withRetry(() =>
@@ -381,7 +381,7 @@ export function createSyncCollection<T extends WithMeta>(
 	}
 
 	interface PendingOp {
-		type: 'create' | 'update' | 'upsert' | 'delete';
+		type: "create" | "update" | "upsert" | "delete";
 		id?: string;
 		data?: Partial<T>;
 	}
@@ -391,7 +391,7 @@ export function createSyncCollection<T extends WithMeta>(
 	}
 
 	interface CollectionBatch {
-		create(data: Omit<T, 'id' | 'updated' | 'created'>): CollectionBatch;
+		create(data: Omit<T, "id" | "updated" | "created">): CollectionBatch;
 		update(id: string, data: Partial<T>): CollectionBatch;
 		upsert(data: T): CollectionBatch;
 		delete(id: string): CollectionBatch;
@@ -403,19 +403,19 @@ export function createSyncCollection<T extends WithMeta>(
 
 		const builder: CollectionBatch = {
 			create(data) {
-				ops.push({ type: 'create', data: data as Partial<T> });
+				ops.push({ type: "create", data: data as Partial<T> });
 				return builder;
 			},
 			update(id, data) {
-				ops.push({ type: 'update', id, data });
+				ops.push({ type: "update", id, data });
 				return builder;
 			},
 			upsert(data) {
-				ops.push({ type: 'upsert', data: data as Partial<T> });
+				ops.push({ type: "upsert", data: data as Partial<T> });
 				return builder;
 			},
 			delete(id) {
-				ops.push({ type: 'delete', id });
+				ops.push({ type: "delete", id });
 				return builder;
 			},
 
@@ -423,21 +423,21 @@ export function createSyncCollection<T extends WithMeta>(
 				if (ops.length === 0) return { records: [] };
 
 				const snapshotIds = ops
-					.filter((op) => op.type === 'update' || op.type === 'delete')
+					.filter((op) => op.type === "update" || op.type === "delete")
 					.map((op) => op.id!);
 				const snapshots = snapshotIds.length > 0 ? await table.bulkGet(snapshotIds) : [];
 
 				for (const op of ops) {
 					switch (op.type) {
-						case 'update': {
+						case "update": {
 							const current = await table.get(op.id!);
 							if (current) await table.put({ ...current, ...op.data });
 							break;
 						}
-						case 'upsert':
+						case "upsert":
 							await table.put(op.data as T);
 							break;
-						case 'delete':
+						case "delete":
 							await table.delete(op.id!);
 							break;
 					}
@@ -449,16 +449,16 @@ export function createSyncCollection<T extends WithMeta>(
 
 					for (const op of ops) {
 						switch (op.type) {
-							case 'create':
+							case "create":
 								batch.collection(collectionName).create(op.data, pbOpts);
 								break;
-							case 'update':
+							case "update":
 								batch.collection(collectionName).update(op.id!, op.data, pbOpts);
 								break;
-							case 'upsert':
+							case "upsert":
 								batch.collection(collectionName).upsert(op.data, pbOpts);
 								break;
-							case 'delete':
+							case "delete":
 								if (softDelete) {
 									batch
 										.collection(collectionName)
@@ -483,7 +483,7 @@ export function createSyncCollection<T extends WithMeta>(
 					if (valid.length > 0) await table.bulkPut(valid);
 
 					for (const op of ops) {
-						if (op.type === 'upsert' && op.data?.id) {
+						if (op.type === "upsert" && op.data?.id) {
 							const wasExisting = snapshots.some((s) => s && (s as T).id === op.data!.id);
 							if (!wasExisting) {
 								await table.delete(op.data.id as string);
@@ -500,7 +500,7 @@ export function createSyncCollection<T extends WithMeta>(
 	}
 
 	async function bulkCreate(
-		items: Omit<T, 'id' | 'updated' | 'created'>[],
+		items: Omit<T, "id" | "updated" | "created">[],
 		params?: PbQueryOptions
 	): Promise<T[]> {
 		const b = createBatch(params);

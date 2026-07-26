@@ -1,79 +1,79 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { Copy, Check, Share2, CalendarCog } from '@lucide/svelte';
-	import { toast } from 'svelte-sonner';
+import { CalendarCog, Check, Copy, Share2 } from "@lucide/svelte";
+import { toast } from "svelte-sonner";
+import { goto } from "$app/navigation";
 
-	interface Props {
-		adminToken?: string;
-		participantToken?: string;
-	}
+interface Props {
+	adminToken?: string;
+	participantToken?: string;
+}
 
-	let { adminToken, participantToken }: Props = $props();
+let { adminToken, participantToken }: Props = $props();
 
-	let copiedAdmin = $state(false);
-	let copiedParticipant = $state(false);
+let copiedAdmin = $state(false);
+let copiedParticipant = $state(false);
 
-	// Détecte si le partage natif est disponible
-	const canNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
+// Détecte si le partage natif est disponible
+const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
 
-	function getAdminUrl() {
-		return `${window.location.origin}/p/${adminToken}`;
-	}
+function getAdminUrl() {
+	return `${window.location.origin}/p/${adminToken}`;
+}
 
-	function getParticipantUrl() {
-		return `${window.location.origin}/p/${participantToken}`;
-	}
+function getParticipantUrl() {
+	return `${window.location.origin}/p/${participantToken}`;
+}
 
-	async function shareOrCopy(
-		url: string,
-		label: string,
-		copiedState: () => boolean,
-		setCopied: (v: boolean) => void
-	) {
-		if (canNativeShare) {
-			try {
-				await navigator.share({
-					title: 'Oupla - Planning',
-					text: `Participe à ${label}`,
-					url
-				});
-				// L'utilisateur a partagé avec succès (ou annulé, pas de distinction)
-			} catch (error) {
-				// AbortError = utilisateur a annulé, on ne fait rien
-				if ((error as Error).name !== 'AbortError') {
-					toast.error('Erreur lors du partage');
-				}
-			}
-		} else {
-			// Fallback: copier dans le presse-papiers
-			try {
-				await navigator.clipboard.writeText(url);
-				setCopied(true);
-				toast.success(`${label} copié !`);
-				setTimeout(() => setCopied(false), 2000);
-			} catch {
-				toast.error('Erreur lors de la copie');
+async function shareOrCopy(
+	url: string,
+	label: string,
+	copiedState: () => boolean,
+	setCopied: (v: boolean) => void
+) {
+	if (canNativeShare) {
+		try {
+			await navigator.share({
+				title: "Oupla - Planning",
+				text: `Participe à ${label}`,
+				url
+			});
+			// L'utilisateur a partagé avec succès (ou annulé, pas de distinction)
+		} catch (error) {
+			// AbortError = utilisateur a annulé, on ne fait rien
+			if ((error as Error).name !== "AbortError") {
+				toast.error("Erreur lors du partage");
 			}
 		}
+	} else {
+		// Fallback: copier dans le presse-papiers
+		try {
+			await navigator.clipboard.writeText(url);
+			setCopied(true);
+			toast.success(`${label} copié !`);
+			setTimeout(() => setCopied(false), 2000);
+		} catch {
+			toast.error("Erreur lors de la copie");
+		}
 	}
+}
 
-	async function shareAdminLink() {
-		await shareOrCopy(
-			getAdminUrl(),
-			'Lien admin',
-			() => copiedAdmin, // TOCHECK
-			(v) => (copiedAdmin = v)
-		);
-	}
+async function shareAdminLink() {
+	await shareOrCopy(
+		getAdminUrl(),
+		"Lien admin",
+		() => copiedAdmin, // TOCHECK
+		(v) => (copiedAdmin = v)
+	);
+}
 
-	async function shareParticipantLink() {
-		await shareOrCopy(
-			getParticipantUrl(),
-			'Lien public',
-			() => copiedParticipant, // TOCHECK
-			(v) => (copiedParticipant = v)
-		);
-	}
+async function shareParticipantLink() {
+	await shareOrCopy(
+		getParticipantUrl(),
+		"Lien public",
+		() => copiedParticipant, // TOCHECK
+		(v) => (copiedParticipant = v)
+	);
+}
 </script>
 
 <div class="flex flex-wrap justify-around gap-2">

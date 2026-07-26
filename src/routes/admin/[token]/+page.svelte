@@ -1,333 +1,332 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-	import { untrack } from 'svelte';
-	import { on } from 'svelte/events';
-	import PlanningForm, { type PlanningFormData } from '$lib/components/PlanningForm.svelte';
-	import { AdminSkeleton } from '$lib/components/ui/skeletons';
-	import { updatePlanningWithOccurrences } from '$lib/services/planningActions';
-	import {
-		acquireLock,
-		heartbeatLock,
-		releaseLock,
-		getLock,
-		LockHeldError,
-		type LockInfo
-	} from '$lib/services/lockService';
-	import { planningStore } from '$lib/stores/planningStore.svelte';
-	import { userStore } from '$lib/stores/userStore.svelte';
-	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
-	import { authTransition } from '$lib/stores/authTransition.svelte';
-	import { resolveActorIdentity } from '$lib/utils/identityResolution';
-	import { networkStore } from '$lib/stores/networkStore.svelte';
-	import { pb } from '$lib/pocketbase/pb';
-	import { fade } from 'svelte/transition';
-	import { format } from 'date-fns';
+import { ArrowLeft, Calendar, CalendarCog, RefreshCw, Trash2, WifiOff } from "@lucide/svelte";
+import { format } from "date-fns";
+import { untrack } from "svelte";
+import { on } from "svelte/events";
+import { fade } from "svelte/transition";
+import { toast } from "svelte-sonner";
+import { goto } from "$app/navigation";
+import { page } from "$app/stores";
+import LockOverlay from "$lib/components/admin/LockOverlay.svelte";
+import NetworkAlert from "$lib/components/NetworkAlert.svelte";
+import PlanningForm, { type PlanningFormData } from "$lib/components/PlanningForm.svelte";
+import QuitReturnModal from "$lib/components/QuitReturnModal.svelte";
+import { AdminSkeleton } from "$lib/components/ui/skeletons";
+import { pb } from "$lib/pocketbase/pb";
+import {
+	acquireLock,
+	getLock,
+	heartbeatLock,
+	LockHeldError,
+	type LockInfo,
+	releaseLock
+} from "$lib/services/lockService";
+import { updatePlanningWithOccurrences } from "$lib/services/planningActions";
+import { authTransition } from "$lib/stores/authTransition.svelte";
+import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
+import { networkStore } from "$lib/stores/networkStore.svelte";
+import { planningStore } from "$lib/stores/planningStore.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
+import { resolveActorIdentity } from "$lib/utils/identityResolution";
 
-	import QuitReturnModal from '$lib/components/QuitReturnModal.svelte';
-	import LockOverlay from '$lib/components/admin/LockOverlay.svelte';
-	import NetworkAlert from '$lib/components/NetworkAlert.svelte';
-	import { ArrowLeft, Calendar, CalendarCog, RefreshCw, Trash2, WifiOff } from '@lucide/svelte';
-	import { toast } from 'svelte-sonner';
+let token = $derived($page.params.token as string);
+let master = $derived(planningStore.master);
+let occurrences = $derived(planningStore.occurrences);
+let isLoading = $derived(planningStore.isLoading);
+let isSubmitting = $state(false);
 
-	let token = $derived($page.params.token as string);
-	let master = $derived(planningStore.master);
-	let occurrences = $derived(planningStore.occurrences);
-	let isLoading = $derived(planningStore.isLoading);
-	let isSubmitting = $state(false);
+// === Verrouillage d'édition (R5.3) ===
+// lockState pilote l'affichage de l'overlay : 'editing' = on détient le lock,
+// 'locked-by-other' = un autre admin édite (overlay read-only), 'lock-lost' =
+// on a perdu le lock (inactivité / retour d'arrière-plan). La reprise après
+// blocage est manuelle (bouton « Réessayer » de l'overlay), pas de polling.
+let lockState = $state<"acquiring" | "editing" | "locked-by-other" | "lock-lost">("acquiring");
+let heldBy = $state<LockInfo | null>(null);
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
-	// === Verrouillage d'édition (R5.3) ===
-	// lockState pilote l'affichage de l'overlay : 'editing' = on détient le lock,
-	// 'locked-by-other' = un autre admin édite (overlay read-only), 'lock-lost' =
-	// on a perdu le lock (inactivité / retour d'arrière-plan). La reprise après
-	// blocage est manuelle (bouton « Réessayer » de l'overlay), pas de polling.
-	let lockState = $state<'acquiring' | 'editing' | 'locked-by-other' | 'lock-lost'>('acquiring');
-	let heldBy = $state<LockInfo | null>(null);
-	let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+// TTL 5 min côté serveur — le heartbeat (2 min) le rafraîchit avant expiration.
+const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
 
-	// TTL 5 min côté serveur — le heartbeat (2 min) le rafraîchit avant expiration.
-	const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
+const lockReturnUrl = $derived(master ? `/p/${master.participantToken}` : "/");
 
-	const lockReturnUrl = $derived(master ? `/p/${master.participantToken}` : '/');
+// Quand un autre admin édite ou qu'on a perdu la main, on rend le formulaire
+// inert (non-interactif, retiré du tab order, masqué de l'a11y tree). C'est le
+// pendant « lecture seule » de l'overlay, qui ne bloquait que la souris.
+const isFormReadOnly = $derived(lockState === "locked-by-other" || lockState === "lock-lost");
 
-	// Quand un autre admin édite ou qu'on a perdu la main, on rend le formulaire
-	// inert (non-interactif, retiré du tab order, masqué de l'a11y tree). C'est le
-	// pendant « lecture seule » de l'overlay, qui ne bloquait que la souris.
-	const isFormReadOnly = $derived(lockState === 'locked-by-other' || lockState === 'lock-lost');
+function stopHeartbeat() {
+	if (heartbeatTimer) {
+		clearInterval(heartbeatTimer);
+		heartbeatTimer = null;
+	}
+}
 
-	function stopHeartbeat() {
-		if (heartbeatTimer) {
-			clearInterval(heartbeatTimer);
-			heartbeatTimer = null;
+/**
+ * Tente d'acquérir le lock. En cas de succès démarre le heartbeat ;
+ * en cas de conflit (LockHeldError) passe en overlay read-only.
+ *
+ * `isStale` court-circuite tout effet de bord après l'await : si l'$effect
+ * propriétaire a été teardown entre-temps (navigation, master cleared), on
+ * ne démarre ni le heartbeat ni l'overlay. Sans cette garde, un acquire
+ * résolvant après le teardown recréerait un interval heartbeat orphelin qui
+ * re-acquerrait le lock sur une row vidée → lock zombie.
+ */
+async function acquireOrBlock(
+	masterId: string,
+	adminToken: string,
+	userId: string,
+	name: string | undefined,
+	isStale: () => boolean
+): Promise<void> {
+	try {
+		const info = await acquireLock(masterId, adminToken, userId, name);
+		if (isStale()) return;
+		heldBy = info;
+		lockState = "editing";
+		startHeartbeat(masterId, adminToken, userId, name);
+	} catch (err) {
+		if (isStale()) return;
+		if (err instanceof LockHeldError) {
+			heldBy = err.info;
+			lockState = "locked-by-other";
+		} else {
+			console.error("[lock] acquire failed:", err);
+			// Dégradation gracieuse : on laisse l'admin éditer (le formulaire reste
+			// actif en 'acquiring'), mais on le prévient qu'il n'est pas protégé.
+			toast.warning(
+				"Verrouillage indisponible (réseau) — édition non protégée contre les conflits."
+			);
 		}
 	}
+}
 
-	/**
-	 * Tente d'acquérir le lock. En cas de succès démarre le heartbeat ;
-	 * en cas de conflit (LockHeldError) passe en overlay read-only.
-	 *
-	 * `isStale` court-circuite tout effet de bord après l'await : si l'$effect
-	 * propriétaire a été teardown entre-temps (navigation, master cleared), on
-	 * ne démarre ni le heartbeat ni l'overlay. Sans cette garde, un acquire
-	 * résolvant après le teardown recréerait un interval heartbeat orphelin qui
-	 * re-acquerrait le lock sur une row vidée → lock zombie.
-	 */
-	async function acquireOrBlock(
-		masterId: string,
-		adminToken: string,
-		userId: string,
-		name: string | undefined,
-		isStale: () => boolean
-	): Promise<void> {
-		try {
-			const info = await acquireLock(masterId, adminToken, userId, name);
-			if (isStale()) return;
-			heldBy = info;
-			lockState = 'editing';
-			startHeartbeat(masterId, adminToken, userId, name);
-		} catch (err) {
-			if (isStale()) return;
+function startHeartbeat(
+	masterId: string,
+	adminToken: string,
+	userId: string,
+	name: string | undefined
+): void {
+	stopHeartbeat();
+	heartbeatTimer = setInterval(() => {
+		heartbeatLock(masterId, adminToken, userId, name).catch((err) => {
 			if (err instanceof LockHeldError) {
+				// Le lock a été repris par un autre admin pendant notre édition :
+				// on bascule en read-only. La reprise est manuelle (bouton
+				// « Réessayer » de l'overlay).
 				heldBy = err.info;
-				lockState = 'locked-by-other';
+				lockState = "locked-by-other";
+				stopHeartbeat();
 			} else {
-				console.error('[lock] acquire failed:', err);
-				// Dégradation gracieuse : on laisse l'admin éditer (le formulaire reste
-				// actif en 'acquiring'), mais on le prévient qu'il n'est pas protégé.
-				toast.warning(
-					'Verrouillage indisponible (réseau) — édition non protégée contre les conflits.'
-				);
+				console.error("[lock] heartbeat failed:", err);
 			}
-		}
-	}
+		});
+	}, HEARTBEAT_INTERVAL_MS);
+}
 
-	function startHeartbeat(
-		masterId: string,
-		adminToken: string,
-		userId: string,
-		name: string | undefined
-	): void {
-		stopHeartbeat();
-		heartbeatTimer = setInterval(() => {
-			heartbeatLock(masterId, adminToken, userId, name).catch((err) => {
-				if (err instanceof LockHeldError) {
-					// Le lock a été repris par un autre admin pendant notre édition :
-					// on bascule en read-only. La reprise est manuelle (bouton
-					// « Réessayer » de l'overlay).
-					heldBy = err.info;
-					lockState = 'locked-by-other';
+/**
+ * Reprendre l'édition depuis un overlay (clic « Réessayer » /
+ * « Poursuivre l'édition »). On recharge la page plutôt que de
+ * ré-acquérir le lock silencieusement : garantit que le formulaire
+ * reparte du master serveur courant. Sans ça, l'admin reprendrait sur
+ * un snapshot stale et écraserait les modifs d'un autre admin au save
+ * (`master.updated` est rafraîchi par realtime, donc l'OCC ne voit pas
+ * le conflit). Le `$effect` lifecycle ré-acquiert le lock au mount.
+ */
+function handleLockRetry(): void {
+	window.location.reload();
+}
+
+// Lifecycle du lock : démarre au chargement du master, nettoie au destroy.
+// Dépend de master?.id (pas de l'objet master) pour ne pas re-déclencher à
+// chaque update realtime, et de userStore.isReady pour s'assurer que
+// l'identité (guest) est disponible.
+$effect(() => {
+	const masterId = master?.id;
+	const ready = userStore.isReady;
+	if (!masterId || !ready) return;
+
+	const adminToken = token;
+	// Identité lue ponctuellement : on ne veut pas redémarrer le cycle lock
+	// quand l'état guest évolue (setGuestIdentity, etc.) pendant l'édition.
+	const identity = untrack(() =>
+		resolveActorIdentity({
+			pbUser: userStore.pbUser,
+			guestIdentity: guestStateStore.getGuestIdentity(masterId)
+		})
+	);
+	if (!identity) return;
+	const userId = identity.id;
+
+	// Garde d'annulation : invalide toute résolution async (acquire, check de
+	// visibilité) dont l'$effect aurait été teardown entre-temps. Sans elle, un
+	// acquire résolvant après le teardown redémarrerait un heartbeat orphelin
+	// → lock zombie (le heartbeat re-acquiert sur une row vidée par le release).
+	let cancelled = false;
+
+	lockState = "acquiring";
+	acquireOrBlock(masterId, adminToken, userId, identity.name, () => cancelled);
+
+	// pagehide : release via fetch keepalive — releaseLock (pb.send) ne survit
+	// pas à la fermeture de l'onglet, keepalive permet à la requête de partir.
+	const releaseOnHide = () => {
+		const url = `${pb.baseUrl}/api/unlock/${masterId}?_token=${encodeURIComponent(adminToken)}`;
+		fetch(url, {
+			method: "POST",
+			keepalive: true,
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ lockedBy: userId })
+		}).catch(() => {});
+	};
+
+	// visibilitychange (visible) : vérifier qu'on détient toujours le lock.
+	// Pas de release sur background (le TTL gère l'absence prolongée).
+	const checkVisibility = () => {
+		if (document.visibilityState !== "visible") return;
+		if (lockState !== "editing") return;
+		getLock(masterId, adminToken)
+			.then((current) => {
+				if (cancelled) return;
+				const lost =
+					!current ||
+					current.lockedBy !== userId ||
+					Date.now() > new Date(current.expiresAt).getTime();
+				if (lost) {
 					stopHeartbeat();
-				} else {
-					console.error('[lock] heartbeat failed:', err);
+					lockState = "lock-lost";
 				}
-			});
-		}, HEARTBEAT_INTERVAL_MS);
-	}
-
-	/**
-	 * Reprendre l'édition depuis un overlay (clic « Réessayer » /
-	 * « Poursuivre l'édition »). On recharge la page plutôt que de
-	 * ré-acquérir le lock silencieusement : garantit que le formulaire
-	 * reparte du master serveur courant. Sans ça, l'admin reprendrait sur
-	 * un snapshot stale et écraserait les modifs d'un autre admin au save
-	 * (`master.updated` est rafraîchi par realtime, donc l'OCC ne voit pas
-	 * le conflit). Le `$effect` lifecycle ré-acquiert le lock au mount.
-	 */
-	function handleLockRetry(): void {
-		window.location.reload();
-	}
-
-	// Lifecycle du lock : démarre au chargement du master, nettoie au destroy.
-	// Dépend de master?.id (pas de l'objet master) pour ne pas re-déclencher à
-	// chaque update realtime, et de userStore.isReady pour s'assurer que
-	// l'identité (guest) est disponible.
-	$effect(() => {
-		const masterId = master?.id;
-		const ready = userStore.isReady;
-		if (!masterId || !ready) return;
-
-		const adminToken = token;
-		// Identité lue ponctuellement : on ne veut pas redémarrer le cycle lock
-		// quand l'état guest évolue (setGuestIdentity, etc.) pendant l'édition.
-		const identity = untrack(() =>
-			resolveActorIdentity({
-				pbUser: userStore.pbUser,
-				guestIdentity: guestStateStore.getGuestIdentity(masterId)
 			})
+			.catch((err) => console.error("[lock] visibility check failed:", err));
+	};
+
+	const offPageHide = on(window, "pagehide", releaseOnHide);
+	const offVisChange = on(document, "visibilitychange", checkVisibility);
+
+	return () => {
+		cancelled = true;
+		stopHeartbeat();
+		offPageHide();
+		offVisChange();
+		// Best-effort pour le cas navigation interne SvelteKit (sans unload).
+		// Le pagehide couvre la fermeture d'onglet via fetch keepalive.
+		releaseLock(masterId, adminToken, userId);
+	};
+});
+
+// === Détection retour après quit ===
+let showQuitReturnModal = $state(false);
+
+const quitParticipantId = $derived.by(() => {
+	if (!master) return null;
+	if (userStore.isLoggedIn && userStore.pbUser) {
+		return (
+			master.participants.find((p) => p.userId === userStore.pbUser!.id && p.hasQuit)?.id ?? null
 		);
-		if (!identity) return;
-		const userId = identity.id;
+	}
+	const guestIdentity = guestStateStore.getGuestIdentity(master.id);
+	if (guestStateStore.getGuestQuitState(master.id) && guestIdentity) {
+		return master.participants.find((p) => p.id === guestIdentity.id && p.hasQuit)?.id ?? null;
+	}
+	return null;
+});
+const hasQuitThisPlanning = $derived(quitParticipantId !== null);
 
-		// Garde d'annulation : invalide toute résolution async (acquire, check de
-		// visibilité) dont l'$effect aurait été teardown entre-temps. Sans elle, un
-		// acquire résolvant après le teardown redémarrerait un heartbeat orphelin
-		// → lock zombie (le heartbeat re-acquiert sur une row vidée par le release).
-		let cancelled = false;
+// Logique de redirection admin → participant
+$effect(() => {
+	if (!master) return;
 
-		lockState = 'acquiring';
-		acquireOrBlock(masterId, adminToken, userId, identity.name, () => cancelled);
+	// Guard : ne rien faire pendant la transition guest → auth, au même
+	// titre que sur /p/[token]. Sans ça, l'$effect verrait un état
+	// intermédiaire (master cleared, participant pas encore posé).
+	if (authTransition.isTransitioning) return;
 
-		// pagehide : release via fetch keepalive — releaseLock (pb.send) ne survit
-		// pas à la fermeture de l'onglet, keepalive permet à la requête de partir.
-		const releaseOnHide = () => {
-			const url = `${pb.baseUrl}/api/unlock/${masterId}?_token=${encodeURIComponent(adminToken)}`;
-			fetch(url, {
-				method: 'POST',
-				keepalive: true,
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ lockedBy: userId })
-			}).catch(() => {});
-		};
-
-		// visibilitychange (visible) : vérifier qu'on détient toujours le lock.
-		// Pas de release sur background (le TTL gère l'absence prolongée).
-		const checkVisibility = () => {
-			if (document.visibilityState !== 'visible') return;
-			if (lockState !== 'editing') return;
-			getLock(masterId, adminToken)
-				.then((current) => {
-					if (cancelled) return;
-					const lost =
-						!current ||
-						current.lockedBy !== userId ||
-						Date.now() > new Date(current.expiresAt).getTime();
-					if (lost) {
-						stopHeartbeat();
-						lockState = 'lock-lost';
-					}
-				})
-				.catch((err) => console.error('[lock] visibility check failed:', err));
-		};
-
-		const offPageHide = on(window, 'pagehide', releaseOnHide);
-		const offVisChange = on(document, 'visibilitychange', checkVisibility);
-
-		return () => {
-			cancelled = true;
-			stopHeartbeat();
-			offPageHide();
-			offVisChange();
-			// Best-effort pour le cas navigation interne SvelteKit (sans unload).
-			// Le pagehide couvre la fermeture d'onglet via fetch keepalive.
-			releaseLock(masterId, adminToken, userId);
-		};
-	});
-
-	// === Détection retour après quit ===
-	let showQuitReturnModal = $state(false);
-
-	const quitParticipantId = $derived.by(() => {
-		if (!master) return null;
-		if (userStore.isLoggedIn && userStore.pbUser) {
-			return (
-				master.participants.find((p) => p.userId === userStore.pbUser!.id && p.hasQuit)?.id ?? null
-			);
-		}
-		const guestIdentity = guestStateStore.getGuestIdentity(master.id);
-		if (guestStateStore.getGuestQuitState(master.id) && guestIdentity) {
-			return master.participants.find((p) => p.id === guestIdentity.id && p.hasQuit)?.id ?? null;
-		}
-		return null;
-	});
-	const hasQuitThisPlanning = $derived(quitParticipantId !== null);
-
-	// Logique de redirection admin → participant
-	$effect(() => {
-		if (!master) return;
-
-		// Guard : ne rien faire pendant la transition guest → auth, au même
-		// titre que sur /p/[token]. Sans ça, l'$effect verrait un état
-		// intermédiaire (master cleared, participant pas encore posé).
-		if (authTransition.isTransitioning) return;
-
-		// PRIORITÉ : retour après quit
-		if (hasQuitThisPlanning) {
-			if (!showQuitReturnModal) showQuitReturnModal = true;
-			return;
-		}
-
-		// Guest non identifié : l'identification se fait sur /p (avec l'adminToken
-		// pour préserver isAdmin et le bouton « Configuration »), puis l'user
-		// revient manuellement sur l'admin.
-		if (
-			userStore.isReady &&
-			!userStore.isLoggedIn &&
-			!userStore.pbUser &&
-			!guestStateStore.getGuestIdentity(master.id)
-		) {
-			goto(`/p/${token}`);
-			return;
-		}
-
-		// La page admin requiert l'adminToken (64 chars). Un participantToken (32 chars)
-		// chargerait le master (cache Dexie) mais ferait échouer les routes /api/lock.
-		if (token.length !== 64) {
-			goto(`/p/${token}`);
-			return;
-		}
-
-		// Si l'utilisateur n'a pas les droits admin sur ce planning, rediriger
-		if (!planningStore.hasAdminAccess(master.id)) {
-			goto(`/p/${master.participantToken}`);
-		}
-	});
-
-	async function handleUpdatePlanning(data: PlanningFormData) {
-		if (!master) return;
-
-		try {
-			isSubmitting = true;
-			await updatePlanningWithOccurrences(
-				master.id,
-				data,
-				token,
-				master.participantToken as string,
-				master.updated // Optimistic locking
-			);
-			toast.success('Planning mis à jour avec succès');
-
-			// Le save libère le lock : release explicite avant la navigation
-			// (l'$effect teardown relancera aussi releaseLock, idempotent côté serveur).
-			const identityId = resolveActorIdentity({
-				pbUser: userStore.pbUser,
-				guestIdentity: guestStateStore.getGuestIdentity(master.id)
-			})?.id;
-			if (identityId) {
-				await releaseLock(master.id, token, identityId);
-			}
-
-			// Rediriger vers la vue participant après sauvegarde réussie
-			await goto(`/p/${master.participantToken}`);
-		} catch (error) {
-			console.error('Update error:', error);
-			toast.error('Erreur lors de la mise à jour');
-		} finally {
-			isSubmitting = false;
-		}
+	// PRIORITÉ : retour après quit
+	if (hasQuitThisPlanning) {
+		if (!showQuitReturnModal) showQuitReturnModal = true;
+		return;
 	}
 
-	// Identifier les dates futures qui ont des données (réponses ou commentaires).
-	// Filtre sur date >= today pour rester cohérent avec `activeDates` (futur
-	// uniquement) et `updatePlanningWithOccurrences` (qui ne touche pas le passé).
-	const today = format(new Date(), 'yyyy-MM-dd');
-	const datesWithData = $derived(
-		occurrences
-			.filter((o) => {
-				const d = o.date.split(' ')[0].split('T')[0];
-				return d >= today && (o.responses?.length > 0 || o.comments?.length > 0);
-			})
-			.map((o) => o.date.split(' ')[0].split('T')[0])
-	);
+	// Guest non identifié : l'identification se fait sur /p (avec l'adminToken
+	// pour préserver isAdmin et le bouton « Configuration »), puis l'user
+	// revient manuellement sur l'admin.
+	if (
+		userStore.isReady &&
+		!userStore.isLoggedIn &&
+		!userStore.pbUser &&
+		!guestStateStore.getGuestIdentity(master.id)
+	) {
+		goto(`/p/${token}`);
+		return;
+	}
 
-	// Identifier les dates futures qui ont des tâches spécifiques (non héritées)
-	const datesWithSpecificTasks = $derived(
-		occurrences
-			.filter((o) => {
-				const d = o.date.split(' ')[0].split('T')[0];
-				return d >= today && o.tasks && o.tasks.length > 0;
-			})
-			.map((o) => o.date.split(' ')[0].split('T')[0])
-	);
+	// La page admin requiert l'adminToken (64 chars). Un participantToken (32 chars)
+	// chargerait le master (cache Dexie) mais ferait échouer les routes /api/lock.
+	if (token.length !== 64) {
+		goto(`/p/${token}`);
+		return;
+	}
+
+	// Si l'utilisateur n'a pas les droits admin sur ce planning, rediriger
+	if (!planningStore.hasAdminAccess(master.id)) {
+		goto(`/p/${master.participantToken}`);
+	}
+});
+
+async function handleUpdatePlanning(data: PlanningFormData) {
+	if (!master) return;
+
+	try {
+		isSubmitting = true;
+		await updatePlanningWithOccurrences(
+			master.id,
+			data,
+			token,
+			master.participantToken as string,
+			master.updated // Optimistic locking
+		);
+		toast.success("Planning mis à jour avec succès");
+
+		// Le save libère le lock : release explicite avant la navigation
+		// (l'$effect teardown relancera aussi releaseLock, idempotent côté serveur).
+		const identityId = resolveActorIdentity({
+			pbUser: userStore.pbUser,
+			guestIdentity: guestStateStore.getGuestIdentity(master.id)
+		})?.id;
+		if (identityId) {
+			await releaseLock(master.id, token, identityId);
+		}
+
+		// Rediriger vers la vue participant après sauvegarde réussie
+		await goto(`/p/${master.participantToken}`);
+	} catch (error) {
+		console.error("Update error:", error);
+		toast.error("Erreur lors de la mise à jour");
+	} finally {
+		isSubmitting = false;
+	}
+}
+
+// Identifier les dates futures qui ont des données (réponses ou commentaires).
+// Filtre sur date >= today pour rester cohérent avec `activeDates` (futur
+// uniquement) et `updatePlanningWithOccurrences` (qui ne touche pas le passé).
+const today = format(new Date(), "yyyy-MM-dd");
+const datesWithData = $derived(
+	occurrences
+		.filter((o) => {
+			const d = o.date.split(" ")[0].split("T")[0];
+			return d >= today && (o.responses?.length > 0 || o.comments?.length > 0);
+		})
+		.map((o) => o.date.split(" ")[0].split("T")[0])
+);
+
+// Identifier les dates futures qui ont des tâches spécifiques (non héritées)
+const datesWithSpecificTasks = $derived(
+	occurrences
+		.filter((o) => {
+			const d = o.date.split(" ")[0].split("T")[0];
+			return d >= today && o.tasks && o.tasks.length > 0;
+		})
+		.map((o) => o.date.split(" ")[0].split("T")[0])
+);
 </script>
 
 <svelte:head>

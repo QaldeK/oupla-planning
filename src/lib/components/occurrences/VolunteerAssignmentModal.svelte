@@ -1,119 +1,119 @@
 <script lang="ts">
-	import { addParticipant, submitResponse } from '$lib/services/planningActions';
-	import { classifyError } from '$lib/utils/errorHandler';
-	import type {
-		Participant,
-		ParticipantResponse,
-		PlanningMaster,
-		PlanningOccurrence,
-		Task
-	} from '$lib/types/planning.types';
-	import { Info, Plus } from '@lucide/svelte';
-	import { toast } from 'svelte-sonner';
-	import Modal from '../ui/Modal.svelte';
+import { Info, Plus } from "@lucide/svelte";
+import { toast } from "svelte-sonner";
+import { addParticipant, submitResponse } from "$lib/services/planningActions";
+import type {
+	Participant,
+	ParticipantResponse,
+	PlanningMaster,
+	PlanningOccurrence,
+	Task
+} from "$lib/types/planning.types";
+import { classifyError } from "$lib/utils/errorHandler";
+import Modal from "../ui/Modal.svelte";
 
-	interface Props {
-		open: boolean;
-		onClose: () => void;
-		task: Task;
-		participants: Participant[];
-		responses: ParticipantResponse[];
-		occurrenceId: string;
-		token: string;
-		masterId: string;
-		/** Contrôle si les tâches onEvent forcent le statut "present" */
-		allowResponses: boolean;
-		/** Désactiver les interactions (hors-ligne, etc.) */
-		disabled?: boolean;
-		/** Appelé après chaque toggle — remonte l'occurrence mise à jour */
-		onUpdateOccurrence: (updated: PlanningOccurrence) => void;
-		/** Appelé après chaque création de participant — remonte le master mis à jour */
-		onUpdateMaster: (updated: PlanningMaster) => void;
-	}
+interface Props {
+	open: boolean;
+	onClose: () => void;
+	task: Task;
+	participants: Participant[];
+	responses: ParticipantResponse[];
+	occurrenceId: string;
+	token: string;
+	masterId: string;
+	/** Contrôle si les tâches onEvent forcent le statut "present" */
+	allowResponses: boolean;
+	/** Désactiver les interactions (hors-ligne, etc.) */
+	disabled?: boolean;
+	/** Appelé après chaque toggle — remonte l'occurrence mise à jour */
+	onUpdateOccurrence: (updated: PlanningOccurrence) => void;
+	/** Appelé après chaque création de participant — remonte le master mis à jour */
+	onUpdateMaster: (updated: PlanningMaster) => void;
+}
 
-	let {
-		open = $bindable(false),
-		onClose,
-		task,
-		participants,
-		responses,
-		occurrenceId,
-		token,
-		masterId,
-		allowResponses,
-		disabled = false,
-		onUpdateOccurrence,
-		onUpdateMaster
-	}: Props = $props();
+let {
+	open = $bindable(false),
+	onClose,
+	task,
+	participants,
+	responses,
+	occurrenceId,
+	token,
+	masterId,
+	allowResponses,
+	disabled = false,
+	onUpdateOccurrence,
+	onUpdateMaster
+}: Props = $props();
 
-	let newVolunteerName = $state('');
-	let isCreatingVolunteer = $state(false);
+let newVolunteerName = $state("");
+let isCreatingVolunteer = $state(false);
 
-	async function handleAddVolunteer() {
-		if (!newVolunteerName.trim() || isCreatingVolunteer || disabled) return;
+async function handleAddVolunteer() {
+	if (!newVolunteerName.trim() || isCreatingVolunteer || disabled) return;
 
-		isCreatingVolunteer = true;
-		try {
-			const updatedMaster = await addParticipant(
-				masterId,
-				{
-					name: newVolunteerName.trim(),
-					isAdmin: false
-				},
-				token
-			);
-			onUpdateMaster(updatedMaster);
+	isCreatingVolunteer = true;
+	try {
+		const updatedMaster = await addParticipant(
+			masterId,
+			{
+				name: newVolunteerName.trim(),
+				isAdmin: false
+			},
+			token
+		);
+		onUpdateMaster(updatedMaster);
 
-			const newParticipant = updatedMaster.participants.find(
-				(p) => p.name === newVolunteerName.trim()
-			);
-			if (newParticipant) {
-				await toggleVolunteer(newParticipant.id);
-			}
-			newVolunteerName = '';
-		} catch (error) {
-			const { message } = classifyError(error);
-			toast.error(message);
-			console.error(error);
-		} finally {
-			isCreatingVolunteer = false;
+		const newParticipant = updatedMaster.participants.find(
+			(p) => p.name === newVolunteerName.trim()
+		);
+		if (newParticipant) {
+			await toggleVolunteer(newParticipant.id);
 		}
+		newVolunteerName = "";
+	} catch (error) {
+		const { message } = classifyError(error);
+		toast.error(message);
+		console.error(error);
+	} finally {
+		isCreatingVolunteer = false;
 	}
+}
 
-	async function toggleVolunteer(participantId: string) {
-		if (disabled) return;
+async function toggleVolunteer(participantId: string) {
+	if (disabled) return;
 
-		try {
-			const existingResponse = responses.find((r) => r.participantId === participantId);
+	try {
+		const existingResponse = responses.find((r) => r.participantId === participantId);
 
-			// Auto-set "present" pour onEvent si allowResponses
-			let responseType: ParticipantResponse['response'] = existingResponse?.response || 'present';
-			if (task.type === 'onEvent' && allowResponses && responseType !== 'present') {
-				responseType = 'present';
-			}
-
-			const existingTasks = existingResponse?.tasks || [];
-			const isAssigned = existingTasks.includes(task.id);
-			const updatedTasks = isAssigned
-				? existingTasks.filter((t) => t !== task.id)
-				: [...new Set([...existingTasks, task.id])];
-
-			const newResponse: ParticipantResponse = {
-				participantId,
-				response: responseType,
-				tasks: updatedTasks,
-				comment: existingResponse?.comment,
-				respondedAt: new Date().toISOString()
-			};
-
-			const updated = await submitResponse(occurrenceId, participantId, newResponse, token);
-			onUpdateOccurrence(updated);
-		} catch (error) {
-			const { message } = classifyError(error);
-			toast.error(message);
-			console.error(error);
+		// Auto-set "present" pour onEvent si allowResponses
+		let responseType: ParticipantResponse["response"] = existingResponse?.response || "present";
+		if (task.type === "onEvent" && allowResponses && responseType !== "present") {
+			responseType = "present";
 		}
+
+		const existingTasks = existingResponse?.tasks || [];
+		const isAssigned = existingTasks.includes(task.id);
+		const updatedTasks = isAssigned
+			? existingTasks.filter((t) => t !== task.id)
+			: [...new Set([...existingTasks, task.id])];
+
+		const newResponse: ParticipantResponse = {
+			participantId,
+			response: responseType,
+			tasks: updatedTasks,
+			comment: existingResponse?.comment,
+			respondedAt: new Date().toISOString()
+		};
+
+		const updated = await submitResponse(occurrenceId, participantId, newResponse, token);
+		onUpdateOccurrence(updated);
+	} catch (error) {
+		const { message } = classifyError(error);
+		toast.error(message);
+		console.error(error);
 	}
+}
 </script>
 
 <Modal {open} {onClose} title={task.name} size="md">

@@ -1,58 +1,58 @@
 <script lang="ts">
-	import { X, ArrowLeft } from '@lucide/svelte';
-	import { mediaQuery } from '$lib/stores/mediaQuery.svelte.js';
+import { ArrowLeft, X } from "@lucide/svelte";
+import { mediaQuery } from "$lib/stores/mediaQuery.svelte.js";
 
-	interface Props {
-		open: boolean;
-		onClose: () => void;
-		title?: string;
-		children: import('svelte').Snippet;
-		actions?: import('svelte').Snippet;
-		size?: 'sm' | 'md' | 'lg' | 'xl';
-		zIndex?: number;
-		/**
-		 * Si false, masque le bouton de fermeture (X / ArrowLeft) et
-		 * désactive la fermeture par Escape et par clic sur le backdrop.
-		 * Utilisé pour les modals qui exigent un choix explicite de l'utilisateur.
-		 */
-		closable?: boolean;
+interface Props {
+	open: boolean;
+	onClose: () => void;
+	title?: string;
+	children: import("svelte").Snippet;
+	actions?: import("svelte").Snippet;
+	size?: "sm" | "md" | "lg" | "xl";
+	zIndex?: number;
+	/**
+	 * Si false, masque le bouton de fermeture (X / ArrowLeft) et
+	 * désactive la fermeture par Escape et par clic sur le backdrop.
+	 * Utilisé pour les modals qui exigent un choix explicite de l'utilisateur.
+	 */
+	closable?: boolean;
+}
+
+let {
+	open = $bindable(false),
+	onClose,
+	title,
+	children,
+	actions,
+	size = "md",
+	zIndex,
+	closable = true
+}: Props = $props();
+
+const sizeClasses = {
+	sm: "max-w-sm",
+	md: "max-w-2xl",
+	lg: "max-w-4xl",
+	xl: "max-w-6xl"
+};
+
+const isMobileFullscreen = $derived(
+	mediaQuery.isMobile && (size === "xl" || size === "lg" || size === "md")
+);
+
+function handleBackdropClick(e: MouseEvent) {
+	if (!closable) return;
+	if (e.target === e.currentTarget) {
+		onClose();
 	}
+}
 
-	let {
-		open = $bindable(false),
-		onClose,
-		title,
-		children,
-		actions,
-		size = 'md',
-		zIndex,
-		closable = true
-	}: Props = $props();
-
-	const sizeClasses = {
-		sm: 'max-w-sm',
-		md: 'max-w-2xl',
-		lg: 'max-w-4xl',
-		xl: 'max-w-6xl'
-	};
-
-	const isMobileFullscreen = $derived(
-		mediaQuery.isMobile && (size === 'xl' || size === 'lg' || size === 'md')
-	);
-
-	function handleBackdropClick(e: MouseEvent) {
-		if (!closable) return;
-		if (e.target === e.currentTarget) {
-			onClose();
-		}
+function handleKeydown(e: KeyboardEvent) {
+	if (!closable) return;
+	if (e.key === "Escape") {
+		onClose();
 	}
-
-	function handleKeydown(e: KeyboardEvent) {
-		if (!closable) return;
-		if (e.key === 'Escape') {
-			onClose();
-		}
-	}
+}
 </script>
 
 {#if open}

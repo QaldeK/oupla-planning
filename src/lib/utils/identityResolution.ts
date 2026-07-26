@@ -5,7 +5,7 @@
  * La règle arbitre entre auth et guest selon :
  *   auth > guest > identité revendiquée cross-device (claimedByAuth)
  */
-import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
+import type { Participant, PlanningIdentity } from "$lib/types/planning.types";
 
 // =============================================
 // Types d'entrée / sortie

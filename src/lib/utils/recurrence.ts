@@ -1,17 +1,17 @@
 import {
-	format,
-	startOfMonth,
-	endOfMonth,
 	addDays,
-	getDay,
-	addWeeks,
 	addMonths,
-	parse,
+	addWeeks,
+	endOfMonth,
+	format,
+	getDay,
+	isAfter,
 	isBefore,
-	isAfter
-} from 'date-fns';
-import { fr } from 'date-fns/locale';
-import type { RecurrenceType, RecurrenceConfig } from '$lib/types/planning.types';
+	parse,
+	startOfMonth
+} from "date-fns";
+import { fr } from "date-fns/locale";
+import type { RecurrenceConfig, RecurrenceType } from "$lib/types/planning.types";
 
 /**
  * Vrai si `d` tombe le dernier jour de son mois. Comparaison par `getDate()`
@@ -85,37 +85,37 @@ export function getOccurrenceInMonth(date: Date) {
 function getOccurrenceLabel(occurrence: number): string {
 	switch (occurrence) {
 		case 1:
-			return '1er';
+			return "1er";
 		case 2:
-			return '2ème';
+			return "2ème";
 		case 3:
-			return '3ème';
+			return "3ème";
 		case 4:
-			return '4ème';
+			return "4ème";
 		case 5:
-			return 'Dernier';
+			return "Dernier";
 		default:
-			return '';
+			return "";
 	}
 }
 
 export function getFormattedLabel(occurrence: number, date: string) {
-	if (!occurrence || !date) return '';
+	if (!occurrence || !date) return "";
 	try {
-		return `${getOccurrenceLabel(occurrence)} ${format(date, 'EEEE', { locale: fr })}`;
+		return `${getOccurrenceLabel(occurrence)} ${format(date, "EEEE", { locale: fr })}`;
 	} catch {
-		return '';
+		return "";
 	}
 }
 
 export const formatRecurrence = (recurrence: RecurrenceConfig): string => {
 	const recurrenceTypes: Record<RecurrenceType, string> = {
-		DAILY: 'Quotidienne',
-		WEEKLY: 'Hebdomadaire',
-		BIWEEKLY: 'Bi-hebdomadaire',
-		MONTHLY_BY_DATE: 'Mensuel (date fixe)',
-		MONTHLY_BY_DAY: 'Mensuel',
-		CUSTOM: 'Choix libre des dates'
+		DAILY: "Quotidienne",
+		WEEKLY: "Hebdomadaire",
+		BIWEEKLY: "Bi-hebdomadaire",
+		MONTHLY_BY_DATE: "Mensuel (date fixe)",
+		MONTHLY_BY_DAY: "Mensuel",
+		CUSTOM: "Choix libre des dates"
 	};
 
 	return recurrenceTypes[recurrence.type] || recurrence.type;
@@ -127,34 +127,34 @@ export const formatRecurrence = (recurrence: RecurrenceConfig): string => {
  * @returns Une chaîne décrivant la récurrence de manière lisible
  */
 export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
-	if (!recurrence.firstDate || !recurrence.type) return '';
+	if (!recurrence.firstDate || !recurrence.type) return "";
 
 	try {
 		const firstDate =
-			typeof recurrence.firstDate === 'string'
-				? parse(recurrence.firstDate, 'yyyy-MM-dd', new Date())
+			typeof recurrence.firstDate === "string"
+				? parse(recurrence.firstDate, "yyyy-MM-dd", new Date())
 				: new Date(recurrence.firstDate);
 
-		const weekdayName = format(firstDate, 'EEEE', { locale: fr });
-		const dateNumber = format(firstDate, 'd', { locale: fr });
+		const weekdayName = format(firstDate, "EEEE", { locale: fr });
+		const dateNumber = format(firstDate, "d", { locale: fr });
 
 		switch (recurrence.type) {
-			case 'DAILY':
+			case "DAILY":
 				return `Tous les jours`;
 
-			case 'WEEKLY':
+			case "WEEKLY":
 				return `Tous les ${weekdayName}s`;
 
-			case 'BIWEEKLY':
+			case "BIWEEKLY":
 				return `Un ${weekdayName} sur deux`;
 
-			case 'MONTHLY_BY_DATE':
-				if (recurrence.monthlyByDateMode === 'last-day') {
+			case "MONTHLY_BY_DATE":
+				if (recurrence.monthlyByDateMode === "last-day") {
 					return `Le dernier jour du mois`;
 				}
 				return `Tous les ${dateNumber} du mois`;
 
-			case 'MONTHLY_BY_DAY': {
+			case "MONTHLY_BY_DAY": {
 				const occurrences = recurrence.monthlyByDayOccurrences;
 				if (!occurrences?.length) {
 					return `Tous les ${weekdayName}s du mois`;
@@ -165,20 +165,20 @@ export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
 				}
 
 				const ordinals = occurrences.map((occurrence) => getOccurrenceLabel(occurrence)).sort();
-				const formatter = new Intl.ListFormat('fr', { style: 'long', type: 'conjunction' });
+				const formatter = new Intl.ListFormat("fr", { style: "long", type: "conjunction" });
 				return `Les ${formatter.format(ordinals)} ${weekdayName}s du mois`;
 			}
 
-			case 'CUSTOM': {
-				return 'Dates sélectionnées librement';
+			case "CUSTOM": {
+				return "Dates sélectionnées librement";
 			}
 
 			default:
-				return '';
+				return "";
 		}
 	} catch (error) {
-		console.error('Error formatting recurrence label:', error);
-		return '';
+		console.error("Error formatting recurrence label:", error);
+		return "";
 	}
 }
 
@@ -190,20 +190,20 @@ export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
 export function generateRecurrenceDates(recurrence: RecurrenceConfig): string[] {
 	// Mode CUSTOM : pas de génération automatique (les occurrences sont la source
 	// unique de vérité, portées par OccurrenceTarget côté formulaire).
-	if (recurrence.type === 'CUSTOM') {
+	if (recurrence.type === "CUSTOM") {
 		return [];
 	}
 
 	const dates: string[] = [];
-	const firstDate = parse(recurrence.firstDate || '', 'yyyy-MM-dd', new Date());
-	const lastDate = parse(recurrence.lastDate || '', 'yyyy-MM-dd', new Date());
+	const firstDate = parse(recurrence.firstDate || "", "yyyy-MM-dd", new Date());
+	const lastDate = parse(recurrence.lastDate || "", "yyyy-MM-dd", new Date());
 
 	if (isNaN(firstDate.getTime()) || isNaN(lastDate.getTime())) {
 		return [];
 	}
 
 	// Cas spécial: MONTHLY_BY_DAY avec plusieurs occurrences par mois
-	if (recurrence.type === 'MONTHLY_BY_DAY') {
+	if (recurrence.type === "MONTHLY_BY_DAY") {
 		const dayOfWeek = getDay(firstDate);
 		const occurrences = recurrence.monthlyByDayOccurrences || [getOccurrenceInMonth(firstDate)];
 
@@ -229,7 +229,7 @@ export function generateRecurrenceDates(recurrence: RecurrenceConfig): string[] 
 					!isBefore(dateForOccurrence, firstDate) &&
 					!isAfter(dateForOccurrence, lastDate)
 				) {
-					const formattedDate = format(dateForOccurrence, 'yyyy-MM-dd');
+					const formattedDate = format(dateForOccurrence, "yyyy-MM-dd");
 					if (!dates.includes(formattedDate)) {
 						dates.push(formattedDate);
 					}
@@ -242,8 +242,8 @@ export function generateRecurrenceDates(recurrence: RecurrenceConfig): string[] 
 
 		// Trier les dates par ordre chronologique
 		dates.sort((a, b) => {
-			const dateA = parse(a, 'yyyy-MM-dd', new Date());
-			const dateB = parse(b, 'yyyy-MM-dd', new Date());
+			const dateA = parse(a, "yyyy-MM-dd", new Date());
+			const dateB = parse(b, "yyyy-MM-dd", new Date());
 			return dateA.getTime() - dateB.getTime();
 		});
 
@@ -257,18 +257,18 @@ export function generateRecurrenceDates(recurrence: RecurrenceConfig): string[] 
 	//  - 'fixed-day' (défaut, ou inertie implicite quand firstDate n'est pas
 	//    dernier de mois) : on ne pousse que les dates dont le jour == firstDate.getDate().
 	//    Les mois sans ce jour sont skip (RFC 5545).
-	if (recurrence.type === 'MONTHLY_BY_DATE') {
-		const useLastDay = recurrence.monthlyByDateMode === 'last-day' && isLastDayOfMonth(firstDate);
+	if (recurrence.type === "MONTHLY_BY_DATE") {
+		const useLastDay = recurrence.monthlyByDateMode === "last-day" && isLastDayOfMonth(firstDate);
 
 		let n = 0;
 		while (true) {
 			const candidate = useLastDay ? endOfMonth(addMonths(firstDate, n)) : addMonths(firstDate, n);
 			// Comparaison sur la date calendaire : endOfMonth renvoie 23:59:59.999,
 			// ce qui serait > à tout lastDate parsé à minuit.
-			if (format(candidate, 'yyyy-MM-dd') > format(lastDate, 'yyyy-MM-dd')) break;
+			if (format(candidate, "yyyy-MM-dd") > format(lastDate, "yyyy-MM-dd")) break;
 
 			if (useLastDay || candidate.getDate() === firstDate.getDate()) {
-				dates.push(format(candidate, 'yyyy-MM-dd'));
+				dates.push(format(candidate, "yyyy-MM-dd"));
 			}
 			n++;
 			// Garde-fou défensif contre une boucle infinie en cas de logique cassée.
@@ -281,18 +281,18 @@ export function generateRecurrenceDates(recurrence: RecurrenceConfig): string[] 
 	let currentDate = firstDate;
 
 	while (currentDate <= lastDate) {
-		dates.push(format(currentDate, 'yyyy-MM-dd'));
+		dates.push(format(currentDate, "yyyy-MM-dd"));
 
 		switch (recurrence.type) {
-			case 'DAILY':
+			case "DAILY":
 				currentDate = addDays(currentDate, 1);
 				break;
 
-			case 'WEEKLY':
+			case "WEEKLY":
 				currentDate = addWeeks(currentDate, 1);
 				break;
 
-			case 'BIWEEKLY':
+			case "BIWEEKLY":
 				currentDate = addWeeks(currentDate, 2);
 				break;
 
