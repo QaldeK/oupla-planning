@@ -62,29 +62,64 @@
 		onConfirm: () => {}
 	});
 
+	function openRestoreModal() {
+		if (!token) return;
+
+		confirmModalState = {
+			open: true,
+			title: "Rétablir l'événement ?",
+			message: `L'événement du ${formatDateShort(occurrence.date)} sera rétabli.`,
+			description:
+				'Les participants ayant activé les notifications seront informés du rétablissement.',
+			confirmLabel: 'Rétablir',
+			variant: 'warning',
+			onConfirm: executeRestore
+		};
+	}
+
+	async function executeRestore() {
+		confirmModalState.open = false;
+		if (!token) return;
+		try {
+			await updateOccurrence(occurrence.id, { isCanceled: false, isConfirmed: !toConfirm }, token);
+			toast.success('Événement rétabli');
+		} catch (_error) {
+			toast.error('Erreur lors du rétablissement');
+			console.error(_error);
+		}
+	}
+
 	async function toggleConfirm() {
 		if (!token) return;
 
-		// Si besoin d'un avertissement et que l'événement n'est pas encore confirmé
-		if (needsConfirmationWarning && !occurrence.isConfirmed) {
-			const warnings = [];
+		const isCurrentlyConfirmed = occurrence.isConfirmed;
+		const warnings: string[] = [];
+
+		if (needsConfirmationWarning && !isCurrentlyConfirmed) {
 			if (missingPresences > 0) warnings.push(`${missingPresences} participant(s) manquant(s)`);
 			if (incompleteTasks.length > 0)
 				warnings.push(`${incompleteTasks.length} tâche(s) non remplie(s)`);
-
-			confirmModalState = {
-				open: true,
-				title: 'Confirmer malgré tout ?',
-				message: 'Le quorum ou les besoins en tâches ne sont pas atteints.',
-				description: `Détails : ${warnings.join(' et ')}. Les participants recevront la notification de confirmation.`,
-				confirmLabel: 'Confirmer quand même',
-				variant: 'warning',
-				onConfirm: executeConfirm
-			};
-			return;
 		}
 
-		await executeConfirm();
+		const warningDetail = warnings.length > 0 ? ` Détails : ${warnings.join(' et ')}.` : '';
+
+		confirmModalState = {
+			open: true,
+			title: isCurrentlyConfirmed ? 'Annuler la confirmation ?' : "Confirmer l'événement ?",
+			message: isCurrentlyConfirmed
+				? `La confirmation du ${formatDateShort(occurrence.date)} sera annulée.`
+				: warnings.length > 0
+					? 'Le quorum ou les besoins en tâches ne sont pas atteints.'
+					: `Confirmer la tenue de l'événement du ${formatDateShort(occurrence.date)} ?`,
+			description: `Les participants ayant activé les notifications seront informés.${warningDetail}`,
+			confirmLabel: isCurrentlyConfirmed
+				? 'Annuler la confirmation'
+				: warnings.length > 0
+					? 'Confirmer quand même'
+					: 'Confirmer',
+			variant: isCurrentlyConfirmed ? 'warning' : warnings.length > 0 ? 'warning' : 'success',
+			onConfirm: executeConfirm
+		};
 	}
 
 	async function executeConfirm() {
@@ -99,17 +134,6 @@
 			toast.success(updated.isConfirmed ? 'Événement confirmé' : 'Confirmation annulée');
 		} catch (_error) {
 			toast.error('Erreur lors de la confirmation');
-			console.error(_error);
-		}
-	}
-
-	async function restoreEvent() {
-		if (!token) return;
-		try {
-			await updateOccurrence(occurrence.id, { isCanceled: false, isConfirmed: !toConfirm }, token);
-			toast.success('Événement rétabli');
-		} catch (_error) {
-			toast.error('Erreur lors du rétablissement');
 			console.error(_error);
 		}
 	}
@@ -213,7 +237,7 @@
 				{#if showQuickRestore}
 					<button
 						class="btn btn-ghost sm:btn-sm"
-						onclick={restoreEvent}
+						onclick={openRestoreModal}
 						title="Rétablir l'événement"
 						disabled={occState.isNetworkUnavailable}
 					>
@@ -238,7 +262,7 @@
 
 		<!-- Comment button -->
 		<button
-			class="btn sm:btn-sm relative gap-1 {hasUnread ? 'btn-info btn-soft' : ' btn-ghost'}"
+			class="btn sm:btn-sm relative gap-1 {hasUnread ? 'btn-accent' : ' btn-ghost'}"
 			onclick={openCommentDrawer}
 			aria-label="Voir les commentaires"
 		>
@@ -270,7 +294,7 @@
 			Annulé
 		</span>
 	{:else if master.toConfirm && !occurrence.isConfirmed}
-		<span class="badge {cls} badge-warning font-semibold">
+		<span class="badge {cls} badge-warning truncate font-semibold">
 			<CircleQuestionMark size={iconSize} />
 			à confirmer
 		</span>
@@ -430,7 +454,7 @@
 						{#if showQuickRestore}
 							<button
 								class="btn btn-ghost sm:btn-sm"
-								onclick={restoreEvent}
+								onclick={openRestoreModal}
 								title="Rétablir l'événement"
 							>
 								<CalendarSyncIcon size={20} />

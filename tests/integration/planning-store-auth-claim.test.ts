@@ -297,7 +297,7 @@ describe('PlanningStore — Auth claim flow (#activatePlanning, branche auth)', 
 		// Complément du test précédent : une erreur NON réseau (ex: 400 serveur)
 		// doit remonter au caller et setter #error = 'network'. La spec exige
 		// cette distinction fatal/non-bloquant (US 7).
-		const { master, participantToken } = await seedPlanning({
+		const { participantToken } = await seedPlanning({
 			title: 'Planning Fatal Claim',
 			occurrenceCount: 1
 		});

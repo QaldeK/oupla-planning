@@ -49,6 +49,10 @@
 
 	let showAccountModal = $state(false);
 	let showWelcomeModal = $state(false);
+	// Clé forçant la destruction/reconstruction du Drawer après navigation,
+	// pour éviter un drawer fantôme quand la librairie @abhivarde/svelte-drawer
+	// ne nettoie pas son état interne (visible non réactif).
+	let drawerKey = $state(0);
 
 	onMount(() => {
 		// Hook de recover : déclenché par error.html (?recover=1) ou saisie manuelle.
@@ -116,9 +120,12 @@
 		}
 	});
 
-	// Fermer le drawer des commentaires lors des changements de route
+	// Fermer le drawer des commentaires lors des changements de route ;
+	// la clé drawerKey force le Drawer à être détruit/reconstruit, ce qui
+	// évite un drawer fantôme (visible non réactif dans la librairie).
 	afterNavigate(() => {
 		drawerStore.close();
+		drawerKey += 1;
 	});
 
 	$effect(() => {
@@ -362,13 +369,15 @@
 <NetworkIndicator />
 
 <!-- Drawer Global pour les Commentaires -->
-<Drawer bind:open={drawerStore.open} portal={true} direction="right">
-	<DrawerOverlay class="fixed bg-black/40" />
-	<DrawerContent
-		class="bg-base-100 fixed top-0 right-0 bottom-0 z-50 h-dvh w-dvw shadow-2xl sm:w-120 sm:max-w-[85vw]"
-	>
-		{#if drawerStore.open}
-			<CommentSection />
-		{/if}
-	</DrawerContent>
-</Drawer>
+{#key drawerKey}
+	<Drawer bind:open={drawerStore.open} portal={true} direction="right">
+		<DrawerOverlay class="fixed bg-black/40" />
+		<DrawerContent
+			class="bg-base-100 fixed top-0 right-0 bottom-0 z-50 h-dvh w-dvw shadow-2xl sm:w-120 sm:max-w-[85vw]"
+		>
+			{#if drawerStore.open}
+				<CommentSection />
+			{/if}
+		</DrawerContent>
+	</Drawer>
+{/key}

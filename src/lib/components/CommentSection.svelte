@@ -97,7 +97,7 @@
 					{#each occurrence.comments as comment (comment.id)}
 						{@const isCurrentUser = comment.participantId === currentUserId}
 						<div class="chat {isCurrentUser ? 'chat-end' : 'chat-start'} group">
-							<div class="chat-header mb-1 text-[11px] font-medium opacity-50">
+							<div class="chat-header mb-1 text-sm font-bold opacity-50">
 								{getParticipantName(comment.participantId)}
 								<time class="ml-1 font-normal"
 									>{formatDate(comment.createdAt, 'd MMM à HH:mm')}</time
