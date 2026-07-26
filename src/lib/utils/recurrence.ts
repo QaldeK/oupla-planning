@@ -13,6 +13,15 @@ import {
 import { fr } from 'date-fns/locale';
 import type { RecurrenceType, RecurrenceConfig } from '$lib/types/planning.types';
 
+/**
+ * Vrai si `d` tombe le dernier jour de son mois. Comparaison par `getDate()`
+ * (pas par `isEqual`) — `endOfMonth` renvoie un Date à 23:59:59.999, donc la
+ * comparaison temporelle stricte échouerait sur le jour-même.
+ */
+export function isLastDayOfMonth(d: Date): boolean {
+	return d.getDate() === endOfMonth(d).getDate();
+}
+
 export function getNthDayOfMonth(date: Date, dayOfWeek: number, occurrence: number) {
 	let currentDay = startOfMonth(date);
 	const end = endOfMonth(date);
@@ -140,6 +149,9 @@ export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
 				return `Un ${weekdayName} sur deux`;
 
 			case 'MONTHLY_BY_DATE':
+				if (recurrence.monthlyByDateMode === 'last-day') {
+					return `Le dernier jour du mois`;
+				}
 				return `Tous les ${dateNumber} du mois`;
 
 			case 'MONTHLY_BY_DAY': {
@@ -238,7 +250,34 @@ export function generateRecurrenceDates(recurrence: RecurrenceConfig): string[] 
 		return dates;
 	}
 
-	// Cas standards: WEEKLY, BIWEEKLY, MONTHLY_BY_DATE
+	// Cas spécial: MONTHLY_BY_DATE — calcul depuis firstDate (pas de réaffectation
+	// de currentDate) pour éviter le clamp composé d'addMonths. Deux modes :
+	//  - 'last-day' (uniquement si firstDate est dernier de son mois) : chaque
+	//    occurrence tombe en fin de mois via endOfMonth.
+	//  - 'fixed-day' (défaut, ou inertie implicite quand firstDate n'est pas
+	//    dernier de mois) : on ne pousse que les dates dont le jour == firstDate.getDate().
+	//    Les mois sans ce jour sont skip (RFC 5545).
+	if (recurrence.type === 'MONTHLY_BY_DATE') {
+		const useLastDay = recurrence.monthlyByDateMode === 'last-day' && isLastDayOfMonth(firstDate);
+
+		let n = 0;
+		while (true) {
+			const candidate = useLastDay ? endOfMonth(addMonths(firstDate, n)) : addMonths(firstDate, n);
+			// Comparaison sur la date calendaire : endOfMonth renvoie 23:59:59.999,
+			// ce qui serait > à tout lastDate parsé à minuit.
+			if (format(candidate, 'yyyy-MM-dd') > format(lastDate, 'yyyy-MM-dd')) break;
+
+			if (useLastDay || candidate.getDate() === firstDate.getDate()) {
+				dates.push(format(candidate, 'yyyy-MM-dd'));
+			}
+			n++;
+			// Garde-fou défensif contre une boucle infinie en cas de logique cassée.
+			if (n > 12 * 200) break;
+		}
+		return dates;
+	}
+
+	// Cas standards: WEEKLY, BIWEEKLY
 	let currentDate = firstDate;
 
 	while (currentDate <= lastDate) {
@@ -256,12 +295,6 @@ export function generateRecurrenceDates(recurrence: RecurrenceConfig): string[] 
 			case 'BIWEEKLY':
 				currentDate = addWeeks(currentDate, 2);
 				break;
-
-			case 'MONTHLY_BY_DATE': {
-				// Add one month, keeping the same day of month
-				currentDate = addMonths(currentDate, 1);
-				break;
-			}
 
 			default:
 				// Unknown recurrence type, stop

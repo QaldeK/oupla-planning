@@ -30,7 +30,11 @@
 		Check,
 		RotateCcw
 	} from '@lucide/svelte';
-	import { generateRecurrenceDates, getRecurrenceLabel } from '$lib/utils/recurrence';
+	import {
+		generateRecurrenceDates,
+		getRecurrenceLabel,
+		isLastDayOfMonth
+	} from '$lib/utils/recurrence';
 	import { computeMaxDateForLimit } from '$lib/utils/dateSlotLimit';
 	import { computeDateSlotSelection, seedFromOccurrences } from '$lib/utils/dateSlotSelection';
 	import { formatSlotKey } from '$lib/utils/slots';
@@ -104,7 +108,8 @@
 		type: initRecType = 'WEEKLY',
 		firstDate: initFirstDate = '',
 		lastDate: initLastDate = '',
-		monthlyByDayOccurrences: initMonthlyByDay = []
+		monthlyByDayOccurrences: initMonthlyByDay = [],
+		monthlyByDateMode: initMonthlyByDateMode
 	} = recurrence || {};
 
 	let title = $state(initTitle || '');
@@ -129,6 +134,10 @@
 	let firstDate = $state(initFirstDate || '');
 	let lastDate = $state(initLastDate || '');
 	let monthlyByDayOccurrences = $state<number[]>(initMonthlyByDay || []);
+	// 'fixed-day' (défaut) | 'last-day' | undefined (neutre = fixed-day implicite).
+	// Conservé à travers les changements de firstDate non-dernier-de-mois : le mode
+	// devient inerte (l'algorithme retombe sur fixed-day) sans reset.
+	let monthlyByDateMode = $state<'fixed-day' | 'last-day' | undefined>(initMonthlyByDateMode);
 
 	// Dates candidates ajoutées manuellement : dates arbitraires (hors cycle en mode récurrent)
 	// ou toutes les dates (mode CUSTOM). C'est la *liste à afficher*, distincte de la sélection
@@ -145,6 +154,22 @@
 
 	// Multi-créneaux : afficher le badge slotId uniquement en mode multi-slot.
 	const showSlot = $derived(timeSlots.length > 1);
+
+	// Toggle MONTHLY_BY_DATE : visible si et seulement si firstDate est dernier
+	// jour de son mois. Couvre 31 (mois 31j), 30 (mois 30j), 29 fév bis, 28 fév
+	// non-bis. Sinon, le mode est inerte (l'algorithme retombe sur fixed-day).
+	const showMonthlyByDateMode = $derived(
+		recurrenceType === 'MONTHLY_BY_DATE' &&
+			firstDate !== '' &&
+			isLastDayOfMonth(parse(firstDate, 'yyyy-MM-dd', new Date()))
+	);
+
+	// Valeur effective du mode pour les calculs et la soumission. Quand le toggle
+	// est caché (firstDate non-dernier-de-mois), le mode est silencieusement
+	// inactif — on ne le propage pas à la payload pour ne pas le persisted inutilement.
+	const effectiveMonthlyByDateMode = $derived(
+		showMonthlyByDateMode ? monthlyByDateMode : undefined
+	);
 
 	// --- Sélection unifiée : disabledSlotKeys + seededOccurrences ---
 	// États canoniques mutés uniquement par les handlers purs (setSlotEnabled,
@@ -167,6 +192,8 @@
 				lastDate,
 				monthlyByDayOccurrences:
 					recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
+				monthlyByDateMode:
+					recurrenceType === 'MONTHLY_BY_DATE' ? effectiveMonthlyByDateMode : undefined,
 				manualDates,
 				timeSlots,
 				todayStr
@@ -231,6 +258,8 @@
 					recurrenceType,
 					monthlyByDayOccurrences:
 						recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
+					monthlyByDateMode:
+						recurrenceType === 'MONTHLY_BY_DATE' ? effectiveMonthlyByDateMode : undefined,
 					manualDates,
 					timeSlots,
 					disabledSlotKeys: new Set(disabledSlotKeys),
@@ -677,7 +706,9 @@
 				firstDate: field === 'firstDate' ? newValue : firstDate,
 				lastDate: field === 'lastDate' ? newValue : lastDate,
 				monthlyByDayOccurrences:
-					recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined
+					recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
+				monthlyByDateMode:
+					recurrenceType === 'MONTHLY_BY_DATE' ? effectiveMonthlyByDateMode : undefined
 			})
 		);
 		const atRisk = views.allGeneratedDates.some(
@@ -1040,7 +1071,11 @@
 				lastDate
 			}),
 			monthlyByDayOccurrences:
-				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined
+				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
+			// effectiveMonthlyByDateMode est undefined quand le toggle est caché :
+			// on ne persisted pas le mode inactif (inertie implicite).
+			monthlyByDateMode:
+				recurrenceType === 'MONTHLY_BY_DATE' ? effectiveMonthlyByDateMode : undefined
 		};
 
 		const data: PlanningFormData = {
@@ -1092,7 +1127,9 @@
 			firstDate,
 			lastDate,
 			monthlyByDayOccurrences:
-				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined
+				recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
+			monthlyByDateMode:
+				recurrenceType === 'MONTHLY_BY_DATE' ? effectiveMonthlyByDateMode : undefined
 		});
 
 		// Ajouter les dates arbitraires si présentes
@@ -1255,6 +1292,40 @@
 								disabled={isSubmitting}
 								onchange={(e) => requestDateChange('lastDate', e.currentTarget.value)}
 							/>
+						</fieldset>
+					</div>
+				{/if}
+
+				{#if showMonthlyByDateMode}
+					{@const dayNumber = parse(firstDate, 'yyyy-MM-dd', new Date()).getDate()}
+					{@const monthName = format(parse(firstDate, 'yyyy-MM-dd', new Date()), 'MMMM', {
+						locale: fr
+					})}
+					<div class="alert alert-info alert-soft">
+						<fieldset class="fieldset flex flex-wrap gap-3">
+							<legend class="text-sm font-medium">
+								Vous avez sélectionné le dernier jour de {monthName}. Que souhaitez-vous ?
+							</legend>
+							<label class="label cursor-pointer justify-start gap-2 text-sm">
+								<input
+									type="radio"
+									name="monthly-by-date-mode"
+									class="radio"
+									checked={monthlyByDateMode !== 'last-day'}
+									onchange={() => (monthlyByDateMode = 'fixed-day')}
+								/>
+								<span>Le {dayNumber} de chaque mois</span>
+							</label>
+							<label class="label cursor-pointer justify-start gap-2 text-sm">
+								<input
+									type="radio"
+									name="monthly-by-date-mode"
+									class="radio"
+									checked={monthlyByDateMode === 'last-day'}
+									onchange={() => (monthlyByDateMode = 'last-day')}
+								/>
+								<span>Le dernier jour de chaque mois</span>
+							</label>
 						</fieldset>
 					</div>
 				{/if}
@@ -1614,8 +1685,8 @@
 						<div class="min-w-0 flex-1">
 							<span class="label-text text-base">Activer le formulaire de présence</span>
 							<p class="text-sm text-wrap opacity-80">
-								Permet aux participants de confirmer leur présence. Si décoché, vous devez créer des
-								tâches ou sélectionner des réponses possibles.
+								Permet aux participants de confirmer leur présence. Décochez si vous souhaitez
+								uniquement proposer des tâches à effectuer..
 							</p>
 						</div>
 					</label>

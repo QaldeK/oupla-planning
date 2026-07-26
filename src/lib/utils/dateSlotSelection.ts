@@ -11,6 +11,7 @@ import { formatSlotKey } from './slots';
 import type {
 	DateSlot,
 	OccurrenceTarget,
+	RecurrenceConfig,
 	RecurrenceType,
 	TimeSlot
 } from '$lib/types/planning.types';
@@ -25,6 +26,7 @@ export interface DateSlotSelectionInput {
 	firstDate: string;
 	lastDate: string;
 	monthlyByDayOccurrences?: number[];
+	monthlyByDateMode?: RecurrenceConfig['monthlyByDateMode'];
 	manualDates: string[];
 	timeSlots: TimeSlot[];
 	todayStr: string; // YYYY-MM-DD, figé par le composant
@@ -71,6 +73,7 @@ function computeGeneratedDates(
 	firstDate: string,
 	lastDate: string,
 	monthlyByDayOccurrences: number[] | undefined,
+	monthlyByDateMode: RecurrenceConfig['monthlyByDateMode'],
 	todayStr: string
 ): string[] {
 	if (recurrenceType === 'CUSTOM') return [];
@@ -81,7 +84,8 @@ function computeGeneratedDates(
 		firstDate,
 		lastDate,
 		monthlyByDayOccurrences:
-			recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined
+			recurrenceType === 'MONTHLY_BY_DAY' ? monthlyByDayOccurrences : undefined,
+		monthlyByDateMode: recurrenceType === 'MONTHLY_BY_DATE' ? monthlyByDateMode : undefined
 	});
 
 	// On ne retient que les dates futures (inutiles au rendu), sans tronquer à 100 :
@@ -190,6 +194,7 @@ export function computeDateSlotSelection(
 		firstDate,
 		lastDate,
 		monthlyByDayOccurrences,
+		monthlyByDateMode,
 		manualDates,
 		timeSlots,
 		todayStr
@@ -201,6 +206,7 @@ export function computeDateSlotSelection(
 		firstDate,
 		lastDate,
 		monthlyByDayOccurrences,
+		monthlyByDateMode,
 		todayStr
 	);
 

@@ -150,6 +150,12 @@ export interface RecurrenceConfig {
 	lastDate?: string; // Optionnel pour CUSTOM
 	// Pour MONTHLY_BY_DAY : quelles occurrences (1er, 2ème, 3ème, 4ème, Dernier)
 	monthlyByDayOccurrences?: number[];
+	// Pour MONTHLY_BY_DATE quand firstDate est dernier jour de son mois :
+	// 'fixed-day' (défaut) conserve strictement le numéro de jour et skip les mois
+	// qui n'ont pas ce jour (RFC 5545) ; 'last-day' place chaque occurrence en fin
+	// de mois. Inertie implicite : si firstDate n'est pas dernier de mois, l'algorithme
+	// retombe sur 'fixed-day' quelle que soit la valeur.
+	monthlyByDateMode?: 'fixed-day' | 'last-day';
 }
 
 // === Planning Master ===
