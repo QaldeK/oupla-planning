@@ -23,7 +23,6 @@
 		CircleAlert,
 		ClipboardCheck,
 		Clock,
-		Info,
 		MapPin,
 		Pencil,
 		Plus,
@@ -40,6 +39,7 @@
 	import RichTextEditor from '../ui/RichTextEditor.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import ConfirmModal from '../ui/ConfirmModal.svelte';
+	import VolunteerAssignmentModal from './VolunteerAssignmentModal.svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
@@ -168,8 +168,6 @@
 	// ===== Gestion admin des bénévoles =====
 	let taskVolunteerModalOpen = $state(false);
 	let selectedTaskForVolunteers = $state<Task | null>(null);
-	let newVolunteerName = $state('');
-	let isCreatingVolunteer = $state(false);
 
 	// ===== Helpers =====
 
@@ -332,65 +330,12 @@
 		taskVolunteerModalOpen = true;
 	}
 
-	async function handleAddVolunteer() {
-		if (!newVolunteerName.trim() || isCreatingVolunteer || !selectedTaskForVolunteers) return;
-
-		isCreatingVolunteer = true;
-		try {
-			const newParticipant = await handleCreateParticipant(newVolunteerName.trim());
-			// Assigner automatiquement le nouveau participant à la tâche
-			await handleToggleVolunteer(newParticipant.id);
-			newVolunteerName = '';
-			// toast.success('Participant·e ajoutée');
-		} catch (error) {
-			const { message } = classifyError(error);
-			toast.error(message);
-			console.error(error);
-		} finally {
-			isCreatingVolunteer = false;
-		}
+	function handleVolunteerUpdateOccurrence(updated: PlanningOccurrence) {
+		occurrence = updated;
 	}
 
-	async function handleToggleVolunteer(participantId: string) {
-		const task = selectedTaskForVolunteers;
-		if (!task) return;
-
-		try {
-			const existingResponse = occurrence.responses.find((r) => r.participantId === participantId);
-
-			// Auto-set "present" pour onEvent si allowResponses
-			let responseType: ResponseType = existingResponse?.response || 'present';
-			if (task.type === 'onEvent' && master.allowResponses && responseType !== 'present') {
-				responseType = 'present';
-			}
-
-			const existingTasks = existingResponse?.tasks || [];
-			const isAssigned = existingTasks.includes(task.id);
-			const updatedTasks = isAssigned
-				? existingTasks.filter((t) => t !== task.id)
-				: [...new Set([...existingTasks, task.id])];
-
-			const newResponse: ParticipantResponse = {
-				participantId,
-				response: responseType,
-				tasks: updatedTasks,
-				comment: existingResponse?.comment,
-				respondedAt: new Date().toISOString()
-			};
-
-			const updated = await submitResponse(
-				occurrence.id,
-				participantId,
-				newResponse,
-				token,
-				occurrence
-			);
-			occurrence = updated;
-		} catch (error) {
-			const { message } = classifyError(error);
-			toast.error(message);
-			console.error(error);
-		}
+	function handleVolunteerUpdateMaster(updated: PlanningMaster) {
+		master = updated;
 	}
 
 	async function setStatus(newStatus: EventStatus) {
@@ -964,86 +909,22 @@
 	</form>
 </Modal>
 
-<!-- Modal de gestion des bénévoles -->
-<Modal
-	bind:open={taskVolunteerModalOpen}
-	title={selectedTaskForVolunteers?.name}
-	size="md"
-	onClose={() => (taskVolunteerModalOpen = false)}
->
-	{#if selectedTaskForVolunteers}
-		<div class="space-y-4">
-			<div class="text-sm opacity-70">
-				{selectedTaskForVolunteers.requiredVolunteers} personne·s requise·s •
-				{selectedTaskForVolunteers.type === 'onEvent'
-					? 'Pendant'
-					: selectedTaskForVolunteers.type === 'beforeEvent'
-						? 'Avant'
-						: 'Après'}
-			</div>
-
-			<!-- Info pour tâches onEvent -->
-			{#if selectedTaskForVolunteers.type === 'onEvent' && master.allowResponses}
-				<div class="alert alert-info">
-					<Info size={16} />
-					Les participants assignés seront automatiquement marqués "Présent"
-				</div>
-			{/if}
-
-			<!-- Checkboxes pour chaque participant -->
-			<div class="flex flex-wrap gap-2">
-				{#each master.participants as participant (participant.id)}
-					{@const isVolunteer = occurrence.responses
-						.find((r) => r.participantId === participant.id)
-						?.tasks?.includes(selectedTaskForVolunteers.id)}
-					<label class="btn-sm btn flex gap-1 {isVolunteer ? 'btn-primary' : 'btn-soft'}">
-						<input
-							type="checkbox"
-							class="check check-sm"
-							checked={isVolunteer}
-							onchange={() => handleToggleVolunteer(participant.id)}
-						/>
-						{participant.name}
-					</label>
-				{/each}
-			</div>
-
-			<!-- Ajouter un nouveau bénévole -->
-			<label class="input mt-2 w-full">
-				<input
-					type="text"
-					bind:value={newVolunteerName}
-					placeholder="Ajouter un·e participant·e..."
-					onkeydown={(e) => {
-						if (e.key === 'Enter') {
-							e.preventDefault();
-							handleAddVolunteer();
-						}
-					}}
-				/>
-				<button
-					type="button"
-					class="btn btn-primary btn-circle btn-sm"
-					onclick={handleAddVolunteer}
-					disabled={isCreatingVolunteer || !newVolunteerName.trim()}
-					title="Ajouter"
-				>
-					{#if isCreatingVolunteer}
-						<span class="loading loading-spinner loading-xs"></span>
-					{:else}
-						<Plus size={16} />
-					{/if}
-				</button>
-			</label>
-
-			<div class="modal-action">
-				<button type="button" class="btn" onclick={() => (taskVolunteerModalOpen = false)}>
-					Fermer
-				</button>
-			</div>
-		</div>
-	{/if}
-</Modal>
+{#if selectedTaskForVolunteers}
+	<VolunteerAssignmentModal
+		bind:open={taskVolunteerModalOpen}
+		task={selectedTaskForVolunteers}
+		participants={master.participants.filter((p) => !p.hasQuit)}
+		responses={occurrence.responses}
+		occurrenceId={occurrence.id}
+		{token}
+		masterId={master.id}
+		allowResponses={master.allowResponses}
+		disabled={isNetworkUnavailable}
+		onUpdateOccurrence={handleVolunteerUpdateOccurrence}
+		onUpdateMaster={handleVolunteerUpdateMaster}
+		onClose={() => (taskVolunteerModalOpen = false)}
+	/>
+{/if}
 
 {#if responseChangeModal}
 	<ConfirmModal
