@@ -35,11 +35,8 @@ import {
 	trackIds
 } from './seed';
 import { db } from '$lib/pb-sync/db';
-import {
-	mastersCollection,
-	occurrencesCollection,
-	planningStore
-} from '$lib/stores/planningStore.svelte';
+import { planningStore } from '$lib/stores/planningStore.svelte';
+import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
 import {
 	createPlanningWithOccurrences,
 	generateAdminToken,

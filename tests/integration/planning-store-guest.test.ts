@@ -27,11 +27,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { seedPlanning, authenticateAdmin, clearTrackedIds, cleanupTrackedRecords } from './seed';
 import { db } from '$lib/pb-sync/db';
-import {
-	planningStore,
-	mastersCollection,
-	occurrencesCollection
-} from '$lib/stores/planningStore.svelte';
+import { planningStore } from '$lib/stores/planningStore.svelte';
+import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
 
 describe('PlanningStore — Guest Flow', () => {
 	beforeEach(async () => {

@@ -21,6 +21,7 @@
 	import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
 	import { authTransition } from '$lib/stores/authTransition.svelte';
 	import { resolveCurrentIdentity } from '$lib/utils/identityResolution';
+	import { resolveIdentityStrategy } from '$lib/utils/identityStrategy';
 	import type { Participant, PlanningIdentity } from '$lib/types/planning.types';
 	import { formatDate, formatDateShort } from '$lib/utils/date';
 	import { hasNameConflict } from '$lib/utils/participantConflict';
@@ -39,6 +40,7 @@
 		Lock,
 		MapPin,
 		Settings,
+		Share2,
 		Users,
 		LogOut,
 		User,
@@ -125,86 +127,58 @@
 	$effect(() => {
 		if (!master) return;
 
-		// Guard : ne rien faire pendant la transition guest → auth.
-		// Sans ça, l'$effect verrait un état intermédiaire (master cleared,
-		// userId pas encore posé) et déclencherait un CAS B/C intempestif.
-		if (authTransition.isTransitioning) return;
+		// Décision (pure) : quel CAS A/B/C déclencher en fonction du contexte.
+		// La stratégie ne fait aucun effet de bord — la réaction se fait dans le switch.
+		const result = resolveIdentityStrategy({
+			master,
+			myParticipant,
+			isLoggedIn: !!userStore.isLoggedIn,
+			pbUser: userStore.pbUser,
+			guestIdentity: guestStateStore.getGuestIdentity(master.id),
+			hasQuitThisPlanning,
+			isTransitioning: authTransition.isTransitioning,
+			pendingGuestClaim: authTransition.pendingGuestClaim,
+			autoAddedMasterIds,
+			showClaimModal
+		});
 
-		// === PRIORITÉ : retour après quit ===
-		// L'utilisateur a déjà quitté ce planning. On ouvre un modal de
-		// confirmation pour qu'il choisisse de rejoindre ou quitter définitivement.
-		// Ce guard bloque CAS A/B/C tant que le choix n'est pas fait.
-		if (hasQuitThisPlanning) {
-			if (!showQuitReturnModal) showQuitReturnModal = true;
-			return;
+		if (result.expirePendingClaim) {
+			authTransition.clearPendingGuestClaim();
 		}
 
-		// === Utilisateur authentifié ===
-		if (userStore.isLoggedIn && userStore.pbUser) {
-			const pbUser = userStore.pbUser;
-
-			// CAS A : déjà participant via userId → sync silencieuse (sans renommer, préserve l'indépendance nom-par-planning)
-			// Défensif : un user déjà lié ne doit jamais voir de suggestion de claim.
-			if (myParticipant) {
-				authTransition.clearPendingGuestClaim();
+		switch (result.action.type) {
+			case 'none':
+				break;
+			case 'block_quit':
+				if (!showQuitReturnModal) showQuitReturnModal = true;
+				break;
+			case 'silent_sync': {
+				// CAS A : déjà lié via userId → sync silencieuse (sans renommer)
+				const pbUser = userStore.pbUser!;
 				ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin).catch(
 					(err) => console.error('ensurePlanningParticipant failed:', err)
 				);
-				return;
+				break;
 			}
-
-			// Suggestion : transition guest → auth sur ce planning → proposer le claim du
-			// participant guest de session avant tout auto-add. Prioritaire sur CAS B/C.
-			if (authTransition.pendingGuestClaim?.masterId === master.id && !showClaimModal) {
-				const claim = authTransition.pendingGuestClaim;
-				const target = master.participants.find(
-					(p) => p.id === claim.participantId && !p.userId && !p.hasQuit
-				);
-				if (target) {
-					suggestionParticipant = target;
-					showClaimModal = true;
-					return;
-				}
-				// Participant cible invalide (claimé ailleurs, quitté, supprimé) → expirer le snapshot
-				authTransition.clearPendingGuestClaim();
-			}
-			if (showClaimModal) return; // modal ouvert → ne pas déclencher CAS B/C
-
-			// CAS B : name match avec un participant non-lié sans hasQuit → ouvrir IdentityClaimModal
-			const nameMatch = master.participants.find(
-				(p) => !p.userId && !p.hasQuit && p.name.toLowerCase() === pbUser.name.toLowerCase()
-			);
-			if (nameMatch && !showClaimModal) {
-				suggestionParticipant = null; // ouverture manuelle = étape principale
-				openIdentityClaimModal();
-				return;
-			}
-
-			// CAS C : pas de match → auto-add silencieux avec userId
-			// Garde d'unicité du nom contre tous les participants actifs. Voir hasNameConflict
-			// pour la double exclusion (userId ET id) nécessaire pour ne pas re-déclencher
-			// après un claim réussi.
-			const nameConflict = hasNameConflict(master.participants, pbUser.name, pbUser.id);
-			if (nameConflict) {
-				// Conflit (guest claimable OU user auth lié) → pas d'auto-add, résolution via modal
-				if (!showClaimModal) {
-					suggestionParticipant = null; // étape principale, pas suggestion
-					showClaimModal = true;
-				}
-				return;
-			}
-			if (!autoAddedMasterIds.has(master.id)) {
+			case 'show_claim_suggestion':
+				// Prioritaire sur CAS B/C : snapshot guest→auth valide, propose le
+				// claim avant de créer un nouveau participant par auto-add.
+				suggestionParticipant = result.action.participant;
+				showClaimModal = true;
+				break;
+			case 'show_claim_modal':
+				// CAS B (name match) ou CAS C (conflit) → étape principale, pas suggestion
+				suggestionParticipant = result.action.suggestionParticipant;
+				showClaimModal = true;
+				break;
+			case 'auto_add': {
 				autoAddedMasterIds.add(master.id);
-				handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true, {
-					userId: pbUser.id
-				});
+				handlePlanningIdentify(result.action.identity, true, result.action.additionalFields);
+				break;
 			}
-			return;
-		}
-
-		// === Guest ===
-		if (!guestStateStore.getGuestIdentity(master.id)) {
-			openIdentifyModal();
+			case 'identify_as_guest':
+				openIdentifyModal();
+				break;
 		}
 	});
 
@@ -547,15 +521,24 @@
 
 		<!-- Liste des occurrences -->
 		<div class="">
-			<div class="mb-4 flex flex-wrap items-center justify-between gap-x-4">
+			<div class="mb-4 flex flex-wrap items-center justify-between gap-x-2">
 				<a href="/p/{token}/archive" class="btn btn-sm btn-soft">
 					<History size={18} class="mr-1" />
 					<span class="max-sm:hidden">Voir les</span>événements passés
 				</a>
-				<div class="mx-2 flex gap-4">
+				<div class="mx-2 flex gap-2">
 					{#if mediaQuery.isMobile && isAdmin}
 						<button class="btn btn-accent btn-circle" onclick={() => goto(`/admin/${adminToken}`)}>
-							<Settings size={18} class="shrink-0" />
+							<Settings size={22} class="shrink-0" />
+						</button>
+					{/if}
+					{#if mediaQuery.isMobile}
+						<button
+							class="btn btn-info btn-circle"
+							onclick={() =>
+								shareLink(`${window.location.origin}/p/${master!.participantToken}`, 'Lien public')}
+						>
+							<Share2 size={22} class="shrink-0" />
 						</button>
 					{/if}
 					<button
@@ -563,7 +546,7 @@
 						onclick={() =>
 							userStore.isLoggedIn ? (showNotifModal = true) : (showAccountModal = true)}
 					>
-						<Bell size={18} class="shrink-0" />
+						<Bell size={22} class="shrink-0" />
 						{#if !mediaQuery.isMobile}
 							Configurer les notifications
 						{/if}

@@ -390,16 +390,22 @@ export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
 );
 ```
 
-### 2. Guest Flow — Full Sync (`#setActiveGuest`)
+### 2. Unified Activation Flow (`#activatePlanning`)
+
+`setActiveToken` delegates to a single unified flow that adapts to the caller context (auth / guest / first-visit):
 
 ```ts
-// 1. Initial fetch (incremental delta)
+// 1. Resolve master (Dexie first, then network via getOrFetchMaster + upsertRecord)
+// 2. Verify server existence if Dexie hit (#verifyMasterExistsOnServer)
+// 3. Delta sync occurrences with _token (#deltaSyncOccurrences)
 await occurrencesCollection.initialFetch({
 	filter: ['master = {:masterId}', { masterId: master.id }],
 	query: { _token: token }
 });
 
-// 2. Subscribe to realtime updates
+// 4a. Auth branch: synchronous claim via /api/sync-plannings + authRefresh
+//     (#attachMasterToUser — global subscribe covers realtime)
+// 4b. Guest branch: individual realtime subscribe
 mastersCollection.subscribe({ record: master.id, query: { _token: token } });
 occurrencesCollection.subscribe({
 	filter: ['master = {:masterId}', { masterId: master.id }],
@@ -407,9 +413,9 @@ occurrencesCollection.subscribe({
 });
 ```
 
-### 3. Auth Flow — Dexie-Only (`#setActiveAuth`)
+### 3. Auth Flow — Dexie LiveQuery
 
-Authenticated users skip network fetch — data is already synced by the layout. They subscribe directly to Dexie `liveQuery`:
+Both auth and guest branches subscribe to Dexie `liveQuery` for reactive UI updates:
 
 ```ts
 this.#masterSub = liveQuery(() => db.masters.get(masterId)).subscribe({

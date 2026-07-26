@@ -1,6 +1,6 @@
 import { pb } from '$lib/pocketbase/pb';
 import { userStore } from '$lib/stores/userStore.svelte';
-import { mastersCollection, occurrencesCollection } from '$lib/stores/planningStore.svelte';
+import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
 import { db } from '$lib/pb-sync/db';
 
 class SyncService {

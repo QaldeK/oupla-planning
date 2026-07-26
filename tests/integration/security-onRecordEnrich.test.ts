@@ -27,7 +27,7 @@ import {
 	clearTrackedIds
 } from './seed';
 import { pb } from '$lib/pocketbase/pb';
-import { mastersCollection } from '$lib/stores/planningStore.svelte';
+import { mastersCollection } from '$lib/data/collections';
 import type { PlanningMaster, PlanningOccurrence } from '$lib/types/planning.types';
 
 const PB_URL = process.env.VITE_PLANNING_PB_URL || 'http://127.0.0.1:8090';

@@ -3,49 +3,15 @@ import { getPlanningByToken } from '$lib/services/planningActions';
 import { commentStateService } from '$lib/services/commentStateService';
 import { userStore } from '$lib/stores/userStore.svelte';
 import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
-import { networkStore } from '$lib/stores/networkStore.svelte';
 import { pb } from '$lib/pocketbase/pb';
-import { createSyncCollection } from '$lib/pb-sync/collection';
-import { db, ensureDbReady, upsertLocalMeta } from '$lib/pb-sync/db';
+import { db, ensureDbReady, upsertLocalMeta, upsertRecord } from '$lib/pb-sync/db';
+import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
 import { ClientResponseError } from 'pocketbase';
 import { liveQuery } from 'dexie';
 import type { Subscription } from 'dexie';
 import { format } from 'date-fns';
 import { SvelteMap } from 'svelte/reactivity';
 import { resolveActorIdentity } from '$lib/utils/identityResolution';
-
-// Compteur de subscriptions actives pour networkStore
-let activeSubscriptionCount = 0;
-
-function notifySubscriptionChange(active: boolean) {
-	activeSubscriptionCount += active ? 1 : -1;
-	if (activeSubscriptionCount < 0) activeSubscriptionCount = 0;
-	networkStore.setHasActiveSubscription(activeSubscriptionCount > 0);
-}
-
-// pb-sync collections.
-// Le merge des champs additifs (participants/tasks/responses/comments) est
-// effectué côté serveur par `pb_hooks/merge-utils.js` de façon atomique
-// (transaction SQLite). Les `mergeStrategies` côté client ont été retirées :
-// elles introduisaient une fenêtre de course entre le `getOne` et l'update`,
-// et sont redondantes avec le hook serveur.
-export const mastersCollection = createSyncCollection<PlanningMaster>(
-	pb,
-	db.masters,
-	'planning_masters',
-	{
-		onSubscriptionChange: notifySubscriptionChange
-	}
-);
-
-export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
-	pb,
-	db.occurrences,
-	'planning_occurrences',
-	{
-		onSubscriptionChange: notifySubscriptionChange
-	}
-);
 
 /**
  * Ordre total stable pour les occurrences : date puis startTime, avec
@@ -342,7 +308,10 @@ class PlanningStore {
 
 	/**
 	 * Active un planning à partir de son token (participant ou admin).
-	 * Appelé par le layout qui observe $page.params.token.
+	 * API publique appelée par le layout qui observe `$page.params.token`.
+	 *
+	 * Guards (early return) + ouverture défensive de la DB + délégation à
+	 * `#activatePlanning` qui unify les flows auth/guest/claim.
 	 */
 	async setActiveToken(
 		token: string | undefined,
@@ -353,6 +322,7 @@ class PlanningStore {
 			return;
 		}
 
+		// Idempotence : ne pas re-activer un token déjà actif.
 		if (this.#currentToken === token) return;
 
 		// Open défensif de la DB locale avant toute opération Dexie (ADR 0006).
@@ -364,11 +334,7 @@ class PlanningStore {
 		this.#currentToken = token;
 
 		try {
-			if (userStore.isLoggedIn) {
-				await this.#setActiveAuth(token);
-			} else {
-				await this.#setActiveGuest(token);
-			}
+			await this.#activatePlanning(token);
 		} catch (err) {
 			console.error('PlanningStore setActiveToken error:', err);
 			this.#error = { type: 'network', message: 'Erreur lors du chargement' };
@@ -378,127 +344,27 @@ class PlanningStore {
 	}
 
 	/**
-	 * Auth fast path : résout le master depuis Dexie, vérifie son existence sur le serveur,
-	 * puis branche les liveQuery.
+	 * Flow unifié d'activation. Pipeline quasi linéaire avec deux branches
+	 * terminales (auth / guest) :
+	 *
+	 *   1. Résoudre master (Dexie → fallback réseau via getOrFetchMaster + upsertRecord)
+	 *   2. Vérifier suppression locale puis serveur
+	 *   3. Idempotence + set #activeMasterId
+	 *   4. Delta sync occurrences (toujours avec `_token`)
+	 *   5. Branche auth  : #attachMasterToUser (claim) + backfill si première visite
+	 *   6. Branche guest : subscribe realtime individuel + backfill
+	 *
+	 * La branche auth déclenche le claim synchrone via /api/sync-plannings, ce
+	 * qui débloque le realtime global (topic `'*'` monté par `userStore.#subscribeAuth`).
 	 */
-	async #setActiveAuth(token: string): Promise<void> {
-		const master = await this.#resolveMasterFromDexie(token);
+	async #activatePlanning(token: string): Promise<void> {
+		// === ÉTAPE 1 : Résoudre master ===
+		let master = await this.#resolveMasterFromDexie(token);
+		const wasInDexie = master !== null;
 
 		if (!master) {
-			// Pas encore en Dexie — sync en cours ou planning nouvellement partagé.
-			// Fallback sur le chemin réseau.
-			console.info('[PlanningStore] Master not in Dexie, fallback to network fetch');
-			return this.#setActiveGuest(token);
-		}
-
-		// Déjà marqué supprimé localement (détection précédente)
-		if (master.deleted) {
-			this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
-			return;
-		}
-
-		// Vérifier l'existence sur le serveur (une seule fois par session)
-		if (!this.#verifiedMasterIds.has(master.id)) {
-			// Passer le _token pour satisfaire la ViewRule même si user.masterId
-			// n'est pas encore peuplé (ex: juste après transitionToAuth).
-			const token = master.participantToken ?? master.adminToken;
-			try {
-				await pb.collection('planning_masters').getOne(master.id, {
-					fields: 'id',
-					query: token ? { _token: token } : undefined,
-					requestKey: null
-				});
-				this.#verifiedMasterIds.add(master.id);
-			} catch (err: unknown) {
-				if (err instanceof ClientResponseError && err.status === 404) {
-					await this.#markAsDeleted(master.id);
-					this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
-					return;
-				}
-				// Erreur réseau → non-bloquant, on affiche les données locales (potentiellement obsolètes)
-				console.warn(
-					'[PlanningStore] Could not verify master existence:',
-					err instanceof ClientResponseError ? err.message : err
-				);
-			}
-		}
-
-		if (this.#activeMasterId === master.id) return;
-
-		this.#activeMasterId = master.id;
-
-		// Delta sync per-master (API Rules filtrent via user.masterId, pas de _token).
-		// Toujours fetcher (même si cache partiel) pour corriger le bug occCount === 0.
-		// Pattern capture/restore : mark AVANT le fetch (capture les writes concurrentes),
-		// restore en cas d'échec (évite de perdre le delta).
-		const previousLastFetchAt = await this.#resolveSince(master.id);
-		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
-		await this.markFetched(master.id);
-		try {
-			await occurrencesCollection.initialFetch({
-				filter: ['master = {:masterId}', { masterId: master.id }],
-				since
-			});
-		} catch (err) {
-			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle
-			try {
-				await this.restoreLastFetchAt(master.id, previousLastFetchAt);
-			} catch (restoreErr) {
-				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
-			}
-			console.warn('[PlanningStore] Could not fetch occurrences for master:', err);
-		}
-
-		this.#subscribeDexieQueries(master.id);
-	}
-
-	/**
-	 * Guest full path : fetch réseau → stockage Dexie → abonnement pb-sync realtime.
-	 * Utilisé aussi comme fallback pour les users auth si le master n'est pas en Dexie.
-	 */
-	async #setActiveGuest(token: string): Promise<void> {
-		// Offline-first : résoudre depuis Dexie d'abord (comme #setActiveAuth).
-		// Permet d'afficher un planning déjà visité même hors ligne (reload offline).
-		const localMaster = await this.#resolveMasterFromDexie(token);
-		let master: PlanningMaster;
-
-		if (localMaster) {
-			// Déjà marqué supprimé localement (détection précédente)
-			if (localMaster.deleted) {
-				this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
-				return;
-			}
-
-			// Vérifier l'existence sur le serveur (best-effort, non bloquant offline).
-			// 404 → supprimé côté serveur ; autre erreur réseau → on garde les données locales.
-			if (!this.#verifiedMasterIds.has(localMaster.id)) {
-				try {
-					await pb.collection('planning_masters').getOne(localMaster.id, {
-						fields: 'id',
-						query: { _token: token },
-						requestKey: null
-					});
-					this.#verifiedMasterIds.add(localMaster.id);
-				} catch (err: unknown) {
-					if (err instanceof ClientResponseError && err.status === 404) {
-						await this.#markAsDeleted(localMaster.id);
-						this.#error = {
-							type: 'deleted',
-							message: 'Ce planning a été supprimé par son administrateur'
-						};
-						return;
-					}
-					console.warn(
-						'[PlanningStore] Could not verify master existence:',
-						err instanceof ClientResponseError ? err.message : err
-					);
-				}
-			}
-			master = localMaster;
-		} else {
 			// Pas en Dexie (jamais visité) : chemin réseau complet.
 			const result = await this.getOrFetchMaster(token);
-
 			if ('error' in result) {
 				if (result.error === 'not_found') {
 					this.#error = { type: 'not_found', message: 'Planning introuvable' };
@@ -509,69 +375,209 @@ class PlanningStore {
 				this.#unsubscribeDexieQueries();
 				return;
 			}
-
 			master = result;
+			// upsertRecord préserve les champs locaux non présents dans le fetch distant.
+			await upsertRecord(db.masters, master);
+		}
 
-			// update() merge les champs — préserve les champs locaux non présents dans le fetch PB
-			// (ex: adminToken masqué par onRecordEnrich). put() si le record n'existe pas encore.
-			const existing = await db.masters.get(master.id);
-			if (existing) {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dexie UpdateSpec<T> n'accepte pas tous les champs de PlanningMaster
-				await db.masters.update(master.id, master as any);
-			} else {
-				await db.masters.put(master);
+		// === ÉTAPE 2 : Vérifier suppression (locale puis serveur) ===
+		if (master.deleted) {
+			this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
+			return;
+		}
+		// Vérification serveur seulement si master était déjà en Dexie : un master
+		// fraîchement fetched prouve son existence par la réponse API elle-même.
+		if (wasInDexie) {
+			const status = await this.#verifyMasterExistsOnServer(master.id, token);
+			if (status === 'deleted') {
+				this.#error = { type: 'deleted', message: 'Ce planning a été supprimé' };
+				return;
 			}
 		}
 
+		// === ÉTAPE 3 : Idempotence + set activeMasterId ===
 		if (this.#activeMasterId === master.id) return;
 		this.#activeMasterId = master.id;
 
-		// Delta sync per-master : since basé sur localMeta.lastFetchAt (évite le bug
-		// du since global incohérent avec un filtre par master).
-		// Pattern capture/restore : mark AVANT le fetch, restore en cas d'échec.
-		// Non bloquant : offline, on garde les données Dexie et la bannière NetworkAlert signale le stale.
-		const previousLastFetchAt = await this.#resolveSince(master.id);
+		// === ÉTAPE 4 : Delta sync occurrences (toujours avec _token) ===
+		// Le `_token` est nécessaire pour la branche auth "première visite" : à ce
+		// stade, user.masterId n'est pas encore peuplé côté serveur (le claim est
+		// fait à l'étape 5). Les API Rules refuseraient sans `_token`.
+		await this.#deltaSyncOccurrences(master.id, token);
+
+		this.#subscribeDexieQueries(master.id);
+
+		// === ÉTAPE 5/6 : Branche auth / guest ===
+		if (userStore.isLoggedIn) {
+			await this.#attachMasterToUser(master);
+			// Backfill seulement pour les premières visites auth (master fraîchement
+			// récupéré du réseau) — sinon les commentaires déjà-lus sont considérés
+			// comme "déjà vus" par le guest précédent, et on préserve cette sémantique.
+			if (!wasInDexie) {
+				await this.#backfillCommentState(master.id);
+			}
+			// Pas de subscribe individuel : le subscribe global (topic '*') monté par
+			// userStore.#subscribeAuth couvre ce master après claim (API Rules valident
+			// désormais user.masterId serveur).
+		} else {
+			this.#subscribeRealtimeForGuest(master.id, token);
+			await this.#backfillCommentState(master.id);
+		}
+	}
+
+	/**
+	 * Atomic op : vérifie l'existence d'un master sur le serveur (une seule
+	 * fois par session via le cache `#verifiedMasterIds`).
+	 *
+	 * @returns `'ok'` si vérifié, `'deleted'` si 404 côté serveur (le master est
+	 *   marqué deleted localement), `'unknown'` si erreur réseau (non bloquant —
+	 *   le caller décide de continuer avec les données locales).
+	 */
+	async #verifyMasterExistsOnServer(
+		masterId: string,
+		token: string
+	): Promise<'ok' | 'deleted' | 'unknown'> {
+		if (this.#verifiedMasterIds.has(masterId)) return 'ok';
+		try {
+			await pb.collection('planning_masters').getOne(masterId, {
+				fields: 'id',
+				query: { _token: token },
+				requestKey: null
+			});
+			this.#verifiedMasterIds.add(masterId);
+			return 'ok';
+		} catch (err: unknown) {
+			if (err instanceof ClientResponseError && err.status === 404) {
+				await this.#markAsDeleted(masterId);
+				return 'deleted';
+			}
+			// Erreur réseau → non-bloquant, on garde les données locales (potentiellement obsolètes)
+			console.warn(
+				'[PlanningStore] Could not verify master existence:',
+				err instanceof ClientResponseError ? err.message : err
+			);
+			return 'unknown';
+		}
+	}
+
+	/**
+	 * Atomic op : delta sync per-master des occurrences avec pattern
+	 * capture/restore sur `lastFetchAt`.
+	 *
+	 * Le `token` est requis : il couvre le cas "auth + première visite" où
+	 * `user.masterId` n'est pas encore peuplé côté serveur au moment de l'appel
+	 * (le claim est fait par `#attachMasterToUser` après ce fetch).
+	 */
+	async #deltaSyncOccurrences(masterId: string, token: string): Promise<void> {
+		const previousLastFetchAt = await this.#resolveSince(masterId);
 		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
-		await this.markFetched(master.id);
+		await this.markFetched(masterId);
 		try {
 			await occurrencesCollection.initialFetch({
-				filter: ['master = {:masterId}', { masterId: master.id }],
+				filter: ['master = {:masterId}', { masterId }],
 				query: { _token: token },
 				since
 			});
 		} catch (err) {
-			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle
+			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle.
 			try {
-				await this.restoreLastFetchAt(master.id, previousLastFetchAt);
+				await this.restoreLastFetchAt(masterId, previousLastFetchAt);
 			} catch (restoreErr) {
 				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
 			}
 			console.warn('[PlanningStore] Could not fetch occurrences for master:', err);
 		}
+	}
 
-		this.#subscribeDexieQueries(master.id);
+	/**
+	 * Atomic op : subscribe realtime individuel (mode guest). Le caller décide
+	 * quand appeler — uniquement depuis la branche guest de `#activatePlanning`.
+	 */
+	#subscribeRealtimeForGuest(masterId: string, token: string): void {
+		try {
+			mastersCollection.subscribe({ record: masterId, query: { _token: token } });
+			occurrencesCollection.subscribe({
+				filter: ['master = {:masterId}', { masterId }],
+				query: { _token: token }
+			});
+		} catch (err) {
+			console.warn('pb-sync subscription failed (non-blocking):', err);
+		}
+	}
 
+	/**
+	 * Atomic op : claim synchrone d'un master vers le user authentifié.
+	 *
+	 * Étapes :
+	 *   1. Skip si `master.id` est déjà dans `pb.authStore.record.masterId`
+	 *      (cache local à jour — évite un coût réseau inutile).
+	 *   2. `POST /api/sync-plannings` (hook idempotent).
+	 *   3. `pb.collection('users').authRefresh()` pour propager `masterId` côté
+	 *      client (les guards UI comme `pbUser.masterId.includes(...)` deviennent
+	 *      cohérents sans attendre la prochaine sync).
+	 *
+	 * Gestion d'erreur : une erreur réseau (status 0, abort, ou `TypeError` du
+	 * fetch) est non bloquante (`console.warn` et continue — statut dégradé :
+	 * l'utilisateur garde l'accès local sans realtime temps réel ; la prochaine
+	 * sync via `syncService` retentera le claim). Toute autre erreur est fatale :
+	 * elle remonte au caller (`setActiveToken`) qui set `#error = 'network'`.
+	 */
+	async #attachMasterToUser(master: PlanningMaster): Promise<void> {
+		const record = pb.authStore.record;
+		if (!record) return; // Défensif : la branche auth garantit un user connecté.
+
+		const currentMasterIds: string[] = (record['masterId'] as string[] | undefined) ?? [];
+		if (currentMasterIds.includes(master.id)) return; // Déjà claimé.
+
+		try {
+			await pb.send('/api/sync-plannings', {
+				method: 'POST',
+				body: {
+					tokens: [
+						{
+							masterId: master.id,
+							participantToken: master.participantToken,
+							adminToken: master.adminToken
+						}
+					]
+				}
+			});
+			// Rafraîchir le record pour propager masterId (et adminOf si lien admin)
+			// côté client — les guards UI locales deviennent cohérents sans attendre
+			// la prochaine sync via syncService.
+			await pb.collection('users').authRefresh();
+		} catch (err) {
+			// Erreur réseau (status 0 = pas de réponse serveur, isAbort = annulation,
+			// TypeError = échec fetch en amont du wrapping PocketBase) → statut dégradé.
+			const isNetwork =
+				(err instanceof ClientResponseError && (err.status === 0 || err.isAbort)) ||
+				err instanceof TypeError;
+			if (isNetwork) {
+				console.warn(
+					'[PlanningStore] attachMasterToUser network error (degraded — no realtime until next sync):',
+					err instanceof ClientResponseError ? err.message : err
+				);
+				return;
+			}
+			// Erreur fatale (4xx/5xx serveur, programming) → laisse remonter au caller.
+			throw err;
+		}
+	}
+
+	/**
+	 * Atomic op : backfill de l'état de lecture des commentaires pour l'acteur
+	 * courant (auth ou guest). L'init arbitraire considère les commentaires
+	 * déjà présents comme "lus" — d'où l'appel uniquement pour les premières
+	 * visites (auth master fraîchement récupéré) et toujours pour les guests.
+	 */
+	async #backfillCommentState(masterId: string): Promise<void> {
 		const identityId = resolveActorIdentity({
 			pbUser: userStore.pbUser,
-			guestIdentity: guestStateStore.getGuestIdentity(master.id)
+			guestIdentity: guestStateStore.getGuestIdentity(masterId)
 		})?.id;
-		if (identityId) {
-			const occs = await db.occurrences.where('master').equals(master.id).toArray();
-			commentStateService.backfillCommentState(master.id, occs, identityId);
-		}
-
-		// Realtime via pb-sync (guest uniquement)
-		if (!userStore.isLoggedIn) {
-			try {
-				mastersCollection.subscribe({ record: master.id, query: { _token: token } });
-				occurrencesCollection.subscribe({
-					filter: ['master = {:masterId}', { masterId: master.id }],
-					query: { _token: token }
-				});
-			} catch (err) {
-				console.warn('pb-sync subscription failed (non-blocking):', err);
-			}
-		}
+		if (!identityId) return;
+		const occs = await db.occurrences.where('master').equals(masterId).toArray();
+		commentStateService.backfillCommentState(masterId, occs, identityId);
 	}
 
 	#deactivate(): void {
@@ -629,7 +635,7 @@ class PlanningStore {
 	 * Enregistre le succès d'un fetch pour un master.
 	 * Effet : écrit lastFetchAt dans Dexie (partial patch) et met à jour le mirror réactif.
 	 * Le pattern capture/restore (previousLastFetchAt avant fetch, restore en cas d'échec)
-	 * est géré par les call sites (#setActiveAuth, #setActiveGuest, refreshActive).
+	 * est géré par `#deltaSyncOccurrences` (et `refreshActive` qui délègue).
 	 */
 	async markFetched(masterId: string): Promise<void> {
 		const now = new Date().toISOString();
@@ -666,26 +672,9 @@ class PlanningStore {
 		const token = master.adminToken ?? master.participantToken;
 		if (!token) return;
 
-		// Delta sync per-master avec capture/restore (cohérent avec #setActiveAuth/#setActiveGuest).
+		// Delta sync per-master via l'atomic op partagé.
 		// Non bloquant : appelé en fire-and-forget par networkStore (polling de reconnexion).
-		const previousLastFetchAt = await this.#resolveSince(this.#activeMasterId);
-		const since = previousLastFetchAt ?? '2000-01-01 00:00:00';
-		await this.markFetched(this.#activeMasterId);
-		try {
-			await occurrencesCollection.initialFetch({
-				filter: ['master = {:masterId}', { masterId: this.#activeMasterId }],
-				query: { _token: token },
-				since
-			});
-		} catch (err) {
-			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle
-			try {
-				await this.restoreLastFetchAt(this.#activeMasterId, previousLastFetchAt);
-			} catch (restoreErr) {
-				console.error('[PlanningStore] Failed to restore lastFetchAt:', restoreErr);
-			}
-			console.warn('[PlanningStore] refreshActive failed:', err);
-		}
+		await this.#deltaSyncOccurrences(this.#activeMasterId, token);
 	}
 
 	/**

@@ -38,11 +38,8 @@ import { userStore } from '$lib/stores/userStore.svelte';
 import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
 import { authTransition } from '$lib/stores/authTransition.svelte';
 import { resolveCurrentIdentity } from '$lib/utils/identityResolution';
-import {
-	planningStore,
-	mastersCollection,
-	occurrencesCollection
-} from '$lib/stores/planningStore.svelte';
+import { planningStore } from '$lib/stores/planningStore.svelte';
+import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
 import { pb } from '$lib/pocketbase/pb';
 import type { PlanningIdentity } from '$lib/types/planning.types';
 
@@ -299,7 +296,7 @@ describe('userStore — identity, auth transitions, logout', () => {
 			trackIds('users', user.id);
 
 			// Simuler une session guest sur /p/[token] :
-			// setActiveToken déclenche #setActiveGuest qui fetch le master et le met en Dexie.
+			// setActiveToken déclenche #activatePlanning (branche guest) qui fetch le master et le met en Dexie.
 			await planningStore.setActiveToken(participantToken);
 
 			// Pré-requis : master en Dexie + currentToken positionné

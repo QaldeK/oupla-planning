@@ -41,7 +41,7 @@ import {
 	trackIds
 } from './seed';
 import { db } from '$lib/pb-sync/db';
-import { mastersCollection, occurrencesCollection } from '$lib/stores/planningStore.svelte';
+import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
 import {
 	createPlanning,
 	createPlanningWithOccurrences,
@@ -853,7 +853,7 @@ describe('planningActions — Pipeline CRUD complet', () => {
 			const { master, participantToken } = await seedPlanning({ title: 'Original Title' });
 
 			// Charger le master dans Dexie (comme le ferait le flux reel)
-			const { mastersCollection } = await import('$lib/stores/planningStore.svelte');
+			const { mastersCollection } = await import('$lib/data/collections');
 			await mastersCollection.initialFetch({ query: { _token: participantToken } });
 
 			// === ACTION + VERIFICATION ===
@@ -873,7 +873,7 @@ describe('planningActions — Pipeline CRUD complet', () => {
 			// === SEED ===
 			const { master, participantToken } = await seedPlanning({ title: 'To Delete' });
 
-			const { mastersCollection } = await import('$lib/stores/planningStore.svelte');
+			const { mastersCollection } = await import('$lib/data/collections');
 			await mastersCollection.initialFetch({ query: { _token: participantToken } });
 
 			// === ACTION + VERIFICATION ===
@@ -894,7 +894,7 @@ describe('planningActions — Pipeline CRUD complet', () => {
 			const { master, participantToken } = await seedPlanning({ title: 'Auto-inscription' });
 			const alice: Participant = { id: 'aaa111', name: 'Alice', isAdmin: false, createdAt: '' };
 
-			const { mastersCollection } = await import('$lib/stores/planningStore.svelte');
+			const { mastersCollection } = await import('$lib/data/collections');
 			await mastersCollection.initialFetch({ query: { _token: participantToken } });
 
 			// === ACTION + VERIFICATION ===

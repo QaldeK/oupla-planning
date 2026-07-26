@@ -37,11 +37,8 @@ import {
 import { db } from '$lib/pb-sync/db';
 import { pb } from '$lib/pocketbase/pb';
 import { createSyncCollection } from '$lib/pb-sync/collection';
-import {
-	planningStore,
-	mastersCollection,
-	occurrencesCollection
-} from '$lib/stores/planningStore.svelte';
+import { planningStore } from '$lib/stores/planningStore.svelte';
+import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
 import { userStore } from '$lib/stores/userStore.svelte';
 import { guestStateStore } from '$lib/stores/guestStateStore.svelte';
 import type { PlanningOccurrence } from '$lib/types/planning.types';
@@ -419,7 +416,7 @@ describe('planningStore — markFetched coexistence with guestStateStore (AC 03)
 	});
 });
 
-describe('planningStore — #setActiveAuth corrige le bug occCount === 0 (D4)', () => {
+describe('planningStore — #activatePlanning corrige le bug occCount === 0 (D4)', () => {
 	const USER_EMAIL = 'auth-d4@test.local';
 	const USER_PWD = 'password123';
 
@@ -459,12 +456,12 @@ describe('planningStore — #setActiveAuth corrige le bug occCount === 0 (D4)', 
 		userStore.isLoggedIn = true;
 
 		// === SIMULATION cache partiel : master en Dexie + 1 seule occ sur 3 ===
-		// Nécessaire car #setActiveAuth résout le master depuis Dexie.
+		// Nécessaire car #activatePlanning résout d'abord depuis Dexie (offline-first).
 		await db.masters.put(master);
 		await db.occurrences.put(occurrences[0]);
 		expect(await db.occurrences.where('master').equals(master.id).count()).toBe(1);
 
-		// === ACTION : setActiveToken → route vers #setActiveAuth (isLoggedIn) ===
+		// === ACTION : setActiveToken → #activatePlanning (branche auth, isLoggedIn) ===
 		// Avant le fix (D4) : occCount === 1 → on skip l'initialFetch → liste figée à 1.
 		// Après le fix : initialFetch inconditionnel → 3 occ.
 		await planningStore.setActiveToken(participantToken);

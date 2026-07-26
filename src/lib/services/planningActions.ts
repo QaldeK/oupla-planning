@@ -1,7 +1,7 @@
 import { withRetry } from '$lib/pb-sync/retry.utils';
 import { pb } from '$lib/pocketbase/pb';
 import { commentStateService } from '$lib/services/commentStateService';
-import { mastersCollection, occurrencesCollection } from '$lib/stores/planningStore.svelte';
+import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
 import type {
 	OccurrenceComment,
 	OccurrenceTarget,

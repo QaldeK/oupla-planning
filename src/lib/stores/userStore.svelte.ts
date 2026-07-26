@@ -8,11 +8,8 @@ import type {
 import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
 import { storage } from '$lib/utils/storage';
 import { pb } from '$lib/pocketbase/pb';
-import {
-	planningStore,
-	mastersCollection,
-	occurrencesCollection
-} from '$lib/stores/planningStore.svelte';
+import { planningStore } from '$lib/stores/planningStore.svelte';
+import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
 import { db, ensureDbReady } from '$lib/pb-sync/db';
 import { commentStateService } from '$lib/services/commentStateService';
 import { authTransition } from '$lib/stores/authTransition.svelte';
@@ -198,7 +195,7 @@ class UserStore {
 
 			await this.#clearLocalDexie();
 
-			// Re-activer le planning en guest (setActiveToken route vers #setActiveGuest
+			// Re-activer le planning en guest (setActiveToken route vers #activatePlanning
 			// car isLoggedIn est false). L'$effect de la page s'occupera d'ouvrir IdentifyModal.
 			planningStore.invalidateActiveToken();
 			await planningStore.setActiveToken(token);

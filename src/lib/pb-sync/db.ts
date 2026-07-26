@@ -1,4 +1,4 @@
-import Dexie, { type Table } from 'dexie';
+import Dexie, { type Table, type UpdateSpec } from 'dexie';
 import type {
 	PlanningMaster,
 	PlanningOccurrence,
@@ -168,5 +168,28 @@ export async function upsertLocalMeta(
 		await db.localMeta.update(masterId, patch);
 	} else {
 		await db.localMeta.put({ masterId, ...patch } as SavedPlanning);
+	}
+}
+
+/**
+ * Upsert d'un record dans une table Dexie en préservant les champs locaux non
+ * présents dans le record distant. `update()` est utilisé si le record existe
+ * déjà (merge des champs — préserve par exemple `adminToken` masqué par
+ * `onRecordEnrich`), `put()` sinon.
+ *
+ * Le typage de `UpdateSpec<T>` est résolu une fois pour toutes via un cast
+ * explicite : la signature de Dexie ne couvre pas tous les champs d'un type
+ * applicatif, mais l'opération sémantique est bien un merge partiel (`update`
+ * ne supprime pas les champs absents du record distant).
+ */
+export async function upsertRecord<T extends { id: string }>(
+	table: Table<T, string>,
+	record: T
+): Promise<void> {
+	const existing = await table.get(record.id);
+	if (existing) {
+		await table.update(record.id, record as unknown as UpdateSpec<T>);
+	} else {
+		await table.put(record);
 	}
 }

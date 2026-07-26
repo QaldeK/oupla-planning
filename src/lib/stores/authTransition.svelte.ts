@@ -8,11 +8,8 @@
  * Le wrapper instancie les deps réelles et appelle la fonction pure
  * `runAuthTransition` qui contient la logique d'orchestration.
  */
-import {
-	planningStore,
-	mastersCollection,
-	occurrencesCollection
-} from '$lib/stores/planningStore.svelte';
+import { planningStore } from '$lib/stores/planningStore.svelte';
+import { mastersCollection, occurrencesCollection } from '$lib/data/collections';
 import { commentStateService } from '$lib/services/commentStateService';
 import { pb } from '$lib/pocketbase/pb';
 import { db } from '$lib/pb-sync/db';

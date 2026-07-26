@@ -41,6 +41,7 @@ import type {
 	SyncCollectionOptions
 } from './types';
 import { withRetry } from './retry.utils';
+import { upsertRecord } from './db';
 
 /**
  * Thrown when a PocketBase operation returns 404 — the record was hard-deleted on the server.
@@ -171,15 +172,10 @@ export function createSyncCollection<T extends WithMeta>(
 		});
 
 		if (fresh.length > 0) {
-			// update() merge les champs existants — préserve adminToken local masqué par onRecordEnrich
+			// upsertRecord préserve les champs locaux non présents dans le fetch distant.
 			await table.db.transaction('rw', table, async () => {
 				for (const record of fresh) {
-					const existing = await table.get(record.id);
-					if (existing) {
-						await table.update(record.id, record as unknown as UpdateSpec<T>);
-					} else {
-						await table.put(record);
-					}
+					await upsertRecord(table, record);
 				}
 			});
 		}
@@ -241,14 +237,8 @@ export function createSyncCollection<T extends WithMeta>(
 						await table.delete(event.record.id);
 					}
 				} else {
-					// update() merge les champs — préserve les champs locaux non présents dans le realtime
-					// (ex: adminToken masqué par onRecordEnrich)
-					const existing = await table.get(event.record.id);
-					if (existing) {
-						await table.update(event.record.id, event.record as unknown as UpdateSpec<T>);
-					} else {
-						await table.put(event.record);
-					}
+					// upsertRecord préserve les champs locaux non présents dans le realtime.
+					await upsertRecord(table, event.record);
 					console.log('realtime to idb:', event.record);
 				}
 			},
