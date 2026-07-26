@@ -1,7 +1,6 @@
 <script lang="ts">
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import DescriptionCard from '$lib/components/ui/DescriptionCard.svelte';
-	import { updateOccurrence } from '$lib/services/planningActions';
 	import { commentStateService } from '$lib/services/commentStateService';
 	import { db } from '$lib/pb-sync/db';
 	import { useLiveQuery } from '$lib/pb-sync/use-live-query.svelte';
@@ -22,7 +21,6 @@
 		Pencil,
 		XCircle
 	} from '@lucide/svelte';
-	import { toast } from 'svelte-sonner';
 	import type { ViewProps } from '../index';
 	import OccurrenceEditModal from '../OccurrenceEditModal.svelte';
 	import { createOccurrenceState } from '../shared/occurrenceState.svelte';
@@ -30,6 +28,7 @@
 	import ResponsesSummary from '../shared/ResponsesSummary.svelte';
 	import TaskCompactSummary from '../shared/TaskCompactSummary.svelte';
 	import { mediaQuery } from '$lib/stores/mediaQuery.svelte';
+	import { createConfirmLogic } from '../shared/occurrenceConfirmLogic.svelte';
 
 	let {
 		occurrence,
@@ -51,99 +50,20 @@
 	);
 	const showQuickRestore = $derived(isAdmin && occurrence.isCanceled);
 
-	// --- État du modal de confirmation générique ---
-	let confirmModalState = $state({
-		open: false,
-		title: '',
-		message: '',
-		description: '',
-		confirmLabel: '',
-		variant: 'info' as 'danger' | 'warning' | 'info' | 'success',
-		onConfirm: () => {}
-	});
-
-	function openRestoreModal() {
-		if (!token) return;
-
-		confirmModalState = {
-			open: true,
-			title: "Rétablir l'événement ?",
-			message: `L'événement du ${formatDateShort(occurrence.date)} sera rétabli.`,
-			description:
-				'Les participants ayant activé les notifications seront informés du rétablissement.',
-			confirmLabel: 'Rétablir',
-			variant: 'warning',
-			onConfirm: executeRestore
-		};
-	}
-
-	async function executeRestore() {
-		confirmModalState.open = false;
-		if (!token) return;
-		try {
-			await updateOccurrence(occurrence.id, { isCanceled: false, isConfirmed: !toConfirm }, token);
-			toast.success('Événement rétabli');
-		} catch (_error) {
-			toast.error('Erreur lors du rétablissement');
-			console.error(_error);
-		}
-	}
-
-	async function toggleConfirm() {
-		if (!token) return;
-
-		const isCurrentlyConfirmed = occurrence.isConfirmed;
-		const warnings: string[] = [];
-
-		if (needsConfirmationWarning && !isCurrentlyConfirmed) {
-			if (missingPresences > 0) warnings.push(`${missingPresences} participant(s) manquant(s)`);
-			if (incompleteTasks.length > 0)
-				warnings.push(`${incompleteTasks.length} tâche(s) non remplie(s)`);
-		}
-
-		const warningDetail = warnings.length > 0 ? ` Détails : ${warnings.join(' et ')}.` : '';
-
-		confirmModalState = {
-			open: true,
-			title: isCurrentlyConfirmed ? 'Annuler la confirmation ?' : "Confirmer l'événement ?",
-			message: isCurrentlyConfirmed
-				? `La confirmation du ${formatDateShort(occurrence.date)} sera annulée.`
-				: warnings.length > 0
-					? 'Le quorum ou les besoins en tâches ne sont pas atteints.'
-					: `Confirmer la tenue de l'événement du ${formatDateShort(occurrence.date)} ?`,
-			description: `Les participants ayant activé les notifications seront informés.${warningDetail}`,
-			confirmLabel: isCurrentlyConfirmed
-				? 'Annuler la confirmation'
-				: warnings.length > 0
-					? 'Confirmer quand même'
-					: 'Confirmer',
-			variant: isCurrentlyConfirmed ? 'warning' : warnings.length > 0 ? 'warning' : 'success',
-			onConfirm: executeConfirm
-		};
-	}
-
-	async function executeConfirm() {
-		confirmModalState.open = false;
-		try {
-			if (!token) return;
-			const updated = await updateOccurrence(
-				occurrence.id,
-				{ isConfirmed: !occurrence.isConfirmed, isCanceled: false },
-				token
-			);
-			toast.success(updated.isConfirmed ? 'Événement confirmé' : 'Confirmation annulée');
-		} catch (_error) {
-			toast.error('Erreur lors de la confirmation');
-			console.error(_error);
-		}
-	}
-
 	// État partagé de l'occurrence
 	const occState = createOccurrenceState(() => ({
 		occurrence,
 		master,
 		currentUserId,
 		onNeedReidentify
+	}));
+
+	// Logique de confirmation modale (confirm/restore)
+	const confirmLogic = createConfirmLogic(() => ({
+		occurrence,
+		token,
+		toConfirm,
+		occState
 	}));
 
 	// Edit logic: can only modify if user is authenticated and date is not past
@@ -165,24 +85,6 @@
 		occState.inherited.tasks.length === 0 || !occState.masterConfig.allowResponses
 	);
 
-	// --- Logique de validation pour la confirmation ---
-	const missingPresences = $derived(
-		occState.masterConfig.allowResponses &&
-			occState.inherited.minPresentRequired &&
-			occState.stats.present < occState.inherited.minPresentRequired
-			? occState.inherited.minPresentRequired - occState.stats.present
-			: 0
-	);
-
-	const incompleteTasks = $derived.by(() => {
-		return occState.inherited.tasks.filter((task) => {
-			const volunteers = occurrence.responses.filter((r) => r.tasks?.includes(task.id)).length;
-			return volunteers < task.requiredVolunteers;
-		});
-	});
-
-	const needsConfirmationWarning = $derived(missingPresences > 0 || incompleteTasks.length > 0);
-
 	const commentStateQuery = useLiveQuery(
 		() => db.commentState.get(occurrence.id),
 		() => [occurrence.id]
@@ -190,22 +92,6 @@
 	const hasUnread = $derived(
 		commentStateService.hasUnreadComments(occurrence, commentStateQuery.current)
 	);
-
-	// Message de la ConfirmModal de changement de réponse (désinscription onEvent).
-	const responseChangeModal = $derived.by(() => {
-		const pending = occState.pendingResponseChange;
-		if (!pending) return null;
-		const taskNames = pending.onEventTaskIds
-			.map((id) => occState.inherited.tasks.find((t) => t.id === id)?.name)
-			.filter((n): n is string => Boolean(n));
-		if (taskNames.length === 0) return null;
-		const isPlural = taskNames.length > 1;
-		return {
-			message: isPlural
-				? `Vous êtes inscrit à ${taskNames.length} tâches nécessitant votre présence : ${taskNames.join(', ')}.`
-				: `Vous êtes inscrit à la tâche « ${taskNames[0]} » qui nécessite votre présence.`
-		};
-	});
 </script>
 
 {#if viewMode === 'card'}
@@ -226,7 +112,7 @@
 				{#if showQuickConfirm}
 					<button
 						class="btn btn-ghost sm:btn-sm"
-						onclick={toggleConfirm}
+						onclick={confirmLogic.toggleConfirm}
 						disabled={occState.isNetworkUnavailable}
 						title="Confirmer la tenue"
 					>
@@ -237,7 +123,7 @@
 				{#if showQuickRestore}
 					<button
 						class="btn btn-ghost sm:btn-sm"
-						onclick={openRestoreModal}
+						onclick={confirmLogic.openRestoreModal}
 						title="Rétablir l'événement"
 						disabled={occState.isNetworkUnavailable}
 					>
@@ -446,7 +332,11 @@
 					{/if}
 					{#if isAdmin}
 						{#if showQuickConfirm}
-							<button class="btn sm:btn-sm" onclick={toggleConfirm} title="Confirmer la tenue">
+							<button
+								class="btn sm:btn-sm"
+								onclick={confirmLogic.toggleConfirm}
+								title="Confirmer la tenue"
+							>
 								<CalendarCheck size={20} />
 								Confirmer
 							</button>
@@ -454,7 +344,7 @@
 						{#if showQuickRestore}
 							<button
 								class="btn btn-ghost sm:btn-sm"
-								onclick={openRestoreModal}
+								onclick={confirmLogic.openRestoreModal}
 								title="Rétablir l'événement"
 							>
 								<CalendarSyncIcon size={20} />
@@ -630,24 +520,24 @@
 
 {#if isAdmin}
 	<ConfirmModal
-		bind:open={confirmModalState.open}
-		onClose={() => (confirmModalState.open = false)}
-		onConfirm={confirmModalState.onConfirm}
-		title={confirmModalState.title}
-		message={confirmModalState.message}
-		description={confirmModalState.description}
-		confirmLabel={confirmModalState.confirmLabel}
-		variant={confirmModalState.variant}
+		bind:open={confirmLogic.confirmModalState.open}
+		onClose={() => (confirmLogic.confirmModalState.open = false)}
+		onConfirm={confirmLogic.confirmModalState.onConfirm}
+		title={confirmLogic.confirmModalState.title}
+		message={confirmLogic.confirmModalState.message}
+		description={confirmLogic.confirmModalState.description}
+		confirmLabel={confirmLogic.confirmModalState.confirmLabel}
+		variant={confirmLogic.confirmModalState.variant}
 	/>
 {/if}
 
-{#if responseChangeModal}
+{#if confirmLogic.responseChangeModal}
 	<ConfirmModal
 		open={occState.pendingResponseChange !== null}
 		onClose={occState.cancelResponseChange}
 		onConfirm={occState.confirmResponseChange}
 		title="Présence requise"
-		message={responseChangeModal.message}
+		message={confirmLogic.responseChangeModal.message}
 		description="Changer votre réponse vous désinscrira de cette ou ces tâche(s)."
 		confirmLabel="Changer ma réponse"
 		variant="warning"
