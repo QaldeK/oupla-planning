@@ -76,16 +76,14 @@ describe("formatDateFR", () => {
 		expect(result).toMatch(/15/);
 	});
 
-	it('returns "Invalid Date" for empty string', () => {
-		// new Date('T00:00:00Z') est invalide ; toLocaleDateString retourne la
-		// chaîne "Invalid Date" sans throw — d'où le retour brut.
+	it('returns empty string for empty input', () => {
 		const result = formatDateFR("");
-		expect(result).toBe("Invalid Date");
+		expect(result).toBe("");
 	});
 
-	it('returns "Invalid Date" for invalid date string', () => {
+	it('returns the raw input for invalid date string', () => {
 		const result = formatDateFR("not-a-date");
-		expect(result).toBe("Invalid Date");
+		expect(result).toBe("not-a-date");
 	});
 });
 

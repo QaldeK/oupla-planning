@@ -104,7 +104,7 @@ const EXPECTATIONS: Record<number, CaseExpectations> = {
 	5: {
 		expectedSubjectContains: ["Participants manquants", "Repas hebdo"],
 		expectedBodyContains: [
-			"Participants manquants — dim. 5 avr.",
+			"⚠️ Participants manquants — dim. 5 avril à 19h00 — 22h00 — Salle des fêtes",
 			"Quorum insuffisant",
 			"présent·e·s confirmé·e·s sur 5 requis",
 			"si besoin",
@@ -117,7 +117,7 @@ const EXPECTATIONS: Record<number, CaseExpectations> = {
 	6: {
 		expectedSubjectContains: ["À confirmer", "Repas hebdo"],
 		expectedBodyContains: [
-			"À confirmer — dim. 5 avr.",
+			"⏳ À confirmer — dim. 5 avril à 19h00 — 22h00 — Salle des fêtes",
 			"est prévu dans 3 jours mais n'est pas encore confirmé",
 			"En tant qu'",
 			"confirmez sa tenue"
@@ -137,11 +137,12 @@ const EXPECTATIONS: Record<number, CaseExpectations> = {
 	8: {
 		expectedSubjectContains: ["Important", "Repas hebdo", "3 événements"],
 		expectedBodyContains: [
-			"Annulation — mar. 31 mars",
+			"❌ Annulation — mar. 31 mars",
 			"L'événement a été annulé",
-			"Modification — dim. 5 avr.",
+			"✏️ Modification — dim. 5 avril à 19h00 — 22h00 — Gymnase",
 			"Le lieu a été modifié",
 			"Salle des fêtes → Gymnase",
+			"🔔 Rappel — lun. 6 avril à 19h00 — 22h00 — Salle des fêtes",
 			"L'événement a lieu demain",
 			"présent·e",
 			"Rangement (après)"
