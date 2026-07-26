@@ -2,21 +2,15 @@
 import {
 	AlignLeft,
 	CheckCircle,
-	CircleAlert,
-	ClipboardCheck,
 	Clock,
 	MapPin,
-	Pencil,
 	Plus,
-	RefreshCcw,
-	Trash2,
 	User,
 	UserPlus,
 	Users,
 	X,
 	XCircle
 } from "@lucide/svelte";
-import { slide } from "svelte/transition";
 import { toast } from "svelte-sonner";
 import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from "$lib/constants";
 import {
@@ -32,14 +26,14 @@ import type {
 	PlanningMaster,
 	PlanningOccurrence,
 	ResponseType,
-	Task,
-	TaskType
+	Task
 } from "$lib/types/planning.types";
 import { classifyError } from "$lib/utils/errorHandler";
 import NetworkAlert from "../NetworkAlert.svelte";
 import ConfirmModal from "../ui/ConfirmModal.svelte";
 import Modal from "../ui/Modal.svelte";
 import RichTextEditor from "../ui/RichTextEditor.svelte";
+import TaskManager from "./TaskManager.svelte";
 import VolunteerAssignmentModal from "./VolunteerAssignmentModal.svelte";
 
 interface Props {
@@ -97,49 +91,6 @@ let isTasksModified = $state(occTasks !== null && occTasks !== undefined && occT
 let tasks = $state<Task[]>(
 	occTasks && occTasks.length > 0 ? [...occTasks] : [...(masterTasks || [])]
 );
-let newTaskName = $state("");
-let newTaskDescription = $state("");
-let newTaskVolunteers = $state(1);
-let newTaskType = $state<TaskType>("onEvent");
-let editingTaskId = $state<string | null>(null);
-let taskNameInput: HTMLInputElement;
-
-// Focus automatique sur l'input quand on entre en mode édition
-$effect(() => {
-	if (editingTaskId && taskNameInput) {
-		taskNameInput.focus();
-		taskNameInput.select();
-	}
-});
-
-// Vérifier si des changements ont été effectués en mode édition
-const taskHasChanges = $derived.by(() => {
-	if (!editingTaskId) return false;
-	const task = tasks.find((t) => t.id === editingTaskId);
-	if (!task) return false;
-	return (
-		newTaskName.trim() !== task.name ||
-		(newTaskDescription.trim() || "") !== (task.description || "") ||
-		newTaskVolunteers !== task.requiredVolunteers ||
-		newTaskType !== task.type
-	);
-});
-
-function ensureSpecificTasks() {
-	if (!isTasksModified) {
-		isTasksModified = true;
-		// On s'assure d'avoir une copie propre des tâches actuelles (venant du master)
-		tasks = [...(master.tasks || [])];
-	}
-}
-
-function resetToMasterTasks() {
-	isTasksModified = false;
-	tasks = [...(master.tasks || [])];
-	newTaskName = "";
-	newTaskDescription = "";
-	editingTaskId = null;
-}
 
 // Logique de statut dérivé
 const toConfirm = $derived(master.toConfirm ?? false);
@@ -367,68 +318,6 @@ async function handleSubmit() {
 	} finally {
 		isSubmitting = false;
 	}
-}
-
-function addTask() {
-	if (!newTaskName.trim()) return;
-	ensureSpecificTasks();
-
-	if (editingTaskId) {
-		tasks = tasks.map((t) =>
-			t.id === editingTaskId
-				? {
-						...t,
-						name: newTaskName.trim(),
-						description: newTaskDescription.trim() || undefined,
-						requiredVolunteers: newTaskVolunteers,
-						type: newTaskType
-					}
-				: t
-		);
-		editingTaskId = null;
-	} else {
-		tasks = [
-			...tasks,
-			{
-				id: crypto.randomUUID(),
-				name: newTaskName.trim(),
-				description: newTaskDescription.trim() || undefined,
-				requiredVolunteers: newTaskVolunteers,
-				type: newTaskType
-			}
-		];
-	}
-	newTaskName = "";
-	newTaskDescription = "";
-	newTaskVolunteers = 1;
-	newTaskType = "onEvent";
-}
-
-function removeTask(id: string) {
-	ensureSpecificTasks();
-	tasks = tasks.filter((t) => t.id !== id);
-}
-
-function editTask(task: Task) {
-	newTaskName = task.name;
-	newTaskDescription = task.description || "";
-	newTaskVolunteers = task.requiredVolunteers;
-	newTaskType = task.type;
-	editingTaskId = task.id;
-}
-
-function cancelEdit() {
-	editingTaskId = null;
-	newTaskName = "";
-	newTaskDescription = "";
-	newTaskVolunteers = 1;
-}
-
-function cancelTaskInput() {
-	newTaskName = "";
-	newTaskDescription = "";
-	newTaskVolunteers = 1;
-	newTaskType = "onEvent";
 }
 
 // Message de la ConfirmModal de changement de réponse admin (désinscription onEvent).
@@ -724,220 +613,53 @@ const responseChangeModal = $derived.by(() => {
 
       <div class="divider"></div>
 
-      <!-- Tâches -->
-      <div class="space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <h4 class="flex items-center gap-2 font-medium">
-            <ClipboardCheck size={18} class="text-primary" />
-            Liste des tâches
-          </h4>
-          <div class="flex flex-wrap items-center gap-2">
-            {#if isTasksModified}
-              <span class="badge badge-warning h-auto font-medium"
-                ><CircleAlert class="size-4" /> Certaines tâches sont spécifiques
-                à cette date</span
-              >
-              <button
-                type="button"
-                class="btn btn-soft btn-error btn-sm sm:btn-xs"
-                onclick={resetToMasterTasks}
-              >
-                <RefreshCcw class="size-3" />
-                Rétablir les tâches communes à toutes les dates ({masterTasks?.length ??
-                  0})
-              </button>
-            {:else if !isTasksModified && masterTasks?.length > 0}
-              <span class="badge badge-info badge-soft h-auto font-medium"
-                ><CircleAlert class="size-4" /> Tâches communes à toutes les dates</span
-              >
-            {/if}
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          {#each tasks as task (task.id)}
-            {@const taskVolunteers = getTaskVolunteers(task.id)}
-            <div
-              class="bg-base-200 flex gap-3 rounded-lg p-3 {editingTaskId ===
-              task.id
-                ? 'ring-primary ring-2 ring-offset-2'
-                : ''}"
-            >
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <div class="text-sm font-medium">{task.name}</div>
-                  <div class="text-sm opacity-60">
-                    {task.requiredVolunteers} pers. • {task.type ===
-                    "beforeEvent"
-                      ? "Avant"
-                      : task.type === "onEvent"
-                        ? "Pendant"
-                        : "Après"}
-                  </div>
-                </div>
-
-                <!-- Badges des participants inscrits -->
-                <div class="mt-2 flex flex-wrap items-center gap-2 pl-1">
-                  {#if taskVolunteers.length > 0}
-                    {#each taskVolunteers as volunteer (volunteer.participantId)}
-                      <div
-                        class="badge md:badge-lg bg-accent flex items-center gap-1 pe-0.5"
-                      >
-                        {volunteer.name}
-                        <button
-                          type="button"
-                          class="btn btn-error btn-sm sm:btn-xs btn-soft btn-circle m-1 ml-2 size-4"
-                          onclick={() =>
-                            handleRemoveVolunteerFromTask(
-                              task.id,
-                              volunteer.participantId,
-                            )}
-                          aria-label="Retirer {volunteer.name} de cette tâche"
-                        >
-                          <X class="size-4" />
-                        </button>
-                      </div>
-                    {/each}
-                  {/if}
-                  <!-- Bouton pour ajouter/gérer des participants -->
-                  <div class="pl-1">
-                    <button
-                      type="button"
-                      class="btn btn-outline btn-sm sm:btn-xs gap-1"
-                      onclick={() => openVolunteerModal(task)}
-                    >
-                      <Users size={12} />
-                      {taskVolunteers.length > 0
-                        ? "Gérer les inscrits"
-                        : "Ajouter"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <!-- Boutons d'action alignés à droite -->
-              <div class="flex shrink-0 flex-col justify-between">
-                <button
-                  type="button"
-                  class="btn btn-ghost sm:btn-sm btn-circle"
-                  title="Modifier cette tâche"
-                  onclick={() => editTask(task)}
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-ghost sm:btn-sm btn-circle text-error"
-                  title="Supprimer cette tâche pour cet événement"
-                  onclick={() => removeTask(task.id)}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          {/each}
-        </div>
-
-        <div class="space-y-3">
-          <div class="bg-base-200/50 space-y-3 rounded-xl p-4">
-            <div class="grid grid-cols-1 items-baseline gap-3 sm:grid-cols-2">
-              {#if editingTaskId}
+<!-- Tâches -->
+      <TaskManager
+        bind:tasks
+        bind:isTasksModified
+        {masterTasks}
+        disabled={isNetworkUnavailable || currentStatus === 'canceled'}
+      >
+        {#snippet children(task)}
+          {@const taskVolunteers = getTaskVolunteers(task.id)}
+          <div class="mt-2 flex flex-wrap items-center gap-2 pl-1">
+            {#if taskVolunteers.length > 0}
+              {#each taskVolunteers as volunteer (volunteer.participantId)}
                 <div
-                  class="alert alert-info alert-outline rounded-lg py-2 text-sm"
-                  transition:slide
+                  class="badge md:badge-lg bg-accent flex items-center gap-1 pe-0.5"
                 >
-                  <Pencil size={16} />
-                  <span>Modification de la tâche sélectionnée}</span>
-                </div>
-              {/if}
-              <fieldset class="fieldset">
-                <label class="input w-full">
-                  <input
-                    type="text"
-                    bind:value={newTaskName}
-                    bind:this={taskNameInput}
-                    placeholder="Nom de la tâche"
-                    onkeydown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addTask();
-                      }
-                    }}
-                  />
-                  <!-- Bouton + intégré visible uniquement en mobile -->
+                  {volunteer.name}
                   <button
                     type="button"
-                    class="btn btn-primary btn-circle btn-sm hidden max-sm:flex"
-                    onclick={addTask}
-                    disabled={newTaskName.trim().length === 0 ||
-                      (editingTaskId !== null && !taskHasChanges)}
-                    title="Ajouter la tâche"
+                    class="btn btn-error btn-sm sm:btn-xs btn-soft btn-circle m-1 ml-2 size-4"
+                    onclick={() =>
+                      handleRemoveVolunteerFromTask(
+                        task.id,
+                        volunteer.participantId,
+                      )}
+                    aria-label="Retirer {volunteer.name} de cette tâche"
                   >
-                    <Plus size={16} />
+                    <X class="size-4" />
                   </button>
-                </label>
-              </fieldset>
-              <div class="grid grid-cols-2 gap-3">
-                <fieldset class="fieldset">
-                  <legend class="fieldset-legend"
-                    >Participant·es requis·ses</legend
-                  >
-                  <input
-                    type="number"
-                    bind:value={newTaskVolunteers}
-                    class="input w-full"
-                    min="1"
-                    placeholder="Nb."
-                  />
-                </fieldset>
-                <fieldset class="fieldset">
-                  <legend class="fieldset-legend">Moment</legend>
-                  <select bind:value={newTaskType} class="select w-full">
-                    <option value="beforeEvent">Avant</option>
-                    <option value="onEvent">Pendant</option>
-                    <option value="afterEvent">Après</option>
-                  </select>
-                </fieldset>
-              </div>
-            </div>
-            <!-- <fieldset class="fieldset">
-						<legend class="fieldset-legend">Description (optionnel)</legend>
-						<textarea
-							bind:value={newTaskDescription}
-							class="textarea textarea-sm w-full"
-							placeholder="Instructions pour les bénévoles..."
-						></textarea>
-					</fieldset> -->
-            <div class="flex gap-2">
-              {#if !editingTaskId && newTaskName.trim().length > 0}
-                <button
-                  type="button"
-                  class="btn sm:btn-sm btn-ghost"
-                  onclick={cancelTaskInput}
-                  disabled={isSubmitting}
-                >
-                  Annuler
-                </button>
-              {/if}
-              {#if editingTaskId}
-                <button
-                  type="button"
-                  class="btn sm:btn-sm btn-ghost"
-                  onclick={cancelEdit}>Annuler</button
-                >
-              {/if}
+                </div>
+              {/each}
+            {/if}
+            <!-- Bouton pour ajouter/gérer des participants -->
+            <div class="pl-1">
               <button
                 type="button"
-                class="btn sm:btn-sm btn-primary grow"
-                onclick={addTask}
-                disabled={newTaskName.trim().length === 0 ||
-                  (editingTaskId !== null && !taskHasChanges)}
+                class="btn btn-outline btn-sm sm:btn-xs gap-1"
+                onclick={() => openVolunteerModal(task)}
               >
-                {editingTaskId ? "Modifier la tâche" : "Ajouter la tâche"}
+                <Users size={12} />
+                {taskVolunteers.length > 0
+                  ? "Gérer les inscrits"
+                  : "Ajouter"}
               </button>
             </div>
           </div>
-        </div>
-      </div>
+        {/snippet}
+      </TaskManager>
     </fieldset>
   </form>
 </Modal>
