@@ -30,25 +30,23 @@ let showPasswordModal = $state(false);
 
 async function handleProfileUpdate() {
 	if (!name.trim()) {
-		toast.error("Le nom est requis");
+		toast.error(m.settings_name_required());
 		return;
 	}
 
 	isSaving = true;
 	try {
-		// 1. Mettre à jour PocketBase
 		await pb.collection("users").update(pb.authStore.record!.id, {
 			name: name.trim(),
 			email: email.trim() || undefined
 		});
 
-		// 2. Rafraîchir le record authStore pour cohérence immédiate
 		await pb.collection("users").authRefresh();
 
-		toast.success("Profil mis à jour");
+		toast.success(m.settings_profile_updated());
 	} catch (error) {
 		console.error("Error updating profile:", error);
-		toast.error("Erreur lors de la mise à jour du profil");
+		toast.error(m.settings_profile_update_error());
 	} finally {
 		isSaving = false;
 	}
@@ -56,47 +54,44 @@ async function handleProfileUpdate() {
 
 async function handlePasswordChange() {
 	if (!currentPassword || !newPassword || !confirmPassword) {
-		toast.error("Tous les champs sont requis");
+		toast.error(m.settings_all_fields_required());
 		return;
 	}
 
 	if (newPassword !== confirmPassword) {
-		toast.error("Les mots de passe ne correspondent pas");
+		toast.error(m.settings_passwords_mismatch());
 		return;
 	}
 
 	if (newPassword.length < 8) {
-		toast.error("Le mot de passe doit contenir au moins 8 caractères");
+		toast.error(m.settings_password_min_length());
 		return;
 	}
 
 	isSaving = true;
 	try {
-		// Vérifier l'ancien mot de passe en se reconnectant
 		try {
 			await pb.collection("users").authWithPassword(pb.authStore.record!.email, currentPassword);
 		} catch {
-			toast.error("L'ancien mot de passe est incorrect");
+			toast.error(m.settings_incorrect_password());
 			isSaving = false;
 			return;
 		}
 
-		// Mettre à jour le mot de passe
 		await pb.collection("users").update(pb.authStore.record!.id, {
 			password: newPassword,
 			passwordConfirm: confirmPassword
 		});
 
-		toast.success("Mot de passe modifié");
+		toast.success(m.settings_password_updated());
 
-		// Reset et fermer le modal
 		currentPassword = "";
 		newPassword = "";
 		confirmPassword = "";
 		showPasswordModal = false;
 	} catch (error) {
 		console.error("Error changing password:", error);
-		toast.error("Erreur lors du changement de mot de passe");
+		toast.error(m.settings_password_change_error());
 	} finally {
 		isSaving = false;
 	}
@@ -109,13 +104,13 @@ async function handleLogout() {
 </script>
 
 <svelte:head>
-	<title>Paramètres - Planning</title>
+	<title>{m.settings_page_title()}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-3xl font-bold">Paramètres</h1>
-		<p class="text-base-content/70 mt-2">Gérez votre profil et vos préférences</p>
+		<h1 class="text-3xl font-bold">{m.settings_page_heading()}</h1>
+		<p class="text-base-content/70 mt-2">{m.settings_page_description()}</p>
 	</div>
 
 	<!-- Tabs -->
@@ -125,14 +120,14 @@ async function handleLogout() {
 			onclick={() => (activeTab = 'profile')}
 		>
 			<User size={18} />
-			Profil
+			{m.settings_profile_tab()}
 		</button>
 		<button
 			class={['tab gap-2', activeTab === 'security' && 'tab-active']}
 			onclick={() => (activeTab = 'security')}
 		>
 			<ShieldCheck size={18} />
-			Sécurité
+			{m.settings_security_tab()}
 		</button>
 	</div>
 
@@ -170,9 +165,9 @@ async function handleLogout() {
 
 		<div class="card card-compact bg-base-200 shadow-xl">
 			<div class="card-body">
-				<h2 class="card-title mb-4">Profil</h2>
+				<h2 class="card-title mb-4">{m.settings_profile_title()}</h2>
 				<p class="mb-6 text-sm opacity-70">
-					Vos informations seront synchronisées sur tous vos appareils.
+					{m.settings_profile_description()}
 				</p>
 
 				<form onsubmit={(e) => e.preventDefault()} class="space-y-4">
@@ -180,31 +175,31 @@ async function handleLogout() {
 						<label class="input w-full">
 							<span class="label">
 								<User size={16} />
-								Nom d'affichage
+								{m.settings_display_name_label()}
 							</span>
 							<input
 								type="text"
 								class=" w-full"
 								bind:value={name}
-								placeholder="Votre nom"
+								placeholder={m.settings_display_name_placeholder()}
 								disabled={isSaving}
 							/>
 						</label>
 
-						<p class="label ms-auto text-xs">Sera pris en compte pour les nouveau planning.</p>
+						<p class="label ms-auto text-xs">{m.settings_display_name_hint()}</p>
 					</fieldset>
 
 					<fieldset class="fieldset">
 						<label class="input w-full">
 							<span class="label">
 								<Mail size={16} />
-								Email
+								{m.settings_email_label()}
 							</span>
 							<input
 								type="email"
 								class="w-full"
 								bind:value={email}
-								placeholder="votre@email.com"
+								placeholder={m.settings_email_placeholder()}
 								disabled={isSaving}
 							/>
 						</label>
@@ -218,9 +213,9 @@ async function handleLogout() {
 						>
 							{#if isSaving}
 								<span class="loading loading-spinner loading-xs"></span>
-								Enregistrement...
+								{m.settings_saving_button()}
 							{:else}
-								Enregistrer
+								{m.settings_save_button()}
 							{/if}
 						</button>
 					</div>
@@ -230,8 +225,8 @@ async function handleLogout() {
 	{:else if activeTab === 'security'}
 		<div class="card card-compact bg-base-200 shadow-xl">
 			<div class="card-body">
-				<h2 class="card-title mb-4">Sécurité</h2>
-				<p class="mb-6 text-sm opacity-70">Gérez votre mot de passe et votre session.</p>
+				<h2 class="card-title mb-4">{m.settings_security_title()}</h2>
+				<p class="mb-6 text-sm opacity-70">{m.settings_security_description()}</p>
 
 				<div class="space-y-6">
 					<!-- Changement de mot de passe -->
@@ -239,12 +234,12 @@ async function handleLogout() {
 						<div>
 							<h3 class="flex items-center gap-2 font-medium">
 								<Lock size={16} />
-								Mot de passe
+								{m.settings_password_section_title()}
 							</h3>
-							<p class="text-sm opacity-70">Changer votre mot de passe</p>
+							<p class="text-sm opacity-70">{m.settings_password_section_description()}</p>
 						</div>
 						<button class="btn btn-ghost btn-sm" onclick={() => (showPasswordModal = true)}>
-							Modifier
+							{m.settings_edit_button()}
 						</button>
 					</div>
 
@@ -253,12 +248,12 @@ async function handleLogout() {
 						<div>
 							<h3 class="flex items-center gap-2 font-medium">
 								<LogOut size={16} />
-								Session
+								{m.settings_session_title()}
 							</h3>
-							<p class="text-sm opacity-70">Se déconnecter de cet appareil</p>
+							<p class="text-sm opacity-70">{m.settings_session_description()}</p>
 						</div>
 						<button class="btn btn-error btn-ghost btn-sm" onclick={handleLogout}>
-							Déconnexion
+							{m.settings_logout_button()}
 						</button>
 					</div>
 				</div>
@@ -271,16 +266,16 @@ async function handleLogout() {
 <Modal
 	bind:open={showPasswordModal}
 	onClose={() => (showPasswordModal = false)}
-	title="Changer le mot de passe"
+	title={m.settings_password_modal_title()}
 	size="sm"
 >
 	<div class="space-y-4">
-		<p class="text-sm opacity-70">Entrez votre mot de passe actuel pour confirmer le changement.</p>
+		<p class="text-sm opacity-70">{m.settings_password_modal_description()}</p>
 
 		<form onsubmit={(e) => e.preventDefault()} class="space-y-4">
 			<fieldset>
 				<label class="label" for="current-password">
-					<span class="label-text">Mot de passe actuel</span>
+					<span class="label-text">{m.settings_current_password_label()}</span>
 				</label>
 				<input
 					id="current-password"
@@ -294,21 +289,21 @@ async function handleLogout() {
 
 			<fieldset>
 				<label class="label" for="new-password">
-					<span class="label-text">Nouveau mot de passe</span>
+					<span class="label-text">{m.settings_new_password_label()}</span>
 				</label>
 				<input
 					id="new-password"
 					type="password"
 					class="input input-bordered w-full"
 					bind:value={newPassword}
-					placeholder="Au moins 8 caractères"
+					placeholder={m.settings_new_password_placeholder()}
 					disabled={isSaving}
 				/>
 			</fieldset>
 
 			<fieldset>
 				<label class="label" for="confirm-password">
-					<span class="label-text">Confirmer le mot de passe</span>
+					<span class="label-text">{m.settings_confirm_password_label()}</span>
 				</label>
 				<input
 					id="confirm-password"
@@ -321,7 +316,9 @@ async function handleLogout() {
 			</fieldset>
 
 			<div class="modal-action">
-				<button class="btn btn-ghost" onclick={() => (showPasswordModal = false)}> Annuler </button>
+				<button class="btn btn-ghost" onclick={() => (showPasswordModal = false)}>
+					{m.settings_cancel_button()}
+				</button>
 				<button
 					class="btn btn-primary"
 					onclick={handlePasswordChange}
@@ -330,7 +327,7 @@ async function handleLogout() {
 					{#if isSaving}
 						<span class="loading loading-spinner loading-xs"></span>
 					{:else}
-						Changer
+						{m.settings_change_button()}
 					{/if}
 				</button>
 			</div>

@@ -43,6 +43,19 @@ migration) — seule l'étiquette affichée change.
 | `maybe` | Peut-être | **Maybe** |
 | `absent` | Absent | **Absent** |
 
+## Interface (UI)
+
+| Terme FR (source) | Traduction EN | Notes |
+| --- | --- | --- |
+| Profil | **Profile** | Onglet et section de la page Settings. |
+| Sécurité | **Security** | Onglet de la page Settings. |
+| Mot de passe | **Password** | Titre de section, modale, labels. |
+| Session | **Session** | Titre de section pour la déconnexion. |
+| Enregistrer | **Save** | Bouton principal de sauvegarde. |
+| Modifier | **Edit** | Bouton d'édition inline. |
+| Annuler | **Cancel** | Bouton d'annulation dans les modales. |
+| Déconnexion | **Log out** | Bouton de déconnexion (pas "Logout" en un mot). |
+
 ## Conventions de clés
 
 - Format : `<feature>_<sujet>[_<détail>]`, snake_case, préfixe `common_` pour
