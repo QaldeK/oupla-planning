@@ -3,6 +3,8 @@ import { Lock, LogOut, Mail, ShieldCheck, User } from "@lucide/svelte";
 import { toast } from "svelte-sonner";
 import { goto } from "$app/navigation";
 import Modal from "$lib/components/ui/Modal.svelte";
+import * as m from "$lib/paraglide/messages";
+import { getLocale } from "$lib/paraglide/runtime";
 import { pb } from "$lib/pocketbase/pb";
 import { userStore } from "$lib/stores/userStore.svelte";
 
@@ -10,6 +12,9 @@ import { userStore } from "$lib/stores/userStore.svelte";
 if (!userStore.isLoggedIn) {
 	goto("/");
 }
+
+// Locale actuelle pour le radio group
+let currentLocale = $state<"fr" | "en">(getLocale());
 
 // État du formulaire
 let name = $state(userStore.pbUser?.name || "");
@@ -132,6 +137,37 @@ async function handleLogout() {
 	</div>
 
 	{#if activeTab === 'profile'}
+		<!-- Section Langue -->
+		<div class="card card-compact bg-base-200 shadow-xl mb-6">
+			<div class="card-body">
+				<h3 class="card-title text-base">{m.settings_language_title()}</h3>
+				<p class="mb-2 text-sm opacity-70">{m.settings_language_description()}</p>
+
+				<div class="flex gap-4">
+					<label class="flex items-center gap-2 cursor-pointer">
+						<input
+							type="radio"
+							name="locale"
+							class="radio radio-sm"
+							checked={currentLocale === 'fr'}
+							onchange={() => userStore.setAppLocale('fr')}
+						/>
+						<span>{m.settings_language_french()}</span>
+					</label>
+					<label class="flex items-center gap-2 cursor-pointer">
+						<input
+							type="radio"
+							name="locale"
+							class="radio radio-sm"
+							checked={currentLocale === 'en'}
+							onchange={() => userStore.setAppLocale('en')}
+						/>
+						<span>{m.settings_language_english()}</span>
+					</label>
+				</div>
+			</div>
+		</div>
+
 		<div class="card card-compact bg-base-200 shadow-xl">
 			<div class="card-body">
 				<h2 class="card-title mb-4">Profil</h2>

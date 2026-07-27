@@ -1,3 +1,7 @@
 {
-	"common_install_app": "Installer l'app"
+	"common_install_app": "Installer l'app",
+	"settings_language_title": "Langue",
+	"settings_language_description": "Choisissez la langue de l'interface.",
+	"settings_language_french": "Français",
+	"settings_language_english": "English"
 }

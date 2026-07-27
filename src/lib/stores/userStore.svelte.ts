@@ -1,5 +1,6 @@
 import { goto } from "$app/navigation";
 import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { setLocale } from "$lib/paraglide/runtime";
 import { db, ensureDbReady } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
 import { commentStateService } from "$lib/services/commentStateService";
@@ -134,6 +135,16 @@ class UserStore {
 	async setTheme(theme: ThemeType) {
 		this.appPreferences.theme = theme;
 		await this.saveAppPreferences();
+	}
+
+	/**
+	 * Change la locale de l'application via le cookie Paraglide.
+	 * Le cookie est écrit et la page est rechargée (comportement par défaut de setLocale).
+	 * La seam reste stable — son implémentation sera enrichie au ticket 05
+	 * (sauvegarde côté serveur pour les users authentifiés).
+	 */
+	async setAppLocale(locale: "fr" | "en"): Promise<void> {
+		await setLocale(locale);
 	}
 
 	private async saveAppPreferences() {
