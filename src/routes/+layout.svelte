@@ -20,6 +20,8 @@ import AccountBenefitsSidebar from "$lib/components/homepage/AccountBenefitsSide
 import IdentifyModal from "$lib/components/IdentifyModal.svelte";
 import MobileHeader from "$lib/components/MobileHeader.svelte";
 import NetworkIndicator from "$lib/components/NetworkIndicator.svelte";
+import { m } from "$lib/paraglide/messages.js";
+import { getLocale } from "$lib/paraglide/runtime.js";
 import { pb } from "$lib/pocketbase/pb";
 import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
 import { drawerStore } from "$lib/stores/drawerStore.svelte";
@@ -132,6 +134,15 @@ $effect(() => {
 	document.documentElement.setAttribute("data-theme", userStore.appPreferences.theme);
 });
 
+// `getLocale()` n'est pas réactif au sens Svelte 5 (la stratégie cookie recharge
+// le document au changement de locale), donc cet $effect se contente de pousser
+// la locale résolue vers <html lang> au montage — suffisant pour les lecteurs
+// d'écran et la césure navigateur. `app.html` garde `lang="fr"` en valeur
+// statique initiale (pas de SSR — ADR 0004).
+$effect(() => {
+	document.documentElement.lang = getLocale();
+});
+
 function toggleTheme() {
 	const newTheme = userStore.appPreferences.theme === "my" ? "nord-dark" : "my";
 	userStore.setTheme(newTheme);
@@ -166,7 +177,7 @@ function toggleTheme() {
 						aria-label="Installer l'application"
 					>
 						<Download size={16} />
-						<span>Installer l'app</span>
+						<span>{m.common_install_app()}</span>
 					</button>
 				{/if}
 

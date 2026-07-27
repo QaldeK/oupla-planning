@@ -22,3 +22,19 @@ import { IDBKeyRange } from "fake-indexeddb";
 import "@testing-library/jest-dom/vitest";
 
 globalThis.IDBKeyRange = IDBKeyRange;
+
+// Paraglide résout la locale via sa stratégie `preferredLanguage` en lisant
+// `navigator.languages`. happy-dom expose une valeur non contrôlée par défaut
+// (typiquement ["en-US"]), ce qui ferait basculer le rendu en EN et casser
+// toute assertion écrite contre le français. On force FR pour que chaque test
+// hérite du comportement de la base locale, indépendamment de l'environnement.
+Object.defineProperty(globalThis.navigator, "language", {
+	value: "fr",
+	configurable: true,
+	writable: true
+});
+Object.defineProperty(globalThis.navigator, "languages", {
+	value: ["fr"],
+	configurable: true,
+	writable: true
+});

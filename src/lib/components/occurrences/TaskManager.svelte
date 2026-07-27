@@ -1,149 +1,142 @@
 <script lang="ts">
-  import { fade, slide } from "svelte/transition";
-  import {
-    ClipboardCheck,
-    CircleAlert,
-    Pencil,
-    Plus,
-    RefreshCcw,
-    Trash2,
-  } from "@lucide/svelte";
-  import type { Task, TaskType } from "$lib/types/planning.types";
+import { CircleAlert, ClipboardCheck, Pencil, Plus, RefreshCcw, Trash2 } from "@lucide/svelte";
+import { fade, slide } from "svelte/transition";
+import type { Task, TaskType } from "$lib/types/planning.types";
 
-  interface Props {
-    tasks: Task[];
-    masterTasks: Task[];
-    isTasksModified: boolean;
-    disabled: boolean;
-    children?: import("svelte").Snippet<[task: Task]>;
-  }
+interface Props {
+	tasks: Task[];
+	masterTasks: Task[];
+	isTasksModified: boolean;
+	disabled: boolean;
+	children?: import("svelte").Snippet<[task: Task]>;
+}
 
-  let {
-    tasks = $bindable(),
-    masterTasks = [],
-    isTasksModified = $bindable(false),
-    disabled = false,
-    children,
-  }: Props = $props();
+let {
+	tasks = $bindable(),
+	masterTasks = [],
+	isTasksModified = $bindable(false),
+	disabled = false,
+	children
+}: Props = $props();
 
-  // Internal edit state
-  let newTaskName = $state("");
-  let newTaskDescription = $state("");
-  let newTaskVolunteers = $state(1);
-  let newTaskType = $state<TaskType>("onEvent");
-  let editingTaskId = $state<string | null>(null);
-  // L'input reçoit le focus dès l'entrée en mode édition pour fluidifier
-  // le flux de saisie clavier (pas de clic supplémentaire nécessaire).
-  function focusOnEdit(node: HTMLInputElement) {
-    $effect(() => {
-      if (editingTaskId) {
-        node.focus();
-        node.select();
-      }
-    });
-    return {};
-  }
+// Internal edit state
+let newTaskName = $state("");
+let newTaskDescription = $state("");
+let newTaskVolunteers = $state(1);
+let newTaskType = $state<TaskType>("onEvent");
+let editingTaskId = $state<string | null>(null);
+// L'input reçoit le focus dès l'entrée en mode édition pour fluidifier
+// le flux de saisie clavier (pas de clic supplémentaire nécessaire).
+function focusOnEdit(node: HTMLInputElement) {
+	$effect(() => {
+		if (editingTaskId) {
+			node.focus();
+			node.select();
+		}
+	});
+	return {};
+}
 
-  // Detect if the edit form has unsaved changes
-  const taskHasChanges = $derived.by(() => {
-    if (!editingTaskId) return false;
-    const task = tasks.find((t) => t.id === editingTaskId);
-    if (!task) return false;
-    return (
-      newTaskName.trim() !== task.name ||
-      (newTaskDescription.trim() || "") !== (task.description || "") ||
-      newTaskVolunteers !== task.requiredVolunteers ||
-      newTaskType !== task.type
-    );
-  });
+// Detect if the edit form has unsaved changes
+const taskHasChanges = $derived.by(() => {
+	if (!editingTaskId) return false;
+	const task = tasks.find((t) => t.id === editingTaskId);
+	if (!task) return false;
+	return (
+		newTaskName.trim() !== task.name ||
+		(newTaskDescription.trim() || "") !== (task.description || "") ||
+		newTaskVolunteers !== task.requiredVolunteers ||
+		newTaskType !== task.type
+	);
+});
 
-  function ensureSpecificTasks() {
-    if (!isTasksModified) {
-      isTasksModified = true;
-      tasks = [...masterTasks];
-    }
-  }
+function ensureSpecificTasks() {
+	if (!isTasksModified) {
+		isTasksModified = true;
+		tasks = [...masterTasks];
+	}
+}
 
-  function resetToMasterTasks() {
-    isTasksModified = false;
-    tasks = [...masterTasks];
-    newTaskName = "";
-    newTaskDescription = "";
-    editingTaskId = null;
-  }
+function resetToMasterTasks() {
+	isTasksModified = false;
+	tasks = [...masterTasks];
+	newTaskName = "";
+	newTaskDescription = "";
+	editingTaskId = null;
+}
 
-  function addTask() {
-    if (!newTaskName.trim()) return;
-    ensureSpecificTasks();
+function addTask() {
+	if (!newTaskName.trim()) return;
+	ensureSpecificTasks();
 
-    if (editingTaskId) {
-      tasks = tasks.map((t) =>
-        t.id === editingTaskId
-          ? {
-              ...t,
-              name: newTaskName.trim(),
-              description: newTaskDescription.trim() || undefined,
-              requiredVolunteers: newTaskVolunteers,
-              type: newTaskType,
-            }
-          : t,
-      );
-      editingTaskId = null;
-    } else {
-      tasks = [
-        ...tasks,
-        {
-          id: crypto.randomUUID(),
-          name: newTaskName.trim(),
-          description: newTaskDescription.trim() || undefined,
-          requiredVolunteers: newTaskVolunteers,
-          type: newTaskType,
-        },
-      ];
-    }
-    newTaskName = "";
-    newTaskDescription = "";
-    newTaskVolunteers = 1;
-    newTaskType = "onEvent";
-  }
+	if (editingTaskId) {
+		tasks = tasks.map((t) =>
+			t.id === editingTaskId
+				? {
+						...t,
+						name: newTaskName.trim(),
+						description: newTaskDescription.trim() || undefined,
+						requiredVolunteers: newTaskVolunteers,
+						type: newTaskType
+					}
+				: t
+		);
+		editingTaskId = null;
+	} else {
+		tasks = [
+			...tasks,
+			{
+				id: crypto.randomUUID(),
+				name: newTaskName.trim(),
+				description: newTaskDescription.trim() || undefined,
+				requiredVolunteers: newTaskVolunteers,
+				type: newTaskType
+			}
+		];
+	}
+	newTaskName = "";
+	newTaskDescription = "";
+	newTaskVolunteers = 1;
+	newTaskType = "onEvent";
+}
 
-  function removeTask(id: string) {
-    ensureSpecificTasks();
-    tasks = tasks.filter((t) => t.id !== id);
-  }
+function removeTask(id: string) {
+	ensureSpecificTasks();
+	tasks = tasks.filter((t) => t.id !== id);
+}
 
-  function editTask(task: Task) {
-    newTaskName = task.name;
-    newTaskDescription = task.description || "";
-    newTaskVolunteers = task.requiredVolunteers;
-    newTaskType = task.type;
-    editingTaskId = task.id;
-  }
+function editTask(task: Task) {
+	newTaskName = task.name;
+	newTaskDescription = task.description || "";
+	newTaskVolunteers = task.requiredVolunteers;
+	newTaskType = task.type;
+	editingTaskId = task.id;
+}
 
-  function cancelEdit() {
-    editingTaskId = null;
-    newTaskName = "";
-    newTaskDescription = "";
-    newTaskVolunteers = 1;
-  }
+function cancelEdit() {
+	editingTaskId = null;
+	newTaskName = "";
+	newTaskDescription = "";
+	newTaskVolunteers = 1;
+}
 
-  function cancelTaskInput() {
-    newTaskName = "";
-    newTaskDescription = "";
-    newTaskVolunteers = 1;
-    newTaskType = "onEvent";
-  }
+function cancelTaskInput() {
+	newTaskName = "";
+	newTaskDescription = "";
+	newTaskVolunteers = 1;
+	newTaskType = "onEvent";
+}
 
-  function getTypeLabel(type: TaskType): string {
-    switch (type) {
-      case "beforeEvent":
-        return "Avant";
-      case "onEvent":
-        return "Pendant";
-      case "afterEvent":
-        return "Après";
-    }
-  }
+function getTypeLabel(type: TaskType): string {
+	switch (type) {
+		case "beforeEvent":
+			return "Avant";
+		case "onEvent":
+			return "Pendant";
+		case "afterEvent":
+			return "Après";
+	}
+}
 </script>
 
 <div class="space-y-4">

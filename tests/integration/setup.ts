@@ -51,3 +51,18 @@ vi.mock("$app/environment", () => ({
 	dev: false,
 	building: false
 }));
+
+// Paraglide résout la locale via `preferredLanguage` en lisant `navigator.languages`.
+// happy-dom expose une valeur non contrôlée par défaut (souvent ["en-US"]), ce qui
+// ferait basculer le rendu en EN de façon non déterministe. On force FR pour aligner
+// tous les tests sur la base locale française.
+Object.defineProperty(globalThis.navigator, "language", {
+	value: "fr",
+	configurable: true,
+	writable: true
+});
+Object.defineProperty(globalThis.navigator, "languages", {
+	value: ["fr"],
+	configurable: true,
+	writable: true
+});

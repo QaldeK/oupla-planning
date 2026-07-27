@@ -4,7 +4,6 @@ import {
 	addMonths,
 	eachDayOfInterval,
 	endOfMonth,
-	endOfWeek,
 	format,
 	isAfter,
 	isBefore,
@@ -13,11 +12,10 @@ import {
 	isToday,
 	parse,
 	startOfMonth,
-	startOfWeek,
 	subMonths
 } from "date-fns";
-import { fr } from "date-fns/locale";
 import type { ClassValue } from "svelte/elements";
+import { endOfWeek, formatDate, startOfWeek } from "$lib/utils/date";
 
 /**
  * MultiDatePicker - Composant de sélection multiple de dates
@@ -56,21 +54,21 @@ const maxDateParsed = $derived(maxDate ? parse(maxDate, "yyyy-MM-dd", new Date()
 
 // Jours de la semaine (lun-dim)
 const daysOfWeek = $derived(() => {
-	const start = startOfWeek(new Date(), { locale: fr, weekStartsOn: 1 });
+	const start = startOfWeek(new Date());
 	return eachDayOfInterval({ start, end: addMonths(start, 0).setDate(start.getDate() + 6) }).map(
-		(day) => format(day, "EEEEEE", { locale: fr })
+		(day) => formatDate(day, "EEEEEE")
 	); // Format court (Lu, Ma, etc.)
 });
 
 // Titre du mois
-const monthYear = $derived(format(currentMonth, "MMMM yyyy", { locale: fr }));
+const monthYear = $derived(formatDate(currentMonth, "MMMM yyyy"));
 
 // Génération des jours du calendrier
 const calendarDays = $derived(() => {
 	const monthStart = startOfMonth(currentMonth);
 	const monthEnd = endOfMonth(currentMonth);
-	const calendarStart = startOfWeek(monthStart, { locale: fr, weekStartsOn: 1 });
-	const calendarEnd = endOfWeek(monthEnd, { locale: fr, weekStartsOn: 1 });
+	const calendarStart = startOfWeek(monthStart);
+	const calendarEnd = endOfWeek(monthEnd);
 
 	return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 });
@@ -191,7 +189,7 @@ function goToToday() {
 					"
 					onclick={() => selectDate(date)}
 					{disabled}
-					aria-label={format(date, 'PPP', { locale: fr })}
+					aria-label={formatDate(date, 'PPP')}
 					aria-pressed={selected}
 				>
 					{format(date, 'd')}

@@ -6,6 +6,7 @@ import BenefitsBanner from "$lib/components/homepage/BenefitsBanner.svelte";
 import FeaturesGrid from "$lib/components/homepage/FeaturesGrid.svelte";
 import HowItWorks from "$lib/components/homepage/HowItWorks.svelte";
 import PwaInstallCard from "$lib/components/PwaInstallCard.svelte";
+import { getLocale } from "$lib/paraglide/runtime.js";
 import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { pwaStore } from "$lib/stores/pwaStore.svelte";
@@ -100,7 +101,7 @@ const jsonLdScript =
 								<div class="flex-1 text-left">
 									<h3 class="card-title">{master.title}</h3>
 									<p class="text-base-content/60 text-sm">
-										Dernière modif : {new Date(master.updated).toLocaleDateString('fr-FR')}
+										Dernière modif : {new Date(master.updated).toLocaleDateString(getLocale())}
 									</p>
 								</div>
 								<div class="flex items-center gap-2">

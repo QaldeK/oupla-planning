@@ -32,7 +32,7 @@ function getButtonInactiveClass(responseType: ResponseType): string {
 				onclick={() => onSelect(responseType)}
 				disabled={isSubmitting}
 			>
-				{RESPONSE_TYPE_CONFIG[responseType].label}
+				{RESPONSE_TYPE_CONFIG[responseType].label()}
 			</button>
 		{/if}
 	{/each}

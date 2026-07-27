@@ -30,7 +30,7 @@ import { toast } from "svelte-sonner";
 
 /** Récupère la checkbox d'un type de réponse par sa clé ResponseType. */
 function getResponseTypeCheckbox(type: ResponseType) {
-	const label = RESPONSE_TYPE_LABELS[type];
+	const label = RESPONSE_TYPE_LABELS[type]();
 	return screen.getByRole("checkbox", { name: new RegExp(label, "i") }) as HTMLInputElement;
 }
 

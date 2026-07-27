@@ -486,7 +486,7 @@ function handleSuggestionOtherName() {
 										<span class="opacity-80">
 											{formatDateShort(item.date)} · {item.startTime} |
 										</span>
-										{RESPONSE_TYPE_LABELS[item.response]}
+										{RESPONSE_TYPE_LABELS[item.response]()}
 									</span>
 								</div>
 							{/each}
@@ -572,7 +572,7 @@ function handleSuggestionOtherName() {
 									<span class="opacity-80">
 										{formatDateShort(item.date)} · {item.startTime} |
 									</span>
-									{RESPONSE_TYPE_LABELS[item.response]}
+									{RESPONSE_TYPE_LABELS[item.response]()}
 								</span>
 							{/each}
 							{#if suggestionPreview.remaining > 0}
@@ -674,7 +674,7 @@ function handleSuggestionOtherName() {
 													<span class="opacity-80">
 														{formatDateShort(item.date)} · {item.startTime} |
 													</span>
-													{RESPONSE_TYPE_LABELS[item.response]}
+													{RESPONSE_TYPE_LABELS[item.response]()}
 												</span>
 											{/each}
 											{#if conflictPreview.totalCount > 3}
@@ -770,7 +770,7 @@ function handleSuggestionOtherName() {
 															<span class="opacity-80">
 																{formatDateShort(item.date)} · {item.startTime} |
 															</span>
-															{RESPONSE_TYPE_LABELS[item.response]}
+															{RESPONSE_TYPE_LABELS[item.response]()}
 														</span>
 													</div>
 												{/each}

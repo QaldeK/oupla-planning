@@ -10,8 +10,9 @@ import {
 	parse,
 	startOfMonth
 } from "date-fns";
-import { fr } from "date-fns/locale";
+import { getLocale } from "$lib/paraglide/runtime.js";
 import type { RecurrenceConfig, RecurrenceType } from "$lib/types/planning.types";
+import { formatDate } from "$lib/utils/date";
 
 /**
  * Vrai si `d` tombe le dernier jour de son mois. Comparaison par `getDate()`
@@ -102,7 +103,7 @@ function getOccurrenceLabel(occurrence: number): string {
 export function getFormattedLabel(occurrence: number, date: string) {
 	if (!occurrence || !date) return "";
 	try {
-		return `${getOccurrenceLabel(occurrence)} ${format(date, "EEEE", { locale: fr })}`;
+		return `${getOccurrenceLabel(occurrence)} ${formatDate(date, "EEEE")}`;
 	} catch {
 		return "";
 	}
@@ -135,8 +136,8 @@ export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
 				? parse(recurrence.firstDate, "yyyy-MM-dd", new Date())
 				: new Date(recurrence.firstDate);
 
-		const weekdayName = format(firstDate, "EEEE", { locale: fr });
-		const dateNumber = format(firstDate, "d", { locale: fr });
+		const weekdayName = formatDate(firstDate, "EEEE");
+		const dateNumber = formatDate(firstDate, "d");
 
 		switch (recurrence.type) {
 			case "DAILY":
@@ -165,7 +166,7 @@ export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
 				}
 
 				const ordinals = occurrences.map((occurrence) => getOccurrenceLabel(occurrence)).sort();
-				const formatter = new Intl.ListFormat("fr", { style: "long", type: "conjunction" });
+				const formatter = new Intl.ListFormat(getLocale(), { style: "long", type: "conjunction" });
 				return `Les ${formatter.format(ordinals)} ${weekdayName}s du mois`;
 			}
 

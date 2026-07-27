@@ -7,7 +7,7 @@ export const AVAILABLE_RESPONSE_TYPES: ResponseType[] = ["present", "if_needed",
 // Configuration complète pour chaque type de réponse
 export const RESPONSE_TYPE_CONFIG = {
 	present: {
-		label: "Présent",
+		label: () => "Présent",
 		icon: Check,
 		badgeClass: "badge-success",
 		bgClass: "bg-success/20",
@@ -17,7 +17,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		borderClass: "border border-success"
 	},
 	if_needed: {
-		label: "Si besoin",
+		label: () => "Si besoin",
 		icon: Info,
 		badgeClass: "badge-info",
 		bgClass: "bg-info/20",
@@ -27,7 +27,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		borderClass: "border border-info"
 	},
 	maybe: {
-		label: "Peut-être",
+		label: () => "Peut-être",
 		icon: HelpCircle,
 		badgeClass: "badge-warning",
 		bgClass: "bg-warning/20",
@@ -37,7 +37,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		borderClass: "border border-warning"
 	},
 	absent: {
-		label: "Absent",
+		label: () => "Absent",
 		icon: X,
 		badgeClass: "badge-error",
 		bgClass: "bg-error/20",
@@ -49,7 +49,7 @@ export const RESPONSE_TYPE_CONFIG = {
 } as const satisfies Record<
 	ResponseType,
 	{
-		label: string;
+		label: () => string;
 		icon: typeof Check;
 		badgeClass: string;
 		bgClass: string;
@@ -60,10 +60,13 @@ export const RESPONSE_TYPE_CONFIG = {
 	}
 >;
 
-// Helper pour accéder au label uniquement
-export const RESPONSE_TYPE_LABELS: Record<ResponseType, string> = {
-	present: "Présent",
-	if_needed: "Si besoin",
-	maybe: "Peut-être",
-	absent: "Absent"
+// Accès au label seul. Dérivé de RESPONSE_TYPE_CONFIG pour éviter toute
+// duplication des chaînes : la source de vérité du label reste la config.
+// Le getter est conservé tel quel pour que le label se résolve à l'appel
+// (rendu), prêt pour Paraglide qui y substituera ses fonctions de message.
+export const RESPONSE_TYPE_LABELS: Record<ResponseType, () => string> = {
+	present: RESPONSE_TYPE_CONFIG.present.label,
+	if_needed: RESPONSE_TYPE_CONFIG.if_needed.label,
+	maybe: RESPONSE_TYPE_CONFIG.maybe.label,
+	absent: RESPONSE_TYPE_CONFIG.absent.label
 };

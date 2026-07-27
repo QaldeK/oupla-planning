@@ -571,7 +571,7 @@ const responseChangeModal = $derived.by(() => {
                             onchange={() =>
                               handleResponseChange(participant.id, type)}
                           />
-                          {config.label}
+                          {config.label()}
                         </label>
                       {/each}
                     </div>

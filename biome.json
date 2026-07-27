@@ -8,6 +8,7 @@
 			"!pocketbase/pb_migrations",
 			"!pocketbase/pb_data",
 			"!src/lib/types/pocketbase-types.ts",
+			"!src/lib/paraglide",
 			"!static",
 			"!.svelte-kit",
 			"!build",

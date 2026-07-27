@@ -12,7 +12,6 @@ import {
 	Trash2
 } from "@lucide/svelte";
 import { addMonths, addWeeks, format, parse } from "date-fns";
-import { fr } from "date-fns/locale";
 import { onMount, untrack } from "svelte";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { slide } from "svelte/transition";
@@ -31,6 +30,7 @@ import type {
 	TaskType,
 	TimeSlot
 } from "$lib/types/planning.types";
+import { formatDate } from "$lib/utils/date";
 import { computeMaxDateForLimit } from "$lib/utils/dateSlotLimit";
 import { computeDateSlotSelection, seedFromOccurrences } from "$lib/utils/dateSlotSelection";
 import { classifyError } from "$lib/utils/errorHandler";
@@ -265,9 +265,7 @@ const maxAdjustDate = $derived(
 		: null
 );
 const maxAdjustDateLabel = $derived(
-	maxAdjustDate
-		? format(parse(maxAdjustDate, "yyyy-MM-dd", new Date()), "d MMM yyyy", { locale: fr })
-		: ""
+	maxAdjustDate ? formatDate(parse(maxAdjustDate, "yyyy-MM-dd", new Date()), "d MMM yyyy") : ""
 );
 
 // === Popover par badge (multi-slot uniquement) ===
@@ -1293,9 +1291,7 @@ const recurrenceLabel = $derived.by(() => {
 
 				{#if showMonthlyByDateMode}
 					{@const dayNumber = parse(firstDate, 'yyyy-MM-dd', new Date()).getDate()}
-					{@const monthName = format(parse(firstDate, 'yyyy-MM-dd', new Date()), 'MMMM', {
-						locale: fr
-					})}
+					{@const monthName = formatDate(parse(firstDate, 'yyyy-MM-dd', new Date()), 'MMMM')}
 					<div class="alert alert-info alert-soft">
 						<fieldset class="fieldset flex flex-wrap gap-3">
 							<legend class="text-sm font-medium">
@@ -1349,7 +1345,7 @@ const recurrenceLabel = $derived.by(() => {
 						{#if willBeDeleted}
 							<Trash2 class="mr-1" />
 						{/if}
-						{format(parse(ds.date, 'yyyy-MM-dd', new Date()), 'EEE d MMM', { locale: fr })}
+						{formatDate(parse(ds.date, 'yyyy-MM-dd', new Date()), 'EEE d MMM')}
 						{#if showSlot}
 							<span class="opacity-80"
 								>· {displayTimes(ds).startTime}-{displayTimes(ds).endTime}</span
@@ -1363,9 +1359,7 @@ const recurrenceLabel = $derived.by(() => {
 							style="top:{popoverPos.top}px; left:{popoverPos.left}px;"
 						>
 							<div class="text-base-content/70 mb-1 text-xs">
-								{format(parse(ds.date, 'yyyy-MM-dd', new Date()), 'EEE d MMM', {
-									locale: fr
-								})}
+							{formatDate(parse(ds.date, 'yyyy-MM-dd', new Date()), 'EEE d MMM')}
 							</div>
 							{#if master && isSelected}
 								<div class="mb-2">
@@ -1738,7 +1732,7 @@ const recurrenceLabel = $derived.by(() => {
 										}}
 									/>
 									<span class="label-text text-sm font-medium">
-										{RESPONSE_TYPE_LABELS[responseType]}
+										{RESPONSE_TYPE_LABELS[responseType]()}
 									</span>
 								</label>
 							{/each}

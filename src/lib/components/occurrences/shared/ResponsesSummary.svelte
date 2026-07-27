@@ -75,7 +75,7 @@ const sizeResponse = $derived(
 			class="border-neutral/10 flex w-full items-center gap-1.5 border-b-2 px-4 py-1.5 text-sm font-medium opacity-80 {config.bgClass} justify-start"
 		>
 			<Icon size={16} />
-			<span>{config.label}</span>
+			<span>{config.label()}</span>
 			{#if currentUserResponseType !== type}
 				<div class="ms-auto flex items-center">
 					<div
@@ -124,7 +124,7 @@ const sizeResponse = $derived(
 				<Icon size={16} />
 				<span
 					class={typeResponses.some((r) => r.participantId === currentUserId) ? 'font-bold' : ''}
-					>{config.label}</span
+>{config.label()}</span
 				>
 			</div>
 			{#if typeResponses.length > 0}
@@ -187,10 +187,10 @@ const sizeResponse = $derived(
 						]}
 						onclick={() => !isPastDate && onResponseSelect(type)}
 						disabled={disabled || isPastDate}
-						title={config.label}
+						title={config.label()}
 					>
 						<span class="response-icon"><Icon size={14} /></span>
-						<span class="truncate">{config.label}</span>
+						<span class="truncate">{config.label()}</span>
 					</button>
 				{/each}
 			</div>

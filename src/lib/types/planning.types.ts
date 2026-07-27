@@ -236,7 +236,7 @@ export interface CommentState {
 }
 
 export interface ResponseTypeConfig {
-	label: string;
+	label: () => string;
 	icon: LucideIcon;
 	badgeClass: string;
 	bgClass: string;

@@ -1,5 +1,20 @@
-import { format, isValid, parse } from "date-fns";
-import { fr } from "date-fns/locale";
+import {
+	endOfWeek as dateFnsEndOfWeek,
+	startOfWeek as dateFnsStartOfWeek,
+	format,
+	isValid,
+	parse
+} from "date-fns";
+import { enUS, fr } from "date-fns/locale";
+import { getLocale } from "$lib/paraglide/runtime.js";
+
+// Map paraglide locale → locale date-fns. Point unique de résolution : ajouter
+// une langue ici suffit, aucun consommateur du hub n'a à changer.
+const DATE_FNS_LOCALES = { fr, en: enUS } as const;
+
+function activeDateFnsLocale() {
+	return DATE_FNS_LOCALES[getLocale()] ?? fr;
+}
 
 /**
  * Formate une date au format français
@@ -11,7 +26,7 @@ export function formatDate(date: string | Date, formatStr: string = "d MMMM yyyy
 	try {
 		const dateObj = typeof date === "string" ? new Date(date) : date;
 		if (!isValid(dateObj)) return "";
-		return format(dateObj, formatStr, { locale: fr });
+		return format(dateObj, formatStr, { locale: activeDateFnsLocale() });
 	} catch {
 		return "";
 	}
@@ -89,4 +104,20 @@ export function isToday(date: string | Date): boolean {
 	} catch {
 		return false;
 	}
+}
+
+/**
+ * Début de semaine selon la locale active (lundi pour `fr`).
+ * La locale porte le `weekStartsOn` par défaut : ne pas le durcir ici, afin que
+ * le bornage de semaine suive la locale quand elle deviendra dynamique.
+ */
+export function startOfWeek(date: Date): Date {
+	return dateFnsStartOfWeek(date, { locale: activeDateFnsLocale() });
+}
+
+/**
+ * Fin de semaine selon la locale active (dimanche pour `fr`).
+ */
+export function endOfWeek(date: Date): Date {
+	return dateFnsEndOfWeek(date, { locale: activeDateFnsLocale() });
 }

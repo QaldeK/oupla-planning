@@ -26,7 +26,7 @@ const responseConfig = $derived(
 	response
 		? RESPONSE_TYPE_CONFIG[response]
 		: {
-				label: "Pas de réponse",
+				label: () => "Pas de réponse",
 				badgeClass: "badge-ghost",
 				icon: Minus,
 				btnClass: "btn-ghost"
@@ -37,5 +37,5 @@ const Icon = $derived(responseConfig.icon);
 
 <div class="badge {responseConfig.badgeClass} {sizeClasses[size]} gap-1">
 	<Icon size={iconSizes[size]} />
-	<span>{responseConfig.label}</span>
+	<span>{responseConfig.label()}</span>
 </div>
