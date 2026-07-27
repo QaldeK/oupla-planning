@@ -1,4 +1,5 @@
 <script lang="ts">
+import * as m from "$lib/paraglide/messages.js";
 import { MonitorSmartphone, ShieldCheck } from "@lucide/svelte";
 import Modal from "$lib/components/ui/Modal.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
@@ -41,7 +42,7 @@ function handleSuccess() {
 <Modal
 	{open}
 	{onClose}
-	title={currentMode === 'register' ? 'Créer un compte' : 'Se connecter'}
+	title={currentMode === 'register' ? m.auth_register_title() : m.auth_login_title()}
 	size="sm"
 >
 	<div class="space-y-6">
@@ -49,10 +50,10 @@ function handleSuccess() {
 			<div class="alert alert-success alert-soft text-sm">
 				<div class="flex items-start gap-3">
 					<ShieldCheck size={20} class="text-success mt-0.5 shrink-0" />
-					<p class="font-medium">Ne perdez pas vos plannings</p>
+					<p class="font-medium">{m.auth_keep_your_plannings()}</p>
 					<div class="flex items-center gap-1.5">
 						<MonitorSmartphone size={12} />
-						<span>Retrouvez vos plannings depuis votre PC, tablette ou téléphone</span>
+						<span>{m.auth_sync_across_devices()}</span>
 					</div>
 				</div>
 			</div>
@@ -60,33 +61,33 @@ function handleSuccess() {
 
 		<AuthForm mode={currentMode} onSuccess={handleSuccess} compact={false} name={defaultName} />
 
-		<div class="divider text-[10px] tracking-widest uppercase opacity-50">Ou</div>
+		<div class="divider text-[10px] tracking-widest uppercase opacity-50">{m.auth_or_divider()}</div>
 
 		<div class="text-center text-sm">
 			{#if currentMode === 'register'}
-				Vous avez déjà un compte ?
+				{m.auth_already_have_account()}
 				<button
 					type="button"
 					class="link link-primary font-medium"
 					onclick={() => (currentMode = 'login')}
 				>
-					Connectez-vous
+					{m.auth_login_link()}
 				</button>
 			{:else}
-				Pas encore de compte ?
+				{m.auth_no_account_yet()}
 				<button
 					type="button"
 					class="link link-primary font-medium"
 					onclick={() => (currentMode = 'register')}
 				>
-					Inscrivez-vous
+					{m.auth_register_link()}
 				</button>
 			{/if}
 		</div>
 
 		{#if welcomeMode}
 			<button type="button" class="btn btn-ghost btn-sm btn-block" onclick={onClose}>
-				Plus tard
+				{m.common_cancel()}
 			</button>
 		{/if}
 	</div>

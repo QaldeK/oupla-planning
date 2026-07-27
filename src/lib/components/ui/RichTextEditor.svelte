@@ -22,6 +22,7 @@ import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
 import { onDestroy, onMount } from "svelte";
 import { toast } from "svelte-sonner";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	/** HTML contenu. Bindable pour usage `bind:value`. */
@@ -127,7 +128,7 @@ function openLinkPopover() {
 	if (!e) return;
 	const { from, to } = e.state.selection;
 	if (from === to) {
-		toast.warning("Sélectionnez le texte à transformer en lien");
+		toast.warning(m.editor_link_toast());
 		return;
 	}
 	const attrs = e.getAttributes("link");
@@ -169,13 +170,13 @@ const toolbar: ToolbarButton[] = $derived.by(() => {
 	return [
 		{
 			icon: BoldIcon,
-			label: "Gras",
+			label: m.editor_bold_label(),
 			active: e.isActive("bold"),
 			run: () => e.chain().focus().toggleBold().run()
 		},
 		{
 			icon: ItalicIcon,
-			label: "Italique",
+			label: m.editor_italic_label(),
 			active: e.isActive("italic"),
 			run: () => e.chain().focus().toggleItalic().run()
 		},
@@ -205,7 +206,7 @@ const toolbar: ToolbarButton[] = $derived.by(() => {
 		},
 		{
 			icon: LinkIcon,
-			label: "Lien",
+			label: m.editor_link_label(),
 			active: e.isActive("link"),
 			run: openLinkPopover
 		}

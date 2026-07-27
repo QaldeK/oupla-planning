@@ -1,6 +1,7 @@
 <script lang="ts">
 import { AlertCircle, AlertTriangle, CheckCircle2, Info } from "@lucide/svelte";
 import Modal from "./Modal.svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	open: boolean;
@@ -21,8 +22,8 @@ let {
 	onConfirm,
 	title,
 	message,
-	confirmLabel = "Confirmer",
-	cancelLabel = "Annuler",
+	confirmLabel = m.common_confirm(),
+	cancelLabel = m.common_cancel(),
 	variant = "info",
 	isSubmitting = false,
 	description

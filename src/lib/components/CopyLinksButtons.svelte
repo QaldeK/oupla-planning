@@ -1,7 +1,8 @@
-<script lang="ts">
+ <script lang="ts">
 import { CalendarCog, Check, Copy, Share2 } from "@lucide/svelte";
 import { toast } from "svelte-sonner";
 import { goto } from "$app/navigation";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	adminToken?: string;
@@ -33,15 +34,15 @@ async function shareOrCopy(
 	if (canNativeShare) {
 		try {
 			await navigator.share({
-				title: "Oupla - Planning",
-				text: `Participe à ${label}`,
+				title: m.share_planning_title(),
+				text: m.share_copied({label}),
 				url
 			});
 			// L'utilisateur a partagé avec succès (ou annulé, pas de distinction)
 		} catch (error) {
 			// AbortError = utilisateur a annulé, on ne fait rien
 			if ((error as Error).name !== "AbortError") {
-				toast.error("Erreur lors du partage");
+				toast.error(m.share_error());
 			}
 		}
 	} else {
@@ -49,10 +50,10 @@ async function shareOrCopy(
 		try {
 			await navigator.clipboard.writeText(url);
 			setCopied(true);
-			toast.success(`${label} copié !`);
+			toast.success(m.share_copied({label}));
 			setTimeout(() => setCopied(false), 2000);
 		} catch {
-			toast.error("Erreur lors de la copie");
+			toast.error(m.copy_error());
 		}
 	}
 }
@@ -61,7 +62,7 @@ async function shareAdminLink() {
 	await shareOrCopy(
 		getAdminUrl(),
 		"Lien admin",
-		() => copiedAdmin, // TOCHECK
+		() => copiedAdmin,
 		(v) => (copiedAdmin = v)
 	);
 }
@@ -70,7 +71,7 @@ async function shareParticipantLink() {
 	await shareOrCopy(
 		getParticipantUrl(),
 		"Lien public",
-		() => copiedParticipant, // TOCHECK
+		() => copiedParticipant,
 		(v) => (copiedParticipant = v)
 	);
 }
@@ -81,7 +82,7 @@ async function shareParticipantLink() {
 		<button
 			class="btn btn-primary min-w-1/3 gap-2 max-sm:w-2/3"
 			onclick={() => goto(`/admin/${adminToken}`)}
-			><CalendarCog size={20} />Modifier le planning</button
+			><CalendarCog size={20} />{m.share_edit_planning()}</button
 		>
 		<!-- TOCHECK: c'est quoi ces else et copiedAdmin ? -->
 		<button class="btn btn-warning min-w-1/3 gap-2" onclick={shareAdminLink}>
@@ -92,7 +93,7 @@ async function shareParticipantLink() {
 			{:else}
 				<Copy size={20} />
 			{/if}
-			Lien Admin
+			{m.share_admin_link()}
 		</button>
 	{/if}
 
@@ -105,7 +106,7 @@ async function shareParticipantLink() {
 			{:else}
 				<Copy size={20} />
 			{/if}
-			Lien Public
+			{m.share_public_link()}
 		</button>
 	{/if}
 </div>

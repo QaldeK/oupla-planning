@@ -1,10 +1,11 @@
-<script lang="ts">
+ <script lang="ts">
 import { LogIn } from "@lucide/svelte";
 import { toast } from "svelte-sonner";
 import { goto } from "$app/navigation";
 import Modal from "$lib/components/ui/Modal.svelte";
 import { updateParticipant } from "$lib/services/planningActions";
 import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { PlanningMaster } from "$lib/types/planning.types";
 
@@ -50,12 +51,12 @@ async function handleRejoin() {
 			});
 		}
 
-		toast.success("Vous avez rejoint le planning");
+		toast.success(m.quit_rejoin_success());
 		onRejoined?.();
 		open = false;
 	} catch (err) {
 		console.error("Error rejoining:", err);
-		toast.error("Erreur lors de la réinscription");
+		toast.error(m.quit_rejoin_error());
 	} finally {
 		isSubmitting = false;
 	}
@@ -70,10 +71,10 @@ function handleDefinitiveQuit() {
 }
 </script>
 
-<Modal {open} {onClose} title="Planning quitté" size="sm" closable={false}>
+<Modal {open} {onClose} title={m.quit_planning_left()} size="sm" closable={false}>
 	<div class="space-y-4">
-		<p class="text-sm">Vous avez précédemment quitté ce planning.</p>
-		<p class="text-sm opacity-80">Souhaitez-vous le rejoindre à nouveau ?</p>
+		<p class="text-sm">{m.quit_previously_left()}</p>
+		<p class="text-sm opacity-80">{m.quit_rejoin_prompt()}</p>
 		<div class="modal-action">
 			<button
 				type="button"
@@ -81,7 +82,7 @@ function handleDefinitiveQuit() {
 				onclick={handleDefinitiveQuit}
 				disabled={isSubmitting}
 			>
-				Non
+				{m.common_cancel()}
 			</button>
 			<button
 				type="button"
@@ -90,8 +91,9 @@ function handleDefinitiveQuit() {
 				disabled={isSubmitting}
 			>
 				<LogIn size={18} />
-				Rejoindre
+				{m.quit_rejoin()}
 			</button>
 		</div>
 	</div>
 </Modal>
+

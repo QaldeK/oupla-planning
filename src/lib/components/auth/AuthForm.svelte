@@ -1,4 +1,5 @@
 <script lang="ts">
+import * as m from "$lib/paraglide/messages.js";
 import { KeyRound, LoaderCircle, Mail, User } from "@lucide/svelte";
 import { ClientResponseError } from "pocketbase";
 import { toast } from "svelte-sonner";
@@ -77,12 +78,12 @@ function clearPasswordConfirmError() {
 
 function validateEmail(): boolean {
 	if (!email) {
-		emailError = "Email requis";
+		emailError = m.auth_email_required();
 		return false;
 	}
 	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 	if (!emailRegex.test(email)) {
-		emailError = "Email invalide";
+		emailError = m.auth_email_invalid();
 		return false;
 	}
 	emailError = "";
@@ -91,11 +92,11 @@ function validateEmail(): boolean {
 
 function validatePassword(): boolean {
 	if (!password) {
-		passwordError = "Mot de passe requis";
+		passwordError = m.auth_password_required();
 		return false;
 	}
 	if (password.length < 8) {
-		passwordError = "Minimum 8 caractères";
+		passwordError = m.auth_password_min_length();
 		return false;
 	}
 	passwordError = "";
@@ -104,7 +105,7 @@ function validatePassword(): boolean {
 
 function validatePasswordConfirm(): boolean {
 	if (mode === "register" && password !== passwordConfirm) {
-		passwordConfirmError = "Les mots de passe ne correspondent pas";
+		passwordConfirmError = m.auth_passwords_dont_match();
 		return false;
 	}
 	passwordConfirmError = "";
@@ -144,23 +145,23 @@ async function handleSubmit(e: Event) {
 
 			// La synchronisation des plannings est gérée par userStore via pb.authStore.onChange
 
-			toast.success("Compte créé avec succès !");
+			toast.success(m.auth_account_created());
 		} else {
 			// Mode Login
 			await pb.collection("users").authWithPassword(email, password);
 
 			// La synchronisation des plannings est gérée par userStore via pb.authStore.onChange
 
-			toast.success("Connexion réussie !");
+			toast.success(m.auth_login_success());
 		}
 
 		if (onSuccess) onSuccess();
 	} catch (error: unknown) {
 		if (error instanceof ClientResponseError) {
 			console.error("Auth error", error);
-			errorMsg = error.response?.message || "Une erreur inattendue s'est produite.";
+			errorMsg = error.response?.message || m.auth_unexpected_error();
 		} else {
-			errorMsg = "Une erreur inattendue s'est produite.";
+			errorMsg = m.auth_unexpected_error();
 		}
 	} finally {
 		isSubmitting = false;
@@ -179,14 +180,14 @@ async function handleSubmit(e: Event) {
 		<fieldset>
 			<label class="input w-full">
 				<span class="label">
-					<User size={compact ? 16 : 18} class="opacity-40" />
-					Nom
+				<User size={compact ? 16 : 18} class="opacity-40" />
+				{m.auth_name_label()}
 				</span>
 				<input
 					type="text"
 					bind:value={localName}
 					class="grow"
-					placeholder="Votre nom"
+					placeholder={m.auth_name_placeholder()}
 					required
 					autocomplete="name"
 					disabled={isSubmitting}
@@ -200,14 +201,14 @@ async function handleSubmit(e: Event) {
 		<label class="input w-full {emailError ? 'input-error' : ''}">
 			<span class="label">
 				<Mail size={compact ? 16 : 18} class="opacity-40" />
-				Email
+				{m.auth_email_label()}
 			</span>
 			<input
 				bind:this={emailInputRef}
 				type="email"
 				bind:value={email}
 				class="grow"
-				placeholder="votre@email.fr"
+				placeholder={m.auth_email_placeholder()}
 				required
 				autocomplete="email"
 				disabled={isSubmitting}
@@ -224,13 +225,13 @@ async function handleSubmit(e: Event) {
 		<label class="input w-full {passwordError ? 'input-error' : ''}">
 			<span class="label">
 				<KeyRound size={compact ? 16 : 18} class="opacity-40" />
-				Mot de passe
+				{m.auth_password_label()}
 			</span>
 			<input
 				type="password"
 				bind:value={password}
 				class="grow"
-				placeholder="********"
+				placeholder={m.auth_password_placeholder()}
 				required
 				minlength="8"
 				autocomplete={mode === 'register' ? 'new-password' : 'current-password'}
@@ -249,13 +250,13 @@ async function handleSubmit(e: Event) {
 			<label class="input w-full {passwordConfirmError ? 'input-error' : ''}">
 				<span class="label">
 					<KeyRound size={compact ? 16 : 18} class="opacity-40" />
-					Confirmer
+					{m.auth_confirm_label()}
 				</span>
 				<input
 					type="password"
 					bind:value={passwordConfirm}
 					class="grow"
-					placeholder="********"
+					placeholder={m.auth_password_placeholder()}
 					required
 					minlength="8"
 					autocomplete="new-password"
@@ -273,9 +274,9 @@ async function handleSubmit(e: Event) {
 	<button type="submit" class="btn btn-primary btn-block" disabled={isSubmitting}>
 		{#if isSubmitting}
 			<LoaderCircle class="animate-spin" size={compact ? 16 : 18} />
-			Validation...
+			{m.auth_submitting()}
 		{:else}
-			{mode === 'register' ? "S'inscrire" : 'Se connecter'}
+			{mode === 'register' ? m.auth_register() : m.auth_login()}
 		{/if}
 	</button>
 </form>

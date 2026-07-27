@@ -1,3 +1,4 @@
+import * as m from "$lib/paraglide/messages.js";
 import { toast } from "svelte-sonner";
 import { submitResponse } from "$lib/services/planningActions";
 import { networkStore } from "$lib/stores/networkStore.svelte";
@@ -137,7 +138,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			if (options.onNeedReidentify) {
 				options.onNeedReidentify();
 			} else {
-				toast.error("Nom de participant invalide. Identifiez-vous à nouveau.");
+				toast.error(m.occurrence_invalid_name());
 			}
 			return;
 		}
@@ -175,7 +176,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			if (options.onNeedReidentify) {
 				options.onNeedReidentify();
 			} else {
-				toast.error("Vous devez être identifié pour répondre");
+				toast.error(m.occurrence_must_identify());
 			}
 			return;
 		}
@@ -219,7 +220,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			if (options.onNeedReidentify) {
 				options.onNeedReidentify();
 			} else {
-				toast.error("Vous devez être identifié pour vous inscrire à une tâche");
+				toast.error(m.occurrence_must_identify_task());
 			}
 			return;
 		}
@@ -231,7 +232,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		// Auto-inscription "présent" uniquement pour ces tâches
 		if (task.type === "onEvent" && masterConfig.allowResponses) {
 			if (selectedResponse && selectedResponse !== "present") {
-				toast.error("Vous devez être présent pour vous inscrire à une tâche");
+				toast.error(m.occurrence_must_be_present());
 				return;
 			}
 			if (!selectedResponse) selectedResponse = "present";

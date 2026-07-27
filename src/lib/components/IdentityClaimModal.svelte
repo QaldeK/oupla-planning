@@ -1,4 +1,5 @@
 <script lang="ts">
+import * as m from "$lib/paraglide/messages.js";
 import {
 	ArrowRight,
 	Check,
@@ -249,7 +250,7 @@ async function handleSaveName() {
 				console.error("ensurePlanningParticipant failed:", err);
 			}
 			onIdentityChanged?.({ id: pbUser.id, name: trimmedName, email: pbUser.email });
-			toast.success(`Bienvenue, ${trimmedName} !`);
+			toast.success(m.claim_welcome({name: trimmedName}));
 		} else {
 			// Mettre à jour le nom du participant auth
 			if (!authParticipant) {
@@ -262,12 +263,12 @@ async function handleSaveName() {
 				name: trimmedName,
 				email: pbUser.email
 			});
-			toast.success("Nom mis à jour");
+			toast.success(m.claim_name_updated());
 		}
 		open = false;
 	} catch (err) {
 		console.error("Error saving name:", err);
-		toast.error("Erreur lors de l'enregistrement");
+		toast.error(m.claim_update_error());
 	} finally {
 		isSubmitting = false;
 	}
@@ -298,7 +299,7 @@ async function handleLogoutSwitch() {
 		onClose();
 	} catch (err) {
 		console.error("logoutAndStayOnPlanning failed:", err);
-		toast.error("Erreur lors de la déconnexion");
+		toast.error(m.claim_logout_error());
 	} finally {
 		isSubmitting = false;
 	}
@@ -333,24 +334,24 @@ async function handleConfirmClaim(target?: Participant) {
 		const parts: string[] = [];
 		if (result.stats.migrated > 0) {
 			parts.push(
-				`${result.stats.migrated} réponse${result.stats.migrated > 1 ? "s" : ""} migrée${result.stats.migrated > 1 ? "s" : ""}`
+				`${result.stats.migrated} ${m.claim_response_migrated()}`
 			);
 		}
 		if (result.stats.conflict > 0) {
 			parts.push(
-				`${result.stats.conflict} conflit${result.stats.conflict > 1 ? "s" : ""} résolu${result.stats.conflict > 1 ? "s" : ""}`
+				`${result.stats.conflict} ${m.claim_conflict_resolved()}`
 			);
 		}
 		if (result.stats.commentsMigrated > 0) {
 			parts.push(
-				`${result.stats.commentsMigrated} commentaire${result.stats.commentsMigrated > 1 ? "s" : ""} déplacé${result.stats.commentsMigrated > 1 ? "s" : ""}`
+				`${result.stats.commentsMigrated} ${m.claim_comment_migrated()}`
 			);
 		}
 
 		if (parts.length > 0) {
-			toast.success(`Identité revendiquée (${parts.join(", ")})`);
+			toast.success(m.claim_identity_claimed({details: parts.join(", ")}));
 		} else {
-			toast.success(`Bienvenue, ${participant.name} !`);
+			toast.success(m.claim_welcome({name: participant.name}));
 		}
 
 		open = false;
@@ -358,13 +359,13 @@ async function handleConfirmClaim(target?: Participant) {
 		console.error("Error claiming identity:", err);
 		const status = (err as { status?: number })?.status ?? 0;
 		if (status === 409) {
-			toast.error("Cette identité a déjà été revendiquée ou a quitté le planning");
+			toast.error(m.claim_already_claimed());
 		} else if (status === 403) {
-			toast.error("Token invalide");
+			toast.error(m.claim_invalid_token());
 		} else if (status === 404) {
-			toast.error("Participant introuvable");
+			toast.error(m.claim_participant_not_found());
 		} else {
-			toast.error("Erreur lors de la revendication");
+			toast.error(m.claim_error());
 		}
 	} finally {
 		isSubmitting = false;
@@ -388,7 +389,7 @@ function handleSuggestionOtherName() {
 <Modal
 	{open}
 	{onClose}
-	title={mode === 'new' ? 'Votre identité sur ce planning' : 'Changer votre identité'}
+		title={mode === 'new' ? m.claim_your_identity() : m.claim_change_identity()}
 	size="md"
 	{closable}
 >
@@ -401,26 +402,19 @@ function handleSuggestionOtherName() {
 					<div class="alert alert-warning alert-soft">
 						<Info size={20} class="shrink-0" />
 						<div class="flex-1 text-sm">
-							<p class="font-medium">Fusion des identités</p>
-							<p class="mt-1 opacity-80">
-								Vous êtes sur le point de revendiquer l'identité
-								<strong>{pendingClaimParticipant.name}</strong>. Vous avez déjà des réponses sous
-								votre nom actuel
-								<strong>{authParticipant?.name}</strong>.
-							</p>
+							<p class="font-medium">{m.claim_merge_title()}</p>
+						{m.claim_merge_desc()}
 						</div>
 					</div>
 
 					<div class="bg-base-200 rounded-lg p-3 text-sm">
-						<p class="mb-2 font-medium">Bilan de la fusion :</p>
+						<p class="mb-2 font-medium">{m.claim_merge_summary()}</p>
 						<ul class="space-y-1.5">
 							{#if pendingMergeStats.identical > 0}
 								<li class="flex items-center gap-2">
 									<Check size={16} class="text-success shrink-0" />
 									<span>
-										{pendingMergeStats.identical} réponse{pendingMergeStats.identical > 1
-											? 's'
-											: ''} identique{pendingMergeStats.identical > 1 ? 's' : ''} (sans impact)
+										{pendingMergeStats.identical} {m.claim_identical_response()}
 									</span>
 								</li>
 							{/if}
@@ -428,8 +422,8 @@ function handleSuggestionOtherName() {
 								<li class="flex items-center gap-2">
 									<Info size={16} class="text-warning shrink-0" />
 									<span>
-										{pendingMergeStats.conflict} conflit{pendingMergeStats.conflict > 1 ? 's' : ''} —
-										<strong>votre choix récent sera conservé</strong>
+										{pendingMergeStats.conflict} {m.claim_conflict()} —
+										<strong>{m.claim_your_recent_choice_will_be_kept()}</strong>
 									</span>
 								</li>
 							{/if}
@@ -437,9 +431,9 @@ function handleSuggestionOtherName() {
 								<li class="flex items-center gap-2">
 									<ArrowRight size={16} class="text-info shrink-0" />
 									<span>
-										{pendingMergeStats.migrated} réponse{pendingMergeStats.migrated > 1 ? 's' : ''} de
-										{pendingClaimParticipant.name} migrée{pendingMergeStats.migrated > 1 ? 's' : ''} vers
-										votre compte
+										{pendingMergeStats.migrated} {m.claim_response()} de
+										{pendingClaimParticipant.name} {m.claim_migrated()}
+										{m.claim_to_your_account()}
 									</span>
 								</li>
 							{/if}
@@ -447,13 +441,8 @@ function handleSuggestionOtherName() {
 								<li class="flex items-center gap-2">
 									<ArrowRight size={16} class="text-info shrink-0" />
 									<span>
-										{pendingMergeStats.commentsMigrated} commentaire{pendingMergeStats.commentsMigrated >
-										1
-											? 's'
-											: ''} de {pendingClaimParticipant.name} déplacé{pendingMergeStats.commentsMigrated >
-										1
-											? 's'
-											: ''} vers votre compte
+										{pendingMergeStats.commentsMigrated} {m.claim_comment()} de {pendingClaimParticipant.name} {m.claim_migrated()}
+										{m.claim_to_your_account()}
 									</span>
 								</li>
 							{/if}
@@ -464,11 +453,7 @@ function handleSuggestionOtherName() {
 					<div class="alert alert-info alert-soft">
 						<User size={20} class="shrink-0" />
 						<div class="flex-1 text-sm">
-							<p>
-								Vous allez fusionner votre compte avec l'identité
-								<strong>{pendingClaimParticipant.name}</strong> sur ce planning. Ses réponses seront associées
-								à votre compte.
-							</p>
+						{m.claim_you_will_merge_identity()}
 						</div>
 					</div>
 				{/if}
@@ -477,7 +462,7 @@ function handleSuggestionOtherName() {
 				{#if pendingClaimPreview && pendingClaimPreview.totalCount > 0}
 					<div class="bg-base-200 rounded-lg p-3">
 						<p class="mb-2 text-xs font-medium tracking-wide uppercase opacity-60">
-							Réponses à venir de {pendingClaimParticipant.name} ({pendingClaimPreview.totalCount})
+							{m.claim_responses_pending({name: pendingClaimParticipant.name, count: pendingClaimPreview.totalCount})}
 						</p>
 						<div class="flex flex-wrap gap-x-4 gap-y-2">
 							{#each pendingClaimPreview.items as item (item.date)}
@@ -492,9 +477,7 @@ function handleSuggestionOtherName() {
 							{/each}
 							{#if pendingClaimPreview.remaining > 0}
 								<li class="pt-1 text-xs opacity-60">
-									+ {pendingClaimPreview.remaining} autre{pendingClaimPreview.remaining > 1
-										? 's'
-										: ''} réponse{pendingClaimPreview.remaining > 1 ? 's' : ''}
+									+ {pendingClaimPreview.remaining} {m.claim_more_response({count: pendingClaimPreview.remaining})}
 								</li>
 							{/if}
 						</div>
@@ -504,11 +487,8 @@ function handleSuggestionOtherName() {
 				<div class="alert alert-error alert-soft">
 					<Info size={20} class="shrink-0" />
 					<div class="flex-1 text-sm">
-						<p class="font-medium">Action irréversible</p>
-						<p class="mt-1 opacity-80">
-							L'identité sera <strong>définitivement liée à votre compte</strong> et fusionnée. Vous ne
-							pourrez pas annuler ni revendiquer une autre identité sur ce planning.
-						</p>
+						<p class="font-medium">{m.claim_irreversible()}</p>
+						{m.claim_identity_will_be_linked()}
 					</div>
 				</div>
 
@@ -519,7 +499,7 @@ function handleSuggestionOtherName() {
 						onclick={handleCancelClaim}
 						disabled={isSubmitting}
 					>
-						Annuler
+						{m.claim_cancel()}
 					</button>
 					<button
 						type="button"
@@ -529,10 +509,10 @@ function handleSuggestionOtherName() {
 					>
 						{#if isSubmitting}
 							<LoaderCircle class="animate-spin" size={18} />
-							Confirmer...
+							{m.claim_processing()}
 						{:else}
 							<Check size={18} />
-							Confirmer la fusion
+							{m.claim_confirm_merge()}
 						{/if}
 					</button>
 				</div>
@@ -544,18 +524,13 @@ function handleSuggestionOtherName() {
 					<UserCheck size={20} class="shrink-0" />
 					<div class="flex-1">
 						<p class="font-medium">
-							Est-ce bien vous qui avez déjà participé sur ce planning en tant que <strong
-								>{suggestionParticipant!.name}</strong
-							>? {#if suggestionPreview && suggestionPreview.totalCount > 0}
-								avec les réponses suivantes:
+							{m.claim_are_you_sure()} {m.claim_with_these_responses()}
 							{/if}
 						</p>
 						{#if pbUser.name.toLowerCase() !== suggestionParticipant!.name.toLowerCase()}
 							<!-- Situation 3 (nom différent) : clarifier que le nom guest est conservé. -->
-							<p>
-								En confirmant, vous garderez le nom <strong>{suggestionParticipant!.name}</strong>
-								sur ce planning (votre compte est <strong>{pbUser.name}</strong>). Vous pourrez le
-								modifier ensuite via le bouton « Changer ».
+								<p>
+								{m.claim_you_will_keep_name({name: suggestionParticipant!.name})}
 							</p>
 						{/if}
 					</div>
@@ -564,7 +539,7 @@ function handleSuggestionOtherName() {
 				{#if suggestionPreview && suggestionPreview.totalCount > 0}
 					<div class="bg-base-200 rounded-lg p-3">
 						<p class="mb-2 text-xs font-medium tracking-wide uppercase opacity-60">
-							Réponses à venir ({suggestionPreview.totalCount})
+							{m.claim_responses_pending({name: "…", count: suggestionPreview.totalCount})}
 						</p>
 						<div class="flex flex-wrap gap-x-4 gap-y-2">
 							{#each suggestionPreview.items as item (item.date)}
@@ -577,16 +552,13 @@ function handleSuggestionOtherName() {
 							{/each}
 							{#if suggestionPreview.remaining > 0}
 								<span class="self-center text-xs opacity-60">
-									+ {suggestionPreview.remaining} autre{suggestionPreview.remaining > 1 ? 's' : ''} réponse{suggestionPreview.remaining >
-									1
-										? 's'
-										: ''}
+									+ {suggestionPreview.remaining} {m.claim_more_responses({count: suggestionPreview.remaining})}
 								</span>
 							{/if}
 						</div>
 					</div>
 				{:else}
-					<div class="text-xs opacity-60">Aucune réponse à venir</div>
+					<div class="text-xs opacity-60">{m.claim_no_pending_responses()}</div>
 				{/if}
 
 				<div class="modal-action flex-col">
@@ -598,10 +570,10 @@ function handleSuggestionOtherName() {
 					>
 						{#if isSubmitting}
 							<LoaderCircle class="animate-spin" size={18} />
-							Traitement...
+							{m.claim_processing()}
 						{:else}
 							<Check size={18} />
-							Oui, c'est moi
+							{m.claim_yes_this_is_me()}
 						{/if}
 					</button>
 					<button
@@ -610,7 +582,7 @@ function handleSuggestionOtherName() {
 						onclick={handleDeclineSuggestion}
 						disabled={isSubmitting}
 					>
-						Non
+						{m.claim_no()}
 					</button>
 					<button
 						type="button"
@@ -618,7 +590,7 @@ function handleSuggestionOtherName() {
 						onclick={handleSuggestionOtherName}
 						disabled={isSubmitting}
 					>
-						J'ai participé sous un autre nom
+						{m.claim_other_name()}
 					</button>
 				</div>
 			</div>
@@ -628,7 +600,7 @@ function handleSuggestionOtherName() {
 			<div class="space-y-3">
 				<div class="flex items-center gap-2 text-sm font-medium">
 					<User size={16} />
-					<span>Votre nom sur ce planning</span>
+					{m.claim_your_identity_on_this_planning()}
 				</div>
 
 				<fieldset>
@@ -637,7 +609,7 @@ function handleSuggestionOtherName() {
 							type="text"
 							bind:value={name}
 							class="grow"
-							placeholder="Votre nom"
+								placeholder={m.claim_name_placeholder()}
 							maxlength="36"
 							disabled={isSubmitting}
 						/>
@@ -656,17 +628,16 @@ function handleSuggestionOtherName() {
 										<Info size={16} class="text-warning mt-0.5 shrink-0" />
 										<div>
 											<p class="font-medium">
-												Le nom <strong>"{trimmedName}"</strong> est déjà utilisé sur ce planning.
+												{m.claim_name_conflict({name: trimmedName})}
 											</p>
-											<p class="text-sm opacity-80">
-												C'est vous ? Si oui, revendiquez cette identité. Sinon, vous devez changer
-												votre nom pour ce planning.
+												<p class="text-sm opacity-80">
+												{m.claim_is_this_you()}
 											</p>
 										</div>
 									</div>
 									{#if conflictPreview.totalCount > 0}
 										<div class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-											<p>Réponses déjà enregistrées sous le nom <strong>{trimmedName}</strong> :</p>
+												<p>Réponses déjà enregistrées sous le nom <strong>{trimmedName}</strong> :</p>
 											{#each conflictPreview.items.slice(0, 3) as item (item.date)}
 												<span
 													class="badge {RESPONSE_TYPE_CONFIG[item.response].badgeClass} font-medium"
@@ -679,15 +650,12 @@ function handleSuggestionOtherName() {
 											{/each}
 											{#if conflictPreview.totalCount > 3}
 												<span class="self-center text-xs opacity-60">
-													+ {conflictPreview.totalCount - 3} autre{conflictPreview.totalCount - 3 >
-													1
-														? 's'
-														: ''}
+											+ {conflictPreview.totalCount - 3} {m.claim_more_response({count: conflictPreview.totalCount - 3})}
 												</span>
 											{/if}
 										</div>
 									{:else}
-										<div class="mt-1 text-xs opacity-60">Aucune réponse à venir</div>
+										{m.claim_no_responses_pending()}
 									{/if}
 								</div>
 								<button
@@ -696,7 +664,7 @@ function handleSuggestionOtherName() {
 									onclick={() => handleStartClaim(nameConflictParticipant)}
 									disabled={isSubmitting}
 								>
-									C'est moi
+									{m.claim_this_is_me()}
 								</button>
 							</div>
 						</div>
@@ -704,8 +672,8 @@ function handleSuggestionOtherName() {
 						<div class="alert alert-warning alert-soft p-2 text-sm">
 							<Info size={16} class="shrink-0" />
 							<div class="flex-1">
-								Ce nom est déjà utilisé par un·e autre utilisateur·ice sur ce planning.
-								Choisissez-en un autre.
+							{m.claim_no_participant()}
+								{m.claim_choose_another()}
 							</div>
 						</div>
 					{/if}
@@ -719,12 +687,12 @@ function handleSuggestionOtherName() {
 				>
 					{#if isSubmitting}
 						<LoaderCircle class="animate-spin" size={18} />
-						Traitement...
+						{m.claim_processing()}
 					{:else}
 						{#if mode === 'new'}
-							Rejoindre en tant que {trimmedName || '...'}
+					{m.claim_enrolling_as({name: trimmedName || '...'})}
 						{:else}
-							Enregistrer
+							{m.claim_save()}
 						{/if}
 						<ArrowRight size={18} />
 					{/if}
@@ -734,15 +702,14 @@ function handleSuggestionOtherName() {
 			<!-- Section : Rejoindre une identité existante -->
 			{#if claimableParticipants.length > 0 && !authParticipant?.claimedAt}
 				<div class="divider text-xs tracking-widest uppercase opacity-50">
-					Vous avez déjà participé au planning ?
+						{m.claim_you_have_participated()}
 				</div>
 
 				<div class="space-y-3">
 					<div class="flex items-center gap-2 text-sm font-medium opacity-70">
 						<Users size={16} class="shrink-0" />
 						<span>
-							Participants sans compte ({claimableParticipants.length}) — cliquez si l'un d'eux est
-							vous
+						{m.claim_participants_without_account({count: claimableParticipants.length})}
 						</span>
 					</div>
 
@@ -781,7 +748,7 @@ function handleSuggestionOtherName() {
 												{/if}
 											</div>
 										{:else}
-											<div class="mt-1 text-xs opacity-60">Aucune réponse à venir</div>
+					{m.claim_no_responses_pending()}
 										{/if}
 									</div>
 
@@ -791,7 +758,7 @@ function handleSuggestionOtherName() {
 										onclick={() => handleStartClaim(p)}
 										disabled={isSubmitting}
 									>
-										C'est moi
+									{m.claim_this_is_me()}
 									</button>
 								</div>
 							</li>
@@ -809,7 +776,7 @@ function handleSuggestionOtherName() {
 					disabled={isSubmitting}
 				>
 					<LogOut size={15} />
-					Se déconnecter pour changer de compte
+					{m.claim_switch_account()}
 				</button>
 			</div>
 		{/if}

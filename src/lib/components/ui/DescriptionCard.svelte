@@ -1,7 +1,8 @@
-<script lang="ts">
+ <script lang="ts">
 import { Drawer, DrawerContent, DrawerHandle, DrawerOverlay } from "@abhivarde/svelte-drawer";
 import { ChevronDown, ChevronUp, X } from "@lucide/svelte";
 import DOMPurify from "dompurify";
+import * as m from "$lib/paraglide/messages.js";
 import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
 
 interface Props {
@@ -143,7 +144,7 @@ function toggle() {
 					type="button"
 					class="btn btn-circle btn-ghost btn-sm"
 					onclick={() => (isDrawerOpen = false)}
-					aria-label="Fermer"
+					aria-label={m.common_close()}
 				>
 					<X size={20} />
 				</button>

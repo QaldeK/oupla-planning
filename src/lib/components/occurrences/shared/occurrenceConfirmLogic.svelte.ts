@@ -1,3 +1,4 @@
+import * as m from "$lib/paraglide/messages.js";
 import { toast } from "svelte-sonner";
 import { updateOccurrence } from "$lib/services/planningActions";
 import type { PlanningOccurrence, ResponseType, Task } from "$lib/types/planning.types";
@@ -75,8 +76,8 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 		const isPlural = taskNames.length > 1;
 		return {
 			message: isPlural
-				? `Vous êtes inscrit à ${taskNames.length} tâches nécessitant votre présence : ${taskNames.join(", ")}.`
-				: `Vous êtes inscrit à la tâche « ${taskNames[0]} » qui nécessite votre présence.`
+				? m.occurrence_response_change_subscribed_multi({count: taskNames.length, tasks: taskNames.join(", ")})
+				: m.occurrence_response_change_subscribed_single({task: taskNames[0]})
 		};
 	});
 
@@ -105,9 +106,9 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 				{ isCanceled: false, isConfirmed: !options.toConfirm },
 				token
 			);
-			toast.success("Événement rétabli");
+			toast.success(m.occurrence_restored());
 		} catch (_error) {
-			toast.error("Erreur lors du rétablissement");
+			toast.error(m.occurrence_restore_error());
 			console.error(_error);
 		}
 	}
@@ -155,9 +156,9 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 				{ isConfirmed: !options.occurrence.isConfirmed, isCanceled: false },
 				token
 			);
-			toast.success(updated.isConfirmed ? "Événement confirmé" : "Confirmation annulée");
+			toast.success(updated.isConfirmed ? m.occurrence_confirmed() : m.occurrence_cancelled());
 		} catch (_error) {
-			toast.error("Erreur lors de la confirmation");
+			toast.error(m.occurrence_confirm_error());
 			console.error(_error);
 		}
 	}

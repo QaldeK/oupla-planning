@@ -1,6 +1,7 @@
 <script lang="ts">
 import { Settings, Share2, Users } from "@lucide/svelte";
 import CopyLinksButtons from "$lib/components/CopyLinksButtons.svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	isAdmin: boolean;
@@ -19,10 +20,7 @@ let { isAdmin, adminToken, participantToken, allowResponses, tasksCount }: Props
 		<div class="flex items-center gap-2">
 			<Users size={20} class="shrink-0" />
 			<span class="text-base">
-				Invitez d'autres participants à
-				{#if allowResponses}déclarer leur présence,{/if}
-				{#if tasksCount > 0}s'inscrire aux tâches,{/if}
-				en leur partageant le lien du planning.
+				{m.share_invite_desc()}
 			</span>
 		</div>
 		<CopyLinksButtons {participantToken} />
@@ -32,7 +30,7 @@ let { isAdmin, adminToken, participantToken, allowResponses, tasksCount }: Props
 		<div class="card-body">
 			<h3 class="mb-4 flex items-center gap-2 text-base font-semibold">
 				<Share2 size={22} class="text-primary" />
-				Partager ce planning
+				{m.share_this_planning()}
 			</h3>
 
 			<div class="grid gap-8 md:grid-cols-2">
@@ -41,13 +39,10 @@ let { isAdmin, adminToken, participantToken, allowResponses, tasksCount }: Props
 					<div class="space-y-2">
 						<div class="text-content-primary flex items-center gap-2 font-bold">
 							<Users size={18} />
-							Lien Public
+							{m.share_public_label()}
 						</div>
 						<p class="text-sm opacity-80">
-							Partagez ce lien avec les participants pour qu'ils puissent
-							{#if allowResponses}déclarer leur présence,{/if}
-							{#if tasksCount > 0}s'inscrire aux tâches,{/if}
-							et ajouter des commentaires.
+							{m.share_public_desc()}
 						</p>
 					</div>
 					<CopyLinksButtons {participantToken} />
@@ -60,11 +55,10 @@ let { isAdmin, adminToken, participantToken, allowResponses, tasksCount }: Props
 					<div class="space-y-2">
 						<div class="text-content-warning flex items-center gap-2 font-bold">
 							<Settings size={18} />
-							Lien Administrateur
+							{m.share_admin_label()}
 						</div>
 						<p class="text-sm opacity-80">
-							Permet la modification du planning et des occurrences, ainsi que la confirmation ou
-							l'annulation des événements.
+							{m.share_admin_desc()}
 						</p>
 					</div>
 					<CopyLinksButtons adminToken={adminToken ?? undefined} />

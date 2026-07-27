@@ -1,5 +1,6 @@
 <script lang="ts">
 import { RefreshCw, Trash2, WifiOff } from "@lucide/svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	errorType: "network" | "deleted" | "not-found" | null;
@@ -11,14 +12,14 @@ let { errorType, isOffline }: Props = $props();
 
 {#if errorType === 'network' || isOffline}
 	{@const errorMessage = !isOffline
-		? 'Le serveur est inaccessible. Réessayez dans quelques instants.'
-		: 'Vous êtes hors ligne. Vérifiez votre connexion internet.'}
+		? m.error_server_unavailable()
+		: m.error_offline()}
 	<div class="flex min-h-[50vh] items-center justify-center">
 		<div class="max-w-md text-center">
 			<div class="alert alert-error alert-soft">
 				<WifiOff size={24} />
 				<div>
-					<h3 class="font-bold">Connexion impossible</h3>
+					<h3 class="font-bold">{m.error_connection_failed()}</h3>
 					<div class="text-xs">
 						<p>{errorMessage}</p>
 					</div>
@@ -26,7 +27,7 @@ let { errorType, isOffline }: Props = $props();
 			</div>
 			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
 				<RefreshCw size={16} />
-				Réessayer
+				{m.common_retry()}
 			</button>
 		</div>
 	</div>
@@ -38,19 +39,19 @@ let { errorType, isOffline }: Props = $props();
 			>
 				<Trash2 size={40} class="text-warning" />
 			</div>
-			<h2 class="mb-2 text-2xl font-bold">Planning supprimé</h2>
+			<h2 class="mb-2 text-2xl font-bold">{m.error_planning_deleted()}</h2>
 			<p class="text-base-content/70 mb-6">
-				Ce planning a été supprimé par son administrateur. Les données locales ont été nettoyées.
+				{m.error_planning_deleted_desc()}
 			</p>
-			<a href="/" class="btn btn-primary">Retour à l'accueil</a>
+			<a href="/" class="btn btn-primary">{m.common_back_home()}</a>
 		</div>
 	</div>
 {:else if errorType === 'not-found'}
 	<div class="flex min-h-[50vh] items-center justify-center">
 		<div class="max-w-md text-center">
-			<h2 class="mb-2 text-2xl font-bold">Planning introuvable</h2>
-			<p class="text-base-content/70">Le lien que vous avez utilisé n'est pas valide</p>
-			<a href="/" class="btn btn-primary mt-4">Retour à l'accueil</a>
+			<h2 class="mb-2 text-2xl font-bold">{m.error_not_found()}</h2>
+			<p class="text-base-content/70">{m.error_invalid_link()}</p>
+			<a href="/" class="btn btn-primary mt-4">{m.common_back_home()}</a>
 		</div>
 	</div>
 {/if}

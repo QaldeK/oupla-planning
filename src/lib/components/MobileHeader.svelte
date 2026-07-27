@@ -6,6 +6,7 @@ import { modalStore } from "$lib/stores/modalStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { PlanningMaster } from "$lib/types/planning.types";
+import * as m from "$lib/paraglide/messages.js";
 
 // État du header
 let isHeaderVisible = $state(true);
@@ -20,12 +21,12 @@ const master = $derived(planningStore.master as PlanningMaster | null);
 const title = $derived(getTitle(pathname, master));
 
 function getTitle(path: string, master: PlanningMaster | null): string {
-	if (path === "/") return "Oupla Planning";
-	if (path === "/new") return "Nouveau planning";
-	if (path.includes("/archive")) return master?.title ? `${master.title} (archives)` : "Archives";
-	if (path.includes("/admin/")) return master?.title ? `${master.title} ⚙️` : "Admin";
-	if (path.includes("/p/")) return master?.title || "Planning";
-	return "Oupla Planning";
+	if (path === "/") return m.nav_home_title();
+	if (path === "/new") return m.nav_new_planning();
+	if (path.includes("/archive")) return master?.title ? `${master.title} (${m.nav_archive_label()})` : m.nav_archive_label();
+	if (path.includes("/admin/")) return master?.title ? `${master.title} ${m.nav_admin_label()}` : m.nav_admin_label();
+	if (path.includes("/p/")) return master?.title || m.nav_default_title();
+	return m.nav_home_title();
 }
 
 // Fonction de gestion du scroll avec requestAnimationFrame
@@ -82,7 +83,7 @@ $effect(() => {
 			<button
 				class="btn btn-ghost btn-sm btn-circle p-0.5"
 				onclick={() => modalStore.toggleNavDrawer()}
-				aria-label="Ouvrir le menu"
+				aria-label={m.nav_open_menu()}
 			>
 				{#if modalStore.drawerNavOpen}
 					<PanelLeftClose />
@@ -92,7 +93,7 @@ $effect(() => {
 			</button>
 
 			<!-- Bouton Home -->
-			<a href="/" class="btn btn-ghost btn-sm btn-circle p-0.5" aria-label="Accueil">
+			<a href="/" class="btn btn-ghost btn-sm btn-circle p-0.5" aria-label={m.nav_home_label()}>
 				<img src="/favicon.svg" alt="Oupla" />
 			</a>
 
@@ -106,7 +107,7 @@ $effect(() => {
 				<button
 					class="btn btn-ghost btn-sm btn-circle"
 					onclick={() => goto('/settings')}
-					aria-label="Ouvrir le profil utilisateur"
+					aria-label={m.nav_profile()}
 				>
 					<User size={18} />
 				</button>

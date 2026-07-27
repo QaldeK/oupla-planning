@@ -5,6 +5,7 @@ import { networkStore } from "$lib/stores/networkStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import { formatDate } from "$lib/utils/date";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	/**
@@ -14,7 +15,7 @@ interface Props {
 	message?: string;
 }
 
-let { message = "Le serveur est indisponible - Modifications impossibles" }: Props = $props();
+let { message = m.net_server_unavailable() }: Props = $props();
 
 const isDisabled = $derived(!networkStore.isNetworkOk);
 
@@ -33,7 +34,7 @@ const freshnessDate = $derived.by(() => {
 });
 
 const freshnessLabel = $derived(
-	freshnessDate ? `Dernière sync : ${formatDate(freshnessDate, "d MMM 'à' HH:mm")}` : ""
+	freshnessDate ? `${m.net_last_sync()} ${formatDate(freshnessDate, "d MMM 'à' HH:mm")}` : ""
 );
 
 function reload() {
@@ -48,14 +49,14 @@ function reload() {
 			<span>{message}</span>
 			{#if freshnessLabel}
 				<div class="text-xs opacity-80">
-					{freshnessLabel} — les données affichées sont peut-être obsolètes.
+					{freshnessLabel} — {m.net_data_may_be_stale()}
 				</div>
 			{/if}
 		</div>
 		{#if showReload}
-			<button class="btn btn-ghost btn-sm gap-1" onclick={reload} title="Recharger la page">
+			<button class="btn btn-ghost btn-sm gap-1" onclick={reload} title={m.net_reload_page_title()}>
 				<RefreshCw size={14} />
-				Recharger
+				{m.net_reload()}
 			</button>
 		{/if}
 	</div>

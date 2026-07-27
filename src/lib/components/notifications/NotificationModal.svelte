@@ -21,6 +21,7 @@ import {
 	unsubscribeFromPush
 } from "$lib/services/push";
 import type { RecurrenceType } from "$lib/types/planning.types";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	open: boolean;
@@ -48,26 +49,26 @@ let pushSupported = $state(false);
 let initialPushState = $state(false); // Track l'état initial pour éviter les désinscriptions inutiles
 
 const reminderOptions: Array<{ value: "1" | "3" | "7"; label: string }> = [
-	{ value: "1", label: "1 jour avant" },
-	{ value: "3", label: "3 jours avant" },
-	{ value: "7", label: "1 semaine avant" }
+	{ value: "1", label: m.notif_reminder_1_day() },
+	{ value: "3", label: m.notif_reminder_3_days() },
+	{ value: "7", label: m.notif_reminder_1_week() }
 ];
 
 const missingOptions: Array<{ value: "1" | "3" | "7" | "15"; label: string }> = [
-	{ value: "1", label: "1 jour avant" },
-	{ value: "3", label: "3 jours avant" },
-	{ value: "7", label: "1 semaine avant" },
-	{ value: "15", label: "15 jours avant" }
+	{ value: "1", label: m.notif_missing_1_day() },
+	{ value: "3", label: m.notif_missing_3_days() },
+	{ value: "7", label: m.notif_missing_1_week() },
+	{ value: "15", label: m.notif_missing_15_days() }
 ];
 
 const newCommentScopeOptions: Array<{ value: NewCommentScope; label: string; hint: string }> = [
-	{ value: "off", label: "Aucune", hint: "Aucune notification de message." },
+	{ value: "off", label: m.notif_scope_none(), hint: m.notif_scope_none_hint() },
 	{
 		value: "concerned",
-		label: "Mes occurrences",
-		hint: "Uniquement les occurrences où vous participez."
+		label: m.notif_scope_concerned(),
+		hint: m.notif_scope_concerned_hint()
 	},
-	{ value: "all", label: "Toutes", hint: "Tous les messages du planning." }
+	{ value: "all", label: m.notif_scope_all(), hint: m.notif_scope_all_hint() }
 ];
 
 // Les participants existants avant le déploiement ont `newCommentScope` à null
@@ -116,7 +117,7 @@ async function handleSave() {
 		if (prefs.push && pushSupported) {
 			const success = await subscribeToPush(pb.authStore.record.id);
 			if (!success) {
-				toast.error("Impossible d'activer les notifications push. Vérifiez les permissions.");
+				toast.error(m.notif_toast_push_error());
 				prefs.push = false;
 			}
 		} else if (!prefs.push && pushSupported && initialPushState) {
@@ -132,21 +133,21 @@ async function handleSave() {
 			isAdmin
 		);
 
-		toast.success("Préférences sauvegardées");
+		toast.success(m.notif_toast_save_success());
 		onClose();
 	} catch (error) {
 		console.error("Erreur de sauvegarde", error);
-		toast.error("Erreur lors de la sauvegarde");
+		toast.error(m.notif_toast_save_error());
 	} finally {
 		isSaving = false;
 	}
 }
 </script>
 
-<Modal {open} {onClose} title="Préférences de notifications" size="md">
+<Modal {open} {onClose} title={m.notif_modal_title()} size="md">
 	{#if !pb.authStore.isValid}
 		<div class="alert alert-warning alert-soft">
-			Vous devez posséder un compte utilisateur pour configurer les notifications.
+			{m.notif_no_account()}
 		</div>
 	{:else}
 		<form
@@ -159,7 +160,7 @@ async function handleSave() {
 			<!-- Canaux de communication -->
 			<fieldset class="fieldset">
 				<legend class="fieldset-legend flex items-center gap-2">
-					<Bell size={16} /> Canaux
+					<Bell size={16} /> {m.notif_channels()}
 				</legend>
 
 				<label
@@ -172,7 +173,7 @@ async function handleSave() {
 					/>
 					<div class="flex items-center gap-2">
 						<Mail size={18} class="text-base-content/70" />
-						<span class="label-text text-sm font-medium">Notifications par email</span>
+						<span class="label-text text-sm font-medium">{m.notif_email_notifications()}</span>
 					</div>
 				</label>
 
@@ -187,7 +188,7 @@ async function handleSave() {
 						/>
 						<div class="flex items-center gap-2">
 							<Smartphone size={18} class="text-base-content/70" />
-							<span class="label-text text-sm font-medium">Notifications push sur cet appareil</span
+							<span class="label-text text-sm font-medium">{m.notif_push_notifications()}</span
 							>
 						</div>
 					</label>
@@ -198,7 +199,7 @@ async function handleSave() {
 			<fieldset
 				class={['fieldset', !prefs.email && !prefs.push && 'pointer-events-none opacity-50']}
 			>
-				<legend class="fieldset-legend">Ce dont on vous notifie</legend>
+				<legend class="fieldset-legend">{m.notif_what_notify()}</legend>
 
 				<!-- Modifs d'occurrence (toggle unique : heure / lieu / détails / annulation) -->
 				<label
@@ -210,14 +211,14 @@ async function handleSave() {
 						class="checkbox checkbox-sm"
 					/>
 					<span class="label-text text-sm font-medium">
-						Modifications d'horaires, lieu, détails et annulations
+						{m.notif_occurrence_changes()}
 					</span>
 				</label>
 
 				<!-- Rappels (multi-select via checkboxes bind:group) -->
 				<div class="bg-base-200 border-base-300 space-y-2 rounded-lg border p-3">
-					<p class="label-text text-sm font-medium">Rappels avant vos participations</p>
-					<p class="text-xs opacity-60">Cochez les moments auxquels recevoir un rappel.</p>
+					<p class="label-text text-sm font-medium">{m.notif_reminders()}</p>
+					<p class="text-xs opacity-60">{m.notif_reminders_hint()}</p>
 					<div class="flex flex-wrap gap-x-4 gap-y-2 pt-1 pl-1">
 						{#each reminderOptions as opt (opt.value)}
 							<label class="label cursor-pointer justify-start gap-2 p-0">
@@ -235,8 +236,8 @@ async function handleSave() {
 
 				<!-- Missings (tous les participants non-absents sont destinataires) -->
 				<div class="bg-base-200 border-base-300 space-y-2 rounded-lg border p-3">
-					<p class="label-text text-sm font-medium">Alertes participants manquants</p>
-					<p class="text-xs opacity-60">Pour anticiper les sessions sous-effectif.</p>
+					<p class="label-text text-sm font-medium">{m.notif_missing_participants()}</p>
+					<p class="text-xs opacity-60">{m.notif_missing_hint()}</p>
 					<div class="flex flex-wrap gap-x-4 gap-y-2 pt-1 pl-1">
 						{#each missingOptions as opt (opt.value)}
 							<label class="label cursor-pointer justify-start gap-2 p-0">
@@ -256,7 +257,7 @@ async function handleSave() {
 				<div class="bg-base-200 border-base-300 space-y-2 rounded-lg border p-3">
 					<div class="flex items-center gap-2">
 						<MessageSquare size={16} class="text-base-content/70" />
-						<p class="label-text text-sm font-medium">Nouveaux messages</p>
+						<p class="label-text text-sm font-medium">{m.notif_new_messages()}</p>
 					</div>
 					<div class="space-y-2 pt-1">
 						{#each newCommentScopeOptions as opt (opt.value)}
@@ -296,10 +297,10 @@ async function handleSave() {
 						/>
 						<div class="space-y-0.5">
 							<p class="label-text text-sm font-medium">
-								Événements non confirmés à l'approche de la date
+								{m.notif_unconfirmed_events()}
 							</p>
 							<p class="text-xs opacity-60">
-								Recevez une alerte pour confirmer ou non les événements confirmables qui arrivent.
+								{m.notif_unconfirmed_hint()}
 							</p>
 						</div>
 					</label>
@@ -310,10 +311,10 @@ async function handleSave() {
 				<button type="submit" class="btn btn-primary gap-2" disabled={isSaving}>
 					{#if isSaving}
 						<LoaderCircle class="animate-spin" size={18} />
-						Sauvegarde...
+						{m.notif_saving()}
 					{:else}
 						<Save size={18} />
-						Enregistrer
+						{m.notif_save()}
 					{/if}
 				</button>
 			</div>

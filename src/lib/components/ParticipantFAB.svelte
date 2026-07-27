@@ -1,5 +1,6 @@
 <script lang="ts">
 import { Bell, EllipsisVertical, Settings, Share2 } from "@lucide/svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	isAdmin: boolean;

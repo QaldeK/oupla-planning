@@ -1,5 +1,6 @@
-<script lang="ts">
+ <script lang="ts">
 import { ArrowLeft, X } from "@lucide/svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { mediaQuery } from "$lib/stores/mediaQuery.svelte.js";
 
 interface Props {
@@ -78,7 +79,7 @@ function handleKeydown(e: KeyboardEvent) {
 					<button
 						class="btn btn-circle btn-ghost sm:btn-sm mr-2"
 						onclick={onClose}
-						aria-label="Retour"
+						aria-label={m.common_back()}
 					>
 						<ArrowLeft size={20} />
 					</button>
@@ -88,7 +89,7 @@ function handleKeydown(e: KeyboardEvent) {
 					<!-- <button class="btn btn-circle btn-primary btn-sm" onclick={}><Save class="p-1" /></button> -->
 				{:else if closable}
 					<h3 class="flex-1 text-lg font-semibold">{title}</h3>
-					<button class="btn btn-circle btn-ghost btn-sm" onclick={onClose} aria-label="Fermer">
+					<button class="btn btn-circle btn-ghost btn-sm" onclick={onClose} aria-label={m.common_close()}>
 						<X size={20} />
 					</button>
 				{:else}

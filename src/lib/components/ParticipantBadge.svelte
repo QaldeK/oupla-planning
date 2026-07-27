@@ -1,6 +1,7 @@
-<script lang="ts">
+ <script lang="ts">
 import { Minus } from "@lucide/svelte";
 import { RESPONSE_TYPE_CONFIG } from "$lib/constants";
+import * as m from "$lib/paraglide/messages.js";
 import type { ResponseType } from "$lib/types/planning.types";
 
 interface Props {
@@ -26,7 +27,7 @@ const responseConfig = $derived(
 	response
 		? RESPONSE_TYPE_CONFIG[response]
 		: {
-				label: () => "Pas de réponse",
+				label: () => m.badge_no_response(),
 				badgeClass: "badge-ghost",
 				icon: Minus,
 				btnClass: "btn-ghost"

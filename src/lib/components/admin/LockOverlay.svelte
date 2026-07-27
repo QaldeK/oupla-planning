@@ -1,6 +1,7 @@
-<script lang="ts">
+ <script lang="ts">
 import { AlertTriangle, ArrowLeft, Lock, RotateCcw } from "@lucide/svelte";
 import { goto } from "$app/navigation";
+import * as m from "$lib/paraglide/messages.js";
 import type { LockInfo } from "$lib/services/lockService";
 
 interface Props {
@@ -30,7 +31,7 @@ function navigateBack() {
 	style:z-index="60"
 	role="dialog"
 	aria-modal="true"
-	aria-label="Verrouillage d'édition"
+	aria-label={m.lock_edit_title()}
 >
 	<div class="modal-box max-w-sm space-y-5 py-8 text-center">
 		<div class="bg-warning/10 mx-auto flex h-16 w-16 items-center justify-center rounded-full">

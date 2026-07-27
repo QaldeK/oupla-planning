@@ -1,4 +1,6 @@
 <script lang="ts">
+import * as m from "$lib/paraglide/messages.js";
+
 interface Option {
 	value: number;
 	label: string;
@@ -13,7 +15,7 @@ interface Props {
 let {
 	selectedValues = $bindable([]),
 	options,
-	placeholder = "Sélectionner des options"
+	placeholder = m.multi_select_placeholder()
 }: Props = $props();
 
 let isOpen = $state(false);

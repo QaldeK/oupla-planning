@@ -1,4 +1,5 @@
 <script lang="ts">
+import * as m from "$lib/paraglide/messages.js";
 import { ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from "@lucide/svelte";
 import { fade } from "svelte/transition";
 import { toast } from "svelte-sonner";
@@ -97,11 +98,11 @@ async function handleIdentifyAs(participant: Participant) {
 			);
 		}
 
-		toast.success(`Bienvenue, ${participant.name} !`);
+		toast.success(m.identify_welcome({name: participant.name}));
 		closeModal();
 	} catch (error) {
 		console.error("Error identifying as participant:", error);
-		toast.error("Erreur lors de l'identification");
+		toast.error(m.identify_error());
 	} finally {
 		isSubmitting = false;
 	}
@@ -147,7 +148,7 @@ function handleAuthSuccess() {
 }
 </script>
 
-<Modal {open} onClose={closeModal} title="Identification" size="md" closable={!claimedIdentity}>
+<Modal {open} onClose={closeModal} title={m.identify_title()} size="md" closable={!claimedIdentity}>
 	<div class="space-y-6">
 		<!-- Alerte pour identité protégée -->
 		{#if claimedIdentity}
@@ -158,9 +159,9 @@ function handleAuthSuccess() {
 				<Lock size={20} class="shrink-0" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">
-						L'identité <strong>{claimedIdentity.name}</strong> est protégée par un compte.
+						{m.identify_account_protected({name: claimedIdentity.name})}
 					</p>
-					<p class="text-xs opacity-80">Connectez-vous pour vous authentifier.</p>
+					<p class="text-xs opacity-80">{m.identify_login_prompt()}</p>
 				</div>
 			</div>
 			<button
@@ -172,11 +173,11 @@ function handleAuthSuccess() {
 				}}
 			>
 				<ArrowLeftFromLine size={20} class="shrink-0" />
-				Choisir un autre nom
+				{m.identify_choose_other()}
 			</button>
 			<!-- Formulaire de connexion directement visible -->
 			<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
-				<h4 class="mb-4 text-sm font-medium">Connexion requise</h4>
+				<h4 class="mb-4 text-sm font-medium">{m.identify_login_required()}</h4>
 				<AuthForm
 					mode="login"
 					name={claimedIdentity.name}
@@ -201,21 +202,21 @@ function handleAuthSuccess() {
 					<label class="input w-full">
 						<span class="label">
 							<User size={18} class="opacity-40" />
-							Nom *
+							{m.identify_name_label()}
 						</span>
 						<input
 							bind:this={inputRef}
 							type="text"
 							bind:value={name}
 							class="grow"
-							placeholder="Votre nom ou pseudo"
+							placeholder={m.identify_name_placeholder()}
 							required
 							disabled={isSubmitting}
 							maxlength="36"
 						/>
 					</label>
 					<div class="fieldset-label p-1 text-xs">
-						C'est le nom qui apparaîtra pour les autres participants sur ce planning.
+						{m.identify_name_hint()}
 					</div>
 				</fieldset>
 
@@ -239,9 +240,9 @@ function handleAuthSuccess() {
 					>
 						{#if isSubmitting}
 							<span class="loading loading-spinner loading-xs"></span>
-							Traitement...
+							{m.identify_processing()}
 						{:else}
-							Continuer comme {name || '...'}
+							{m.identify_continue_as({name: name || '...'})}
 							<ArrowRight size={18} />
 						{/if}
 					</button>
@@ -251,13 +252,12 @@ function handleAuthSuccess() {
 			<!-- Inscription depuis le IdentifyModal -->
 			{#if !userStore.isLoggedIn}
 				<div class="divider mt-8 text-sm font-medium tracking-widest uppercase opacity-50">
-					.. ou associez un compte !
+					{m.identify_or_link_account()}
 				</div>
 				<div class="flex w-full flex-col gap-2 leading-tight">
 					<div class="flex items-center gap-2 text-sm opacity-70">
 						<InfoIcon size={20} class="inline shrink-0" />
-						Associez un compte pour retrouver vos plannings sur tous vos appareils, et recevoir des notifications
-						par email (et push sur mobile).
+						{m.identify_link_account_desc()}
 					</div>
 
 					<div class="my-4 flex flex-wrap justify-evenly gap-2">
@@ -268,7 +268,7 @@ function handleAuthSuccess() {
 								showAccountForm = true;
 							}}
 						>
-							J'ai déjà un compte — Se connecter
+							{m.identify_switch_to_login()}
 						</button>
 						<button
 							class="btn {authMode === 'register' ? 'btn-primary' : 'btn-soft btn-primary'}"
@@ -277,7 +277,7 @@ function handleAuthSuccess() {
 								showAccountForm = true;
 							}}
 						>
-							Créer un compte
+							{m.identify_create_account()}
 						</button>
 					</div>
 
