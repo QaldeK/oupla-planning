@@ -2,6 +2,7 @@
 import { AlertTriangle, RefreshCw, Trash2 } from "@lucide/svelte";
 import { page } from "$app/state";
 import { recoverAllData } from "$lib/utils/recover";
+import * as m from "$lib/paraglide/messages.js";
 
 let isRecovering = $state(false);
 
@@ -25,7 +26,7 @@ function reloadPage() {
 </script>
 
 <svelte:head>
-	<title>{isNotFound ? 'Page introuvable' : 'Erreur'} · Oupla Planning</title>
+	<title>{isNotFound ? m.error_page_title_404() : m.error_page_title_other()} · Oupla Planning</title>
 </svelte:head>
 
 <div class="flex min-h-[60vh] flex-col items-center justify-center gap-6 p-6 text-center">
@@ -39,21 +40,20 @@ function reloadPage() {
 
 	<div class="max-w-md space-y-2">
 		<h1 class="text-3xl font-bold">
-			{isNotFound ? 'Page introuvable' : isInternalServerError ? 'Une erreur est survenue' : 'Oups'}
+			{isNotFound ? m.error_heading_404() : isInternalServerError ? m.error_heading_500() : m.error_heading_unknown()}
 		</h1>
 		<p class="text-base-content/70">
 			{#if isNotFound}
-				La page que vous cherchez n'existe pas ou a été déplacée.
+				{m.error_description_404()}
 			{:else if isInternalServerError}
-				L'application n'a pas pu se charger correctement. Cela peut venir d'une mise à jour récente
-				ou de données locales incompatibles.
+				{m.error_description_500()}
 			{:else}
-				{page.error?.message ?? 'Une erreur inattendue est survenue.'}
+				{page.error?.message ?? m.error_description_unknown()}
 			{/if}
 		</p>
 		{#if isInternalServerError && import.meta.env.DEV && page.error?.message}
 			<details class="text-left">
-				<summary class="text-base-content/50 cursor-pointer text-sm">Détails techniques</summary>
+				<summary class="text-base-content/50 cursor-pointer text-sm">{m.error_technical_details()}</summary>
 				<pre class="bg-base-300 mt-2 overflow-x-auto rounded p-3 text-xs">{page.error.message}</pre>
 			</details>
 		{/if}
@@ -62,24 +62,23 @@ function reloadPage() {
 	<div class="flex flex-wrap items-center justify-center gap-3">
 		<a href="/" class="btn btn-primary">
 			<RefreshCw size={18} />
-			Accueil
+			{m.error_go_home()}
 		</a>
 		{#if isInternalServerError}
 			<button class="btn btn-outline btn-error" onclick={handleRecover} disabled={isRecovering}>
 				<Trash2 size={18} />
-				{isRecovering ? 'Nettoyage…' : 'Effacer les données locales'}
+				{isRecovering ? m.error_cleaning() : m.error_clear_local_data()}
 			</button>
 		{/if}
 		<button class="btn btn-ghost" onclick={reloadPage}>
 			<RefreshCw size={16} />
-			Réessayer
+			{m.error_retry()}
 		</button>
 	</div>
 
 	{#if isInternalServerError}
 		<p class="text-base-content/50 max-w-sm text-xs">
-			« Effacer les données locales » supprime le cache hors-ligne, les identités guest et les
-			préférences. Vos plannings côté serveur ne sont pas affectés.
+			{m.error_clear_data_explanation()}
 		</p>
 	{/if}
 </div>

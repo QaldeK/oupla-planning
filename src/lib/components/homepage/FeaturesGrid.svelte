@@ -7,47 +7,44 @@ import {
 	Repeat2,
 	ShieldCheck
 } from "@lucide/svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 const features = [
 	{
 		icon: CalendarCheck,
-		title: "Gestion des présences",
-		description:
-			"Chaque participant·e indique sa disponibilité (présent·e, si besoin, peut-être, absent·e). Suivi du quorum en temps réel."
+		title: m.home_features_attendance_title(),
+		description: m.home_features_attendance_desc()
 	},
 	{
 		icon: ClipboardList,
-		title: "Tâches",
-		description: "Ajouter des tâches à se répartir (à réaliser avant, pendant, après l'événement)."
+		title: m.home_features_tasks_title(),
+		description: m.home_features_tasks_desc()
 	},
 	{
 		icon: Repeat2,
-		title: "Récurrence flexible",
-		description: "Quotidien, hebdomadaire, bihebdomadaire, mensuel ou dates libres."
+		title: m.home_features_recurrence_title(),
+		description: m.home_features_recurrence_desc()
 	},
 	{
 		icon: MessageSquareText,
-		title: "Commentaires",
-		description:
-			"Échangez sur chaque événement via un fil de discussion intégré. Indicateur de messages non lus."
+		title: m.home_features_comments_title(),
+		description: m.home_features_comments_desc()
 	},
 	{
 		icon: Bell,
-		title: "Notifications",
-		description:
-			"Alertes push et email pour les changements, annulations, rappels et les nouveaux messages. Configuration par planning."
+		title: m.home_features_notifications_title(),
+		description: m.home_features_notifications_desc()
 	},
 	{
 		icon: ShieldCheck,
-		title: "Confirmation d'événements",
-		description:
-			"Activez le mode de confirmation pour valider chaque événement avant qu'il n'ait lieu."
+		title: m.home_features_confirmation_title(),
+		description: m.home_features_confirmation_desc()
 	}
 ];
 </script>
 
 <section class="py-10">
-	<h2 class="mb-8 text-center text-2xl font-bold">Fonctionnalités</h2>
+	<h2 class="mb-8 text-center text-2xl font-bold">{m.home_features_heading()}</h2>
 
 	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
 		{#each features as feature (feature.icon)}

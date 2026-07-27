@@ -1,36 +1,33 @@
 <script lang="ts">
 import { Building2, Music, Trophy, Users } from "@lucide/svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 const useCases = [
 	{
 		icon: Users,
-		title: "Associations",
-		description:
-			"Organisez les créneaux de bénévolat, les permanences et les événements récurrents de votre association."
+		title: m.home_usecases_associations_title(),
+		description: m.home_usecases_associations_desc()
 	},
 	{
 		icon: Trophy,
-		title: "Clubs sportifs",
-		description:
-			"Planifiez les entraînements, gérez les présences et répartissez les rôles (coach, arbitre, logistique)."
+		title: m.home_usecases_sports_title(),
+		description: m.home_usecases_sports_desc()
 	},
 	{
 		icon: Music,
-		title: "Groupes musicaux",
-		description:
-			"Coordonnez les répétitions hebdomadaires, suivez qui sera là et qui s'occupe du matériel."
+		title: m.home_usecases_music_title(),
+		description: m.home_usecases_music_desc()
 	},
 	{
 		icon: Building2,
-		title: "Équipes et comités",
-		description:
-			"Planifiez les réunions récurrentes, tours de garde et astreintes sans outil lourd ni inscription obligatoire."
+		title: m.home_usecases_teams_title(),
+		description: m.home_usecases_teams_desc()
 	}
 ];
 </script>
 
 <section class="py-10">
-	<h2 class="mb-8 text-center text-2xl font-bold">Pour qui ?</h2>
+	<h2 class="mb-8 text-center text-2xl font-bold">{m.home_usecases_heading()}</h2>
 
 	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
 		{#each useCases as useCase (useCase.icon)}

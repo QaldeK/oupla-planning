@@ -11,6 +11,7 @@ import {
 	generateParticipantToken
 } from "$lib/services/planningActions";
 import { syncService } from "$lib/services/syncService";
+import * as m from "$lib/paraglide/messages.js";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { Participant } from "$lib/types/planning.types";
 
@@ -53,19 +54,19 @@ async function handleCreatePlanning(data: PlanningFormData) {
 		// Déclencher la synchronisation (lit les tokens depuis db.masters)
 		await syncService.sync();
 
-		toast.success("Planning créé avec succès !");
+		toast.success(m.newplan_created_success());
 
 		// Rediriger vers la vue participant
 		goto(`/p/${participantToken}`);
 	} catch (error) {
 		console.error("Error creating planning:", error);
-		toast.error("Erreur lors de la création du planning");
+		toast.error(m.newplan_created_error());
 	}
 }
 </script>
 
 <svelte:head>
-	<title>Nouveau Planning</title>
+	<title>{m.newplan_page_title()}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-4xl sm:px-4 sm:py-8">
@@ -73,7 +74,7 @@ async function handleCreatePlanning(data: PlanningFormData) {
 		<div class="bg-primary/10 inline-flex rounded-full p-4">
 			<Calendar size={28} class="text-primary" />
 		</div>
-		<h1 class=" text-lg font-bold sm:text-2xl">Création d'un planning</h1>
+		<h1 class=" text-lg font-bold sm:text-2xl">{m.newplan_heading()}</h1>
 		<!-- <p class="text-base-content/60 mx-auto max-w-xl text-lg">
 			Configurez la récurrentes, définissez des tâches,
 		</p> -->
@@ -83,10 +84,10 @@ async function handleCreatePlanning(data: PlanningFormData) {
 		<div class="alert alert-info alert-soft mb-6">
 			<UserPlus size={18} class="text-info shrink-0" />
 			<span class="text-sm">
-				Créez un compte pour retrouver vos plannings partout et ne jamais les perdre.
+				{m.newplan_guest_info()}
 			</span>
 			<button class="btn btn-info btn-sm" onclick={() => (showAccountModal = true)}>
-				Créer un compte
+				{m.newplan_create_account()}
 			</button>
 		</div>
 	{/if}

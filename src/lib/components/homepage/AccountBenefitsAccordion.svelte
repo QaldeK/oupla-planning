@@ -1,12 +1,13 @@
 <script lang="ts">
 import { HatGlasses, InfoIcon, Mail, Smartphone } from "@lucide/svelte";
+import * as m from "$lib/paraglide/messages.js";
 </script>
 
 <div class="space-y-1">
 	<!-- Titre -->
 	<div class="mb-2 flex items-center gap-2">
 		<InfoIcon size={20} class="text-info" />
-		<h3 class="text-lg font-bold">Pourquoi créer un compte ?</h3>
+		<h3 class="text-lg font-bold">{m.home_accordion_why_account()}</h3>
 	</div>
 
 	<!-- Accordion 1: Retrouvez vos plannings -->
@@ -14,12 +15,11 @@ import { HatGlasses, InfoIcon, Mail, Smartphone } from "@lucide/svelte";
 		<input type="radio" name="account-accordion" checked />
 		<div class="collapse-title flex items-center gap-3 font-medium">
 			<Smartphone size={18} class="text-info" />
-			<span>Retrouvez vos plannings partout</span>
+			<span>{m.home_accordion_cross_device_title()}</span>
 		</div>
 		<div class="collapse-content">
 			<p class="text-sm opacity-80">
-				Accédez à vos plannings depuis tous vos appareils : mobile, tablette, ordinateur. Vos
-				données sont synchronisées automatiquement.
+				{m.home_accordion_cross_device_desc()}
 			</p>
 		</div>
 	</div>
@@ -29,16 +29,14 @@ import { HatGlasses, InfoIcon, Mail, Smartphone } from "@lucide/svelte";
 		<input type="radio" name="account-accordion" />
 		<div class="collapse-title flex items-center gap-3 font-medium">
 			<Mail size={18} class="text-info" />
-			<span>Recevez des notifications</span>
+			<span>{m.home_accordion_notifications_title()}</span>
 		</div>
 		<div class="collapse-content">
 			<p class="text-sm opacity-80">
-				<strong>Par email</strong> : soyez alerté des annulations, de vos inscriptions, et des modifications
-				importantes.
+				{m.home_accordion_notifications_email()}
 			</p>
 			<p class="mt-2 text-sm opacity-80">
-				<strong>Sur mobile</strong> : installez l'app en un clic pour recevoir des notifications push
-				directement sur votre appareil.
+				{m.home_accordion_notifications_push()}
 			</p>
 		</div>
 	</div>
@@ -48,14 +46,13 @@ import { HatGlasses, InfoIcon, Mail, Smartphone } from "@lucide/svelte";
 		<input type="radio" name="account-accordion" />
 		<div class="collapse-title flex items-center gap-3 font-medium">
 			<HatGlasses size={18} class="text-info" />
-			<span>Respecte votre vie privée</span>
+			<span>{m.home_accordion_privacy_title()}</span>
 		</div>
 		<div class="collapse-content">
 			<p class="text-sm opacity-80">
-				<strong>oupla-planning</strong> ne collecte aucune donnée personnelle autre que vos identifiants
-				de connexion et les plannings eux-mêmes.
+				{m.home_accordion_privacy_desc()}
 			</p>
-			<p class="mt-2 text-sm opacity-80">Vos données ne sont jamais partagées à des tiers.</p>
+			<p class="mt-2 text-sm opacity-80">{m.home_accordion_privacy_no_sharing()}</p>
 		</div>
 	</div>
 
@@ -64,14 +61,14 @@ import { HatGlasses, InfoIcon, Mail, Smartphone } from "@lucide/svelte";
 		<input type="radio" name="account-accordion" />
 		<div class="collapse-title flex items-center gap-3 font-medium">
 			<InfoIcon size={18} class="text-info/70" />
-			<span>... ou participez sans compte</span>
+			<span>{m.home_accordion_no_account_title()}</span>
 		</div>
 		<div class="collapse-content">
 			<p class="text-sm opacity-80">
-				Il est possible de créer et de participer à des plannings sans compte.
+				{m.home_accordion_no_account_desc()}
 			</p>
 			<p class="mt-2 text-sm opacity-80">
-				Penser à sauvegarder les URLs des plannings pour ne pas les perdre.
+				{m.home_accordion_no_account_save_urls()}
 			</p>
 		</div>
 	</div>

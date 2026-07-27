@@ -1,32 +1,31 @@
 <script lang="ts">
 import { CalendarPlus, Eye, Share2 } from "@lucide/svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 const steps = [
 	{
 		num: "1",
 		icon: CalendarPlus,
-		title: "Créez votre planning",
-		description:
-			"Définissez la récurrence (quotidien, hebdomadaire, mensuel…), les horaires et les tâches à pourvoir."
+		title: m.home_howitworks_step1_title(),
+		description: m.home_howitworks_step1_desc()
 	},
 	{
 		num: "2",
 		icon: Share2,
-		title: "Partagez le lien",
-		description: "Partagez le lien à votre groupe. Aucune inscription n'est requise pour répondre."
+		title: m.home_howitworks_step2_title(),
+		description: m.home_howitworks_step2_desc()
 	},
 	{
 		num: "3",
 		icon: Eye,
-		title: "Suivez les réponses",
-		description:
-			"Chacun·e peut voir qui sera présent, qui s'occupe de quoi, et communiquer via les commentaires en temps réel."
+		title: m.home_howitworks_step3_title(),
+		description: m.home_howitworks_step3_desc()
 	}
 ];
 </script>
 
 <section class=" py-10">
-	<h2 class="mb-8 text-center text-2xl font-bold">Comment ça marche</h2>
+	<h2 class="mb-8 text-center text-2xl font-bold">{m.home_howitworks_heading()}</h2>
 
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
 		{#each steps as step (step.icon)}

@@ -1,23 +1,22 @@
 <script lang="ts">
 import { HatGlasses, Smartphone, UserX } from "@lucide/svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 const benefits = [
 	{
 		icon: UserX,
-		title: "Pas d'inscription obligatoir",
-		description:
-			"Participez simplement avec votre nom. Créez un planning sans créer de compte, ou bien créer en un pour retrouver vos différents planning simplement."
+		title: m.home_benefits_no_registration_title(),
+		description: m.home_benefits_no_registration_desc()
 	},
 	{
 		icon: HatGlasses,
-		title: "Open source",
-		description: "...et sans pub, ni tracking, ni collecte de donnée"
+		title: m.home_benefits_opensource_title(),
+		description: m.home_benefits_opensource_desc()
 	},
 	{
 		icon: Smartphone,
-		title: "Installable en un clic",
-		description:
-			"Ajoutez l'app à votre écran d'accueil pour une expérience native avec notifications push."
+		title: m.home_benefits_installable_title(),
+		description: m.home_benefits_installable_desc()
 	}
 ];
 </script>

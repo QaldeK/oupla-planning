@@ -11,6 +11,7 @@ import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { pwaStore } from "$lib/stores/pwaStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { version } from "../../package.json" with { type: "json" };
 
 function navigateToPlanning(participantToken: string) {
@@ -24,11 +25,10 @@ const jsonLdScript =
 		"@type": "WebApplication",
 		name: "Oupla Planning",
 		url: "https://planning.oupla.net/",
-		description:
-			"Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise.",
+		description: m.home_jsonld_description(),
 		applicationCategory: "LifestyleApplication",
 		operatingSystem: "Web",
-		inLanguage: "fr",
+		inLanguage: getLocale(),
 		offers: {
 			"@type": "Offer",
 			price: "0",
@@ -38,27 +38,27 @@ const jsonLdScript =
 </script>
 
 <svelte:head>
-	<title>Oupla - Planifiez et suivez vos activités récurrentes</title>
+	<title>{m.home_page_title()}</title>
 	<meta
 		name="description"
-		content="Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise."
+		content={m.home_meta_description()}
 	/>
 
 	<!-- Open Graph -->
 	<meta property="og:type" content="website" />
-	<meta property="og:title" content="Oupla - Planifiez et suivez vos activités récurrentes" />
+	<meta property="og:title" content={m.home_og_title()} />
 	<meta
 		property="og:description"
-		content="Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise."
+		content={m.home_og_description()}
 	/>
 	<meta property="og:image" content="/icon-512.png" />
 
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary" />
-	<meta name="twitter:title" content="Oupla - Planifiez et suivez vos activités récurrentes" />
+	<meta name="twitter:title" content={m.home_twitter_title()} />
 	<meta
 		name="twitter:description"
-		content="Organisez vos événements récurrents, suivez les présences et les tâches de vos participants. Simple, gratuit, sans inscription requise."
+		content={m.home_twitter_description()}
 	/>
 
 	<!-- Structured Data (JSON-LD) -->
@@ -72,7 +72,7 @@ const jsonLdScript =
 			<img src="/logo.svg" class="mx-auto size-48 sm:size-54" alt="Oupla planning" />
 			<h1 class="text-6xl font-black max-sm:hidden">Oupla planning</h1>
 			<p class="text-base-content/70 max-w-md text-lg">
-				Gérez les présences et les tâches de vos activités récurrentes.
+				{m.home_tagline()}
 			</p>
 			<p class="text-base-content/70 text-sm">v{version}</p>
 		</div>
@@ -82,14 +82,14 @@ const jsonLdScript =
 	<div class="mb-8 flex justify-center">
 		<button onclick={() => goto('/new')} class="btn btn-primary btn-lg gap-3 shadow-lg">
 			<Plus size={24} />
-			Créer un nouveau planning
+			{m.home_create_planning()}
 		</button>
 	</div>
 
 	<!-- Saved Plannings List - UNIQUEMENT si connecté (en haut car concerne les user·es connecté·es) -->
 	{#if userStore.isLoggedIn && planningStore.activeMasters.length > 0}
 		<div class="mb-8">
-			<h2 class="mb-4 text-xl font-semibold">Vos plannings</h2>
+			<h2 class="mb-4 text-xl font-semibold">{m.home_your_plannings()}</h2>
 			<div class="space-y-3">
 				{#each planningStore.activeMasters.filter((m) => !m.participants.some((p) => p.userId === userStore.pbUser?.id && p.hasQuit)) as master (master.id)}
 					<button
@@ -101,7 +101,7 @@ const jsonLdScript =
 								<div class="flex-1 text-left">
 									<h3 class="card-title">{master.title}</h3>
 									<p class="text-base-content/60 text-sm">
-										Dernière modif : {new Date(master.updated).toLocaleDateString(getLocale())}
+										{m.home_last_modified()} {new Date(master.updated).toLocaleDateString(getLocale())}
 									</p>
 								</div>
 								<div class="flex items-center gap-2">
@@ -111,9 +111,9 @@ const jsonLdScript =
 										</div>
 									{/if}
 									{#if master.adminToken}
-										<span class="badge badge-primary">Admin</span>
+										<span class="badge badge-primary">{m.home_badge_admin()}</span>
 									{:else}
-										<span class="badge badge-secondary">Participant</span>
+										<span class="badge badge-secondary">{m.home_badge_participant()}</span>
 									{/if}
 								</div>
 							</div>
@@ -125,7 +125,7 @@ const jsonLdScript =
 	{/if}
 	{#if userStore.isLoggedIn && planningStore.deletedMasters.length > 0}
 		<div class="mb-8 opacity-70">
-			<h2 class="mb-4 font-semibold">Plannings supprimés</h2>
+			<h2 class="mb-4 font-semibold">{m.home_deleted_plannings()}</h2>
 			<div class="space-y-1">
 				{#each planningStore.deletedMasters as master (master.id)}
 					<div class="card card-sm bg-base-200 w-full border border-dashed">
@@ -134,7 +134,7 @@ const jsonLdScript =
 								<div class="flex-1 text-left">
 									<h3 class="card-title line-through opacity-60">{master.title}</h3>
 								</div>
-								<span class="badge badge-error badge-sm">Supprimé</span>
+								<span class="badge badge-error badge-sm">{m.home_deleted_badge()}</span>
 							</div>
 						</div>
 					</div>
@@ -145,7 +145,7 @@ const jsonLdScript =
 				onclick={() => planningStore.cleanDeletedPlannings()}
 			>
 				<Trash2 size={14} />
-				Nettoyer les plannings supprimés
+				{m.home_clean_deleted()}
 			</button>
 		</div>
 	{/if}

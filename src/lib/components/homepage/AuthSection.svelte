@@ -2,6 +2,7 @@
 <script lang="ts">
 import AuthForm from "$lib/components/auth/AuthForm.svelte";
 import AccountBenefitsAccordion from "$lib/components/homepage/AccountBenefitsAccordion.svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 let authMode = $state<"register" | "login">("register");
 
@@ -16,20 +17,20 @@ async function handleAuthSuccess() {
 	<div class="card bg-base-100 shadow-md">
 		<div class="card-body">
 			<h3 class="card-title mb-4 text-base">
-				{authMode === 'register' ? 'Créer un compte' : 'Se connecter'}
+				{authMode === 'register' ? m.home_auth_form_register_title() : m.home_auth_form_login_title()}
 			</h3>
 
 			<AuthForm mode={authMode} showNameInput={true} onSuccess={handleAuthSuccess} />
 
-			<div class="divider text-xs opacity-50">OU</div>
+			<div class="divider text-xs opacity-50">{m.home_auth_form_or_divider()}</div>
 
 			<button
 				class="btn btn-ghost btn-block text-sm"
 				onclick={() => (authMode = authMode === 'register' ? 'login' : 'register')}
 			>
 				{authMode === 'register'
-					? "J'ai déjà un compte - Se connecter"
-					: "Je n'ai pas de compte - Créer un compte"}
+					? m.home_auth_form_switch_to_login()
+					: m.home_auth_form_switch_to_register()}
 			</button>
 		</div>
 	</div>
