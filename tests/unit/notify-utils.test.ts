@@ -76,12 +76,12 @@ describe("formatDateFR", () => {
 		expect(result).toMatch(/15/);
 	});
 
-	it('returns empty string for empty input', () => {
+	it("returns empty string for empty input", () => {
 		const result = formatDateFR("");
 		expect(result).toBe("");
 	});
 
-	it('returns the raw input for invalid date string', () => {
+	it("returns the raw input for invalid date string", () => {
 		const result = formatDateFR("not-a-date");
 		expect(result).toBe("not-a-date");
 	});

@@ -24,6 +24,7 @@ let {
 	onSuccess
 }: Props = $props();
 
+// svelte-ignore state_referenced_locally
 let email = $state(initialEmail);
 let password = $state("");
 let passwordConfirm = $state("");
