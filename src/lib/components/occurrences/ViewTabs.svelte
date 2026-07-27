@@ -3,6 +3,7 @@ import { LayoutGrid, List, Minimize2 } from "@lucide/svelte";
 import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { ViewType } from "./index";
+import * as m from "$lib/paraglide/messages.js";
 
 const activeView = $derived(userStore.appPreferences.occurrenceView);
 
@@ -16,9 +17,9 @@ function setView(view: ViewType) {
 }
 
 function getLabel(view: ViewType): string {
-	if (view === "card") return "Cartes";
-	if (view === "compact") return "Compact";
-	return "Minimal";
+	if (view === "card") return m.view_tab_cards();
+	if (view === "compact") return m.view_tab_compact();
+	return m.view_tab_minimal();
 }
 
 function getIcon(view: ViewType) {

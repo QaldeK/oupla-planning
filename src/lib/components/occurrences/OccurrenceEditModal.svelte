@@ -35,6 +35,7 @@ import Modal from "../ui/Modal.svelte";
 import RichTextEditor from "../ui/RichTextEditor.svelte";
 import TaskManager from "./TaskManager.svelte";
 import VolunteerAssignmentModal from "./VolunteerAssignmentModal.svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	open: boolean;
@@ -103,12 +104,12 @@ const currentStatus = $derived<EventStatus>(
 
 const statusLabel = $derived(
 	currentStatus === "canceled"
-		? "Annulé"
+		? m.occurrence_status_canceled()
 		: currentStatus === "confirmed"
-			? "Confirmé"
+			? m.occurrence_status_confirmed()
 			: toConfirm
-				? "En attente de confirmation"
-				: "Toujours confirmé"
+				? m.occurrence_status_pending_confirmation()
+				: m.occurrence_status_always_confirmed()
 );
 
 // ===== Gestion admin des responses =====
@@ -129,7 +130,7 @@ function getTaskVolunteers(taskId: string) {
 			const participant = master.participants.find((p) => p.id === r.participantId);
 			return {
 				participantId: r.participantId,
-				name: participant?.name || "Inconnu",
+				name: participant?.name || m.common_unknown(),
 				response: r
 			};
 		});
@@ -211,7 +212,7 @@ async function handleResponseChange(participantId: string, responseType: Respons
 			const participant = master.participants.find((p) => p.id === participantId);
 			pendingResponseChange = {
 				participantId,
-				participantName: participant?.name || "Inconnu",
+				participantName: participant?.name || m.common_unknown(),
 				targetResponse: responseType,
 				onEventTaskIds: onEventInscribed
 			};
@@ -309,7 +310,7 @@ async function handleSubmit() {
 		// Mise à jour manuelle du store pour garantir la réactivité immédiate
 		occurrence = updated;
 
-		toast.success("Occurrence mise à jour");
+		toast.success(m.occurrence_updated());
 		onClose();
 	} catch (error) {
 		const { message } = classifyError(error);
@@ -331,14 +332,14 @@ const responseChangeModal = $derived.by(() => {
 	const isPlural = taskNames.length > 1;
 	return {
 		message: isPlural
-			? `« ${pending.participantName} » est inscrit à ${taskNames.length} tâches nécessitant sa présence : ${taskNames.join(", ")}.`
-			: `« ${pending.participantName} » est inscrit à la tâche « ${taskNames[0]} » qui nécessite sa présence.`
+			? m.occurrence_change_task_subscribed_multi({name: pending.participantName, count: taskNames.length, tasks: taskNames.join(", ")})
+			: m.occurrence_change_task_subscribed_single({name: pending.participantName, task: taskNames[0]})
 	};
 });
 </script>
 
 {#snippet actions()}
-  <button type="button" class="btn" onclick={onClose}>Annuler</button>
+  <button type="button" class="btn" onclick={onClose}>{m.common_cancel()}</button>
   <button
     type="submit"
     form="occurrence-edit-form"
@@ -348,12 +349,12 @@ const responseChangeModal = $derived.by(() => {
     {#if isSubmitting}
       <span class="loading loading-spinner loading-sm"></span>
     {/if}
-    Enregistrer <span class="hidden md:flex">les changements</span>
+    {m.occurrence_save_changes()}
   </button>
 {/snippet}
 
-<Modal {open} {onClose} {actions} title=" Modifier l'occurrence" size="lg">
-  <NetworkAlert message="Modifications impossibles - Serveur indisponible" />
+<Modal {open} {onClose} {actions} title={m.occurrence_edit_title()} size="lg">
+  <NetworkAlert message={m.common_network_unavailable_edit()} />
   <form
     id="occurrence-edit-form"
     onsubmit={(e) => {
@@ -365,7 +366,7 @@ const responseChangeModal = $derived.by(() => {
     <!-- Statut de l'événement -->
     <div class="bg-base-200 card mb-8 flex flex-col gap-3 px-4 py-2">
       <h4 class="text-sm font-medium">
-        Statut de l'événement : <span
+        {m.occurrence_event_status_heading()} <span
           class="text-base-content {currentStatus === 'canceled' &&
             'text-error'}">{statusLabel}</span
         >
@@ -374,7 +375,7 @@ const responseChangeModal = $derived.by(() => {
         <div
           class="join max-sm:mx-auto"
           role="radiogroup"
-          aria-label="Statut de l'événement"
+          aria-label={m.occurrence_event_status_aria()}
         >
           <label
             class="join-item btn btn-sm {currentStatus === 'confirmed'
@@ -389,7 +390,7 @@ const responseChangeModal = $derived.by(() => {
               onchange={() => setStatus("confirmed")}
             />
             <CheckCircle size={16} class="mr-2" />
-            Confirmé
+            {m.occurrence_status_confirmed()}
           </label>
           <label
             class="join-item btn btn-sm {currentStatus === 'pending'
@@ -404,7 +405,7 @@ const responseChangeModal = $derived.by(() => {
               onchange={() => setStatus("pending")}
             />
             <Clock size={16} class="mr-2" />
-            En attente
+            {m.occurrence_status_pending()}
           </label>
           <label
             class="join-item btn btn-sm {currentStatus === 'canceled'
@@ -419,23 +420,21 @@ const responseChangeModal = $derived.by(() => {
               onchange={() => setStatus("canceled")}
             />
             <XCircle size={16} class="mr-2" />
-            Annulé
+            {m.occurrence_status_canceled()}
           </label>
         </div>
       {:else if currentStatus !== "canceled"}
         <p class="text-base-content/80 text-sm">
-          Ce planning est configuré de façon à ce que ses événements soient
-          toujours considérés comme ayant lieu. Vous pouvez cependant annuler
-          une date spécifique. <button
+          {m.occurrence_always_on_description()} <button
             class="link link-error"
-            onclick={() => setStatus("canceled")}>annuler cette date</button
+            onclick={() => setStatus("canceled")}>{m.occurrence_cancel_this_date()}</button
           >
         </p>
       {:else}
         <p class="text-base-content/80">
-          Cette date a été annulée. <button
+          {m.occurrence_date_canceled()} <button
             class="link link-error"
-            onclick={() => setStatus("pending")}>réactiver cette date</button
+            onclick={() => setStatus("pending")}>{m.occurrence_reactivate_this_date()}</button
           >
         </p>
       {/if}
@@ -446,11 +445,11 @@ const responseChangeModal = $derived.by(() => {
         <div class="">
           <h4 class="flex items-center gap-2 font-medium">
             <Clock size={18} class="text-primary" />
-            Horaires
+            {m.occurrence_schedule()}
           </h4>
           <div class="grid grid-cols-2 gap-4">
             <fieldset class="fieldset">
-              <legend class="fieldset-legend">Début</legend>
+              <legend class="fieldset-legend">{m.occurrence_start_time()}</legend>
               <input
                 type="time"
                 bind:value={startTime}
@@ -459,7 +458,7 @@ const responseChangeModal = $derived.by(() => {
               />
             </fieldset>
             <fieldset class="fieldset">
-              <legend class="fieldset-legend">Fin</legend>
+              <legend class="fieldset-legend">{m.occurrence_end_time()}</legend>
               <input
                 type="time"
                 bind:value={endTime}
@@ -474,15 +473,15 @@ const responseChangeModal = $derived.by(() => {
         <div class="">
           <h4 class="flex items-center gap-2 font-medium">
             <MapPin size={18} class="text-primary" />
-            Lieu
+            {m.occurrence_place()}
           </h4>
           <fieldset class="fieldset">
-            <legend class="fieldset-legend">Lieu spécifique</legend>
+            <legend class="fieldset-legend">{m.occurrence_specific_place()}</legend>
             <input
               type="text"
               bind:value={place}
               class="input w-full"
-              placeholder={master.place || "Lieu par défaut"}
+              placeholder={master.place || m.occurrence_default_place_placeholder()}
             />
           </fieldset>
         </div>
@@ -492,14 +491,14 @@ const responseChangeModal = $derived.by(() => {
       <div class="space-y-2">
         <h4 class="flex items-center gap-2 font-medium">
           <AlignLeft size={18} class="text-primary" />
-          Description
+          {m.occurrence_description()}
         </h4>
         <!-- `disabled` explicite : les éléments contenteditable (TipTap) ne respectent
 				     pas le disabled du fieldset parent, il faut le propager manuellement. -->
         <RichTextEditor
           bind:value={description}
           disabled={isNetworkUnavailable || currentStatus === "canceled"}
-          placeholder="Notes spécifiques pour cette occurrence..."
+          placeholder={m.occurrence_specific_notes_placeholder()}
         />
       </div>
 
@@ -509,12 +508,12 @@ const responseChangeModal = $derived.by(() => {
       <div class="space-y-4">
         <h4 class="flex items-center gap-2 font-medium">
           <Users size={18} class="text-primary" />
-          Présences
+          {m.occurrence_attendees()}
         </h4>
 
         <div class="space-y-2 md:max-w-1/2">
           <label class="label-text font-medium"
-            >Présences minimum souhaitées
+            >{m.occurrence_min_present_required()}
             <div class="flex items-center gap-4">
               <input
                 type="range"
@@ -538,7 +537,7 @@ const responseChangeModal = $derived.by(() => {
         <div class="space-y-4">
           <h4 class="flex items-center gap-2 font-medium">
             <UserPlus size={18} class="text-primary" />
-            Gérer les réponses des participants
+            {m.occurrence_manage_responses()}
           </h4>
 
           <div class="space-y-2">
@@ -586,7 +585,7 @@ const responseChangeModal = $derived.by(() => {
             <input
               type="text"
               bind:value={newParticipantName}
-              placeholder="Nouveau participant..."
+              placeholder={m.occurrence_new_participant_placeholder()}
               onkeydown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -599,7 +598,7 @@ const responseChangeModal = $derived.by(() => {
               class="btn btn-primary btn-circle btn-sm"
               onclick={handleAddParticipant}
               disabled={isCreatingParticipant || !newParticipantName.trim()}
-              title="Ajouter"
+              title={m.common_add()}
             >
               {#if isCreatingParticipant}
                 <span class="loading loading-spinner loading-xs"></span>
@@ -637,7 +636,7 @@ const responseChangeModal = $derived.by(() => {
                         task.id,
                         volunteer.participantId,
                       )}
-                    aria-label="Retirer {volunteer.name} de cette tâche"
+                    aria-label={m.occurrence_remove_volunteer_aria({name: volunteer.name})}
                   >
                     <X class="size-4" />
                   </button>
@@ -653,8 +652,8 @@ const responseChangeModal = $derived.by(() => {
               >
                 <Users size={12} />
                 {taskVolunteers.length > 0
-                  ? "Gérer les inscrits"
-                  : "Ajouter"}
+                  ? m.occurrence_manage_subscribers()
+                  : m.occurrence_add_volunteer()}
               </button>
             </div>
           </div>
@@ -686,10 +685,10 @@ const responseChangeModal = $derived.by(() => {
     open={pendingResponseChange !== null}
     onClose={cancelResponseChange}
     onConfirm={confirmResponseChange}
-    title="Présence requise"
+    title={m.occurrence_presence_required_title()}
     message={responseChangeModal.message}
-    description="Changer sa réponse le désinscrira de cette ou ces tâche(s)."
-    confirmLabel="Changer la réponse"
+    description={m.occurrence_change_response_admin_warning()}
+    confirmLabel={m.occurrence_change_response_admin_confirm()}
     variant="warning"
   />
 {/if}

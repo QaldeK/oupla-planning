@@ -1,4 +1,6 @@
 <script lang="ts">
+import * as m from "$lib/paraglide/messages.js";
+
 interface Task {
 	name: string;
 	description?: string;
@@ -18,7 +20,7 @@ let { unassignedTasks = [], className = "" }: Props = $props();
 
 {#if unassignedTasks.length > 0}
 	<div class="text-base-content/60 flex flex-wrap gap-1 {className}">
-		<div class="text-fluid-sm me-2 font-medium">Tâches non attribuées:</div>
+		<div class="text-fluid-sm me-2 font-medium">{m.task_unassigned()}</div>
 		<div class="flex flex-wrap gap-1">
 			{#each unassignedTasks as task, index (task.name + index)}
 				<span title={task.description} class="badge badge-dash badge-sm font-medium"
@@ -29,6 +31,6 @@ let { unassignedTasks = [], className = "" }: Props = $props();
 	</div>
 {:else}
 	<div class="text-fluid-sm text-base-content/60 text-right italic {className}">
-		Toutes les tâches sont attribuées
+		{m.task_all_assigned()}
 	</div>
 {/if}

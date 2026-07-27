@@ -11,6 +11,7 @@ import type {
 } from "$lib/types/planning.types";
 import { classifyError } from "$lib/utils/errorHandler";
 import Modal from "../ui/Modal.svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	open: boolean;
@@ -120,14 +121,14 @@ async function toggleVolunteer(participantId: string) {
 	{#if task}
 		<div class="space-y-4">
 			<div class="text-sm opacity-70">
-				{task.requiredVolunteers} personne·s requise·s •
-				{task.type === 'onEvent' ? 'Pendant' : task.type === 'beforeEvent' ? 'Avant' : 'Après'}
+				{task.requiredVolunteers} {m.volunteer_persons_required()}
+				{task.type === 'onEvent' ? m.task_type_during() : task.type === 'beforeEvent' ? m.task_type_before() : m.task_type_after()}
 			</div>
 
 			{#if task.type === 'onEvent' && allowResponses}
 				<div class="alert alert-info">
 					<Info size={16} />
-					Les participants assignés seront automatiquement marqués "Présent"
+					{m.volunteer_auto_present_notice()}
 				</div>
 			{/if}
 
@@ -153,7 +154,7 @@ async function toggleVolunteer(participantId: string) {
 				<input
 					type="text"
 					bind:value={newVolunteerName}
-					placeholder="Ajouter un·e participant·e..."
+					placeholder={m.volunteer_add_participant_placeholder()}
 					onkeydown={(e) => {
 						if (e.key === 'Enter') {
 							e.preventDefault();
@@ -167,7 +168,7 @@ async function toggleVolunteer(participantId: string) {
 					class="btn btn-primary btn-circle btn-sm"
 					onclick={handleAddVolunteer}
 					disabled={isCreatingVolunteer || !newVolunteerName.trim() || disabled}
-					title="Ajouter"
+					title={m.common_add()}
 				>
 					{#if isCreatingVolunteer}
 						<span class="loading loading-spinner loading-xs"></span>
@@ -178,7 +179,7 @@ async function toggleVolunteer(participantId: string) {
 			</label>
 
 			<div class="modal-action">
-				<button type="button" class="btn" onclick={onClose}> Fermer </button>
+				<button type="button" class="btn" onclick={onClose}> {m.common_close()} </button>
 			</div>
 		</div>
 	{/if}

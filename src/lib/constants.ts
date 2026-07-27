@@ -1,4 +1,5 @@
 import { Check, HelpCircle, Info, X } from "@lucide/svelte";
+import * as m from "$lib/paraglide/messages.js";
 import type { ResponseType } from "./types/planning.types";
 
 // === ResponseType disponibles ===
@@ -7,7 +8,7 @@ export const AVAILABLE_RESPONSE_TYPES: ResponseType[] = ["present", "if_needed",
 // Configuration complète pour chaque type de réponse
 export const RESPONSE_TYPE_CONFIG = {
 	present: {
-		label: () => "Présent",
+		label: () => m.response_present(),
 		icon: Check,
 		badgeClass: "badge-success",
 		bgClass: "bg-success/20",
@@ -17,7 +18,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		borderClass: "border border-success"
 	},
 	if_needed: {
-		label: () => "Si besoin",
+		label: () => m.response_if_needed(),
 		icon: Info,
 		badgeClass: "badge-info",
 		bgClass: "bg-info/20",
@@ -27,7 +28,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		borderClass: "border border-info"
 	},
 	maybe: {
-		label: () => "Peut-être",
+		label: () => m.response_maybe(),
 		icon: HelpCircle,
 		badgeClass: "badge-warning",
 		bgClass: "bg-warning/20",
@@ -37,7 +38,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		borderClass: "border border-warning"
 	},
 	absent: {
-		label: () => "Absent",
+		label: () => m.response_absent(),
 		icon: X,
 		badgeClass: "badge-error",
 		bgClass: "bg-error/20",

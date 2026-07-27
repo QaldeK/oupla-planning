@@ -9,6 +9,7 @@ import type {
 	ResponseTypeConfig,
 	ViewType
 } from "$lib/types/planning.types";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	responses: ParticipantResponse[];
@@ -160,7 +161,7 @@ const sizeResponse = $derived(
 	<div class="flex flex-wrap gap-x-6 gap-y-2">
 		<div class="flex w-full max-w-md flex-col sm:flex-1">
 			<!-- Grid de boutons pour répondre -->
-			<legend class="mb-1 text-xs opacity-60">Votre réponse: </legend>
+			<legend class="mb-1 text-xs opacity-60">{m.response_your_response()}</legend>
 			<div
 				class="grid w-full overflow-hidden rounded-lg {types.length === 2
 					? 'grid-cols-2'
@@ -199,7 +200,7 @@ const sizeResponse = $derived(
 		<!-- Badges des participants (triés par type: present, if_needed, maybe, absent) -->
 		<div class="flex flex-col sm:flex-1">
 			<legend class="mb-1 text-xs opacity-60 {responses.length === 0 && 'hidden'}"
-				>Toutes les réponses:
+				>{m.response_all_responses()}
 			</legend>
 			<div class="flex flex-wrap gap-1">
 				{#each AVAILABLE_RESPONSE_TYPES as type (type)}
@@ -223,7 +224,7 @@ const sizeResponse = $derived(
 					{/each}
 				{/each}
 				{#if responses.length === 0}
-					<div class="text-xs italic opacity-40">Aucune réponse pour le moment</div>
+					<div class="text-xs italic opacity-40">{m.response_no_responses_yet()}</div>
 				{/if}
 			</div>
 		</div>
@@ -257,7 +258,7 @@ const sizeResponse = $derived(
 		</fieldset>
 	{/if}
 {:else if !isCompactDisplay && !isMinimalDisplay}
-	<p class="text-base-content/70 text-sm">Aucune réponse pour le moment</p>
+	<p class="text-base-content/70 text-sm">{m.response_no_responses_yet()}</p>
 {/if}
 
 <style>

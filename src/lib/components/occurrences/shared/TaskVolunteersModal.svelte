@@ -3,6 +3,7 @@ import { CalendarArrowDown, CalendarArrowUp, Clock, UserMinus, UserPlus } from "
 import { slide } from "svelte/transition";
 import Modal from "$lib/components/ui/Modal.svelte";
 import type { ParticipantResponse, Task, TaskType } from "$lib/types/planning.types";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	open: boolean;
@@ -39,9 +40,9 @@ function handleClose() {
 }
 
 const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: typeof Clock }> = {
-	beforeEvent: { bgClass: "bg-accent/30", label: "Avant", icon: CalendarArrowUp },
-	onEvent: { bgClass: "bg-accent/60", label: "Pendant", icon: Clock },
-	afterEvent: { bgClass: "bg-accent", label: "Après", icon: CalendarArrowDown }
+	beforeEvent: { bgClass: "bg-accent/30", label: m.task_type_before(), icon: CalendarArrowUp },
+	onEvent: { bgClass: "bg-accent/60", label: m.task_type_during(), icon: Clock },
+	afterEvent: { bgClass: "bg-accent", label: m.task_type_after(), icon: CalendarArrowDown }
 };
 
 const config = $derived(TASK_TYPE_CONFIG[task.type]);
@@ -68,7 +69,7 @@ function handleSubscribe() {
 
 			<!-- Badge requis -->
 			<div class="badge font-semibold {isComplete ? 'badge-success' : 'badge-warning'} px-3">
-				{volunteers}/{task.requiredVolunteers} inscrits
+				{volunteers}/{task.requiredVolunteers} {m.task_inscribed_count()}
 			</div>
 		</div>
 
@@ -87,7 +88,7 @@ function handleSubscribe() {
 					</div>
 				{/each}
 			{:else}
-				<div class="text-sm italic opacity-40">Aucun inscrit pour le moment</div>
+				<div class="text-sm italic opacity-40">{m.task_no_volunteers_yet()}</div>
 			{/if}
 		</div>
 	</div>
@@ -102,10 +103,10 @@ function handleSubscribe() {
 		<button class="btn btn-primary gap-2" onclick={handleSubscribe} disabled={isSubmitting}>
 			{#if isInTask}
 				<UserMinus size={18} />
-				Se désinscrire
+				{m.task_unsubscribe()}
 			{:else}
 				<UserPlus size={18} />
-				S'inscrire
+				{m.task_subscribe()}
 			{/if}
 		</button>
 	</div>

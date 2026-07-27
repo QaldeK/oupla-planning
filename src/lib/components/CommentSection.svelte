@@ -8,6 +8,7 @@ import { networkStore } from "$lib/stores/networkStore.svelte";
 import { formatDate } from "$lib/utils/date";
 import { classifyError } from "$lib/utils/errorHandler";
 import NetworkAlert from "./NetworkAlert.svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 const occurrence = $derived(drawerStore.data?.occurrence);
 const master = $derived(drawerStore.data?.master);
@@ -76,20 +77,20 @@ async function handleSubmit() {
 						{eventTitle} - {formatDate(occurrence.date, 'd MMM')}
 					</h4>
 					<p class="text-base-content/50 mt-1 text-xs">
-						{occurrence.comments.length} message{occurrence.comments.length > 1 ? 's' : ''}
+						{m.comment_message_count({count: occurrence.comments.length})}
 					</p>
 				</div>
 			</div>
 			<button
 				class="btn btn-ghost sm:btn-sm btn-circle"
 				onclick={() => drawerStore.close()}
-				aria-label="Fermer"
+				aria-label={m.common_close()}
 			>
 				<X size={20} />
 			</button>
 		</div>
 
-		<NetworkAlert message="Serveur indisponible" />
+		<NetworkAlert message={m.common_server_unavailable()} />
 
 		<div bind:this={scrollContainer} class="h-full flex-1 grow overflow-y-auto p-4">
 			{#if occurrence.comments.length > 0}
@@ -127,8 +128,8 @@ async function handleSubmit() {
 			{:else}
 				<div class="flex h-full flex-col items-center justify-center text-center opacity-20">
 					<MessageSquare size={64} strokeWidth={1} class="mb-4" />
-					<p class="text-lg font-medium">Aucun commentaire</p>
-					<p class="text-sm">Soyez le premier à réagir !</p>
+					<p class="text-lg font-medium">{m.comment_no_comments()}</p>
+					<p class="text-sm">{m.comment_be_first()}</p>
 				</div>
 			{/if}
 		</div>
@@ -145,7 +146,7 @@ async function handleSubmit() {
 				<textarea
 					bind:value={newComment}
 					class="textarea textarea-bordered focus:textarea-primary w-full resize-none py-3 pr-12 pl-4 text-sm transition-all"
-					placeholder="Votre message..."
+					placeholder={m.comment_your_message_placeholder()}
 					rows="2"
 					onkeydown={(e) => {
 						if (e.key === 'Enter' && !e.shiftKey) {
@@ -168,7 +169,7 @@ async function handleSubmit() {
 	{:else}
 		<div class="flex h-full flex-col items-center justify-center gap-3">
 			<span class="loading loading-ring loading-lg text-primary"></span>
-			<p class="text-base-content/40 animate-pulse text-sm">Chargement...</p>
+			<p class="text-base-content/40 animate-pulse text-sm">{m.common_loading()}</p>
 		</div>
 	{/if}
 </div>

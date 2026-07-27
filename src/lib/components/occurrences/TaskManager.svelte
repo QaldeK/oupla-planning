@@ -2,6 +2,7 @@
 import { CircleAlert, ClipboardCheck, Pencil, Plus, RefreshCcw, Trash2 } from "@lucide/svelte";
 import { fade, slide } from "svelte/transition";
 import type { Task, TaskType } from "$lib/types/planning.types";
+import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	tasks: Task[];
@@ -130,11 +131,11 @@ function cancelTaskInput() {
 function getTypeLabel(type: TaskType): string {
 	switch (type) {
 		case "beforeEvent":
-			return "Avant";
+			return m.task_type_before();
 		case "onEvent":
-			return "Pendant";
+			return m.task_type_during();
 		case "afterEvent":
-			return "Après";
+			return m.task_type_after();
 	}
 }
 </script>
@@ -143,13 +144,12 @@ function getTypeLabel(type: TaskType): string {
   <div class="flex flex-wrap items-center justify-between gap-3">
     <h4 class="flex items-center gap-2 font-medium">
       <ClipboardCheck size={18} class="text-primary" />
-      Liste des tâches
+      {m.task_list_title()}
     </h4>
     <div class="flex flex-wrap items-center gap-2">
       {#if isTasksModified}
         <span class="badge badge-warning h-auto font-medium"
-          ><CircleAlert class="size-4" /> Certaines tâches sont spécifiques à cette
-          date</span
+          ><CircleAlert class="size-4" /> {m.task_specific_to_date()}</span
         >
         <button
           type="button"
@@ -157,12 +157,11 @@ function getTypeLabel(type: TaskType): string {
           onclick={resetToMasterTasks}
         >
           <RefreshCcw class="size-3" />
-          Rétablir les tâches communes à toutes les dates ({masterTasks?.length ??
-            0})
+          {m.task_reset_to_common({count: masterTasks?.length ?? 0})}
         </button>
       {:else if !isTasksModified && masterTasks?.length > 0}
         <span class="badge badge-info badge-soft h-auto font-medium"
-          ><CircleAlert class="size-4" /> Tâches communes à toutes les dates</span
+          ><CircleAlert class="size-4" /> {m.task_common_to_all_dates()}</span
         >
       {/if}
     </div>
@@ -179,7 +178,7 @@ function getTypeLabel(type: TaskType): string {
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
             <div class="text-sm font-medium">{task.name}</div>
             <div class="text-sm opacity-60">
-              {task.requiredVolunteers} pers. • {getTypeLabel(task.type)}
+              {task.requiredVolunteers} {m.task_persons_abbrev()} {getTypeLabel(task.type)}
             </div>
           </div>
 
@@ -193,7 +192,7 @@ function getTypeLabel(type: TaskType): string {
           <button
             type="button"
             class="btn btn-ghost sm:btn-sm btn-circle"
-            title="Modifier cette tâche"
+            title={m.task_edit()}
             onclick={() => editTask(task)}
           >
             <Pencil size={14} />
@@ -201,7 +200,7 @@ function getTypeLabel(type: TaskType): string {
           <button
             type="button"
             class="btn btn-ghost sm:btn-sm btn-circle text-error"
-            title="Supprimer cette tâche pour cet événement"
+            title={m.task_delete_for_event()}
             onclick={() => removeTask(task.id)}
           >
             <Trash2 size={14} />
@@ -217,12 +216,12 @@ function getTypeLabel(type: TaskType): string {
         {#if editingTaskId}
           <div class="h-4 flex gap-2 col-span-full items-center" in:fade>
             <Pencil size={20} />
-            <span>Modification de la tâche sélectionnée</span>
+            <span>{m.task_editing_selected()}</span>
           </div>
         {:else}
           <div class="h-4 flex gap-2 col-span-full items-center" in:fade>
             <Plus size={20} />
-            <span>Ajouter une nouvelle tâche</span>
+            <span>{m.task_add_new()}</span>
           </div>
         {/if}
         <fieldset class="fieldset">
@@ -231,7 +230,7 @@ function getTypeLabel(type: TaskType): string {
               type="text"
               bind:value={newTaskName}
               use:focusOnEdit
-              placeholder="Nom de la tâche"
+              placeholder={m.task_name_placeholder()}
               onkeydown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -246,7 +245,7 @@ function getTypeLabel(type: TaskType): string {
               onclick={addTask}
               disabled={newTaskName.trim().length === 0 ||
                 (editingTaskId !== null && !taskHasChanges)}
-              title="Ajouter la tâche"
+              title={m.task_add_occurrence()}
             >
               <Plus size={16} />
             </button>
@@ -254,21 +253,21 @@ function getTypeLabel(type: TaskType): string {
         </fieldset>
         <div class="grid grid-cols-2 gap-3">
           <fieldset class="fieldset">
-            <legend class="fieldset-legend">Participant·es requis·ses</legend>
+            <legend class="fieldset-legend">{m.task_required_volunteers()}</legend>
             <input
               type="number"
               bind:value={newTaskVolunteers}
               class="input w-full"
               min="1"
-              placeholder="Nb."
+              placeholder={m.task_number_abbrev()}
             />
           </fieldset>
           <fieldset class="fieldset">
-            <legend class="fieldset-legend">Moment</legend>
+            <legend class="fieldset-legend">{m.task_moment()}</legend>
             <select bind:value={newTaskType} class="select w-full">
-              <option value="beforeEvent">Avant</option>
-              <option value="onEvent">Pendant</option>
-              <option value="afterEvent">Après</option>
+              <option value="beforeEvent">{m.task_type_before()}</option>
+              <option value="onEvent">{m.task_type_during()}</option>
+              <option value="afterEvent">{m.task_type_after()}</option>
             </select>
           </fieldset>
         </div>
@@ -281,14 +280,14 @@ function getTypeLabel(type: TaskType): string {
             onclick={cancelTaskInput}
             {disabled}
           >
-            Annuler
+            {m.common_cancel()}
           </button>
         {/if}
         {#if editingTaskId}
           <button
             type="button"
             class="btn sm:btn-sm btn-ghost"
-            onclick={cancelEdit}>Annuler</button
+            onclick={cancelEdit}>{m.common_cancel()}</button
           >
         {/if}
         <button
@@ -298,7 +297,7 @@ function getTypeLabel(type: TaskType): string {
           disabled={newTaskName.trim().length === 0 ||
             (editingTaskId !== null && !taskHasChanges)}
         >
-          {editingTaskId ? "Modifier la tâche" : "Ajouter la tâche"}
+          {editingTaskId ? m.task_edit_submit() : m.task_add_submit()}
         </button>
       </div>
     </div>

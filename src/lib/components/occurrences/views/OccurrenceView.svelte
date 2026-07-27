@@ -29,6 +29,7 @@ import { createOccurrenceState } from "../shared/occurrenceState.svelte";
 import ResponseBadge from "../shared/ResponseBadge.svelte";
 import ResponsesSummary from "../shared/ResponsesSummary.svelte";
 import TaskCompactSummary from "../shared/TaskCompactSummary.svelte";
+import * as m from "$lib/paraglide/messages.js";
 
 let {
 	occurrence,
@@ -112,21 +113,21 @@ const hasUnread = $derived(
             class="btn btn-ghost sm:btn-sm"
             onclick={confirmLogic.toggleConfirm}
             disabled={occState.isNetworkUnavailable}
-            title="Confirmer la tenue"
+            title={m.occurrence_confirm_holding()}
           >
             <CalendarCheckIcon size={18} />
-            Confirmer
+            {m.occurrence_confirm()}
           </button>
         {/if}
         {#if showQuickRestore}
           <button
             class="btn btn-ghost sm:btn-sm"
             onclick={confirmLogic.openRestoreModal}
-            title="Rétablir l'événement"
+            title={m.occurrence_restore_event()}
             disabled={occState.isNetworkUnavailable}
           >
             <CalendarSyncIcon size={18} />
-            <span>Rétablir</span>
+            <span>{m.occurrence_restore()}</span>
           </button>
         {/if}
       </div>
@@ -136,7 +137,7 @@ const hasUnread = $derived(
     {#if isAdmin}
       <button
         class="btn btn-ghost sm:btn-sm btn-circle"
-        aria-label="Modifier"
+        aria-label={m.common_edit()}
         onclick={() => (showEditModal = true)}
         disabled={occState.isNetworkUnavailable}
       >
@@ -150,7 +151,7 @@ const hasUnread = $derived(
         ? 'btn-accent'
         : ' btn-ghost'}"
       onclick={openCommentDrawer}
-      aria-label="Voir les commentaires"
+      aria-label={m.occurrence_see_comments()}
     >
       <span class="">
         {#if hasUnread}
@@ -178,17 +179,17 @@ const hasUnread = $derived(
   {#if master.toConfirm && occurrence.isConfirmed}
     <span class="badge {cls} badge-success font-semibold">
       <CheckCircle size={iconSize} />
-      Confirmé
+      {m.occurrence_status_confirmed()}
     </span>
   {:else if occurrence.isCanceled}
     <span class="badge {cls} badge-error font-semibold">
       <XCircle size={iconSize} />
-      Annulé
+      {m.occurrence_status_canceled()}
     </span>
   {:else if master.toConfirm && !occurrence.isConfirmed}
     <span class="badge {cls} badge-warning truncate font-semibold">
       <CircleQuestionMark size={iconSize} />
-      à confirmer
+      {m.occurrence_status_to_confirm()}
     </span>
   {/if}
 {/snippet}
@@ -337,7 +338,7 @@ const hasUnread = $derived(
                 ></div>
               </div>
               <span class="text-sm font-medium tabular-nums">
-                {occState.stats.present}/{occState.inherited.minPresentRequired} présences
+                {m.occurrence_presences_count({present: occState.stats.present, required: occState.inherited.minPresentRequired})}
               </span>
             </div>
           {/if}
@@ -346,27 +347,27 @@ const hasUnread = $derived(
               <button
                 class="btn sm:btn-sm"
                 onclick={confirmLogic.toggleConfirm}
-                title="Confirmer la tenue"
+                title={m.occurrence_confirm_holding()}
               >
                 <CalendarCheck size={20} />
-                Confirmer
+                {m.occurrence_confirm()}
               </button>
             {/if}
             {#if showQuickRestore}
               <button
                 class="btn btn-ghost sm:btn-sm"
                 onclick={confirmLogic.openRestoreModal}
-                title="Rétablir l'événement"
+                title={m.occurrence_restore_event()}
               >
                 <CalendarSyncIcon size={20} />
-                Rétablir
+                {m.occurrence_restore()}
               </button>
             {/if}
 
             <button
               class="btn btn-ghost sm:btn-sm btn-circle"
               onclick={() => (showEditModal = true)}
-              aria-label="Modifier"
+              aria-label={m.common_edit()}
             >
               <Pencil size={18} />
             </button>
@@ -425,7 +426,7 @@ const hasUnread = $derived(
             ></span>
           {/if}
         </span>
-        Afficher les commentaires ({occurrence.comments.length})
+        {m.occurrence_show_comments({count: occurrence.comments.length})}
       </button>
     </div>
   </div>
@@ -551,10 +552,10 @@ const hasUnread = $derived(
     open={occState.pendingResponseChange !== null}
     onClose={occState.cancelResponseChange}
     onConfirm={occState.confirmResponseChange}
-    title="Présence requise"
+    title={m.occurrence_response_required_title()}
     message={confirmLogic.responseChangeModal.message}
-    description="Changer votre réponse vous désinscrira de cette ou ces tâche(s)."
-    confirmLabel="Changer ma réponse"
+    description={m.occurrence_change_response_warning()}
+    confirmLabel={m.occurrence_change_response_confirm()}
     variant="warning"
   />
 {/if}

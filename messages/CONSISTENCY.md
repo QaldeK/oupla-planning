@@ -69,6 +69,10 @@ migration) — seule l'étiquette affichée change.
 | Créer | `common_create` | **Create** | Bouton de création (court, mobile). |
 | Supprimer | `common_delete` | **Delete** | Bouton de suppression générique. |
 | Modifier | `common_edit` | **Edit** | Bouton d'édition générique. |
+| Ajouter | `common_add` | **Add** | Bouton d'ajout générique. |
+| Inconnu | `common_unknown` | **Unknown** | Nom de participant inconnu (fallback). |
+| Chargement... | `common_loading` | **Loading...** | Indicateur de chargement. |
+| Serveur indisponible | `common_server_unavailable` | **Server unavailable** | Alerte réseau générique. |
 
 ## TaskType (étiquettes affichées)
 
@@ -77,6 +81,26 @@ migration) — seule l'étiquette affichée change.
 | `beforeEvent` | `task_type_before` | Avant | **Before** |
 | `onEvent` | `task_type_during` | Pendant | **During** |
 | `afterEvent` | `task_type_after` | Après | **After** |
+
+## ResponseType (étiquettes de réponse)
+
+| Code (enum) | Clé | FR | EN |
+| --- | --- | --- | --- |
+| `present` | `response_present` | Présent | **Present** |
+| `if_needed` | `response_if_needed` | Si besoin | **If needed** |
+| `maybe` | `response_maybe` | Peut-être | **Maybe** |
+| `absent` | `response_absent` | Absent | **Absent** |
+
+## Occurrence status labels
+
+| Clé | FR | EN |
+| --- | --- | --- |
+| `occurrence_status_confirmed` | Confirmé | **Confirmed** |
+| `occurrence_status_canceled` | Annulé | **Canceled** |
+| `occurrence_status_to_confirm` | à confirmer | **to confirm** |
+| `occurrence_status_pending` | En attente | **Pending** |
+| `occurrence_status_pending_confirmation` | En attente de confirmation | **Awaiting confirmation** |
+| `occurrence_status_always_confirmed` | Toujours confirmé | **Always confirmed** |
 
 ## Conventions de clés
 
