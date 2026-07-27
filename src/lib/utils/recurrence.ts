@@ -166,9 +166,20 @@ export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
 					return getFormattedLabel(occurrences[0], recurrence.firstDate);
 				}
 
-				const ordinals = occurrences.map((occurrence) => getOccurrenceLabel(occurrence)).sort();
-				const formatter = new Intl.ListFormat(getLocale(), { style: "long", type: "conjunction" });
-				return m.recurrence_label_monthly_day_ordinals({ ordinals: formatter.format(ordinals), weekday: weekdayName });
+				// Tri numérique sur les occurrences avant résolution des labels : trier
+				// les chaînes localisées ("Dernier" < "1er" en FR) produirait un
+				// ordre d'affichage absurde dépendant de la locale.
+				const ordinals = [...occurrences]
+					.sort((a, b) => a - b)
+					.map((occurrence) => getOccurrenceLabel(occurrence));
+				const formatter = new Intl.ListFormat(getLocale(), {
+					style: "long",
+					type: "conjunction"
+				});
+				return m.recurrence_label_monthly_day_ordinals({
+					ordinals: formatter.format(ordinals),
+					weekday: weekdayName
+				});
 			}
 
 			case "CUSTOM": {

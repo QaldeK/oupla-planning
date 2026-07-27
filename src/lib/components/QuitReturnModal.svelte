@@ -3,9 +3,9 @@ import { LogIn } from "@lucide/svelte";
 import { toast } from "svelte-sonner";
 import { goto } from "$app/navigation";
 import Modal from "$lib/components/ui/Modal.svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { updateParticipant } from "$lib/services/planningActions";
 import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
-import * as m from "$lib/paraglide/messages.js";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { PlanningMaster } from "$lib/types/planning.types";
 

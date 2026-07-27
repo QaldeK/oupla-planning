@@ -8,9 +8,9 @@ import {
 	UserPlus
 } from "@lucide/svelte";
 import { slide } from "svelte/transition";
+import * as m from "$lib/paraglide/messages.js";
 import type { ParticipantResponse, Task, TaskType, ViewType } from "$lib/types/planning.types";
 import TaskVolunteersModal from "./TaskVolunteersModal.svelte";
-import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	tasks: Task[];

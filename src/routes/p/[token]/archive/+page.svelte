@@ -4,11 +4,11 @@ import { fade } from "svelte/transition";
 import { page } from "$app/state";
 import OccurrenceView from "$lib/components/occurrences/views/OccurrenceView.svelte";
 import { ArchiveSkeleton } from "$lib/components/ui/skeletons";
+import * as m from "$lib/paraglide/messages.js";
 import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import { resolveActorIdentity } from "$lib/utils/identityResolution";
-import * as m from "$lib/paraglide/messages.js";
 
 const token = page.params.token;
 

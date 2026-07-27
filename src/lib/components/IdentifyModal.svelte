@@ -1,8 +1,8 @@
 <script lang="ts">
-import * as m from "$lib/paraglide/messages.js";
 import { ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from "@lucide/svelte";
 import { fade } from "svelte/transition";
 import { toast } from "svelte-sonner";
+import * as m from "$lib/paraglide/messages.js";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { Participant, PlanningIdentity } from "$lib/types/planning.types";
 import AuthForm from "./auth/AuthForm.svelte";
@@ -98,7 +98,7 @@ async function handleIdentifyAs(participant: Participant) {
 			);
 		}
 
-		toast.success(m.identify_welcome({name: participant.name}));
+		toast.success(m.identify_welcome({ name: participant.name }));
 		closeModal();
 	} catch (error) {
 		console.error("Error identifying as participant:", error);

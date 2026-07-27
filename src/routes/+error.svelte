@@ -1,8 +1,8 @@
 <script lang="ts">
 import { AlertTriangle, RefreshCw, Trash2 } from "@lucide/svelte";
 import { page } from "$app/state";
-import { recoverAllData } from "$lib/utils/recover";
 import * as m from "$lib/paraglide/messages.js";
+import { recoverAllData } from "$lib/utils/recover";
 
 let isRecovering = $state(false);
 

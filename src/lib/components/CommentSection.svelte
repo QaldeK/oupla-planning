@@ -1,6 +1,7 @@
 <script lang="ts">
 import { MessageSquare, Send, X } from "@lucide/svelte";
 import { toast } from "svelte-sonner";
+import * as m from "$lib/paraglide/messages.js";
 import { commentStateService } from "$lib/services/commentStateService";
 import { addComment } from "$lib/services/planningActions";
 import { drawerStore } from "$lib/stores/drawerStore.svelte";
@@ -8,7 +9,6 @@ import { networkStore } from "$lib/stores/networkStore.svelte";
 import { formatDate } from "$lib/utils/date";
 import { classifyError } from "$lib/utils/errorHandler";
 import NetworkAlert from "./NetworkAlert.svelte";
-import * as m from "$lib/paraglide/messages.js";
 
 const occurrence = $derived(drawerStore.data?.occurrence);
 const master = $derived(drawerStore.data?.master);

@@ -215,6 +215,11 @@ export type PlanningParticipantsRecord<TcommentReadState = unknown> = {
 	user?: RecordIdString
 }
 
+export const UsersLocaleOptions = {
+	"fr": "fr",
+	"en": "en",
+} as const
+export type UsersLocaleOptions = typeof UsersLocaleOptions[keyof typeof UsersLocaleOptions]
 export type UsersRecord<TadminOf = unknown, Tpush_subscription = unknown> = {
 	adminOf?: null | TadminOf
 	avatar?: FileNameString
@@ -222,6 +227,7 @@ export type UsersRecord<TadminOf = unknown, Tpush_subscription = unknown> = {
 	email: string
 	emailVisibility?: boolean
 	id: string
+	locale?: UsersLocaleOptions
 	masterId?: RecordIdString[]
 	name?: string
 	password: string

@@ -3,13 +3,13 @@ import type { LucideIcon } from "@lucide/svelte";
 import { UserPlus } from "@lucide/svelte";
 import { slide } from "svelte/transition";
 import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from "$lib/constants";
+import * as m from "$lib/paraglide/messages.js";
 import type {
 	ParticipantResponse,
 	ResponseType,
 	ResponseTypeConfig,
 	ViewType
 } from "$lib/types/planning.types";
-import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	responses: ParticipantResponse[];

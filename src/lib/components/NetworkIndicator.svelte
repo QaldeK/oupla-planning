@@ -1,7 +1,7 @@
 <script lang="ts">
 import { RefreshCw } from "@lucide/svelte";
-import { networkStore } from "$lib/stores/networkStore.svelte";
 import * as m from "$lib/paraglide/messages.js";
+import { networkStore } from "$lib/stores/networkStore.svelte";
 
 const isServerUnavailable = $derived(
 	networkStore.online && networkStore.hasActiveSubscription && !networkStore.realtimeConnected

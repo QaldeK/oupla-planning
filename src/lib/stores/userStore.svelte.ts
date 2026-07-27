@@ -109,7 +109,9 @@ export class UserStore {
 	 */
 	async markAuthSynced(): Promise<void> {
 		this.lastAuthSyncAt = new Date();
-		await storage.setItem(AUTH_SYNC_AT_KEY, this.lastAuthSyncAt.toISOString(), { persist: true });
+		await storage.setItem(AUTH_SYNC_AT_KEY, this.lastAuthSyncAt.toISOString(), {
+			persist: true
+		});
 	}
 	async #subscribeAuth() {
 		try {
@@ -149,17 +151,15 @@ export class UserStore {
 	 */
 	async setAppLocale(locale: "fr" | "en"): Promise<void> {
 		if (this.isLoggedIn && this.pbUser) {
-			// TODO: remove cast after pocketbase-types.ts regeneration (ticket 05 — locale not yet in UsersRecord)
-			await pb.collection("users").update(
-				this.pbUser.id,
-				{ locale } as { locale: typeof locale }
-			);
+			await pb.collection("users").update(this.pbUser.id, { locale });
 		}
 		await setLocale(locale);
 	}
 
 	private async saveAppPreferences() {
-		await storage.setItem(APP_PREFS_KEY, this.appPreferences, { persist: true });
+		await storage.setItem(APP_PREFS_KEY, this.appPreferences, {
+			persist: true
+		});
 	}
 
 	/**

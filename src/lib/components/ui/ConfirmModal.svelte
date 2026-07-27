@@ -1,7 +1,7 @@
 <script lang="ts">
 import { AlertCircle, AlertTriangle, CheckCircle2, Info } from "@lucide/svelte";
-import Modal from "./Modal.svelte";
 import * as m from "$lib/paraglide/messages.js";
+import Modal from "./Modal.svelte";
 
 interface Props {
 	open: boolean;

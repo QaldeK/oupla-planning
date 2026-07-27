@@ -1,11 +1,11 @@
 <script lang="ts">
 import { AlertTriangle, RefreshCw } from "@lucide/svelte";
 import { slide } from "svelte/transition";
+import * as m from "$lib/paraglide/messages.js";
 import { networkStore } from "$lib/stores/networkStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import { formatDate } from "$lib/utils/date";
-import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	/**

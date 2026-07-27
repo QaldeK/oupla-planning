@@ -17,6 +17,7 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { slide } from "svelte/transition";
 import { toast } from "svelte-sonner";
 import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from "$lib/constants";
+import * as msg from "$lib/paraglide/messages.js";
 import { generateTimeSlotId } from "$lib/services/planningActions";
 import { networkStore } from "$lib/stores/networkStore.svelte";
 import type {
@@ -41,7 +42,6 @@ import {
 } from "$lib/utils/recurrence";
 import { formatSlotKey } from "$lib/utils/slots";
 import MultiSelect from "./MultiSelect.svelte";
-import * as msg from "$lib/paraglide/messages.js";
 import NetworkAlert from "./NetworkAlert.svelte";
 import ConfirmModal from "./ui/ConfirmModal.svelte";
 import Modal from "./ui/Modal.svelte";

@@ -12,6 +12,7 @@ import NetworkAlert from "$lib/components/NetworkAlert.svelte";
 import PlanningForm, { type PlanningFormData } from "$lib/components/PlanningForm.svelte";
 import QuitReturnModal from "$lib/components/QuitReturnModal.svelte";
 import { AdminSkeleton } from "$lib/components/ui/skeletons";
+import * as m from "$lib/paraglide/messages.js";
 import { pb } from "$lib/pocketbase/pb";
 import {
 	acquireLock,
@@ -28,7 +29,6 @@ import { networkStore } from "$lib/stores/networkStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import { resolveActorIdentity } from "$lib/utils/identityResolution";
-import * as m from "$lib/paraglide/messages.js";
 
 let token = $derived($page.params.token as string);
 let master = $derived(planningStore.master);

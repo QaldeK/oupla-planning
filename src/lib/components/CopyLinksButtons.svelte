@@ -35,7 +35,7 @@ async function shareOrCopy(
 		try {
 			await navigator.share({
 				title: m.share_planning_title(),
-				text: m.share_copied({label}),
+				text: m.share_copied({ label }),
 				url
 			});
 			// L'utilisateur a partagé avec succès (ou annulé, pas de distinction)
@@ -50,7 +50,7 @@ async function shareOrCopy(
 		try {
 			await navigator.clipboard.writeText(url);
 			setCopied(true);
-			toast.success(m.share_copied({label}));
+			toast.success(m.share_copied({ label }));
 			setTimeout(() => setCopied(false), 2000);
 		} catch {
 			toast.error(m.copy_error());

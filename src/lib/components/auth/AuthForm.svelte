@@ -1,8 +1,8 @@
 <script lang="ts">
-import * as m from "$lib/paraglide/messages.js";
 import { KeyRound, LoaderCircle, Mail, User } from "@lucide/svelte";
 import { ClientResponseError } from "pocketbase";
 import { toast } from "svelte-sonner";
+import * as m from "$lib/paraglide/messages.js";
 import { pb } from "$lib/pocketbase/pb";
 
 interface Props {

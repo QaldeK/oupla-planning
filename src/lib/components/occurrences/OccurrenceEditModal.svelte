@@ -13,6 +13,7 @@ import {
 } from "@lucide/svelte";
 import { toast } from "svelte-sonner";
 import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from "$lib/constants";
+import * as m from "$lib/paraglide/messages.js";
 import {
 	addParticipant,
 	sortTasks,
@@ -35,7 +36,6 @@ import Modal from "../ui/Modal.svelte";
 import RichTextEditor from "../ui/RichTextEditor.svelte";
 import TaskManager from "./TaskManager.svelte";
 import VolunteerAssignmentModal from "./VolunteerAssignmentModal.svelte";
-import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	open: boolean;
@@ -332,8 +332,15 @@ const responseChangeModal = $derived.by(() => {
 	const isPlural = taskNames.length > 1;
 	return {
 		message: isPlural
-			? m.occurrence_change_task_subscribed_multi({name: pending.participantName, count: taskNames.length, tasks: taskNames.join(", ")})
-			: m.occurrence_change_task_subscribed_single({name: pending.participantName, task: taskNames[0]})
+			? m.occurrence_change_task_subscribed_multi({
+					name: pending.participantName,
+					count: taskNames.length,
+					tasks: taskNames.join(", ")
+				})
+			: m.occurrence_change_task_subscribed_single({
+					name: pending.participantName,
+					task: taskNames[0]
+				})
 	};
 });
 </script>

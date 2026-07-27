@@ -15,6 +15,7 @@ import {
 } from "@lucide/svelte";
 import ConfirmModal from "$lib/components/ui/ConfirmModal.svelte";
 import DescriptionCard from "$lib/components/ui/DescriptionCard.svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { db } from "$lib/pb-sync/db";
 import { useLiveQuery } from "$lib/pb-sync/use-live-query.svelte";
 import { commentStateService } from "$lib/services/commentStateService";
@@ -29,7 +30,6 @@ import { createOccurrenceState } from "../shared/occurrenceState.svelte";
 import ResponseBadge from "../shared/ResponseBadge.svelte";
 import ResponsesSummary from "../shared/ResponsesSummary.svelte";
 import TaskCompactSummary from "../shared/TaskCompactSummary.svelte";
-import * as m from "$lib/paraglide/messages.js";
 
 let {
 	occurrence,

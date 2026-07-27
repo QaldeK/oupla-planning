@@ -2,11 +2,11 @@
 import { Menu, PanelLeftClose, User } from "@lucide/svelte";
 import { goto } from "$app/navigation";
 import { page } from "$app/stores";
+import * as m from "$lib/paraglide/messages.js";
 import { modalStore } from "$lib/stores/modalStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { PlanningMaster } from "$lib/types/planning.types";
-import * as m from "$lib/paraglide/messages.js";
 
 // État du header
 let isHeaderVisible = $state(true);
@@ -23,8 +23,10 @@ const title = $derived(getTitle(pathname, master));
 function getTitle(path: string, master: PlanningMaster | null): string {
 	if (path === "/") return m.nav_home_title();
 	if (path === "/new") return m.nav_new_planning();
-	if (path.includes("/archive")) return master?.title ? `${master.title} (${m.nav_archive_label()})` : m.nav_archive_label();
-	if (path.includes("/admin/")) return master?.title ? `${master.title} ${m.nav_admin_label()}` : m.nav_admin_label();
+	if (path.includes("/archive"))
+		return master?.title ? `${master.title} (${m.nav_archive_label()})` : m.nav_archive_label();
+	if (path.includes("/admin/"))
+		return master?.title ? `${master.title} ${m.nav_admin_label()}` : m.nav_admin_label();
 	if (path.includes("/p/")) return master?.title || m.nav_default_title();
 	return m.nav_home_title();
 }

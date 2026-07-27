@@ -15,8 +15,8 @@ import {
 	subMonths
 } from "date-fns";
 import type { ClassValue } from "svelte/elements";
-import { endOfWeek, formatDate, startOfWeek } from "$lib/utils/date";
 import * as m from "$lib/paraglide/messages.js";
+import { endOfWeek, formatDate, startOfWeek } from "$lib/utils/date";
 
 /**
  * MultiDatePicker - Composant de sélection multiple de dates

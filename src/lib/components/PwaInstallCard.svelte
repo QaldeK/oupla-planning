@@ -2,9 +2,9 @@
 <script lang="ts">
 import { Bell, CalendarX, Download, EllipsisVerticalIcon, Share, Users } from "@lucide/svelte";
 import Modal from "$lib/components/ui/Modal.svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
 import { pwaStore } from "$lib/stores/pwaStore.svelte";
-import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	isDismissible?: boolean;

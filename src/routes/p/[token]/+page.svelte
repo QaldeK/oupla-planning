@@ -35,6 +35,7 @@ import ShareSection from "$lib/components/ShareSection.svelte";
 import ConfirmModal from "$lib/components/ui/ConfirmModal.svelte";
 import DescriptionCard from "$lib/components/ui/DescriptionCard.svelte";
 import { PlanningSkeleton } from "$lib/components/ui/skeletons";
+import * as m from "$lib/paraglide/messages.js";
 import { addParticipant, quitPlanning, updateParticipant } from "$lib/services/planningActions";
 import { ensurePlanningParticipant } from "$lib/services/planningParticipants";
 import { authTransition } from "$lib/stores/authTransition.svelte";
@@ -49,7 +50,6 @@ import { resolveCurrentIdentity } from "$lib/utils/identityResolution";
 import { resolveIdentityStrategy } from "$lib/utils/identityStrategy";
 import { hasNameConflict } from "$lib/utils/participantConflict";
 import { getRecurrenceLabel } from "$lib/utils/recurrence";
-import * as m from "$lib/paraglide/messages.js";
 
 let token = $derived($page.params.token as string);
 let master = $derived(planningStore.master);
@@ -294,10 +294,14 @@ const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
 async function shareLink(url: string, label: string) {
 	try {
 		if (canNativeShare) {
-			await navigator.share({ title: m.participant_share_title(), text: m.participant_share_text({label}), url });
+			await navigator.share({
+				title: m.participant_share_title(),
+				text: m.participant_share_text({ label }),
+				url
+			});
 		} else {
 			await navigator.clipboard.writeText(url);
-			toast.success(m.participant_copied({label}));
+			toast.success(m.participant_copied({ label }));
 		}
 	} catch (error) {
 		if ((error as Error).name !== "AbortError") {

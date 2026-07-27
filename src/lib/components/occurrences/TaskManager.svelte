@@ -1,8 +1,8 @@
 <script lang="ts">
 import { CircleAlert, ClipboardCheck, Pencil, Plus, RefreshCcw, Trash2 } from "@lucide/svelte";
 import { fade, slide } from "svelte/transition";
-import type { Task, TaskType } from "$lib/types/planning.types";
 import * as m from "$lib/paraglide/messages.js";
+import type { Task, TaskType } from "$lib/types/planning.types";
 
 interface Props {
 	tasks: Task[];

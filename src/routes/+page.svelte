@@ -6,12 +6,12 @@ import BenefitsBanner from "$lib/components/homepage/BenefitsBanner.svelte";
 import FeaturesGrid from "$lib/components/homepage/FeaturesGrid.svelte";
 import HowItWorks from "$lib/components/homepage/HowItWorks.svelte";
 import PwaInstallCard from "$lib/components/PwaInstallCard.svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { getLocale } from "$lib/paraglide/runtime.js";
 import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { pwaStore } from "$lib/stores/pwaStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
-import * as m from "$lib/paraglide/messages.js";
 import { version } from "../../package.json" with { type: "json" };
 
 function navigateToPlanning(participantToken: string) {

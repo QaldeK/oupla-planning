@@ -1,6 +1,7 @@
 <script lang="ts">
 import { Info, Plus } from "@lucide/svelte";
 import { toast } from "svelte-sonner";
+import * as m from "$lib/paraglide/messages.js";
 import { addParticipant, submitResponse } from "$lib/services/planningActions";
 import type {
 	Participant,
@@ -11,7 +12,6 @@ import type {
 } from "$lib/types/planning.types";
 import { classifyError } from "$lib/utils/errorHandler";
 import Modal from "../ui/Modal.svelte";
-import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	open: boolean;

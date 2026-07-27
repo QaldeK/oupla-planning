@@ -59,12 +59,9 @@ describe("Language persistence — Seam 2", () => {
 	describe("Authenticated user — locale persisted to PB", () => {
 		it("persists users.locale to PB when user is authenticated", async () => {
 			// === SEED ===
-			const user = await seedUser(
-				"lang-auth@test.com",
-				"password123",
-				"Lang Auth User",
-				{ locale: "fr" }
-			);
+			const user = await seedUser("lang-auth@test.com", "password123", "Lang Auth User", {
+				locale: "fr"
+			});
 			trackIds("users", user.id);
 
 			// Authenticate via real PB SDK (test uses real PocketBase)
@@ -80,9 +77,7 @@ describe("Language persistence — Seam 2", () => {
 
 			// === VERIFICATION POCKETBASE ===
 			const adminPb = await authenticateAdmin();
-			const pbUser = await adminPb
-				.collection("users")
-				.getOne(user.id);
+			const pbUser = await adminPb.collection("users").getOne(user.id);
 			expect(pbUser.locale).toBe("en");
 
 			// === VERIFICATION RETOUR setLocale ===
@@ -100,12 +95,9 @@ describe("Language persistence — Seam 2", () => {
 
 		it("sets locale back to fr after setting en", async () => {
 			// === SEED ===
-			const user = await seedUser(
-				"lang-switch@test.com",
-				"password123",
-				"Lang Switch User",
-				{ locale: "fr" }
-			);
+			const user = await seedUser("lang-switch@test.com", "password123", "Lang Switch User", {
+				locale: "fr"
+			});
 			trackIds("users", user.id);
 
 			// Authenticate
@@ -121,9 +113,7 @@ describe("Language persistence — Seam 2", () => {
 
 			// === VERIFICATION POCKETBASE ===
 			const adminPb = await authenticateAdmin();
-			const pbUser = await adminPb
-				.collection("users")
-				.getOne(user.id);
+			const pbUser = await adminPb.collection("users").getOne(user.id);
 			expect(pbUser.locale).toBe("fr");
 
 			// === VERIFICATION RETOUR ===
@@ -190,12 +180,9 @@ describe("Language persistence — Seam 2", () => {
 	describe("Order — server write before setLocale", () => {
 		it("persists to PB before calling setLocale for authenticated user", async () => {
 			// === SEED ===
-			const user = await seedUser(
-				"lang-order@test.com",
-				"password123",
-				"Lang Order User",
-				{ locale: "fr" }
-			);
+			const user = await seedUser("lang-order@test.com", "password123", "Lang Order User", {
+				locale: "fr"
+			});
 			trackIds("users", user.id);
 
 			// Authenticate
@@ -206,12 +193,10 @@ describe("Language persistence — Seam 2", () => {
 			const callLog: string[] = [];
 
 			const originalUpdate = pb.collection("users").update;
-			vi.spyOn(pb.collection("users"), "update").mockImplementation(
-				(async (...args: any[]) => {
-					callLog.push("pb.update");
-					return originalUpdate.apply(pb.collection("users"), args);
-				}) as any
-			);
+			vi.spyOn(pb.collection("users"), "update").mockImplementation((async (...args: any[]) => {
+				callLog.push("pb.update");
+				return originalUpdate.apply(pb.collection("users"), args);
+			}) as any);
 
 			const { setLocale } = await import("$lib/paraglide/runtime");
 			vi.mocked(setLocale).mockImplementation(async () => {

@@ -1,7 +1,7 @@
 <script lang="ts">
-import * as m from "$lib/paraglide/messages.js";
 import { MonitorSmartphone, ShieldCheck } from "@lucide/svelte";
 import Modal from "$lib/components/ui/Modal.svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { userStore } from "$lib/stores/userStore.svelte";
 import AuthForm from "./AuthForm.svelte";
 

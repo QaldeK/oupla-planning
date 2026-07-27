@@ -1,5 +1,5 @@
-import * as m from "$lib/paraglide/messages.js";
 import { toast } from "svelte-sonner";
+import * as m from "$lib/paraglide/messages.js";
 import { updateOccurrence } from "$lib/services/planningActions";
 import type { PlanningOccurrence, ResponseType, Task } from "$lib/types/planning.types";
 import { formatDateShort } from "$lib/utils/date";
@@ -76,8 +76,11 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 		const isPlural = taskNames.length > 1;
 		return {
 			message: isPlural
-				? m.occurrence_response_change_subscribed_multi({count: taskNames.length, tasks: taskNames.join(", ")})
-				: m.occurrence_response_change_subscribed_single({task: taskNames[0]})
+				? m.occurrence_response_change_subscribed_multi({
+						count: taskNames.length,
+						tasks: taskNames.join(", ")
+					})
+				: m.occurrence_response_change_subscribed_single({ task: taskNames[0] })
 		};
 	});
 

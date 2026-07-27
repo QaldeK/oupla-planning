@@ -78,7 +78,16 @@
   "planform_deleted_dates_warning": "Certaines dates supprimées contiennent des réponses de participants.",
   "planform_arbitrary_title": "Ajouter des dates arbitraires",
   "planform_arbitrary_link": "+ Ajouter des dates arbitraires",
-  "planform_hidden_past": "{count, plural, one {{count} date passée, consultables depuis la page archives.} other {{count} dates passées, consultables depuis la page archives.}}",
+  "planform_hidden_past": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} date passée, consultables depuis la page archives.",
+        "countPlural=other": "{count} dates passées, consultables depuis la page archives."
+      }
+    }
+  ],
   "planform_custom_dates_title": "Dates libres ({activeCount} / {totalCount} combinaisons)",
   "planform_custom_dates_title_noslot": "Dates libres ({count} / 100)",
   "planform_custom_dates_count": "{count} date(s)",
@@ -302,7 +311,16 @@
   "task_all_assigned": "Toutes les tâches sont attribuées",
   "task_inscribed_count": "inscrits",
   "task_no_volunteers_yet": "Aucun inscrit pour le moment",
-  "comment_message_count": "{count, plural, one {{count} message} other {{count} messages}}",
+  "comment_message_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} message",
+        "countPlural=other": "{count} messages"
+      }
+    }
+  ],
   "comment_no_comments": "Aucun commentaire",
   "comment_be_first": "Soyez le premier à réagir !",
   "comment_your_message_placeholder": "Votre message...",
@@ -508,7 +526,7 @@
   "identify_title": "Identification",
   "identify_welcome": "Bienvenue, {name} !",
   "claim_already_claimed": "Vous avez déjà revendiqué cette identité.",
-  "claim_are_you_sure": "Êtes-vous sûr ?",
+  "claim_are_you_sure": "Est-ce bien vous qui avez déjà participé sur ce planning en tant que {name} ?",
   "claim_cancel": "Annuler",
   "claim_change_identity": "Changer d'identité",
   "claim_choose_another": "Choisissez-en un autre.",
@@ -551,7 +569,7 @@
   "claim_to_your_account": " à votre compte",
   "claim_update_error": "Erreur lors de l'enregistrement",
   "claim_welcome": "Bienvenue !",
-  "claim_with_these_responses": "avec ces réponses",
+  "claim_with_these_responses": "avec les réponses suivantes :",
   "claim_yes_this_is_me": "Oui, c'est moi",
   "claim_you_have_participated": "Vous avez déjà participé à ce planning.",
   "claim_you_will_keep_name": "Vous conserverez le nom \"{name}\".",

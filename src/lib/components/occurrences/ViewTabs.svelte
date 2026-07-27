@@ -1,9 +1,9 @@
 <script lang="ts">
 import { LayoutGrid, List, Minimize2 } from "@lucide/svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { ViewType } from "./index";
-import * as m from "$lib/paraglide/messages.js";
 
 const activeView = $derived(userStore.appPreferences.occurrenceView);
 

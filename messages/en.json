@@ -77,7 +77,16 @@
   "planform_deleted_dates_warning": "Some deleted dates contain participant responses.",
   "planform_arbitrary_title": "Add arbitrary dates",
   "planform_arbitrary_link": "+ Add arbitrary dates",
-  "planform_hidden_past": "{count, plural, one {{count} past date, viewable in the archives.} other {{count} past dates, viewable in the archives.}}",
+  "planform_hidden_past": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} past date, viewable in the archives.",
+        "countPlural=other": "{count} past dates, viewable in the archives."
+      }
+    }
+  ],
   "planform_custom_dates_title": "Custom dates ({activeCount} / {totalCount} combinations)",
   "planform_custom_dates_title_noslot": "Custom dates ({count} / 100)",
   "planform_custom_dates_count": "{count} date(s)",
@@ -301,7 +310,16 @@
   "task_all_assigned": "All tasks are assigned",
   "task_inscribed_count": "subscribed",
   "task_no_volunteers_yet": "No one subscribed yet",
-  "comment_message_count": "{count, plural, one {{count} message} other {{count} messages}}",
+  "comment_message_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} message",
+        "countPlural=other": "{count} messages"
+      }
+    }
+  ],
   "comment_no_comments": "No comments",
   "comment_be_first": "Be the first to speak up!",
   "comment_your_message_placeholder": "Your message...",
@@ -507,7 +525,7 @@
   "identify_title": "Identification",
   "identify_welcome": "Welcome, {name}!",
   "claim_already_claimed": "You have already claimed this identity.",
-  "claim_are_you_sure": "Are you sure?",
+  "claim_are_you_sure": "Have you already participated on this planning as {name}?",
   "claim_cancel": "Cancel",
   "claim_change_identity": "Change identity",
   "claim_choose_another": "Choose another one.",
@@ -550,7 +568,7 @@
   "claim_to_your_account": " to your account",
   "claim_update_error": "Error during save",
   "claim_welcome": "Welcome!",
-  "claim_with_these_responses": "with these responses",
+  "claim_with_these_responses": "with the following responses:",
   "claim_yes_this_is_me": "Yes, it's me",
   "claim_you_have_participated": "You have already participated in this plan.",
   "claim_you_will_keep_name": "You will keep the name \"{name}\".",

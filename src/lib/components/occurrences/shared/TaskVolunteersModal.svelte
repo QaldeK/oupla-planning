@@ -2,8 +2,8 @@
 import { CalendarArrowDown, CalendarArrowUp, Clock, UserMinus, UserPlus } from "@lucide/svelte";
 import { slide } from "svelte/transition";
 import Modal from "$lib/components/ui/Modal.svelte";
-import type { ParticipantResponse, Task, TaskType } from "$lib/types/planning.types";
 import * as m from "$lib/paraglide/messages.js";
+import type { ParticipantResponse, Task, TaskType } from "$lib/types/planning.types";
 
 interface Props {
 	open: boolean;

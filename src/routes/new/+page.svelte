@@ -4,6 +4,7 @@ import { toast } from "svelte-sonner";
 import { goto } from "$app/navigation";
 import AccountModal from "$lib/components/auth/AccountModal.svelte";
 import PlanningForm, { type PlanningFormData } from "$lib/components/PlanningForm.svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { pb } from "$lib/pocketbase/pb";
 import {
 	createPlanningWithOccurrences,
@@ -11,7 +12,6 @@ import {
 	generateParticipantToken
 } from "$lib/services/planningActions";
 import { syncService } from "$lib/services/syncService";
-import * as m from "$lib/paraglide/messages.js";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { Participant } from "$lib/types/planning.types";
 

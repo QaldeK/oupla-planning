@@ -11,6 +11,7 @@ import {
 import { untrack } from "svelte";
 import { toast } from "svelte-sonner";
 import Modal from "$lib/components/ui/Modal.svelte";
+import * as m from "$lib/paraglide/messages.js";
 import { pb } from "$lib/pocketbase/pb";
 import { getParticipantPrefs, updateParticipantPrefs } from "$lib/services/planningParticipants";
 import {
@@ -21,7 +22,6 @@ import {
 	unsubscribeFromPush
 } from "$lib/services/push";
 import type { RecurrenceType } from "$lib/types/planning.types";
-import * as m from "$lib/paraglide/messages.js";
 
 interface Props {
 	open: boolean;
