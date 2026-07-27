@@ -29,7 +29,7 @@ interface AuthModalState {
 	currentIdentity?: PlanningIdentity | null; // Identité actuelle pour éviter de créer un nouveau participant
 }
 
-class UserStore {
+export class UserStore {
 	authModal = $state<AuthModalState>({ open: false });
 	appPreferences = $state<AppPreferences>({
 		theme: "my",
@@ -138,12 +138,23 @@ class UserStore {
 	}
 
 	/**
-	 * Change la locale de l'application via le cookie Paraglide.
-	 * Le cookie est écrit et la page est rechargée (comportement par défaut de setLocale).
-	 * La seam reste stable — son implémentation sera enrichie au ticket 05
-	 * (sauvegarde côté serveur pour les users authentifiés).
+	 * Change la locale de l'application.
+	 *
+	 * Pour les users authentifiés : persiste `locale` sur le record `users`
+	 * côté serveur AVANT de recharger (setLocale). Cet ordre garantit que la
+	 * donnée est sauvegardée même si le reload échoue. Le champ `locale` est
+	 * write-only dans cet effort — l'UI ne le lit jamais (ADR 0010).
+	 *
+	 * Pour les guests : cookie seul, pas d'écriture serveur.
 	 */
 	async setAppLocale(locale: "fr" | "en"): Promise<void> {
+		if (this.isLoggedIn && this.pbUser) {
+			// TODO: remove cast after pocketbase-types.ts regeneration (ticket 05 — locale not yet in UsersRecord)
+			await pb.collection("users").update(
+				this.pbUser.id,
+				{ locale } as { locale: typeof locale }
+			);
+		}
 		await setLocale(locale);
 	}
 

@@ -239,7 +239,7 @@ export async function seedUser(
 	email: string,
 	password: string,
 	name: string,
-	options?: { masterIds?: string[]; adminOf?: Record<string, string> }
+	options?: { masterIds?: string[]; adminOf?: Record<string, string>; locale?: "fr" | "en" }
 ) {
 	const pb = await authenticateAdmin();
 
@@ -251,6 +251,8 @@ export async function seedUser(
 			name,
 			masterId: options?.masterIds || [],
 			adminOf: options?.adminOf || {},
+			// TODO: remove cast after pocketbase-types.ts regeneration (locale not yet in UsersRecord)
+			...(options?.locale ? { locale: options.locale } : {}),
 			emailVisibility: true,
 			verified: true
 		});
