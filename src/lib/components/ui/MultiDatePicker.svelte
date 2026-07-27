@@ -16,6 +16,7 @@ import {
 } from "date-fns";
 import type { ClassValue } from "svelte/elements";
 import { endOfWeek, formatDate, startOfWeek } from "$lib/utils/date";
+import * as m from "$lib/paraglide/messages.js";
 
 /**
  * MultiDatePicker - Composant de sélection multiple de dates
@@ -135,7 +136,7 @@ function goToToday() {
 				type="button"
 				class="btn btn-ghost sm:btn-sm btn-circle"
 				onclick={previousMonth}
-				aria-label="Mois précédent"
+				aria-label={m.picker_previous_month()}
 			>
 				<ChevronLeft size={20} />
 			</button>
@@ -152,7 +153,7 @@ function goToToday() {
 				type="button"
 				class="btn btn-ghost sm:btn-sm btn-circle"
 				onclick={nextMonth}
-				aria-label="Mois suivant"
+				aria-label={m.picker_next_month()}
 			>
 				<ChevronRight size={20} />
 			</button>

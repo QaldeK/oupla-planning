@@ -41,6 +41,7 @@ import {
 } from "$lib/utils/recurrence";
 import { formatSlotKey } from "$lib/utils/slots";
 import MultiSelect from "./MultiSelect.svelte";
+import * as msg from "$lib/paraglide/messages.js";
 import NetworkAlert from "./NetworkAlert.svelte";
 import ConfirmModal from "./ui/ConfirmModal.svelte";
 import Modal from "./ui/Modal.svelte";
@@ -241,7 +242,7 @@ $effect(() => {
 // --- Vues dérivées (consommées par le rendu) ---
 const hiddenPastLabel = $derived(
 	views.hiddenPastDateCount > 0
-		? `${views.hiddenPastDateCount} date${views.hiddenPastDateCount > 1 ? "s" : ""} passée${views.hiddenPastDateCount > 1 ? "s" : ""}, consultables depuis la page archives.`
+		? msg.planform_hidden_past({ count: views.hiddenPastDateCount })
 		: ""
 );
 
@@ -318,14 +319,14 @@ function isOverriddenDateSlot(ds: DateSlot): boolean {
 function commitPopoverOverride(ds: DateSlot) {
 	const { startTime, endTime } = popoverTimeDraft;
 	if (!startTime || !endTime) {
-		toast.error("Horaires incomplets", {
-			description: "Indiquez une heure de début et de fin."
+		toast.error(msg.planform_toast_hours_incomplete(), {
+			description: msg.planform_toast_hours_incomplete_desc()
 		});
 		return;
 	}
 	if (startTime >= endTime) {
-		toast.error("Horaires invalides", {
-			description: "L'heure de fin doit être après l'heure de début."
+		toast.error(msg.planform_toast_hours_invalid(), {
+			description: msg.planform_toast_hours_invalid_desc()
 		});
 		return;
 	}
@@ -538,7 +539,7 @@ $effect(() => {
 
 function addTask() {
 	if (!newTaskName.trim()) {
-		toast.error("Le nom de la tâche est requis");
+		toast.error(msg.planform_validation_name_required());
 		return;
 	}
 
@@ -663,11 +664,10 @@ function requestRecurrenceTypeChange(newValue: string) {
 		return;
 	}
 	openConfirm({
-		title: "Changer le type de récurrence",
-		message:
-			"Changer le type de récurrence est une modification fondamentale : les désactivations et les dates manuelles seront réinitialisées, et les occurrences hors nouveau cycle seront supprimées.",
+		title: msg.planform_confirm_change_type_title(),
+		message: msg.planform_confirm_change_type_message(),
 		variant: "warning",
-		confirmLabel: "Changer",
+		confirmLabel: msg.planform_confirm_change_type_button(),
 		onConfirm: () => applyRecurrenceTypeChange(newValue)
 	});
 }
@@ -714,10 +714,10 @@ function requestDateChange(field: "firstDate" | "lastDate", newValue: string) {
 		return;
 	}
 	openConfirm({
-		title: "Modifier la période",
-		message: "Cette modification supprimera des dates contenant des réponses. Continuer ?",
+		title: msg.planform_confirm_change_period_title(),
+		message: msg.planform_confirm_change_period_message(),
 		variant: "warning",
-		confirmLabel: "Modifier",
+		confirmLabel: msg.planform_confirm_change_period_button(),
 		onConfirm: () => commitDateChange(field, newValue)
 	});
 }
@@ -731,11 +731,10 @@ function requestRemoveManualDate(dateToRemove: string) {
 		return;
 	}
 	openConfirm({
-		title: "Supprimer la date",
-		message:
-			"Des participant·es au planning ont répondu ou commenté sur cette date. Êtes-vous sure de vouloir la supprimer ?",
+		title: msg.planform_confirm_delete_date_title(),
+		message: msg.planform_confirm_delete_date_message(),
 		variant: "warning",
-		confirmLabel: "Supprimer",
+		confirmLabel: msg.planform_confirm_delete_date_button(),
 		onConfirm: () => {
 			removeManualDate(dateToRemove);
 			closePopover();
@@ -752,11 +751,10 @@ function requestDisableSlot(ds: DateSlot) {
 		return;
 	}
 	openConfirm({
-		title: "Retirer cette date",
-		message:
-			"Des participant·es au planning ont répondu ou commenté sur cette date. Êtes-vous sure de vouloir la supprimer ?",
+		title: msg.planform_confirm_disable_slot_title(),
+		message: msg.planform_confirm_disable_slot_message(),
 		variant: "warning",
-		confirmLabel: "Désactiver",
+		confirmLabel: msg.planform_confirm_disable_slot_button(),
 		onConfirm: () => {
 			setSlotEnabled(ds, false);
 			closePopover();
@@ -793,13 +791,13 @@ function removeTimeSlot(slotId: string) {
 	}
 	const message =
 		count === 1
-			? "L'occurrence de ce créneau sera supprimée à l'enregistrement, ainsi que les réponses et commentaires éventuels."
-			: `Les ${count} occurrences de ce créneau seront supprimées à l'enregistrement, ainsi que les réponses et commentaires éventuels.`;
+			? msg.planform_slot_delete_message_one()
+			: msg.planform_slot_delete_message_other({ count });
 	openConfirm({
-		title: "Supprimer ce créneau",
+		title: msg.planform_slot_delete_title(),
 		message,
 		variant: "danger",
-		confirmLabel: "Supprimer",
+		confirmLabel: msg.planform_confirm_delete_date_button(),
 		onConfirm: () => commitRemoveTimeSlot(slotId)
 	});
 }
@@ -872,8 +870,8 @@ function applySlotEdit() {
 	const { mode, slotId, draft } = slotModal.state;
 	const { startTime: newStart, endTime: newEnd } = draft;
 	if (!newStart || !newEnd) {
-		toast.error("Créneau incomplet", {
-			description: "Chaque créneau doit avoir une heure de début et une heure de fin."
+		toast.error(msg.planform_validation_incomplete_slot(), {
+			description: msg.planform_validation_incomplete_slot_desc()
 		});
 		return;
 	}
@@ -914,11 +912,10 @@ function applySlotEdit() {
 	}
 	closeSlotModal();
 	openConfirm({
-		title: "Appliquer les nouveaux horaires",
-		message:
-			"Les occurrences de ce créneau suivront les nouveaux horaires, sauf celles que vous avez modifiées individuellement (elles conservent leurs horaires personnalisés).",
+		title: msg.planform_confirm_apply_hours_title(),
+		message: msg.planform_confirm_apply_hours_message(),
 		variant: "warning",
-		confirmLabel: "Appliquer",
+		confirmLabel: msg.planform_confirm_apply_hours_button(),
 		onConfirm: () => commitSlotEdit(slotId, newStart, newEnd, oldStart, oldEnd)
 	});
 }
@@ -958,8 +955,8 @@ async function handleSubmit() {
 	// limite de 100 dates). En mono-slot, 1 slot = 1 DateSlot/date, donc équivalent.
 	const futureActiveDateSlotCount = views.futureActiveDateSlotCount;
 	if (futureActiveDateSlotCount > 100) {
-		toast.error("Trop de créneaux planifiés", {
-			description: `Vous avez ${futureActiveDateSlotCount} combinaisons date×créneau futures. La limite est de 100.`
+		toast.error(msg.planform_toast_too_many(), {
+			description: msg.planform_toast_too_many_desc({ count: futureActiveDateSlotCount })
 		});
 		return;
 	}
@@ -967,22 +964,22 @@ async function handleSubmit() {
 	// Validation du titre
 	if (!title.trim()) {
 		validationErrors.title = true;
-		toast.error("Le titre est requis");
+		toast.error(msg.planform_validation_title_required());
 		return;
 	}
 
 	// Validation des créneaux : au moins 1 slot, et chacun doit avoir des horaires complets.
 	// Les chevauchements et l'ordre chronologique ne sont PAS vérifiés en Phase 1.
 	if (timeSlots.length === 0) {
-		toast.error("Aucun créneau défini", {
-			description: "Veuillez conserver au moins un créneau horaire."
+		toast.error(msg.planform_validation_no_slots(), {
+			description: msg.planform_validation_no_slots_desc()
 		});
 		return;
 	}
 	const incompleteSlot = timeSlots.find((s) => !s.startTime || !s.endTime);
 	if (incompleteSlot) {
-		toast.error("Créneau incomplet", {
-			description: "Chaque créneau doit avoir une heure de début et une heure de fin."
+		toast.error(msg.planform_validation_incomplete_slot(), {
+			description: msg.planform_validation_incomplete_slot_desc()
 		});
 		return;
 	}
@@ -990,20 +987,19 @@ async function handleSubmit() {
 	// Validation : tâche en cours de création/modification
 	if (newTaskName.trim()) {
 		validationErrors.taskInProgress = true;
-		toast.error("Tâche en cours de saisie", {
+		toast.error(msg.planform_validation_task_in_progress(), {
 			description:
 				isEditingTask && editingTaskId
-					? "Veuillez terminer la modification de la tâche en cours ou l'annuler avant de sauvegarder."
-					: "Veuillez terminer la création de la tâche en cours avant de sauvegarder."
+					? msg.planform_validation_task_edit_desc()
+					: msg.planform_validation_task_create_desc()
 		});
 		return;
 	}
 
 	// Validation : session d'édition de slot ouverte (modal non appliqué)
 	if (slotModal.open) {
-		toast.error("Créneau en cours de modification", {
-			description:
-				"Veuillez appliquer ou annuler les modifications du créneau avant de sauvegarder."
+		toast.error(msg.planform_validation_slot_editing(), {
+			description: msg.planform_validation_slot_editing_desc()
 		});
 		return;
 	}
@@ -1015,8 +1011,8 @@ async function handleSubmit() {
 	if (!hasTasks && !hasResponsesEnabled) {
 		validationErrors.tasks = true;
 		validationErrors.responses = true;
-		toast.error("Configuration incomplète", {
-			description: "Vous devez soit créer des tâches, soit activer le formulaire de présence."
+		toast.error(msg.planform_validation_incomplete_config(), {
+			description: msg.planform_validation_incomplete_config_desc()
 		});
 		return;
 	}
@@ -1024,8 +1020,8 @@ async function handleSubmit() {
 	// Validation : au moins une réponse possible si allowResponses = true
 	if (allowResponses && availableResponseTypes.length === 0) {
 		validationErrors.responses = true;
-		toast.error("Réponses possibles requises", {
-			description: "Veuillez sélectionner au moins un type de réponse possible."
+		toast.error(msg.planform_validation_no_responses(), {
+			description: msg.planform_validation_no_responses_desc()
 		});
 		return;
 	}
@@ -1035,21 +1031,20 @@ async function handleSubmit() {
 	const hasFutureActiveDateSlot = views.activeDateSlots.some((ds) => ds.date >= todayStr);
 	if (views.activeDateSlots.length === 0) {
 		validationErrors.dates = true;
-		toast.error("Aucune date sélectionnée", {
-			description: "Veuillez sélectionner au moins une date pour le planning."
+		toast.error(msg.planform_validation_no_dates(), {
+			description: msg.planform_validation_no_dates_desc()
 		});
 		return;
 	}
 	if (!hasFutureActiveDateSlot) {
 		validationErrors.dates = true;
-		toast.error("Dates passées", {
-			description:
-				"Toutes les dates sélectionnées sont passées. Veuillez sélectionner au moins une date future."
+		toast.error(msg.planform_validation_past_dates(), {
+			description: msg.planform_validation_past_dates_desc()
 		});
 		return;
 	}
 	if (recurrenceType !== "CUSTOM" && (!firstDate || !lastDate)) {
-		toast.error("Les dates de début et de fin sont requises");
+		toast.error(msg.planform_validation_dates_required());
 		return;
 	}
 
@@ -1108,8 +1103,8 @@ const recurrenceLabel = $derived.by(() => {
 	// Mode CUSTOM : afficher le nombre de dates définies
 	if (recurrenceType === "CUSTOM") {
 		return manualDates.length === 0
-			? "Dates libres"
-			: `${manualDates.length} date${manualDates.length > 1 ? "s" : ""} définie${manualDates.length > 1 ? "s" : ""}`;
+			? msg.planform_custom_label()
+			: msg.planform_custom_count_definies({ count: manualDates.length });
 	}
 
 	// Pas de date de début définie
@@ -1128,7 +1123,7 @@ const recurrenceLabel = $derived.by(() => {
 	// Ajouter les dates arbitraires si présentes
 	const arbitraryCount = views.arbitraryDates.length;
 	if (arbitraryCount > 0) {
-		return `${baseLabel} + ${arbitraryCount} date${arbitraryCount > 1 ? "s" : ""}`;
+		return `${baseLabel} ${arbitraryCount === 1 ? msg.planform_arbitrary_suffix_one({ count: arbitraryCount }) : msg.planform_arbitrary_suffix_other({ count: arbitraryCount })}`;
 	}
 
 	return baseLabel;
@@ -1142,7 +1137,7 @@ const recurrenceLabel = $derived.by(() => {
 	}}
 	class="space-y-8"
 >
-	<NetworkAlert message="Le formulaire est désactivé - Serveur indisponible" />
+	<NetworkAlert message={msg.planform_network_offline()} />
 
 	<!-- Informations principales -->
 	<fieldset
@@ -1150,10 +1145,10 @@ const recurrenceLabel = $derived.by(() => {
 		disabled={isSubmitting || isNetworkUnavailable}
 	>
 		<div class="card-body gap-4 sm:gap-6">
-			<h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
-				<AlignLeft class="text-primary" />
-				Informations générales
-			</h3>
+				<h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
+					<AlignLeft class="text-primary" />
+					{msg.planform_general_info()}
+				</h3>
 
 			<div class="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
 				<fieldset class="fieldset col-span-full">
@@ -1166,19 +1161,16 @@ const recurrenceLabel = $derived.by(() => {
 							class="checkbox checkbox-primary mt-1"
 						/>
 						<div class="min-w-0 flex-1">
-							<span class="text-base">Confirmer les événements</span>
+							<span class="text-base">{msg.planform_confirm_event()}</span>
 							<p class="text-sm text-wrap opacity-80">
-								Les administrateurs devront confirmer la tenue de l'événement. Si non coché, les
-								événements seront toujours considérés comme ayant lieu. Utile si un nombre de
-								participant·es conditionne l'organisation de l'événement. Cela permet aussi de
-								recevoir des notifications (si configuré) lorsqu'un événement est confirmé, etc..
+								{msg.planform_confirm_description()}
 							</p>
 						</div>
 					</label>
 				</fieldset>
 
 				<fieldset class="fieldset col-span-full">
-					<legend class="fieldset-legend">Titre du planning</legend>
+					<legend class="fieldset-legend">{msg.planform_title_label()}</legend>
 					<input
 						type="text"
 						bind:value={title}
@@ -1191,22 +1183,22 @@ const recurrenceLabel = $derived.by(() => {
 				</fieldset>
 
 				<fieldset class="fieldset col-span-full">
-					<legend class="fieldset-legend">Description</legend>
+					<legend class="fieldset-legend">{msg.planform_description_label()}</legend>
 					<RichTextEditor
 						bind:value={description}
 						disabled={isSubmitting}
-						placeholder="Description du planning (optionnel)..."
+						placeholder={msg.planform_description_placeholder()}
 					/>
 				</fieldset>
 
 				<fieldset class="fieldset col-span-full">
 					<label class="input w-full">
-						<span class="label"><MapPin size={16} />Lieu</span>
+						<span class="label"><MapPin size={16} />{msg.planform_place_label()}</span>
 						<input
 							type="text"
 							bind:value={place}
 							class="w-full"
-							placeholder="Lieu."
+							placeholder={msg.planform_place_label()}
 							disabled={isSubmitting}
 						/>
 					</label>
@@ -1223,40 +1215,40 @@ const recurrenceLabel = $derived.by(() => {
 		<div class="card-body gap-4 sm:gap-6">
 			<h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
 				<Calendar class="text-primary" />
-				Calendrier et récurrences
+				{msg.planform_recurrence_section()}
 			</h3>
 
 			<div class="flex flex-col gap-4 sm:gap-6">
 				<fieldset class="fieldset md:max-w-1/2">
-					<legend class="fieldset-legend">Type de récurrence</legend>
+					<legend class="fieldset-legend">{msg.planform_recurrence_type_label()}</legend>
 					<select
 						value={recurrenceType}
 						class="select w-full"
 						disabled={isSubmitting}
 						onchange={(e) => requestRecurrenceTypeChange(e.currentTarget.value)}
 					>
-						<option value="DAILY">Quotidienne</option>
-						<option value="WEEKLY">Hebdomadaire</option>
-						<option value="BIWEEKLY">Toutes les 2 semaines</option>
-						<option value="MONTHLY_BY_DATE">Mensuel (même date)</option>
-						<option value="MONTHLY_BY_DAY">Mensuel (même jour)</option>
-						<option value="CUSTOM">Choix libre des dates</option>
+						<option value="DAILY">{msg.recurrence_type_daily()}</option>
+						<option value="WEEKLY">{msg.recurrence_type_weekly()}</option>
+						<option value="BIWEEKLY">{msg.planform_recurrence_option_biweekly()}</option>
+						<option value="MONTHLY_BY_DATE">{msg.planform_recurrence_option_monthly_date()}</option>
+						<option value="MONTHLY_BY_DAY">{msg.planform_recurrence_option_monthly_day()}</option>
+						<option value="CUSTOM">{msg.recurrence_type_custom()}</option>
 					</select>
 				</fieldset>
 
 				{#if recurrenceType === 'MONTHLY_BY_DAY'}
 					<fieldset class="fieldset">
-						<legend class="fieldset-legend">Occurrences dans le mois</legend>
+						<legend class="fieldset-legend">{msg.planform_occurrences_label()}</legend>
 						<MultiSelect
 							bind:selectedValues={monthlyByDayOccurrences}
 							options={[
-								{ value: 1, label: '1er' },
-								{ value: 2, label: '2ème' },
-								{ value: 3, label: '3ème' },
-								{ value: 4, label: '4ème' },
-								{ value: 5, label: 'Dernier' }
+								{ value: 1, label: msg.recurrence_ordinal_1() },
+								{ value: 2, label: msg.recurrence_ordinal_2() },
+								{ value: 3, label: msg.recurrence_ordinal_3() },
+								{ value: 4, label: msg.recurrence_ordinal_4() },
+								{ value: 5, label: msg.recurrence_ordinal_5() }
 							]}
-							placeholder="Choisir les jours"
+							placeholder={msg.planform_occurrences_placeholder()}
 						/>
 					</fieldset>
 				{/if}
@@ -1264,7 +1256,7 @@ const recurrenceLabel = $derived.by(() => {
 				{#if recurrenceType !== 'CUSTOM'}
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<fieldset class="fieldset">
-							<legend class="fieldset-legend">Du</legend>
+							<legend class="fieldset-legend">{msg.planform_date_from()}</legend>
 							<input
 								type="date"
 								value={firstDate}
@@ -1276,7 +1268,7 @@ const recurrenceLabel = $derived.by(() => {
 						</fieldset>
 
 						<fieldset class="fieldset">
-							<legend class="fieldset-legend">Au</legend>
+							<legend class="fieldset-legend">{msg.planform_date_to()}</legend>
 							<input
 								type="date"
 								value={lastDate}
@@ -1295,7 +1287,7 @@ const recurrenceLabel = $derived.by(() => {
 					<div class="alert alert-info alert-soft">
 						<fieldset class="fieldset flex flex-wrap gap-3">
 							<legend class="text-sm font-medium">
-								Vous avez sélectionné le dernier jour de {monthName}. Que souhaitez-vous ?
+								{msg.planform_monthly_date_prompt({ monthName })}
 							</legend>
 							<label class="label cursor-pointer justify-start gap-2 text-sm">
 								<input
@@ -1305,7 +1297,7 @@ const recurrenceLabel = $derived.by(() => {
 									checked={monthlyByDateMode !== 'last-day'}
 									onchange={() => (monthlyByDateMode = 'fixed-day')}
 								/>
-								<span>Le {dayNumber} de chaque mois</span>
+								<span>{msg.planform_monthly_date_fixed({ dayNumber })}</span>
 							</label>
 							<label class="label cursor-pointer justify-start gap-2 text-sm">
 								<input
@@ -1315,7 +1307,7 @@ const recurrenceLabel = $derived.by(() => {
 									checked={monthlyByDateMode === 'last-day'}
 									onchange={() => (monthlyByDateMode = 'last-day')}
 								/>
-								<span>Le dernier jour de chaque mois</span>
+								<span>{msg.planform_monthly_date_last()}</span>
 							</label>
 						</fieldset>
 					</div>
@@ -1339,8 +1331,8 @@ const recurrenceLabel = $derived.by(() => {
 						onclick={(e) => togglePopoverFor(ds, e.currentTarget)}
 						disabled={isSubmitting}
 						title={willBeDeleted
-							? 'Attention : cette date contient des réponses et sera supprimée'
-							: 'Cliquez pour afficher les options'}
+							? msg.planform_slot_data_warning()
+							: msg.planform_slot_click_hint()}
 					>
 						{#if willBeDeleted}
 							<Trash2 class="mr-1" />
@@ -1363,7 +1355,7 @@ const recurrenceLabel = $derived.by(() => {
 							</div>
 							{#if master && isSelected}
 								<div class="mb-2">
-									<div class="mb-1 text-xs font-medium opacity-70">Horaires</div>
+									<div class="mb-1 text-xs font-medium opacity-70">{msg.planform_slot_hours()}</div>
 									<div class="grid grid-cols-2 gap-1">
 										<input
 											type="time"
@@ -1395,13 +1387,13 @@ const recurrenceLabel = $derived.by(() => {
 											class="btn btn-primary btn-sm flex-1"
 											onclick={() => commitPopoverOverride(ds)}
 										>
-											<Check size={14} /> Appliquer
+											<Check size={14} /> {msg.common_apply()}
 										</button>
 										{#if isOverriddenDateSlot(ds)}
 											<button
 												type="button"
 												class="btn btn-ghost btn-sm btn-square"
-												title="Réinitialiser aux horaires du créneau"
+												title={msg.planform_slot_reset_title()}
 												onclick={() => resetPopoverToTemplate(ds)}
 											>
 												<RotateCcw size={14} />
@@ -1415,7 +1407,7 @@ const recurrenceLabel = $derived.by(() => {
 										class="btn btn-error btn-sm"
 										onclick={() => requestRemoveManualDate(ds.date)}
 									>
-										<Trash2 size={14} /> Supprimer
+										<Trash2 size={14} /> {msg.common_delete()}
 									</button>
 								{:else if isSelected}
 									<button
@@ -1423,7 +1415,7 @@ const recurrenceLabel = $derived.by(() => {
 										class="btn btn-error btn-sm"
 										onclick={() => requestDisableSlot(ds)}
 									>
-										<Trash2 size={14} /> Désactiver
+										<Trash2 size={14} /> {msg.common_disable()}
 									</button>
 								{:else}
 									<button
@@ -1434,11 +1426,11 @@ const recurrenceLabel = $derived.by(() => {
 											closePopover();
 										}}
 									>
-										Réactiver
+										{msg.common_reactivate()}
 									</button>
 								{/if}
 								<button type="button" class="btn btn-ghost btn-sm" onclick={closePopover}
-									>Fermer</button
+									>{msg.common_close()}</button
 								>
 							</div>
 						</div>
@@ -1449,7 +1441,7 @@ const recurrenceLabel = $derived.by(() => {
 			<div class="space-y-3">
 				<div class="flex items-center gap-2">
 					<Clock class="text-primary" size={18} />
-					<span class="font-medium">Créneaux horaires</span>
+					<span class="font-medium">{msg.planform_slot_section()}</span>
 				</div>
 
 				{#each timeSlots as slot (slot.id)}
@@ -1464,8 +1456,8 @@ const recurrenceLabel = $derived.by(() => {
 								class="btn btn-ghost btn-sm btn-square"
 								onclick={() => startSlotEdit(slot.id)}
 								disabled={isSubmitting || slotModal.open}
-								aria-label="Modifier les horaires du créneau"
-								title="Modifier les horaires (propage aux occurrences, préserve les modifications individuelles)"
+								aria-label={msg.planform_slot_edit_aria()}
+								title={msg.planform_slot_edit_title()}
 							>
 								<Pencil size={16} />
 							</button>
@@ -1475,7 +1467,7 @@ const recurrenceLabel = $derived.by(() => {
 									class="btn btn-ghost btn-sm btn-square text-error"
 									onclick={() => removeTimeSlot(slot.id)}
 									disabled={isSubmitting || slotModal.open}
-									aria-label="Supprimer ce créneau"
+									aria-label={msg.planform_slot_delete_aria()}
 								>
 									<Trash2 size={16} />
 								</button>
@@ -1490,7 +1482,7 @@ const recurrenceLabel = $derived.by(() => {
 					onclick={addTimeSlot}
 					disabled={isSubmitting || slotModal.open}
 				>
-					<Plus size={16} /> Ajouter un créneau
+					<Plus size={16} /> {msg.planform_slot_add()}
 				</button>
 			</div>
 
@@ -1501,13 +1493,13 @@ const recurrenceLabel = $derived.by(() => {
 						: ''}"
 				>
 					<div class="flex items-end justify-between">
-						<div class="font-bold">
-							{#if showSlot}
-								Sélection des dates ({views.activeDateSlots.length} / {views.allDateSlots.length} combinaisons)
-							{:else}
-								Sélection des dates ({views.activeDateSlots.length} / {views.allDateSlots.length})
-							{/if}
-						</div>
+					<div class="font-bold">
+						{#if showSlot}
+							{msg.planform_selection_title_multi({ activeCount: views.activeDateSlots.length, totalCount: views.allDateSlots.length })}
+						{:else}
+							{msg.planform_selection_title_single({ activeCount: views.activeDateSlots.length, totalCount: views.allDateSlots.length })}
+						{/if}
+					</div>
 						<div class="text-base-content/60 font-medium italic">{recurrenceLabel}</div>
 					</div>
 					<div class="bg-base-200/50 flex max-h-64 flex-wrap gap-2 overflow-y-auto rounded-xl p-4">
@@ -1523,9 +1515,9 @@ const recurrenceLabel = $derived.by(() => {
 						<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
 							<span class="flex-1">
 								{#if showSlot}
-									Limite dépassée : plus de 100 combinaisons date×créneau futures.
+									{msg.planform_limit_warning_multi()}
 								{:else}
-									Limite dépassée : plus de 100 dates futures.
+									{msg.planform_limit_warning_single()}
 								{/if}
 							</span>
 							{#if maxAdjustDate}
@@ -1537,7 +1529,7 @@ const recurrenceLabel = $derived.by(() => {
 										lastDateWasManuallySet = true;
 									}}
 								>
-									Ajuster au {maxAdjustDateLabel}
+									{msg.planform_adjust_to({ date: maxAdjustDateLabel })}
 								</button>
 							{/if}
 						</div>
@@ -1546,7 +1538,7 @@ const recurrenceLabel = $derived.by(() => {
 					{#if datesWithData.some((d) => !views.activeDates.has(d))}
 						<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
 							<Trash2 size={16} />
-							<span>Certaines dates supprimées contiennent des réponses de participants.</span>
+							<span>{msg.planform_deleted_dates_warning()}</span>
 						</div>
 					{/if}
 
@@ -1554,13 +1546,13 @@ const recurrenceLabel = $derived.by(() => {
 					{#if showArbitraryDatePicker}
 						<div class="border-base-300 mt-4 space-y-3 border-t pt-4">
 							<div class="flex items-center justify-between">
-								<h4 class="text-sm font-medium">Ajouter des dates arbitraires</h4>
+								<h4 class="text-sm font-medium">{msg.planform_arbitrary_title()}</h4>
 								<button
 									type="button"
 									class="btn btn-ghost sm:btn-sm"
 									onclick={() => (showArbitraryDatePicker = false)}
 								>
-									Fermer
+									{msg.common_close()}
 								</button>
 							</div>
 							<MultiDatePicker
@@ -1579,7 +1571,7 @@ const recurrenceLabel = $derived.by(() => {
 								class="link link-primary link-hover text-sm font-medium"
 								onclick={() => (showArbitraryDatePicker = true)}
 							>
-								+ Ajouter des dates arbitraires
+								{msg.planform_arbitrary_link()}
 							</button>
 						</div>
 					{/if}
@@ -1594,17 +1586,17 @@ const recurrenceLabel = $derived.by(() => {
 						: ''}"
 				>
 					<div class="flex items-end justify-between">
-						<div class="font-medium">
-							{#if showSlot}
-								Dates libres ({views.activeDateSlots.length} / {views.allDateSlots.length} combinaisons)
-							{:else}
-								Dates libres ({manualDates.length} / 100)
-							{/if}
-						</div>
-						<div class="flex items-center">
-							<Calendar size={16} />
-							<span>{manualDates.length} date(s)</span>
-						</div>
+					<div class="font-medium">
+						{#if showSlot}
+							{msg.planform_custom_dates_title({ activeCount: views.activeDateSlots.length, totalCount: views.allDateSlots.length })}
+						{:else}
+							{msg.planform_custom_dates_title_noslot({ count: manualDates.length })}
+						{/if}
+					</div>
+					<div class="flex items-center">
+						<Calendar size={16} />
+						<span>{msg.planform_custom_dates_count({ count: manualDates.length })}</span>
+					</div>
 					</div>
 
 					<MultiDatePicker
@@ -1634,13 +1626,13 @@ const recurrenceLabel = $derived.by(() => {
 						).length}
 						{#if futureActiveDateSlotCount > 100}
 							<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
-								<span>
-									{#if showSlot}
-										Limite dépassée : plus de 100 combinaisons date×créneau futures.
-									{:else}
-										Limite dépassée : plus de 100 dates futures.
-									{/if}
-								</span>
+							<span>
+								{#if showSlot}
+									{msg.planform_limit_warning_multi()}
+								{:else}
+									{msg.planform_limit_warning_single()}
+								{/if}
+							</span>
 							</div>
 						{/if}
 					{/if}
@@ -1657,7 +1649,7 @@ const recurrenceLabel = $derived.by(() => {
 		<div class="card-body sm-gap-6 gap-4">
 			<h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
 				<Plus class="text-primary" />
-				Réponses et tâches
+				{msg.planform_responses_section()}
 			</h3>
 
 			<div class=" space-y-4">
@@ -1672,10 +1664,9 @@ const recurrenceLabel = $derived.by(() => {
 							class="checkbox checkbox-primary mt-1"
 						/>
 						<div class="min-w-0 flex-1">
-							<span class="label-text text-base">Activer le formulaire de présence</span>
+							<span class="label-text text-base">{msg.planform_allow_responses()}</span>
 							<p class="text-sm text-wrap opacity-80">
-								Permet aux participants de confirmer leur présence. Décochez si vous souhaitez
-								uniquement proposer des tâches à effectuer..
+								{msg.planform_allow_responses_desc()}
 							</p>
 						</div>
 					</label>
@@ -1684,7 +1675,7 @@ const recurrenceLabel = $derived.by(() => {
 				<!-- Sélection des ResponseType -->
 				{#if allowResponses}
 					<fieldset class="fieldset">
-						<legend class="fieldset-legend font-medium">Présences minimum souhaitées</legend>
+						<legend class="fieldset-legend font-medium">{msg.planform_min_present_label()}</legend>
 						<div class="flex items-center gap-4">
 							<input
 								type="range"
@@ -1699,13 +1690,13 @@ const recurrenceLabel = $derived.by(() => {
 							</span>
 						</div>
 						<p class="text-base-content/50 mt-2 text-sm">
-							Nombre de réponses "Présent" idéal pour chaque occurrence.
+							{msg.planform_min_present_hint()}
 						</p>
 					</fieldset>
 					<fieldset class="fieldset">
-						<legend class="fieldset-legend font-medium">Réponses possibles</legend>
+						<legend class="fieldset-legend font-medium">{msg.planform_response_types_label()}</legend>
 						<p class="text-base-content/50 mb-3 text-sm">
-							Sélectionnez les options que les participants peuvent choisir.
+							{msg.planform_response_types_hint()}
 						</p>
 
 						<div
@@ -1749,18 +1740,15 @@ const recurrenceLabel = $derived.by(() => {
 			>
 				<h4 class="flex items-center gap-2 text-base font-medium">
 					<ClipboardCheck size={18} class="text-primary" />
-					Liste des tâches
+					{msg.planform_task_list()}
 				</h4>
 				{#if master && datesWithSpecificTasks.length > 0}
 					<div class="alert alert-info max-sm:alert-vertical rounded-2xl shadow-sm">
 						<AlignLeft size={20} />
 						<div class="flex-1">
-							<h4 class="font-semibold">Tâches personnalisées détectées</h4>
+							<h4 class="font-semibold">{msg.planform_task_custom_detected()}</h4>
 							<p class="text-sm opacity-70">
-								{datesWithSpecificTasks.length} occurrence(s) possèdent des listes de tâches spécifiques
-								qui diffèrent de la configuration du planning. Cochez "tout remplacer" si vous souhaitez
-								que les modifications s'appliquent y compris à ces occurrences (cela supprimera les tâches
-								spécifiques)
+								{msg.planform_task_custom_desc({ count: datesWithSpecificTasks.length })}
 							</p>
 						</div>
 						<label
@@ -1771,7 +1759,7 @@ const recurrenceLabel = $derived.by(() => {
 								bind:checked={forceTaskRefresh}
 								class="checkbox sm:checkbox-sm checkbox-warning"
 							/>
-							<span class="label-text text-sm font-medium">Tout remplacer</span>
+							<span class="label-text text-sm font-medium">{msg.planform_task_replace_all()}</span>
 						</label>
 					</div>
 				{/if}
@@ -1797,11 +1785,11 @@ const recurrenceLabel = $derived.by(() => {
 							class="btn btn-ghost btn-circle text-error"
 							onclick={() => removeTask(task.id)}
 							disabled={isSubmitting}
-							title="Supprimer cette tâche"
+							title={msg.planform_task_delete_tooltip()}
 						>
 							<Trash2 size={14} />
 						</button>
-						<div class="badge badge-outline">{task.requiredVolunteers} pers.</div>
+						<div class="badge badge-outline">{msg.planform_task_volunteers({ count: task.requiredVolunteers })}</div>
 
 						<div class="flex gap-1">
 							<!-- Bouton édition -->
@@ -1810,7 +1798,7 @@ const recurrenceLabel = $derived.by(() => {
 								class="btn btn-ghost btn-circle"
 								onclick={() => editTask(task.id)}
 								disabled={isSubmitting}
-								title="Modifier cette tâche"
+								title={msg.planform_task_edit_tooltip()}
 							>
 								<Pencil size={14} />
 							</button>
@@ -1827,7 +1815,7 @@ const recurrenceLabel = $derived.by(() => {
 									transition:slide
 								>
 									<Pencil size={16} />
-									<span>Modification de la tâche sélectionnée}</span>
+									<span>{msg.planform_task_editing_banner()}</span>
 								</div>
 							{/if}
 							<fieldset class="fieldset">
@@ -1836,7 +1824,7 @@ const recurrenceLabel = $derived.by(() => {
 										type="text"
 										bind:value={newTaskName}
 										bind:this={taskNameInput}
-										placeholder="Nom de la tâche"
+										placeholder={msg.planform_task_name_placeholder()}
 										disabled={isSubmitting}
 										maxlength="50"
 										onkeydown={(e) => {
@@ -1854,7 +1842,7 @@ const recurrenceLabel = $derived.by(() => {
 										disabled={isSubmitting ||
 											newTaskName.trim().length === 0 ||
 											(isEditingTask && !taskHasChanges)}
-										title="Ajouter la tâche"
+										title={msg.planform_task_add_title()}
 									>
 										<Plus size={16} />
 									</button>
@@ -1862,23 +1850,23 @@ const recurrenceLabel = $derived.by(() => {
 							</fieldset>
 							<div class="grid grid-cols-2 gap-3">
 								<fieldset class="fieldset">
-									<legend class="fieldset-legend">Participant·es requis·ses</legend>
+									<legend class="fieldset-legend">{msg.planform_task_header_label()}</legend>
 									<input
 										type="number"
 										bind:value={newTaskVolunteers}
 										class="input w-full"
 										min="1"
-										placeholder="Nb."
+										placeholder={msg.planform_task_header_count()}
 										disabled={isSubmitting}
 										max="1000"
 									/>
 								</fieldset>
 								<fieldset class="fieldset">
-									<legend class="fieldset-legend">Moment</legend>
+									<legend class="fieldset-legend">{msg.planform_task_moment_label()}</legend>
 									<select bind:value={newTaskType} class="select w-full" disabled={isSubmitting}>
-										<option value="beforeEvent">Avant</option>
-										<option value="onEvent">Pendant</option>
-										<option value="afterEvent">Après</option>
+										<option value="beforeEvent">{msg.task_type_before()}</option>
+										<option value="onEvent">{msg.task_type_during()}</option>
+										<option value="afterEvent">{msg.task_type_after()}</option>
 									</select>
 								</fieldset>
 							</div>
@@ -1898,12 +1886,12 @@ const recurrenceLabel = $derived.by(() => {
 									onclick={cancelTaskInput}
 									disabled={isSubmitting}
 								>
-									Annuler
+									{msg.common_cancel()}
 								</button>
 							{/if}
 							{#if isEditingTask}
 								<button type="button" class="btn sm:btn-sm btn-ghost" onclick={cancelTaskEdit}
-									>Annuler</button
+									>{msg.common_cancel()}</button
 								>
 							{/if}
 							<button
@@ -1914,7 +1902,7 @@ const recurrenceLabel = $derived.by(() => {
 									newTaskName.trim().length === 0 ||
 									(isEditingTask && !taskHasChanges)}
 							>
-								{isEditingTask ? 'Modifier la tâche' : 'Ajouter la tâche'}
+								{isEditingTask ? msg.planform_task_edit_confirm() : msg.planform_task_add_confirm()}
 							</button>
 						</div>
 					</div>
@@ -1932,7 +1920,7 @@ const recurrenceLabel = $derived.by(() => {
 			onclick={() => history.back()}
 			disabled={isSubmitting}
 		>
-			Annuler
+			{msg.common_cancel()}
 		</button>
 		<button type="submit" class="btn btn-primary px-8" disabled={isSubmitting}>
 			{#if isSubmitting}
@@ -1940,10 +1928,10 @@ const recurrenceLabel = $derived.by(() => {
 			{/if}
 
 			<span class="hidden md:block">
-				{master ? 'Enregistrer les modifications' : 'Créer le planning'}</span
+				{master ? msg.planform_submit_edit() : msg.planform_submit_create()}</span
 			>
 
-			<span class="md:hidden"> {master ? 'Enregistrer' : 'Créer'}</span>
+			<span class="md:hidden"> {master ? msg.planform_submit_edit_mobile() : msg.planform_submit_create_mobile()}</span>
 		</button>
 	</div>
 </form>
@@ -1951,7 +1939,7 @@ const recurrenceLabel = $derived.by(() => {
 <Modal
 	open={slotModal.open}
 	onClose={closeSlotModal}
-	title={slotModal.state?.mode === 'edit' ? 'Modifier le créneau' : 'Ajouter un créneau'}
+	title={slotModal.state?.mode === 'edit' ? msg.planform_slot_modal_title_edit() : msg.planform_slot_modal_title_add()}
 	size="sm"
 >
 	{#if slotModal.state}
@@ -1959,7 +1947,7 @@ const recurrenceLabel = $derived.by(() => {
 			<div class="grid grid-cols-2 gap-3">
 				<fieldset class="fieldset">
 					<legend class="fieldset-legend flex items-center gap-2">
-						<Clock size={16} /> Début
+						<Clock size={16} /> {msg.planform_slot_modal_start()}
 					</legend>
 					<input
 						type="time"
@@ -1971,7 +1959,7 @@ const recurrenceLabel = $derived.by(() => {
 				</fieldset>
 				<fieldset class="fieldset">
 					<legend class="fieldset-legend flex items-center gap-2">
-						<Clock size={16} /> Fin
+						<Clock size={16} /> {msg.planform_slot_modal_end()}
 					</legend>
 					<input
 						type="time"
@@ -1983,14 +1971,14 @@ const recurrenceLabel = $derived.by(() => {
 			</div>
 
 			<div class="space-y-2">
-				<p class="text-base-content/70 text-xs font-medium">Préconfigurations :</p>
+				<p class="text-base-content/70 text-xs font-medium">{msg.planform_slot_modal_presets()}</p>
 				<div class="grid grid-cols-2 gap-2">
 					<button
 						type="button"
 						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
 						onclick={() => applyTimePreset('08:00', '12:00')}
 					>
-						<span>Matinée</span>
+						<span>{msg.planform_slot_modal_preset_morning()}</span>
 						<span class="opacity-70">8h–12h</span>
 					</button>
 					<button
@@ -1998,7 +1986,7 @@ const recurrenceLabel = $derived.by(() => {
 						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
 						onclick={() => applyTimePreset('13:00', '18:00')}
 					>
-						<span>Après-midi</span>
+						<span>{msg.planform_slot_modal_preset_afternoon()}</span>
 						<span class="opacity-70">13h–18h</span>
 					</button>
 					<button
@@ -2006,7 +1994,7 @@ const recurrenceLabel = $derived.by(() => {
 						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
 						onclick={() => applyTimePreset('19:00', '23:00')}
 					>
-						<span>Soirée</span>
+						<span>{msg.planform_slot_modal_preset_evening()}</span>
 						<span class="opacity-70">19h–23h</span>
 					</button>
 					<button
@@ -2014,7 +2002,7 @@ const recurrenceLabel = $derived.by(() => {
 						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
 						onclick={() => applyTimePreset('08:00', '23:00')}
 					>
-						<span>Journée</span>
+						<span>{msg.planform_slot_modal_preset_full_day()}</span>
 						<span class="opacity-70">8h–23h</span>
 					</button>
 				</div>
@@ -2022,14 +2010,14 @@ const recurrenceLabel = $derived.by(() => {
 		</div>
 	{/if}
 	{#snippet actions()}
-		<button type="button" class="btn btn-ghost" onclick={closeSlotModal}>Annuler</button>
+		<button type="button" class="btn btn-ghost" onclick={closeSlotModal}>{msg.common_cancel()}</button>
 		<button
 			type="button"
 			class="btn btn-primary"
 			onclick={applySlotEdit}
 			disabled={!slotModal.state?.draft.startTime || !slotModal.state?.draft.endTime}
 		>
-			Appliquer
+			{msg.common_apply()}
 		</button>
 	{/snippet}
 </Modal>

@@ -56,6 +56,28 @@ migration) — seule l'étiquette affichée change.
 | Annuler | **Cancel** | Bouton d'annulation dans les modales. |
 | Déconnexion | **Log out** | Bouton de déconnexion (pas "Logout" en un mot). |
 
+## Actions UI communes
+
+| Terme FR | Clé | EN | Usage |
+| --- | --- | --- | --- |
+| Annuler | `common_cancel` | **Cancel** | Bouton d'annulation dans les formulaires et modales. |
+| Fermer | `common_close` | **Close** | Bouton de fermeture de popovers et panneaux. |
+| Appliquer | `common_apply` | **Apply** | Confirmation d'action dans les popovers et modales. |
+| Désactiver | `common_disable` | **Disable** | Action de désactivation d'une date ou slot. |
+| Réactiver | `common_reactivate` | **Reactivate** | Action de réactivation d'une date ou slot. |
+| Enregistrer | `common_save` | **Save** | Bouton de sauvegarde (court, mobile). |
+| Créer | `common_create` | **Create** | Bouton de création (court, mobile). |
+| Supprimer | `common_delete` | **Delete** | Bouton de suppression générique. |
+| Modifier | `common_edit` | **Edit** | Bouton d'édition générique. |
+
+## TaskType (étiquettes affichées)
+
+| Code (enum) | Clé | FR | EN |
+| --- | --- | --- | --- |
+| `beforeEvent` | `task_type_before` | Avant | **Before** |
+| `onEvent` | `task_type_during` | Pendant | **During** |
+| `afterEvent` | `task_type_after` | Après | **After** |
+
 ## Conventions de clés
 
 - Format : `<feature>_<sujet>[_<détail>]`, snake_case, préfixe `common_` pour

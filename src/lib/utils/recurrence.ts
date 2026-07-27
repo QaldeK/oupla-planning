@@ -10,6 +10,7 @@ import {
 	parse,
 	startOfMonth
 } from "date-fns";
+import * as m from "$lib/paraglide/messages.js";
 import { getLocale } from "$lib/paraglide/runtime.js";
 import type { RecurrenceConfig, RecurrenceType } from "$lib/types/planning.types";
 import { formatDate } from "$lib/utils/date";
@@ -86,15 +87,15 @@ export function getOccurrenceInMonth(date: Date) {
 function getOccurrenceLabel(occurrence: number): string {
 	switch (occurrence) {
 		case 1:
-			return "1er";
+			return m.recurrence_ordinal_1();
 		case 2:
-			return "2ème";
+			return m.recurrence_ordinal_2();
 		case 3:
-			return "3ème";
+			return m.recurrence_ordinal_3();
 		case 4:
-			return "4ème";
+			return m.recurrence_ordinal_4();
 		case 5:
-			return "Dernier";
+			return m.recurrence_ordinal_5();
 		default:
 			return "";
 	}
@@ -110,16 +111,16 @@ export function getFormattedLabel(occurrence: number, date: string) {
 }
 
 export const formatRecurrence = (recurrence: RecurrenceConfig): string => {
-	const recurrenceTypes: Record<RecurrenceType, string> = {
-		DAILY: "Quotidienne",
-		WEEKLY: "Hebdomadaire",
-		BIWEEKLY: "Bi-hebdomadaire",
-		MONTHLY_BY_DATE: "Mensuel (date fixe)",
-		MONTHLY_BY_DAY: "Mensuel",
-		CUSTOM: "Choix libre des dates"
+	const recurrenceTypes: Record<RecurrenceType, () => string> = {
+		DAILY: () => m.recurrence_type_daily(),
+		WEEKLY: () => m.recurrence_type_weekly(),
+		BIWEEKLY: () => m.recurrence_type_biweekly(),
+		MONTHLY_BY_DATE: () => m.recurrence_type_monthly_date(),
+		MONTHLY_BY_DAY: () => m.recurrence_type_monthly_day(),
+		CUSTOM: () => m.recurrence_type_custom()
 	};
 
-	return recurrenceTypes[recurrence.type] || recurrence.type;
+	return recurrenceTypes[recurrence.type]?.() || recurrence.type;
 };
 
 /**
@@ -141,24 +142,24 @@ export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
 
 		switch (recurrence.type) {
 			case "DAILY":
-				return `Tous les jours`;
+				return m.recurrence_label_daily();
 
 			case "WEEKLY":
-				return `Tous les ${weekdayName}s`;
+				return m.recurrence_label_weekly({ weekday: weekdayName });
 
 			case "BIWEEKLY":
-				return `Un ${weekdayName} sur deux`;
+				return m.recurrence_label_biweekly({ weekday: weekdayName });
 
 			case "MONTHLY_BY_DATE":
 				if (recurrence.monthlyByDateMode === "last-day") {
-					return `Le dernier jour du mois`;
+					return m.recurrence_label_monthly_date_lastday();
 				}
-				return `Tous les ${dateNumber} du mois`;
+				return m.recurrence_label_monthly_date_fixed({ dateNumber });
 
 			case "MONTHLY_BY_DAY": {
 				const occurrences = recurrence.monthlyByDayOccurrences;
 				if (!occurrences?.length) {
-					return `Tous les ${weekdayName}s du mois`;
+					return m.recurrence_label_monthly_day_all({ weekday: weekdayName });
 				}
 
 				if (occurrences.length === 1) {
@@ -167,11 +168,11 @@ export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
 
 				const ordinals = occurrences.map((occurrence) => getOccurrenceLabel(occurrence)).sort();
 				const formatter = new Intl.ListFormat(getLocale(), { style: "long", type: "conjunction" });
-				return `Les ${formatter.format(ordinals)} ${weekdayName}s du mois`;
+				return m.recurrence_label_monthly_day_ordinals({ ordinals: formatter.format(ordinals), weekday: weekdayName });
 			}
 
 			case "CUSTOM": {
-				return "Dates sélectionnées librement";
+				return m.recurrence_label_custom();
 			}
 
 			default:
