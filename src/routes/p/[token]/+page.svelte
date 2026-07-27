@@ -49,6 +49,7 @@ import { resolveCurrentIdentity } from "$lib/utils/identityResolution";
 import { resolveIdentityStrategy } from "$lib/utils/identityStrategy";
 import { hasNameConflict } from "$lib/utils/participantConflict";
 import { getRecurrenceLabel } from "$lib/utils/recurrence";
+import * as m from "$lib/paraglide/messages.js";
 
 let token = $derived($page.params.token as string);
 let master = $derived(planningStore.master);
@@ -224,7 +225,7 @@ async function handlePlanningIdentify(
 		userStore.authModal = { ...userStore.authModal, open: false };
 	} catch (error) {
 		console.error("Error identifying:", error);
-		toast.error("Erreur lors de l'identification");
+		toast.error(m.participant_identify_error());
 	}
 }
 
@@ -293,14 +294,14 @@ const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
 async function shareLink(url: string, label: string) {
 	try {
 		if (canNativeShare) {
-			await navigator.share({ title: "Oupla - Planning", text: `Participe à ${label}`, url });
+			await navigator.share({ title: m.participant_share_title(), text: m.participant_share_text({label}), url });
 		} else {
 			await navigator.clipboard.writeText(url);
-			toast.success(`${label} copié !`);
+			toast.success(m.participant_copied({label}));
 		}
 	} catch (error) {
 		if ((error as Error).name !== "AbortError") {
-			toast.error("Erreur lors du partage");
+			toast.error(m.participant_share_error());
 		}
 	}
 }
@@ -313,12 +314,12 @@ async function handleQuit() {
 	try {
 		await quitPlanning(master.id, currentIdentity.id, token);
 		await guestStateStore.markGuestQuit(master.id);
-		toast.success("Vous avez quitté le planning");
+		toast.success(m.participant_quit_success());
 		showQuitModal = false;
 		goto("/");
 	} catch (err) {
 		console.error("Error quitting planning:", err);
-		toast.error("Erreur lors de la sortie du planning");
+		toast.error(m.participant_quit_error());
 	}
 }
 
@@ -338,7 +339,7 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 </script>
 
 <svelte:head>
-	<title>{master?.title || 'Planning'}</title>
+	<title>{master?.title || m.participant_title_fallback()}</title>
 </svelte:head>
 
 {#if isLoading}
@@ -372,7 +373,7 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 								</div>
 								<div class="text-base-content/70 text-sm">
 									{#if master.recurrence.lastDate}
-										jusqu'au {formatDateShort(master.recurrence.lastDate)}
+										{m.participant_until()} {formatDateShort(master.recurrence.lastDate)}
 									{/if}
 								</div>
 							</div>
@@ -385,11 +386,11 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 						<div class="tabs sm:tabs-lg tabs-boxed bg-base-200 font-semibold">
 							<button class="tab tab-active gap-2">
 								<ListFilter size={18} />
-								Planning
+								{m.participant_tab_planning()}
 							</button>
 							<a href="/admin/{adminToken}" class="tab gap-2">
 								<Settings size={18} />
-								Configuration
+								{m.participant_tab_config()}
 							</a>
 						</div>
 					{/if}
@@ -403,7 +404,7 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 					<div>
 						<div class="text-content-primary mb-2 flex items-center gap-2 text-sm font-semibold">
 							<User size={16} class="shrink-0" />
-							Vous
+							{m.participant_you()}
 						</div>
 						{#if currentIdentity}
 							<!-- Identifié -->
@@ -416,7 +417,7 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 										userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
 								>
 									<UserCog size={14} />
-									Changer d'identité
+									{m.participant_change_identity()}
 								</button>
 								{#if userStore.isLoggedIn && claimableParticipants.length > 0 && !myParticipant?.claimedAt}
 									<button
@@ -425,16 +426,16 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 										onclick={openIdentityClaimModal}
 									>
 										<UserCheck size={14} />
-										Revendiquer une identité existante
+										{m.participant_claim_identity()}
 									</button>
 								{/if}
 								<button
 									class="btn btn-ghost btn-error btn-sm ms-auto gap-1"
 									onclick={() => (showQuitModal = true)}
-									title="Quitter ce planning"
+									title={m.participant_quit_title()}
 								>
 									<LogOut size={16} />
-									<span>Quitter le planning</span>
+									<span>{m.participant_quit_button()}</span>
 								</button>
 							</div>
 						{:else if identityClaimedByAuth}
@@ -442,26 +443,25 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 							<div class="alert alert-warning alert-soft flex items-center gap-3 py-2">
 								<Lock size={18} class="shrink-0" />
 								<span class="flex-1 text-sm">
-									L'identité « {myParticipant?.name} » est désormais liée à un compte. Connectez-vous
-									pour continuer à participer.
+									{m.participant_identity_locked({name: myParticipant?.name})}
 								</span>
 								<button
 									class="btn btn-primary btn-sm"
 									onclick={() => ((accountModalMode = 'login'), (showAccountModal = true))}
 								>
-									Se connecter
+									{m.participant_login()}
 								</button>
 							</div>
 						{:else}
 							<!-- Non identifié -->
 							<div class="alert alert-outline alert-warning flex flex-wrap items-center gap-3">
-								<span class="text-sm opacity-80">Vous n'êtes pas encore identifié.</span>
+								<span class="text-sm opacity-80">{m.participant_not_identified()}</span>
 								<button
 									class="btn btn-warning btn-sm"
 									onclick={() =>
 										userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
 								>
-									S'identifier
+									{m.participant_identify()}
 								</button>
 							</div>
 						{/if}
@@ -471,11 +471,10 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 					<div>
 						<div class="text-content-primary mb-2 flex items-center gap-2 text-sm font-semibold">
 							<Users size={16} class="shrink-0" />
-							{otherParticipants.length} autre{otherParticipants.length > 1 ? 's' : ''}
-							participant{otherParticipants.length > 1 ? 's' : ''}
+							{m.participant_others_count({n: otherParticipants.length})}
 						</div>
 						{#if otherParticipants.length === 0}
-							<p class="text-sm opacity-60">Pas d'autre participant pour le moment.</p>
+							<p class="text-sm opacity-60">{m.participant_others_empty()}</p>
 						{:else}
 							<div class="flex flex-wrap gap-1.5">
 								{#each visibleOtherParticipants as p (p.id)}
@@ -487,7 +486,7 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 										type="button"
 										onclick={() => (showAllParticipants = true)}
 									>
-										Tout afficher ({otherParticipants.length})
+										{m.participant_show_all({n: otherParticipants.length})}
 									</button>
 								{/if}
 							</div>
@@ -521,10 +520,10 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 		<!-- Liste des occurrences -->
 		<div class="">
 			<div class="mb-4 flex flex-wrap items-center justify-between gap-x-2">
-				<a href="/p/{token}/archive" class="btn btn-sm btn-soft">
-					<History size={18} class="mr-1" />
-					<span class="max-sm:hidden">Voir les</span>événements passés
-				</a>
+			<a href="/p/{token}/archive" class="btn btn-sm btn-soft">
+				<History size={18} class="mr-1" />
+				{m.participant_view_archive()}
+			</a>
 				<div class="mx-2 flex gap-2">
 					{#if mediaQuery.isMobile && isAdmin}
 						<button class="btn btn-accent btn-circle" onclick={() => goto(`/admin/${adminToken}`)}>
@@ -535,7 +534,7 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 						<button
 							class="btn btn-info btn-circle"
 							onclick={() =>
-								shareLink(`${window.location.origin}/p/${master!.participantToken}`, 'Lien public')}
+								shareLink(`${window.location.origin}/p/${master!.participantToken}`, m.participant_share_public_link())}
 						>
 							<Share2 size={22} class="shrink-0" />
 						</button>
@@ -547,14 +546,14 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 					>
 						<Bell size={22} class="shrink-0" />
 						{#if !mediaQuery.isMobile}
-							Configurer les notifications
+							{m.participant_configure_notifications()}
 						{/if}
 					</button>
 				</div>
 			</div>
 			<!-- Header avec tabs -->
 			<div class="flex flex-wrap items-center justify-between gap-4">
-				<h2 class="text-xl font-semibold max-sm:px-2 sm:text-2xl">Prochaines dates</h2>
+				<h2 class="text-xl font-semibold max-sm:px-2 sm:text-2xl">{m.participant_upcoming_dates()}</h2>
 				<ViewTabs />
 			</div>
 
@@ -569,16 +568,16 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 				>
 					<CalendarX size={26} class="shrink-0" />
 					<div class="flex-1">
-						<p class="font-medium">Toutes les dates programmées sont passées</p>
+						<p class="font-medium">{m.participant_all_dates_passed()}</p>
 						{#if firstDate && lastDate}
 							<p class="text-sm opacity-80">
-								Du {formatDate(firstDate)} au {formatDate(lastDate)}
+								{m.participant_date_range({firstDate: formatDate(firstDate), lastDate: formatDate(lastDate)})}
 							</p>
 						{/if}
 						<div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
 							<a href="/p/{token}/archive" class="link link-hover inline-flex items-center gap-1">
 								<History size={14} />
-								Voir l'archive
+								{m.participant_view_archive_link()}
 							</a>
 							{#if isAdmin}
 								<a
@@ -586,7 +585,7 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 									class="link link-hover inline-flex items-center gap-1"
 								>
 									<Settings size={14} />
-									Modifier le planning
+									{m.participant_edit_planning()}
 								</a>
 							{/if}
 						</div>
@@ -617,7 +616,7 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 			{#if hasMore}
 				<div class="my-4 text-center">
 					<button class="btn btn-outline" onclick={loadMore}>
-						Afficher plus ({occurrences.length - displayCount} restantes)
+						{m.participant_load_more({n: occurrences.length - displayCount})}
 					</button>
 				</div>
 			{/if}
@@ -674,10 +673,10 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 	bind:open={showQuitModal}
 	onClose={() => (showQuitModal = false)}
 	onConfirm={handleQuit}
-	title="Quitter ce planning ?"
-	message="Êtes-vous sûr de vouloir quitter ce planning ?"
-	description="Vos réponses seront supprimées et ne serez plus inscrit comme participant·e. Vous pourrez retrouver ce planning si vous conservez son url."
-	confirmLabel="Quitter"
+	title={m.participant_quit_modal_title()}
+	message={m.participant_quit_modal_message()}
+	description={m.participant_quit_modal_description()}
+	confirmLabel={m.participant_quit_confirm()}
 	variant="warning"
 />
 

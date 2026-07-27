@@ -28,6 +28,7 @@ import { networkStore } from "$lib/stores/networkStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import { resolveActorIdentity } from "$lib/utils/identityResolution";
+import * as m from "$lib/paraglide/messages.js";
 
 let token = $derived($page.params.token as string);
 let master = $derived(planningStore.master);
@@ -93,9 +94,7 @@ async function acquireOrBlock(
 			console.error("[lock] acquire failed:", err);
 			// Dégradation gracieuse : on laisse l'admin éditer (le formulaire reste
 			// actif en 'acquiring'), mais on le prévient qu'il n'est pas protégé.
-			toast.warning(
-				"Verrouillage indisponible (réseau) — édition non protégée contre les conflits."
-			);
+			toast.warning(m.admin_lock_unavailable());
 		}
 	}
 }
@@ -283,7 +282,7 @@ async function handleUpdatePlanning(data: PlanningFormData) {
 			master.participantToken as string,
 			master.updated // Optimistic locking
 		);
-		toast.success("Planning mis à jour avec succès");
+		toast.success(m.admin_update_success());
 
 		// Le save libère le lock : release explicite avant la navigation
 		// (l'$effect teardown relancera aussi releaseLock, idempotent côté serveur).
@@ -299,7 +298,7 @@ async function handleUpdatePlanning(data: PlanningFormData) {
 		await goto(`/p/${master.participantToken}`);
 	} catch (error) {
 		console.error("Update error:", error);
-		toast.error("Erreur lors de la mise à jour");
+		toast.error(m.admin_update_error());
 	} finally {
 		isSubmitting = false;
 	}
@@ -330,7 +329,7 @@ const datesWithSpecificTasks = $derived(
 </script>
 
 <svelte:head>
-	<title>{master?.title || 'Planning'} - Admin</title>
+	<title>{master?.title || m.admin_title_fallback()} - Admin</title>
 </svelte:head>
 
 {#if isLoading}
@@ -341,7 +340,7 @@ const datesWithSpecificTasks = $derived(
 		<div class="mb-4 flex justify-start">
 			<a href="/p/{master.participantToken}" class="btn btn-ghost sm:btn-sm gap-2">
 				<ArrowLeft size={18} />
-				Retour au planning
+				{m.admin_back_to_planning()}
 			</a>
 		</div>
 		<!-- Contenu principal (Formulaire uniquement) -->
@@ -351,10 +350,10 @@ const datesWithSpecificTasks = $derived(
 			</div>
 			<div class="flex-1 space-y-1">
 				<h3 class="font-semibold sm:text-xl">
-					Configuration {'de ' + master?.title || 'du Planning'}
+					{m.admin_config_title()}
 				</h3>
 				<p class="text-base-content/50 text-sm">
-					Modifiez les paramètres du planning. Les changements seront propagés aux occurrences.
+					{m.admin_config_description()}
 				</p>
 			</div>
 		</div>
@@ -384,15 +383,15 @@ const datesWithSpecificTasks = $derived(
 			<div class="alert alert-error alert-soft">
 				<WifiOff size={24} />
 				<div>
-					<h3 class="font-bold">Connexion impossible</h3>
+					<h3 class="font-bold">{m.admin_offline_heading()}</h3>
 					<div class="text-xs">
-						<p>Vous êtes hors ligne. Vérifiez votre connexion internet.</p>
+						<p>{m.admin_offline_message()}</p>
 					</div>
 				</div>
 			</div>
 			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
 				<RefreshCw size={16} />
-				Réessayer
+				{m.common_retry()}
 			</button>
 		</div>
 	</div>
@@ -402,15 +401,15 @@ const datesWithSpecificTasks = $derived(
 			<div class="alert alert-error alert-soft">
 				<WifiOff size={24} />
 				<div>
-					<h3 class="font-bold">Connexion impossible</h3>
+					<h3 class="font-bold">{m.admin_network_error_heading()}</h3>
 					<div class="text-xs">
-						<p>Le serveur est inaccessible. Réessayez dans quelques instants.</p>
+						<p>{m.admin_network_error_message()}</p>
 					</div>
 				</div>
 			</div>
 			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
 				<RefreshCw size={16} />
-				Réessayer
+				{m.common_retry()}
 			</button>
 		</div>
 	</div>
@@ -422,9 +421,9 @@ const datesWithSpecificTasks = $derived(
 			>
 				<Trash2 size={40} class="text-warning" />
 			</div>
-			<h2 class="mb-3 text-3xl font-semibold">Planning supprimé</h2>
-			<p class="text-base-content/60 mb-8">Ce planning a été supprimé par son administrateur.</p>
-			<a href="/" class="btn btn-primary btn-wide">Retour à l'accueil</a>
+			<h2 class="mb-3 text-3xl font-semibold">{m.admin_deleted_heading()}</h2>
+			<p class="text-base-content/60 mb-8">{m.admin_deleted_message()}</p>
+			<a href="/" class="btn btn-primary btn-wide">{m.common_back_to_home()}</a>
 		</div>
 	</div>
 {:else}
@@ -435,11 +434,11 @@ const datesWithSpecificTasks = $derived(
 			>
 				<Calendar size={40} />
 			</div>
-			<h2 class="mb-3 text-3xl font-semibold">Introuvable</h2>
+			<h2 class="mb-3 text-3xl font-semibold">{m.admin_not_found_heading()}</h2>
 			<p class="text-base-content/60 mb-8">
-				Le lien admin est invalide ou le planning a été supprimé.
+				{m.admin_not_found_message()}
 			</p>
-			<a href="/" class="btn btn-primary btn-wide">Retour à l'accueil</a>
+			<a href="/" class="btn btn-primary btn-wide">{m.common_back_to_home()}</a>
 		</div>
 	</div>
 {/if}

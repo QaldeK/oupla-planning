@@ -8,6 +8,7 @@ import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import { resolveActorIdentity } from "$lib/utils/identityResolution";
+import * as m from "$lib/paraglide/messages.js";
 
 const token = page.params.token;
 
@@ -35,7 +36,7 @@ const currentParticipantName = $derived.by(() => {
 </script>
 
 <svelte:head>
-	<title>Archives - {master?.title || 'Chargement...'}</title>
+	<title>Archives - {master?.title || m.archive_loading()}</title>
 </svelte:head>
 
 <div class="bg-base-200 min-h-screen px-4 py-8 sm:px-6 lg:px-8">
@@ -48,11 +49,11 @@ const currentParticipantName = $derived.by(() => {
 					>
 						<Trash2 size={40} class="text-warning" />
 					</div>
-					<h2 class="mb-2 text-2xl font-bold">Planning supprimé</h2>
-					<p class="text-base-content/70 mb-6">
-						Ce planning a été supprimé par son administrateur.
-					</p>
-					<a href="/" class="btn btn-primary">Retour à l'accueil</a>
+				<h2 class="mb-2 text-2xl font-bold">{m.archive_deleted_heading()}</h2>
+				<p class="text-base-content/70 mb-6">
+					{m.archive_deleted_message()}
+				</p>
+				<a href="/" class="btn btn-primary">{m.common_back_to_home()}</a>
 				</div>
 			</div>
 		{:else}
@@ -60,7 +61,7 @@ const currentParticipantName = $derived.by(() => {
 			<div class="mb-8">
 				<a href="/p/{token}" class="btn btn-ghost sm:btn-sm mb-4 gap-2">
 					<ArrowLeft size={18} />
-					Retour au planning
+					{m.archive_back_to_planning()}
 				</a>
 
 				<div class="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -70,17 +71,17 @@ const currentParticipantName = $derived.by(() => {
 								<History size={32} />
 							</div>
 							<h1 class="text-3xl font-semibold tracking-tight">
-								{master?.title || 'Chargement...'}
+								{master?.title || m.archive_loading()}
 							</h1>
 						</div>
 						<p class="text-base-content/60 font-medium">
-							Archives et historique des événements passés
+							{m.archive_subtitle()}
 						</p>
 					</div>
 
 					{#if currentParticipantName}
 						<div class="badge badge-lg badge-outline gap-2 py-4">
-							<span class="text-base-content/50">Consulté en tant que :</span>
+							<span class="text-base-content/50">{m.archive_viewing_as()}</span>
 							<span class="font-bold">{currentParticipantName}</span>
 						</div>
 					{/if}
@@ -97,22 +98,19 @@ const currentParticipantName = $derived.by(() => {
 								<div class="bg-base-200 mb-4 rounded-full p-6">
 									<Calendar size={48} class="text-base-content/20" />
 								</div>
-								<h2 class="card-title text-2xl">Aucune archive</h2>
+								<h2 class="card-title text-2xl">{m.archive_empty_title()}</h2>
 								<p class="text-base-content/60 max-w-sm">
-									Il n'y a pas encore d'événements passés pour ce planning.
+									{m.archive_empty_message()}
 								</p>
 								<div class="card-actions mt-6">
-									<a href="/p/{token}" class="btn btn-primary">Voir le planning actuel</a>
+									<a href="/p/{token}" class="btn btn-primary">{m.archive_view_current()}</a>
 								</div>
 							</div>
 						</div>
 					{:else}
 						<div class="alert alert-info mb-8 shadow-sm">
 							<Info size={20} />
-							<span class="text-sm"
-								>Les événements passés sont consultables en lecture seule. Vous ne pouvez plus
-								modifier vos réponses ou commentaires.</span
-							>
+							<span class="text-sm">{m.archive_readonly_notice()}</span>
 						</div>
 
 						<div class="space-y-6">
