@@ -98,12 +98,12 @@ onMount(() => {
 // le reload via l'action. L'ID fixe évite tout doublon si l'$effect se rejoue.
 $effect(() => {
 	if (!pwaStore.hasUpdate) return;
-	toast("Une nouvelle version est disponible.", {
+	toast(m.update_available(), {
 		id: "sw-update",
 		position: "top-center",
 		duration: Infinity,
 		action: {
-			label: "Mettre à jour",
+			label: m.update_action(),
 			onClick: () => pwaStore.applyUpdate()
 		}
 	});
@@ -174,7 +174,7 @@ function toggleTheme() {
 					<button
 						class="btn btn-soft btn-primary btn-sm lg:hidden"
 						onclick={() => pwaStore.install()}
-						aria-label="Installer l'application"
+						aria-label={m.common_install_app()}
 					>
 						<Download size={16} />
 						<span>{m.common_install_app()}</span>
@@ -198,7 +198,7 @@ function toggleTheme() {
 						rel="noopener noreferrer"
 						class="hover:text-primary transition"
 					>
-						Journal des modifications
+						{m.nav_changelog()}
 					</a>
 					<span class="opacity-40">·</span>
 					<a
@@ -216,7 +216,7 @@ function toggleTheme() {
 
 	<!-- Sidebar -->
 	<div class="drawer-side">
-		<label for="main-drawer" class="drawer-overlay" aria-label="Fermer le menu"></label>
+		<label for="main-drawer" class="drawer-overlay" aria-label={m.nav_close_menu()}></label>
 		<aside class="bg-base-300 z-50 flex min-h-dvh w-80 max-w-[85vw] flex-col p-4 pt-14 lg:pt-4">
 			<!-- Logo/Titre -->
 			<div class="mb-6 flex items-center justify-between">
@@ -245,13 +245,13 @@ function toggleTheme() {
 					onclick={() => modalStore.closeNavDrawer()}
 				>
 					<CalendarPlus size={18} />
-					Nouveau planning
+					{m.nav_new_planning()}
 				</a>
 
 				<!-- Plannings sauvegardés - UNIQUEMENT si connecté -->
 				{#if userStore.isLoggedIn && planningStore.activeMasters.length > 0}
 					<div class="divider"></div>
-					<p class="text-base-content/60 px-2 text-sm font-semibold">Plannings sauvegardés</p>
+					<p class="text-base-content/60 px-2 text-sm font-semibold">{m.nav_saved_plannings()}</p>
 					<div class="space-y-2">
 						{#each planningStore.activeMasters.filter((m) => !m.participants.some((p) => p.userId === userStore.pbUser?.id && p.hasQuit)) as master (master.id)}
 							<button
@@ -280,12 +280,12 @@ function toggleTheme() {
 				{/if}
 				{#if userStore.isLoggedIn && planningStore.deletedMasters.length > 0}
 					<div class="divider"></div>
-					<p class="text-base-content/50 px-2 text-sm font-semibold">Supprimés / introuvables</p>
+					<p class="text-base-content/50 px-2 text-sm font-semibold">{m.nav_deleted_plannings()}</p>
 					<div class="space-y-1">
 						{#each planningStore.deletedMasters as master (master.id)}
 							<button class="btn btn-sm btn-ghost w-full justify-start" disabled>
 								<span class="text-base-content/70 truncate line-through">{master.title}</span>
-								<span class="badge badge-error badge-soft badge-xs ms-auto">Supprimé</span>
+								<span class="badge badge-error badge-soft badge-xs ms-auto">{m.nav_deleted_badge()}</span>
 							</button>
 						{/each}
 					</div>
@@ -294,7 +294,7 @@ function toggleTheme() {
 						onclick={() => planningStore.cleanDeletedPlannings()}
 					>
 						<Trash2 size={14} />
-						Nettoyer les plannings supprimés
+						{m.nav_clean_deleted()}
 					</button>
 				{/if}
 			</nav>
@@ -323,7 +323,7 @@ function toggleTheme() {
 						<button
 							class="btn btn-square btn-ghost"
 							onclick={() => userStore.logout()}
-							aria-label="Se déconnecter"
+							aria-label={m.nav_logout()}
 						>
 							<LogOut size={18} />
 						</button>
@@ -337,7 +337,7 @@ function toggleTheme() {
 						class="btn btn-accent w-full justify-start"
 						onclick={() => (showAccountModal = true)}
 					>
-						Créer un compte / Se connecter
+						{m.nav_sign_in()}
 					</button>
 				{/if}
 			</div>
