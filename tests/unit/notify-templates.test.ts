@@ -36,24 +36,16 @@ const HOOKS_DIR = path.resolve(__dirname, "../../", "pocketbase/pb_hooks");
 const notifyUtils = await import("../../pocketbase/pb_hooks/notify-utils.js");
 (globalThis as any).__notifyUtils__ = notifyUtils;
 
-// notification-cron-utils.js a ses propres require() internes (pb-helpers.cjs,
-// notify-utils.js) qui échoueraient en import Vite direct. On mock uniquement
-// la fonction nécessaire aux templates.
-const __cronUtils__ = {
-	truncateContentPreview(content: string) {
-		const single = String(content || "")
-			.replace(/\s*\n\s*/g, " ")
-			.trim();
-		return single.length <= 130 ? single : single.slice(0, 130) + "…";
-	}
-};
-(globalThis as any).__cronUtils__ = __cronUtils__;
+// notification-core.js fournit les constantes et helpers partagés (TASK_TYPE_LABEL,
+// buildContentPreview). On le pré-importe via Vite (module CJS statique).
+const notifyCore = await import("../../pocketbase/pb_hooks/notification-core.cjs");
+(globalThis as any).__notifyCore__ = notifyCore;
 
-// Source de notify-templates.js avec le require CJS et le module.exports
+// Source de notify-templates.js avec les require CJS et le module.exports
 // remplacés par des références à des globales, pour exécution sous Vite ESM.
 const templatesSource = readFileSync(path.join(HOOKS_DIR, "notify-templates.js"), "utf-8")
 	.replace(/require\(`\$\{__hooks\}\/notify-utils\.js`\)/, "globalThis.__notifyUtils__")
-	.replace(/require\(`\$\{__hooks\}\/notification-cron-utils\.js`\)/, "globalThis.__cronUtils__")
+	.replace(/require\(`\$\{__hooks\}\/notification-core\.cjs`\)/, "globalThis.__notifyCore__")
 	.replace(/module\.exports\s*=\s*\{/, "globalThis.__templates_exports__ = {");
 
 const templatesDataUrl =

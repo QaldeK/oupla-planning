@@ -19,8 +19,7 @@
  * une lookup user avant l'insertion de l'event.
  */
 
-/** Longueur maximale du contenu exposé dans les notifications (push + email). */
-const MAX_CONTENT_PREVIEW = 130;
+const { MAX_CONTENT_PREVIEW, buildContentPreview } = require(`${__hooks}/notification-core.cjs`);
 
 /**
  * Lit le tableau `comments` d'un record (état pré ou post update).
@@ -36,17 +35,6 @@ function readComments(record) {
 	} catch {
 		return [];
 	}
-}
-
-/**
- * Construit l'aperçu single-line tronqué d'un contenu de message.
- * Les sauts de ligne (et espaces environnants) sont collapés en une espace, puis
- * le texte est tronqué à MAX_CONTENT_PREVIEW caractères avec ellipsis.
- */
-function buildContentPreview(content) {
-	const single = String(content || '').replace(/\s*\n\s*/g, ' ').trim();
-	if (single.length <= MAX_CONTENT_PREVIEW) return single;
-	return single.slice(0, MAX_CONTENT_PREVIEW) + '…';
 }
 
 /**

@@ -25,6 +25,7 @@
  */
 
 const { parseJsonArray } = require(`${__hooks}/pb-helpers.cjs`);
+const { JX_EVENT_TYPES, MISSING_EVENT_TYPES } = require(`${__hooks}/notification-core.cjs`);
 
 /** Types d'events issus du hook update (C2) — déclenchés par `onOccurrenceChange`. */
 const CHANGE_EVENT_TYPES = [
@@ -33,12 +34,6 @@ const CHANGE_EVENT_TYPES = [
 	'schedule_change',
 	'status_confirmed'
 ];
-
-/** Types d'events issus du cron J-X (C3). */
-const JX_EVENT_TYPES = ['reminder', 'quorum_missing', 'task_unassigned', 'confirmation_needed'];
-
-/** Types d'events missings (sous-ensemble de JX_EVENT_TYPES). */
-const MISSING_EVENT_TYPES = ['quorum_missing', 'task_unassigned'];
 
 /** Catégories de filtre response par type d'event. */
 const RESPONSE_FILTER = {

@@ -24,7 +24,7 @@
  */
 
 const { formatDateFR } = require(`${__hooks}/notify-utils.js`);
-const { truncateContentPreview } = require(`${__hooks}/notification-cron-utils.js`);
+const { buildContentPreview, TASK_TYPE_LABEL } = require(`${__hooks}/notification-core.cjs`);
 
 // ============================================================================
 // Constantes
@@ -94,13 +94,6 @@ const CATEGORY_SUBJECT_PLURAL = {
 	missings: 'alertes de participants manquants',
 	reminder: 'rappels',
 	comment: 'nouveaux messages'
-};
-
-/** Map clé `tasks[].type` → label français pour le rendu des tâches. */
-const TASK_TYPE_LABEL = {
-	beforeEvent: 'avant',
-	onEvent: 'pendant',
-	afterEvent: 'après'
 };
 
 /**
@@ -412,7 +405,7 @@ function _renderReminderLines(event, occ, user, ctx, opts) {
  * `new_comment` du bloc occ pour produire un unique sous-bloc — N messages sur
  * une même occ ne génèrent pas N blocs séparés (lisibilité email).
  *
- * L'aperçu est tronqué à 130 caractères via `truncateContentPreview` et mis
+ * L'aperçu est tronqué à MAX_CONTENT_PREVIEW caractères via `buildContentPreview` et mis
  * sur une seule ligne (les `\n` sont repliés en espaces) ; le détecteur l'a déjà
  * tronqué, on retronce défensivement au cas où le payload viendrait d'une autre
  * source.
@@ -428,7 +421,7 @@ function _renderCommentLines(events, ctx) {
 	for (const ev of events) {
 		const p = ev.payload && typeof ev.payload === 'object' ? ev.payload : {};
 		const author = p.authorName || '—';
-		const preview = truncateContentPreview(p.contentPreview);
+		const preview = buildContentPreview(p.contentPreview);
 		lines.push(`   • ${author} : ${preview}`);
 	}
 	return lines;

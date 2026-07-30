@@ -24,12 +24,15 @@ const { dispatchPushForEvent } = await import("../../pocketbase/pb_hooks/push-di
 // ============================================================================
 const notifyUtils = await import("../../pocketbase/pb_hooks/notify-utils.js");
 (globalThis as any).__notifyUtils__ = notifyUtils;
+const notifyCore = await import("../../pocketbase/pb_hooks/notification-core.cjs");
+(globalThis as any).__notifyCore__ = notifyCore;
 const pbHelpers = await import("../../pocketbase/pb_hooks/pb-helpers.cjs");
 (globalThis as any).__pbHelpers__ = pbHelpers;
 
 const cronUtilsSource = readFileSync(path.join(HOOKS_DIR, "notification-cron-utils.js"), "utf-8")
 	.replace(/require\(`\$\{__hooks\}\/notify-utils\.js`\)/, "globalThis.__notifyUtils__")
 	.replace(/require\(`\$\{__hooks\}\/pb-helpers\.cjs`\)/, "globalThis.__pbHelpers__")
+	.replace(/require\(`\$\{__hooks\}\/notification-core\.cjs`\)/, "globalThis.__notifyCore__")
 	.replace(/module\.exports\s*=\s*\{/, "globalThis.__cronUtils_exports__ = {");
 const cronUtilsDataUrl =
 	"data:text/javascript;base64," + Buffer.from(cronUtilsSource, "utf-8").toString("base64");

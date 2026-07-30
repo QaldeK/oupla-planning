@@ -12,13 +12,25 @@ import { describe, expect, it } from "vitest";
 //   - contentPreview : troncature à 130 chars avec ellipsis + strip \n
 
 // ============================================================================
-// Module under test — dynamic import pour bénéficier de l'interopérabilité
-// CommonJS (le hook exporte via `module.exports`).
+// Module under test — contournement Vite : le hook fait `require(`${__hooks}/...`)
+// au top-level. On injecte `__hooks` et le module core via des globales, puis
+// on charge le source avec les require remplacés.
 // ============================================================================
 
-const { detectCommentChanges, MAX_CONTENT_PREVIEW, buildContentPreview } = await import(
-	"../../pocketbase/pb_hooks/new-comment-detector.js"
-);
+import { readFileSync } from "fs";
+import path from "path";
+
+const HOOKS_DIR = path.resolve(__dirname, "../../", "pocketbase/pb_hooks");
+const notifyCore = await import("../../pocketbase/pb_hooks/notification-core.cjs");
+(globalThis as any).__notifyCore__ = notifyCore;
+
+const source = readFileSync(path.join(HOOKS_DIR, "new-comment-detector.js"), "utf-8")
+	.replace(/require\(`\$\{__hooks\}\/notification-core\.cjs`\)/, "globalThis.__notifyCore__")
+	.replace(/module\.exports\s*=\s*\{/, "globalThis.__newCommentDetector_exports__ = {");
+const dataUrl = "data:text/javascript;base64," + Buffer.from(source, "utf-8").toString("base64");
+await import(/* @vite-ignore */ dataUrl);
+const { detectCommentChanges, MAX_CONTENT_PREVIEW, buildContentPreview } = (globalThis as any)
+	.__newCommentDetector_exports__;
 
 // ============================================================================
 // Factory de mock pour core.Record — getString renvoie la string brute telle

@@ -19,28 +19,17 @@
 
 const { parseJsonArray, resolveMinPresentRequired } = require(`${__hooks}/pb-helpers.cjs`);
 const { formatDateFR } = require(`${__hooks}/notify-utils.js`);
+const {
+	MAX_CONTENT_PREVIEW,
+	TASK_TYPE_LABEL,
+	JX_EVENT_TYPES,
+	MISSING_EVENT_TYPES,
+	buildContentPreview
+} = require(`${__hooks}/notification-core.cjs`);
 
 const MAX_SMTP_FAILURES = 3;
 
 const BASE_URL = 'https://planning.oupla.net';
-
-/** Longueur maximale du contenu d'un message exposé dans les notifications. */
-const MAX_CONTENT_PREVIEW = 130;
-
-const TASK_TYPE_LABEL = {
-	beforeEvent: 'avant',
-	onEvent: 'pendant',
-	afterEvent: 'après'
-};
-
-const JX_EVENT_TYPES = new Set([
-	'reminder',
-	'quorum_missing',
-	'task_unassigned',
-	'confirmation_needed'
-]);
-
-const MISSING_EVENT_TYPES = new Set(['quorum_missing', 'task_unassigned']);
 
 /** Timestamp courant au format PocketBase "YYYY-MM-DD HH:MM:SS.000Z". */
 function nowIsoCompat() {
@@ -140,16 +129,7 @@ function buildPushTitle(event, master) {
 	return prefix ? `${prefix} — ${title}` : title;
 }
 
-/**
- * Aperçu single-line tronqué d'un contenu de message.
- * Défensif : le payload stocké est déjà tronqué par le détecteur, mais on
- * retronce ici pour le cas (tests, futurs chemins) où il ne le serait pas.
- */
-function truncateContentPreview(content) {
-	const single = String(content || '').replace(/\s*\n\s*/g, ' ').trim();
-	if (single.length <= MAX_CONTENT_PREVIEW) return single;
-	return single.slice(0, MAX_CONTENT_PREVIEW) + '…';
-}
+
 
 /** Corps court d'un push : date + horaire + message spécifique (pas de lieu). */
 function buildPushBody(event, occ, recipient, occTasks) {
@@ -158,7 +138,7 @@ function buildPushBody(event, occ, recipient, occTasks) {
 	if (event.type === 'new_comment') {
 		const p = event.payload && typeof event.payload === 'object' ? event.payload : {};
 		const author = p.authorName || '';
-		const preview = truncateContentPreview(p.contentPreview);
+		const preview = buildContentPreview(p.contentPreview);
 		return author ? `${author} : ${preview}` : preview;
 	}
 
@@ -220,7 +200,7 @@ module.exports = {
 	buildEventPayload,
 	resolveUserTaskNames,
 	buildPushTitle,
-	truncateContentPreview,
+	buildContentPreview,
 	buildPushBody,
 	// Ré-exporte depuis pb-helpers.cjs pour compatibilité avec les consommateurs existants
 	parseJsonArray,
