@@ -10,8 +10,6 @@ export const pb = new PocketBase(PB_URL) as TypedPocketBase;
 // Désactiver l'auto-cancel pour éviter les problèmes avec les requêtes concurrentes
 pb.autoCancellation(false);
 
-// ============================================
-// Gestion du token d'authentification
-// ============================================
-// Note: Le token est maintenant passé directement dans le body des requêtes
-// via le champ _token. Voir createOccurrence dans planningActions.ts
+// Les tokens d'accès (adminToken, participantToken) sont transmis via le
+// query parameter _token sur chaque requête PocketBase nécessitant une
+// authorization (createRule/updateRule/deleteRule). Voir ADR-0001 et ADR-0012.

@@ -27,13 +27,9 @@ vite.config.ts.timestamp-*
 
 # agent and conf
 .ignore
-agent/
 docs/agents/
-.claude
 .agent
-CLAUDE.md
 .mcp.json
-.vscode
 .zed
 AGENTS.md
 .agents/
@@ -43,9 +39,9 @@ opencode.json
 
 # pocketbase
 **/pb_data
-**/pb_migrations
-pocketbase/pb_hooks/generateHooks.pb.js
-pb_schema**
+# **/pb_migrations
+# pocketbase/pb_hooks/generateHooks.pb.js
+# pb_schema**
 
 # Config files
 .npmrc

@@ -18,8 +18,9 @@
  *
  * Conditions reelles :
  *   - createRule de planning_masters est vide (pas de token requis)
+ *   - createRule de planning_occurrences exige master.adminToken = _token (ADR-0012) ;
+ *     createPlanningWithOccurrences génère l'adminToken et le forward au batch
  *   - onRecordEnrich masque adminToken pour les non-admins
- *   - Les occurrences heritent des tokens du master
  *
  * Prerequis :
  *   - PocketBase demarre sur http://127.0.0.1:8090
@@ -574,10 +575,10 @@ describe("Planning Create Flow — /new", () => {
 			expect((guestOccurrences[0] as any).participantToken).toBeUndefined();
 		});
 
-		it("le master est cree sans token mais le batch occurrences reussit aussi (createRules vides)", async () => {
-			// NOTE: les createRules de planning_masters ET planning_occurrences sont vides.
-			// Sans tokens, les deux réussissent. Ce test documente ce comportement.
-			// Le flux /new genere TOUJOURS des tokens pour la sécurité post-création.
+		it("le master et son batch d'occurrences sont créés via les tokens générés localement", async () => {
+			// createPlanningWithOccurrences génère adminToken/participantToken localement,
+			// crée le master, puis forward l'adminToken au batch d'occurrences (createRule
+			// de planning_occurrences exige master.adminToken = _token, ADR-0012).
 
 			// === ACTION ===
 			const master = await createPlanningWithOccurrences({

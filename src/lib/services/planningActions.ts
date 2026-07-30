@@ -214,7 +214,8 @@ export async function createPlanningWithOccurrences(
 	// Pas de fallback : si occurrenceTargets est absent, aucune occurrence n'est créée.
 	const targets: OccurrenceTarget[] = data.occurrenceTargets ?? [];
 	if (targets.length > 0) {
-		const batch = occurrencesCollection.createBatch();
+		// createRule de planning_occurrences exige master.adminToken = _token (ADR-0012).
+		const batch = occurrencesCollection.createBatch({ query: { _token: finalAdminToken } });
 		for (const target of targets) {
 			batch.create({
 				master: master.id,
@@ -610,20 +611,6 @@ export async function claimParticipantIdentity(
 // ============================================
 // Occurrences
 // ============================================
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- paramètre polymorphe acceptant divers formats de données
-export async function createOccurrence(data: any): Promise<PlanningOccurrence> {
-	return await occurrencesCollection.create({
-		...data,
-		master: data.masterId,
-		tasks: sortTasks(data.tasks),
-		responses: [],
-		comments: [],
-		isConfirmed: false,
-		isCanceled: false,
-		lastModifiedBy: pb.authStore.record?.id
-	});
-}
 
 export async function updateOccurrence(
 	occurrenceId: string,
