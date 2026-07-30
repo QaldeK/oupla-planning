@@ -1,5 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
-// ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7. Voir pocketbase/pb_hooks/AGENTS.md (préalable source-first + conventions projet).
+// ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7.
 
 /**
  * Utilitaires partagés pour le verrouillage d'édition admin (R5.3).

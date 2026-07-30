@@ -1,5 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
-// ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7. Voir pocketbase/pb_hooks/AGENTS.md (préalable source-first + conventions projet).
+// ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7.
 
 /**
  * Hooks PocketBase pour sécuriser l'accès aux plannings via token-based authentication
@@ -617,18 +617,41 @@ onRecordUpdateRequest((e) => {
 		}
 	}
 
-	// Validation des modifications par participant
-	// NOTE: API Rules gèrent déjà l'autorisation. Ce code est une protection supplémentaire.
-	// Décommenter si nécessaire (cf. Option B dans l'analyse du bug)
-	// if (isParticipant) {
-	// 	const original = e.record.original();
-	// 	const protectedFields = ['master', 'date', 'startTime', 'endTime', 'isConfirmed', 'isCanceled', 'adminToken', 'participantToken'];
-	// 	for (const field of protectedFields) {
-	// 		if (JSON.stringify(e.record.get(field)) !== JSON.stringify(original.get(field))) {
-	// 			throw new ApiError(403, 'Participants can only update responses, comments, and tasks');
-	// 		}
-	// 	}
-	// }
+	// === lastModifiedBy forgé côté serveur ===
+	// Jamais confiance à la valeur client : un participant pourrait l'usurper
+	// pour exclure une victime des notifications ou faussement l'attribuer un
+	// changement. On dérive du contexte d'authentification réel.
+	const updateAuth = e.requestInfo().auth;
+	e.record.set('lastModifiedBy', updateAuth ? updateAuth.id : '');
+
+	// Restriction des champs scalaires par rôle : un participant ne peut écrire que
+	// responses/comments/tasks/lastModifiedBy. Les champs de scheduling et de statut
+	// sont admin-only. (adminToken/participantToken ne sont pas des champs d'occurrence
+	// — ils vivent sur planning_masters — donc hors de cette liste.)
+	if (isParticipant) {
+		const protectedOriginal = e.record.original();
+		const protectedFields = [
+			'master',
+			'date',
+			'startTime',
+			'endTime',
+			'place',
+			'description',
+			'isConfirmed',
+			'isCanceled',
+			'deleted',
+			'minPresentRequired',
+			'slotId'
+		];
+		for (const field of protectedFields) {
+			if (JSON.stringify(e.record.get(field)) !== JSON.stringify(protectedOriginal.get(field))) {
+				throw new ApiError(
+					403,
+					'Participants can only update responses, comments, and tasks'
+				);
+			}
+		}
+	}
 
 	e.next();
 }, 'planning_occurrences');
@@ -732,6 +755,12 @@ onRecordUpdateRequest((e) => {
 		}
 	}
 	// isAdmin → pas de restriction sur les champs
+
+	// === lastModifiedBy forgé côté serveur ===
+	// Jamais confiance à la valeur client (usurpation possible pour manipuler
+	// le routage/l'auteur des notifications). On dérive du contexte d'auth réel.
+	const masterUpdateAuth = e.requestInfo().auth;
+	e.record.set('lastModifiedBy', masterUpdateAuth ? masterUpdateAuth.id : '');
 
 	e.next();
 }, 'planning_masters');

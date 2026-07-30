@@ -67,9 +67,9 @@ const jsonLdScript =
 
 <div class="mx-auto max-w-4xl pb-10">
 	<!-- Branding (always visible) -->
-	<div class="mb-8 flex min-h-[30vh] flex-col items-center justify-center space-y-6 text-center">
+	<div class="mb-8 flex min-h-[30vh] flex-col items-center justify-center space-y-6 text-center  ">
 		<div class="space-y-4">
-			<img src="/logo.svg" class="mx-auto size-48 sm:size-54" alt="Oupla planning" />
+			<div class="bg-white/80 rounded-full"><img src="/logo.svg" class="mx-auto size-48 sm:size-54" alt="Oupla planning" /></div>
 			<h1 class="text-6xl font-black max-sm:hidden">Oupla planning</h1>
 			<p class="text-base-content/70 max-w-md text-lg">
 				{m.home_tagline()}
