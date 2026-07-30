@@ -5,6 +5,37 @@ Toutes les modifications notables de ce projet sont documentées ici.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-07-30
+
+### Fonctionnalités
+
+- **Localisation FR/EN** — traduction intégrale de l'interface via Paraglide JS v2 :
+  navigation, formulaires, vues occurrences, page paramètres, homepage, pages d'erreur,
+  labels de récurrence, DatePicker. Toggle de langue FR/EN dans les réglages.
+- **Persistance de la langue** — la préférence `users.locale` est sauvegardée côté
+  serveur pour les utilisateurs authentifiés.
+- **Agrégation emails commentaires** — détection des nouveaux commentaires sur les
+  occurrences avec envoi de notifications push et emails agrégés.
+
+### Corrections
+
+- **Récurrence mensuelle par date** — correction du compounding qui provoquait un
+  décalage cumulatif des jours dans les plannings mensuels par date.
+- **i18n** — réparations post-migration Paraglide (templates cassés, couverture
+  FR/EN manquante sur les composants restants).
+
+### Maintenance
+
+- **Refactoring occurrences** — extraction de `TaskManager` et
+  `VolunteerAssignmentModal` depuis `OccurrenceEditModal`.
+- **Refactoring planning-store** — unification du flux d'activation, extraction des
+  collections, ajout du sync claim.
+- **Refactoring hooks** — extraction des constantes de notification dans
+  `notification-core.cjs`.
+- **Biome & lint** — adoption de Biome pour le linting et le formatage,
+  remplacement de Prettier.
+- **Dépendances** — mise à jour des dépendances du projet.
+
 ## [0.4.0] — 2026-07-25
 
 ### Fonctionnalités
