@@ -282,7 +282,9 @@ function toggleTheme() {
                     </div>
                   {/if}
                   {#if master.adminToken}
-                    <span class="badge badge-primary badge-xs">Admin</span>
+                    <span class="badge badge-primary badge-xs"
+                      >{m.home_badge_admin()}</span
+                    >
                   {/if}
                 </div>
               </button>

@@ -123,7 +123,13 @@ let place = $state(initPlace || "");
 let timeSlots = $state<TimeSlot[]>(
 	initMasterTimeSlots && initMasterTimeSlots.length > 0
 		? initMasterTimeSlots.map((s: TimeSlot) => ({ ...s }))
-		: [{ id: "s1", startTime: initStartTime || "14:00", endTime: initEndTime || "18:00" }]
+		: [
+				{
+					id: "s1",
+					startTime: initStartTime || "14:00",
+					endTime: initEndTime || "18:00"
+				}
+			]
 );
 let minPresentRequired = $state(initMinPresent ?? 1);
 let allowResponses = $state(initAllowResponses ?? true);
@@ -351,7 +357,11 @@ function resetPopoverToTemplate(ds: DateSlot) {
 		popoverTimeDraft = { startTime: slot.startTime, endTime: slot.endTime };
 		return;
 	}
-	seededOccurrences.set(key, { ...seeded, startTime: slot.startTime, endTime: slot.endTime });
+	seededOccurrences.set(key, {
+		...seeded,
+		startTime: slot.startTime,
+		endTime: slot.endTime
+	});
 	popoverTimeDraft = { startTime: slot.startTime, endTime: slot.endTime };
 }
 
@@ -934,7 +944,11 @@ function commitSlotEdit(
 	for (const [key, seeded] of seededOccurrences) {
 		if (seeded.slotId !== slotId) continue;
 		if (seeded.startTime === oldStart && seeded.endTime === oldEnd) {
-			seededOccurrences.set(key, { ...seeded, startTime: newStart, endTime: newEnd });
+			seededOccurrences.set(key, {
+				...seeded,
+				startTime: newStart,
+				endTime: newEnd
+			});
 		}
 	}
 	const slot = timeSlots.find((s) => s.id === slotId);
@@ -956,7 +970,9 @@ async function handleSubmit() {
 	const futureActiveDateSlotCount = views.futureActiveDateSlotCount;
 	if (futureActiveDateSlotCount > 100) {
 		toast.error(msg.planform_toast_too_many(), {
-			description: msg.planform_toast_too_many_desc({ count: futureActiveDateSlotCount })
+			description: msg.planform_toast_too_many_desc({
+				count: futureActiveDateSlotCount
+			})
 		});
 		return;
 	}
@@ -1104,7 +1120,11 @@ const recurrenceLabel = $derived.by(() => {
 	if (recurrenceType === "CUSTOM") {
 		return manualDates.length === 0
 			? msg.planform_custom_label()
-			: msg.planform_custom_count_definies({ count: manualDates.length });
+			: manualDates.length === 1
+				? msg.planform_custom_count_defined_one({ count: manualDates.length })
+				: msg.planform_custom_count_defined_other({
+						count: manualDates.length
+					});
 	}
 
 	// Pas de date de début définie
@@ -1131,904 +1151,1025 @@ const recurrenceLabel = $derived.by(() => {
 </script>
 
 <form
-	onsubmit={(e) => {
-		e.preventDefault();
-		handleSubmit();
-	}}
-	class="space-y-8"
+  onsubmit={(e) => {
+    e.preventDefault();
+    handleSubmit();
+  }}
+  class="space-y-8"
 >
-	<NetworkAlert message={msg.planform_network_offline()} />
+  <NetworkAlert message={msg.planform_network_offline()} />
 
-	<!-- Informations principales -->
-	<fieldset
-		class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
-		disabled={isSubmitting || isNetworkUnavailable}
-	>
-		<div class="card-body gap-4 sm:gap-6">
-				<h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
-					<AlignLeft class="text-primary" />
-					{msg.planform_general_info()}
-				</h3>
+  <!-- Informations principales -->
+  <fieldset
+    class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
+    disabled={isSubmitting || isNetworkUnavailable}
+  >
+    <div class="card-body gap-4 sm:gap-6">
+      <h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
+        <AlignLeft class="text-primary" />
+        {msg.planform_general_info()}
+      </h3>
 
-			<div class="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
-				<fieldset class="fieldset col-span-full">
-					<label
-						class="label bg-primary/5 ring-primary/20 flex cursor-pointer items-start gap-4 rounded-xl p-4 ring-1"
-					>
-						<input
-							type="checkbox"
-							bind:checked={toConfirm}
-							class="checkbox checkbox-primary mt-1"
-						/>
-						<div class="min-w-0 flex-1">
-							<span class="text-base">{msg.planform_confirm_event()}</span>
-							<p class="text-sm text-wrap opacity-80">
-								{msg.planform_confirm_description()}
-							</p>
-						</div>
-					</label>
-				</fieldset>
+      <div class="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+        <fieldset class="fieldset col-span-full">
+          <label
+            class="label bg-primary/5 ring-primary/20 flex cursor-pointer items-start gap-4 rounded-xl p-4 ring-1"
+          >
+            <input
+              type="checkbox"
+              bind:checked={toConfirm}
+              class="checkbox checkbox-primary mt-1"
+            />
+            <div class="min-w-0 flex-1">
+              <span class="text-base">{msg.planform_confirm_event()}</span>
+              <p class="text-sm text-wrap opacity-80">
+                {msg.planform_confirm_description()}
+              </p>
+            </div>
+          </label>
+        </fieldset>
 
-				<fieldset class="fieldset col-span-full">
-					<legend class="fieldset-legend">{msg.planform_title_label()}</legend>
-					<input
-						type="text"
-						bind:value={title}
-						class="input input-lg w-full {validationErrors.title ? 'input-error' : ''}"
-						placeholder="."
-						required
-						disabled={isSubmitting}
-						maxlength="80"
-					/>
-				</fieldset>
+        <fieldset class="fieldset col-span-full">
+          <legend class="fieldset-legend">{msg.planform_title_label()}</legend>
+          <input
+            type="text"
+            bind:value={title}
+            class="input input-lg w-full {validationErrors.title
+              ? 'input-error'
+              : ''}"
+            placeholder="."
+            required
+            disabled={isSubmitting}
+            maxlength="80"
+          />
+        </fieldset>
 
-				<fieldset class="fieldset col-span-full">
-					<legend class="fieldset-legend">{msg.planform_description_label()}</legend>
-					<RichTextEditor
-						bind:value={description}
-						disabled={isSubmitting}
-						placeholder={msg.planform_description_placeholder()}
-					/>
-				</fieldset>
+        <fieldset class="fieldset col-span-full">
+          <legend class="fieldset-legend"
+            >{msg.planform_description_label()}</legend
+          >
+          <RichTextEditor
+            bind:value={description}
+            disabled={isSubmitting}
+            placeholder={msg.planform_description_placeholder()}
+          />
+        </fieldset>
 
-				<fieldset class="fieldset col-span-full">
-					<label class="input w-full">
-						<span class="label"><MapPin size={16} />{msg.planform_place_label()}</span>
-						<input
-							type="text"
-							bind:value={place}
-							class="w-full"
-							placeholder={msg.planform_place_label()}
-							disabled={isSubmitting}
-						/>
-					</label>
-				</fieldset>
-			</div>
-		</div>
-	</fieldset>
+        <fieldset class="fieldset col-span-full">
+          <label class="input w-full">
+            <span class="label"
+              ><MapPin size={16} />{msg.planform_place_label()}</span
+            >
+            <input
+              type="text"
+              bind:value={place}
+              class="w-full"
+              placeholder={msg.planform_place_label()}
+              disabled={isSubmitting}
+            />
+          </label>
+        </fieldset>
+      </div>
+    </div>
+  </fieldset>
 
-	<!-- Récurrence -->
-	<fieldset
-		class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
-		disabled={isSubmitting || isNetworkUnavailable}
-	>
-		<div class="card-body gap-4 sm:gap-6">
-			<h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
-				<Calendar class="text-primary" />
-				{msg.planform_recurrence_section()}
-			</h3>
+  <!-- Récurrence -->
+  <fieldset
+    class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
+    disabled={isSubmitting || isNetworkUnavailable}
+  >
+    <div class="card-body gap-4 sm:gap-6">
+      <h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
+        <Calendar class="text-primary" />
+        {msg.planform_recurrence_section()}
+      </h3>
 
-			<div class="flex flex-col gap-4 sm:gap-6">
-				<fieldset class="fieldset md:max-w-1/2">
-					<legend class="fieldset-legend">{msg.planform_recurrence_type_label()}</legend>
-					<select
-						value={recurrenceType}
-						class="select w-full"
-						disabled={isSubmitting}
-						onchange={(e) => requestRecurrenceTypeChange(e.currentTarget.value)}
-					>
-						<option value="DAILY">{msg.recurrence_type_daily()}</option>
-						<option value="WEEKLY">{msg.recurrence_type_weekly()}</option>
-						<option value="BIWEEKLY">{msg.planform_recurrence_option_biweekly()}</option>
-						<option value="MONTHLY_BY_DATE">{msg.planform_recurrence_option_monthly_date()}</option>
-						<option value="MONTHLY_BY_DAY">{msg.planform_recurrence_option_monthly_day()}</option>
-						<option value="CUSTOM">{msg.recurrence_type_custom()}</option>
-					</select>
-				</fieldset>
+      <div class="flex flex-col gap-4 sm:gap-6">
+        <fieldset class="fieldset md:max-w-1/2">
+          <legend class="fieldset-legend"
+            >{msg.planform_recurrence_type_label()}</legend
+          >
+          <select
+            value={recurrenceType}
+            class="select w-full"
+            disabled={isSubmitting}
+            onchange={(e) => requestRecurrenceTypeChange(e.currentTarget.value)}
+          >
+            <option value="DAILY">{msg.recurrence_type_daily()}</option>
+            <option value="WEEKLY">{msg.recurrence_type_weekly()}</option>
+            <option value="BIWEEKLY"
+              >{msg.planform_recurrence_option_biweekly()}</option
+            >
+            <option value="MONTHLY_BY_DATE"
+              >{msg.planform_recurrence_option_monthly_date()}</option
+            >
+            <option value="MONTHLY_BY_DAY"
+              >{msg.planform_recurrence_option_monthly_day()}</option
+            >
+            <option value="CUSTOM">{msg.recurrence_type_custom()}</option>
+          </select>
+        </fieldset>
 
-				{#if recurrenceType === 'MONTHLY_BY_DAY'}
-					<fieldset class="fieldset">
-						<legend class="fieldset-legend">{msg.planform_occurrences_label()}</legend>
-						<MultiSelect
-							bind:selectedValues={monthlyByDayOccurrences}
-							options={[
-								{ value: 1, label: msg.recurrence_ordinal_1() },
-								{ value: 2, label: msg.recurrence_ordinal_2() },
-								{ value: 3, label: msg.recurrence_ordinal_3() },
-								{ value: 4, label: msg.recurrence_ordinal_4() },
-								{ value: 5, label: msg.recurrence_ordinal_5() }
-							]}
-							placeholder={msg.planform_occurrences_placeholder()}
-						/>
-					</fieldset>
-				{/if}
+        {#if recurrenceType === "MONTHLY_BY_DAY"}
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend"
+              >{msg.planform_occurrences_label()}</legend
+            >
+            <MultiSelect
+              bind:selectedValues={monthlyByDayOccurrences}
+              options={[
+                { value: 1, label: msg.recurrence_ordinal_1() },
+                { value: 2, label: msg.recurrence_ordinal_2() },
+                { value: 3, label: msg.recurrence_ordinal_3() },
+                { value: 4, label: msg.recurrence_ordinal_4() },
+                { value: 5, label: msg.recurrence_ordinal_5() },
+              ]}
+              placeholder={msg.planform_occurrences_placeholder()}
+            />
+          </fieldset>
+        {/if}
 
-				{#if recurrenceType !== 'CUSTOM'}
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						<fieldset class="fieldset">
-							<legend class="fieldset-legend">{msg.planform_date_from()}</legend>
-							<input
-								type="date"
-								value={firstDate}
-								class="input w-full"
-								required
-								disabled={isSubmitting}
-								onchange={(e) => requestDateChange('firstDate', e.currentTarget.value)}
-							/>
-						</fieldset>
+        {#if recurrenceType !== "CUSTOM"}
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <fieldset class="fieldset">
+              <legend class="fieldset-legend">{msg.planform_date_from()}</legend
+              >
+              <input
+                type="date"
+                value={firstDate}
+                class="input w-full"
+                required
+                disabled={isSubmitting}
+                onchange={(e) =>
+                  requestDateChange("firstDate", e.currentTarget.value)}
+              />
+            </fieldset>
 
-						<fieldset class="fieldset">
-							<legend class="fieldset-legend">{msg.planform_date_to()}</legend>
-							<input
-								type="date"
-								value={lastDate}
-								class="input w-full"
-								required
-								disabled={isSubmitting}
-								onchange={(e) => requestDateChange('lastDate', e.currentTarget.value)}
-							/>
-						</fieldset>
-					</div>
-				{/if}
+            <fieldset class="fieldset">
+              <legend class="fieldset-legend">{msg.planform_date_to()}</legend>
+              <input
+                type="date"
+                value={lastDate}
+                class="input w-full"
+                required
+                disabled={isSubmitting}
+                onchange={(e) =>
+                  requestDateChange("lastDate", e.currentTarget.value)}
+              />
+            </fieldset>
+          </div>
+        {/if}
 
-				{#if showMonthlyByDateMode}
-					{@const dayNumber = parse(firstDate, 'yyyy-MM-dd', new Date()).getDate()}
-					{@const monthName = formatDate(parse(firstDate, 'yyyy-MM-dd', new Date()), 'MMMM')}
-					<div class="alert alert-info alert-soft">
-						<fieldset class="fieldset flex flex-wrap gap-3">
-							<legend class="text-sm font-medium">
-								{msg.planform_monthly_date_prompt({ monthName })}
-							</legend>
-							<label class="label cursor-pointer justify-start gap-2 text-sm">
-								<input
-									type="radio"
-									name="monthly-by-date-mode"
-									class="radio"
-									checked={monthlyByDateMode !== 'last-day'}
-									onchange={() => (monthlyByDateMode = 'fixed-day')}
-								/>
-								<span>{msg.planform_monthly_date_fixed({ dayNumber })}</span>
-							</label>
-							<label class="label cursor-pointer justify-start gap-2 text-sm">
-								<input
-									type="radio"
-									name="monthly-by-date-mode"
-									class="radio"
-									checked={monthlyByDateMode === 'last-day'}
-									onchange={() => (monthlyByDateMode = 'last-day')}
-								/>
-								<span>{msg.planform_monthly_date_last()}</span>
-							</label>
-						</fieldset>
-					</div>
-				{/if}
-			</div>
+        {#if showMonthlyByDateMode}
+          {@const dayNumber = parse(
+            firstDate,
+            "yyyy-MM-dd",
+            new Date(),
+          ).getDate()}
+          {@const monthName = formatDate(
+            parse(firstDate, "yyyy-MM-dd", new Date()),
+            "MMMM",
+          )}
+          <div class="alert alert-info alert-soft">
+            <fieldset class="fieldset flex flex-wrap gap-3">
+              <legend class="text-sm font-medium">
+                {msg.planform_monthly_date_prompt({ monthName })}
+              </legend>
+              <label class="label cursor-pointer justify-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="monthly-by-date-mode"
+                  class="radio"
+                  checked={monthlyByDateMode !== "last-day"}
+                  onchange={() => (monthlyByDateMode = "fixed-day")}
+                />
+                <span>{msg.planform_monthly_date_fixed({ dayNumber })}</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="monthly-by-date-mode"
+                  class="radio"
+                  checked={monthlyByDateMode === "last-day"}
+                  onchange={() => (monthlyByDateMode = "last-day")}
+                />
+                <span>{msg.planform_monthly_date_last()}</span>
+              </label>
+            </fieldset>
+          </div>
+        {/if}
+      </div>
 
-			{#snippet dateSlotBadge(ds: DateSlot)}
-				{@const isSelected = isSlotActive(ds)}
-				{@const isManual = manualDates.includes(ds.date)}
-				{@const hasData = datesWithData.includes(ds.date)}
-				{@const willBeDeleted = hasData && !isSelected}
-				<div class="relative">
-					<button
-						type="button"
-						data-slot-ui
-						class="btn sm:btn-sm transition-all {isSelected
-							? 'btn-primary'
-							: 'btn-ghost bg-base-300 opacity-50'} {isManual
-							? 'ring-primary ring-2 ring-offset-2'
-							: ''} {willBeDeleted ? 'ring-error ring-2 ring-offset-2' : ''}"
-						onclick={(e) => togglePopoverFor(ds, e.currentTarget)}
-						disabled={isSubmitting}
-						title={willBeDeleted
-							? msg.planform_slot_data_warning()
-							: msg.planform_slot_click_hint()}
-					>
-						{#if willBeDeleted}
-							<Trash2 class="mr-1" />
-						{/if}
-						{formatDate(parse(ds.date, 'yyyy-MM-dd', new Date()), 'EEE d MMM')}
-						{#if showSlot}
-							<span class="opacity-80"
-								>· {displayTimes(ds).startTime}-{displayTimes(ds).endTime}</span
-							>
-						{/if}
-					</button>
-					{#if activePopoverKey === formatSlotKey(ds.date, ds.slotId)}
-						<div
-							data-slot-ui
-							class="bg-base-100 ring-base-300 fixed z-50 mt-1 w-56 rounded-xl p-3 shadow-lg ring-1"
-							style="top:{popoverPos.top}px; left:{popoverPos.left}px;"
-						>
-							<div class="text-base-content/70 mb-1 text-xs">
-							{formatDate(parse(ds.date, 'yyyy-MM-dd', new Date()), 'EEE d MMM')}
-							</div>
-							{#if master && isSelected}
-								<div class="mb-2">
-									<div class="mb-1 text-xs font-medium opacity-70">{msg.planform_slot_hours()}</div>
-									<div class="grid grid-cols-2 gap-1">
-										<input
-											type="time"
-											data-slot-ui
-											class="input input-sm px-1"
-											bind:value={popoverTimeDraft.startTime}
-											disabled={isSubmitting}
-										/>
-										<input
-											type="time"
-											data-slot-ui
-											class="input input-sm px-1"
-											bind:value={popoverTimeDraft.endTime}
-											disabled={isSubmitting}
-										/>
-									</div>
-								</div>
-							{:else}
-								<div class="mb-3 flex items-center gap-2 text-sm font-medium">
-									<Clock size={14} />
-									{displayTimes(ds).startTime} – {displayTimes(ds).endTime}
-								</div>
-							{/if}
-							<div class="flex flex-col gap-2">
-								{#if master && isSelected}
-									<div class="flex gap-1">
-										<button
-											type="button"
-											class="btn btn-primary btn-sm flex-1"
-											onclick={() => commitPopoverOverride(ds)}
-										>
-											<Check size={14} /> {msg.common_apply()}
-										</button>
-										{#if isOverriddenDateSlot(ds)}
-											<button
-												type="button"
-												class="btn btn-ghost btn-sm btn-square"
-												title={msg.planform_slot_reset_title()}
-												onclick={() => resetPopoverToTemplate(ds)}
-											>
-												<RotateCcw size={14} />
-											</button>
-										{/if}
-									</div>
-								{/if}
-								{#if !showSlot && isManual}
-									<button
-										type="button"
-										class="btn btn-error btn-sm"
-										onclick={() => requestRemoveManualDate(ds.date)}
-									>
-										<Trash2 size={14} /> {msg.common_delete()}
-									</button>
-								{:else if isSelected}
-									<button
-										type="button"
-										class="btn btn-error btn-sm"
-										onclick={() => requestDisableSlot(ds)}
-									>
-										<Trash2 size={14} /> {msg.common_disable()}
-									</button>
-								{:else}
-									<button
-										type="button"
-										class="btn btn-primary btn-sm"
-										onclick={() => {
-											setSlotEnabled(ds, true);
-											closePopover();
-										}}
-									>
-										{msg.common_reactivate()}
-									</button>
-								{/if}
-								<button type="button" class="btn btn-ghost btn-sm" onclick={closePopover}
-									>{msg.common_close()}</button
-								>
-							</div>
-						</div>
-					{/if}
-				</div>
-			{/snippet}
+      {#snippet dateSlotBadge(ds: DateSlot)}
+        {@const isSelected = isSlotActive(ds)}
+        {@const isManual = manualDates.includes(ds.date)}
+        {@const hasData = datesWithData.includes(ds.date)}
+        {@const willBeDeleted = hasData && !isSelected}
+        <div class="relative">
+          <button
+            type="button"
+            data-slot-ui
+            class="btn sm:btn-sm transition-all {isSelected
+              ? 'btn-primary'
+              : 'btn-ghost bg-base-300 opacity-50'} {isManual
+              ? 'ring-primary ring-2 ring-offset-2'
+              : ''} {willBeDeleted ? 'ring-error ring-2 ring-offset-2' : ''}"
+            onclick={(e) => togglePopoverFor(ds, e.currentTarget)}
+            disabled={isSubmitting}
+            title={willBeDeleted
+              ? msg.planform_slot_data_warning()
+              : msg.planform_slot_click_hint()}
+          >
+            {#if willBeDeleted}
+              <Trash2 class="mr-1" />
+            {/if}
+            {formatDate(parse(ds.date, "yyyy-MM-dd", new Date()), "EEE d MMM")}
+            {#if showSlot}
+              <span class="opacity-80"
+                >· {displayTimes(ds).startTime}-{displayTimes(ds).endTime}</span
+              >
+            {/if}
+          </button>
+          {#if activePopoverKey === formatSlotKey(ds.date, ds.slotId)}
+            <div
+              data-slot-ui
+              class="bg-base-100 ring-base-300 fixed z-50 mt-1 w-56 rounded-xl p-3 shadow-lg ring-1"
+              style="top:{popoverPos.top}px; left:{popoverPos.left}px;"
+            >
+              <div class="text-base-content/70 mb-1 text-xs">
+                {formatDate(
+                  parse(ds.date, "yyyy-MM-dd", new Date()),
+                  "EEE d MMM",
+                )}
+              </div>
+              {#if master && isSelected}
+                <div class="mb-2">
+                  <div class="mb-1 text-xs font-medium opacity-70">
+                    {msg.planform_slot_hours()}
+                  </div>
+                  <div class="grid grid-cols-2 gap-1">
+                    <input
+                      type="time"
+                      data-slot-ui
+                      class="input input-sm px-1"
+                      bind:value={popoverTimeDraft.startTime}
+                      disabled={isSubmitting}
+                    />
+                    <input
+                      type="time"
+                      data-slot-ui
+                      class="input input-sm px-1"
+                      bind:value={popoverTimeDraft.endTime}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+              {:else}
+                <div class="mb-3 flex items-center gap-2 text-sm font-medium">
+                  <Clock size={14} />
+                  {displayTimes(ds).startTime} – {displayTimes(ds).endTime}
+                </div>
+              {/if}
+              <div class="flex flex-col gap-2">
+                {#if master && isSelected}
+                  <div class="flex gap-1">
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm flex-1"
+                      onclick={() => commitPopoverOverride(ds)}
+                    >
+                      <Check size={14} />
+                      {msg.common_apply()}
+                    </button>
+                    {#if isOverriddenDateSlot(ds)}
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-sm btn-square"
+                        title={msg.planform_slot_reset_title()}
+                        onclick={() => resetPopoverToTemplate(ds)}
+                      >
+                        <RotateCcw size={14} />
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
+                {#if !showSlot && isManual}
+                  <button
+                    type="button"
+                    class="btn btn-error btn-sm"
+                    onclick={() => requestRemoveManualDate(ds.date)}
+                  >
+                    <Trash2 size={14} />
+                    {msg.common_delete()}
+                  </button>
+                {:else if isSelected}
+                  <button
+                    type="button"
+                    class="btn btn-error btn-sm"
+                    onclick={() => requestDisableSlot(ds)}
+                  >
+                    <Trash2 size={14} />
+                    {msg.common_disable()}
+                  </button>
+                {:else}
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                    onclick={() => {
+                      setSlotEnabled(ds, true);
+                      closePopover();
+                    }}
+                  >
+                    {msg.common_reactivate()}
+                  </button>
+                {/if}
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm"
+                  onclick={closePopover}>{msg.common_close()}</button
+                >
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/snippet}
 
-			<div class="space-y-3">
-				<div class="flex items-center gap-2">
-					<Clock class="text-primary" size={18} />
-					<span class="font-medium">{msg.planform_slot_section()}</span>
-				</div>
+      <div class="space-y-3">
+        <div class="flex items-center gap-2">
+          <Clock class="text-primary" size={18} />
+          <span class="font-medium">{msg.planform_slot_section()}</span>
+        </div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {#each timeSlots as slot (slot.id)}
+            <div
+              class="bg-base-200 flex items-center justify-between gap-2 rounded-lg px-3 py-2"
+            >
+              <div class="flex items-center gap-2">
+                <Clock size={16} class="text-primary" />
+                <span class="font-medium tabular-nums"
+                  >{slot.startTime} – {slot.endTime}</span
+                >
+              </div>
+              <div class="flex gap-1">
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm btn-square"
+                  onclick={() => startSlotEdit(slot.id)}
+                  disabled={isSubmitting || slotModal.open}
+                  aria-label={msg.planform_slot_edit_aria()}
+                  title={msg.planform_slot_edit_title()}
+                >
+                  <Pencil size={16} />
+                </button>
+                {#if timeSlots.length > 1}
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm btn-square text-error"
+                    onclick={() => removeTimeSlot(slot.id)}
+                    disabled={isSubmitting || slotModal.open}
+                    aria-label={msg.planform_slot_delete_aria()}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                {/if}
+              </div>
+            </div>
+          {/each}
+        </div>
 
-				{#each timeSlots as slot (slot.id)}
-					<div class="bg-base-200/50 flex items-center justify-between gap-2 rounded-lg px-3 py-2">
-						<div class="flex items-center gap-2">
-							<Clock size={16} class="text-primary" />
-							<span class="font-medium tabular-nums">{slot.startTime} – {slot.endTime}</span>
-						</div>
-						<div class="flex gap-1">
-							<button
-								type="button"
-								class="btn btn-ghost btn-sm btn-square"
-								onclick={() => startSlotEdit(slot.id)}
-								disabled={isSubmitting || slotModal.open}
-								aria-label={msg.planform_slot_edit_aria()}
-								title={msg.planform_slot_edit_title()}
-							>
-								<Pencil size={16} />
-							</button>
-							{#if timeSlots.length > 1}
-								<button
-									type="button"
-									class="btn btn-ghost btn-sm btn-square text-error"
-									onclick={() => removeTimeSlot(slot.id)}
-									disabled={isSubmitting || slotModal.open}
-									aria-label={msg.planform_slot_delete_aria()}
-								>
-									<Trash2 size={16} />
-								</button>
-							{/if}
-						</div>
-					</div>
-				{/each}
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm w-fit"
+          onclick={addTimeSlot}
+          disabled={isSubmitting || slotModal.open}
+        >
+          <Plus size={16} />
+          {msg.planform_slot_add()}
+        </button>
+      </div>
 
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm w-fit"
-					onclick={addTimeSlot}
-					disabled={isSubmitting || slotModal.open}
-				>
-					<Plus size={16} /> {msg.planform_slot_add()}
-				</button>
-			</div>
+      {#if recurrenceType !== "CUSTOM" && views.allGeneratedDates.length > 0}
+        <div
+          class="mt-4 space-y-3 {validationErrors.dates
+            ? 'ring-error rounded-xl p-2 ring-2 ring-offset-2'
+            : ''}"
+        >
+          <div class="flex items-end justify-between">
+            <div class="font-bold">
+              {#if showSlot}
+                {msg.planform_selection_title_multi({
+                  activeCount: views.activeDateSlots.length,
+                  totalCount: views.allDateSlots.length,
+                })}
+              {:else}
+                {msg.planform_selection_title_single({
+                  activeCount: views.activeDateSlots.length,
+                  totalCount: views.allDateSlots.length,
+                })}
+              {/if}
+            </div>
+            <div class="text-base-content/60 font-medium italic">
+              {recurrenceLabel}
+            </div>
+          </div>
+          <div
+            class="bg-base-200/50 flex max-h-64 flex-wrap gap-2 overflow-y-auto rounded-xl p-4"
+          >
+            {#each views.displayedDateSlots as ds (formatSlotKey(ds.date, ds.slotId))}
+              {@render dateSlotBadge(ds)}
+            {/each}
+          </div>
+          {#if views.hiddenPastDateCount > 0}
+            <p class="text-base-content/60 mt-2 text-xs italic">
+              {hiddenPastLabel}
+            </p>
+          {/if}
 
-			{#if recurrenceType !== 'CUSTOM' && views.allGeneratedDates.length > 0}
-				<div
-					class="mt-4 space-y-3 {validationErrors.dates
-						? 'ring-error rounded-xl p-2 ring-2 ring-offset-2'
-						: ''}"
-				>
-					<div class="flex items-end justify-between">
-					<div class="font-bold">
-						{#if showSlot}
-							{msg.planform_selection_title_multi({ activeCount: views.activeDateSlots.length, totalCount: views.allDateSlots.length })}
-						{:else}
-							{msg.planform_selection_title_single({ activeCount: views.activeDateSlots.length, totalCount: views.allDateSlots.length })}
-						{/if}
-					</div>
-						<div class="text-base-content/60 font-medium italic">{recurrenceLabel}</div>
-					</div>
-					<div class="bg-base-200/50 flex max-h-64 flex-wrap gap-2 overflow-y-auto rounded-xl p-4">
-						{#each views.displayedDateSlots as ds (formatSlotKey(ds.date, ds.slotId))}
-							{@render dateSlotBadge(ds)}
-						{/each}
-					</div>
-					{#if views.hiddenPastDateCount > 0}
-						<p class="text-base-content/60 mt-2 text-xs italic">{hiddenPastLabel}</p>
-					{/if}
+          {#if views.activeDateSlots.filter((ds) => ds.date >= todayStr).length > 100}
+            <div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
+              <span class="flex-1">
+                {#if showSlot}
+                  {msg.planform_limit_warning_multi()}
+                {:else}
+                  {msg.planform_limit_warning_single()}
+                {/if}
+              </span>
+              {#if maxAdjustDate}
+                <button
+                  type="button"
+                  class="btn btn-warning btn-sm"
+                  onclick={() => {
+                    lastDate = maxAdjustDate;
+                    lastDateWasManuallySet = true;
+                  }}
+                >
+                  {msg.planform_adjust_to({ date: maxAdjustDateLabel })}
+                </button>
+              {/if}
+            </div>
+          {/if}
 
-					{#if views.activeDateSlots.filter((ds) => ds.date >= todayStr).length > 100}
-						<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
-							<span class="flex-1">
-								{#if showSlot}
-									{msg.planform_limit_warning_multi()}
-								{:else}
-									{msg.planform_limit_warning_single()}
-								{/if}
-							</span>
-							{#if maxAdjustDate}
-								<button
-									type="button"
-									class="btn btn-warning btn-sm"
-									onclick={() => {
-										lastDate = maxAdjustDate;
-										lastDateWasManuallySet = true;
-									}}
-								>
-									{msg.planform_adjust_to({ date: maxAdjustDateLabel })}
-								</button>
-							{/if}
-						</div>
-					{/if}
+          {#if datesWithData.some((d) => !views.activeDates.has(d))}
+            <div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
+              <Trash2 size={16} />
+              <span>{msg.planform_deleted_dates_warning()}</span>
+            </div>
+          {/if}
 
-					{#if datesWithData.some((d) => !views.activeDates.has(d))}
-						<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
-							<Trash2 size={16} />
-							<span>{msg.planform_deleted_dates_warning()}</span>
-						</div>
-					{/if}
+          <!-- Bouton pour ajouter des dates arbitraires -->
+          {#if showArbitraryDatePicker}
+            <div class="border-base-300 mt-4 space-y-3 border-t pt-4">
+              <div class="flex items-center justify-between">
+                <h4 class="text-sm font-medium">
+                  {msg.planform_arbitrary_title()}
+                </h4>
+                <button
+                  type="button"
+                  class="btn btn-ghost sm:btn-sm"
+                  onclick={() => (showArbitraryDatePicker = false)}
+                >
+                  {msg.common_close()}
+                </button>
+              </div>
+              <MultiDatePicker
+                selectedDates={manualDates}
+                excludeDates={views.allGeneratedDates}
+                maxSelection={views.maxManualDatesForLimit}
+                onChange={setManualDates}
+                minDate={todayStr}
+                class="bg-base-200/50 rounded-lg p-4"
+              />
+            </div>
+          {:else}
+            <div class="flex justify-center">
+              <button
+                type="button"
+                class="link link-primary link-hover text-sm font-medium"
+                onclick={() => (showArbitraryDatePicker = true)}
+              >
+                {msg.planform_arbitrary_link()}
+              </button>
+            </div>
+          {/if}
+        </div>
+      {/if}
 
-					<!-- Bouton pour ajouter des dates arbitraires -->
-					{#if showArbitraryDatePicker}
-						<div class="border-base-300 mt-4 space-y-3 border-t pt-4">
-							<div class="flex items-center justify-between">
-								<h4 class="text-sm font-medium">{msg.planform_arbitrary_title()}</h4>
-								<button
-									type="button"
-									class="btn btn-ghost sm:btn-sm"
-									onclick={() => (showArbitraryDatePicker = false)}
-								>
-									{msg.common_close()}
-								</button>
-							</div>
-							<MultiDatePicker
-								selectedDates={manualDates}
-								excludeDates={views.allGeneratedDates}
-								maxSelection={views.maxManualDatesForLimit}
-								onChange={setManualDates}
-								minDate={todayStr}
-								class="bg-base-200/50 rounded-lg p-4"
-							/>
-						</div>
-					{:else}
-						<div class="flex justify-center">
-							<button
-								type="button"
-								class="link link-primary link-hover text-sm font-medium"
-								onclick={() => (showArbitraryDatePicker = true)}
-							>
-								{msg.planform_arbitrary_link()}
-							</button>
-						</div>
-					{/if}
-				</div>
-			{/if}
+      <!-- Mode CUSTOM : Choix libre des dates -->
+      {#if recurrenceType === "CUSTOM"}
+        <div
+          class="mt-4 space-y-4 {validationErrors.dates
+            ? 'ring-error rounded-xl p-2 ring-2 ring-offset-2'
+            : ''}"
+        >
+          <div class="flex items-end justify-between">
+            <div class="font-medium">
+              {#if showSlot}
+                {msg.planform_custom_dates_title({
+                  activeCount: views.activeDateSlots.length,
+                  totalCount: views.allDateSlots.length,
+                })}
+              {:else}
+                {msg.planform_custom_dates_title_noslot({
+                  count: manualDates.length,
+                })}
+              {/if}
+            </div>
+            <div class="flex items-center">
+              <Calendar size={16} />
+              <span
+                >{msg.planform_custom_dates_count({
+                  count: manualDates.length,
+                })}</span
+              >
+            </div>
+          </div>
 
-			<!-- Mode CUSTOM : Choix libre des dates -->
-			{#if recurrenceType === 'CUSTOM'}
-				<div
-					class="mt-4 space-y-4 {validationErrors.dates
-						? 'ring-error rounded-xl p-2 ring-2 ring-offset-2'
-						: ''}"
-				>
-					<div class="flex items-end justify-between">
-					<div class="font-medium">
-						{#if showSlot}
-							{msg.planform_custom_dates_title({ activeCount: views.activeDateSlots.length, totalCount: views.allDateSlots.length })}
-						{:else}
-							{msg.planform_custom_dates_title_noslot({ count: manualDates.length })}
-						{/if}
-					</div>
-					<div class="flex items-center">
-						<Calendar size={16} />
-						<span>{msg.planform_custom_dates_count({ count: manualDates.length })}</span>
-					</div>
-					</div>
+          <MultiDatePicker
+            selectedDates={manualDates}
+            excludeDates={[]}
+            maxSelection={views.maxManualDatesForLimit}
+            onChange={setManualDates}
+            minDate={todayStr}
+          />
 
-					<MultiDatePicker
-						selectedDates={manualDates}
-						excludeDates={[]}
-						maxSelection={views.maxManualDatesForLimit}
-						onChange={setManualDates}
-						minDate={todayStr}
-					/>
+          {#if manualDates.length > 0}
+            <div
+              class="bg-base-200/50 mt-4 flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-xl p-4"
+            >
+              {#each views.displayedDateSlots as ds (formatSlotKey(ds.date, ds.slotId))}
+                {@render dateSlotBadge(ds)}
+              {/each}
+            </div>
+            {#if views.hiddenPastDateCount > 0}
+              <p class="text-base-content/60 mt-2 text-xs italic">
+                {hiddenPastLabel}
+              </p>
+            {/if}
+          {/if}
 
-					{#if manualDates.length > 0}
-						<div
-							class="bg-base-200/50 mt-4 flex max-h-48 flex-wrap gap-2 overflow-y-auto rounded-xl p-4"
-						>
-							{#each views.displayedDateSlots as ds (formatSlotKey(ds.date, ds.slotId))}
-								{@render dateSlotBadge(ds)}
-							{/each}
-						</div>
-						{#if views.hiddenPastDateCount > 0}
-							<p class="text-base-content/60 mt-2 text-xs italic">{hiddenPastLabel}</p>
-						{/if}
-					{/if}
+          {#if manualDates.length > 0}
+            {@const futureActiveDateSlotCount = views.activeDateSlots.filter(
+              (ds) => ds.date >= todayStr,
+            ).length}
+            {#if futureActiveDateSlotCount > 100}
+              <div
+                class="alert alert-warning rounded-xl py-2 text-sm shadow-sm"
+              >
+                <span>
+                  {#if showSlot}
+                    {msg.planform_limit_warning_multi()}
+                  {:else}
+                    {msg.planform_limit_warning_single()}
+                  {/if}
+                </span>
+              </div>
+            {/if}
+          {/if}
+        </div>
+      {/if}
+    </div>
+  </fieldset>
 
-					{#if manualDates.length > 0}
-						{@const futureActiveDateSlotCount = views.activeDateSlots.filter(
-							(ds) => ds.date >= todayStr
-						).length}
-						{#if futureActiveDateSlotCount > 100}
-							<div class="alert alert-warning rounded-xl py-2 text-sm shadow-sm">
-							<span>
-								{#if showSlot}
-									{msg.planform_limit_warning_multi()}
-								{:else}
-									{msg.planform_limit_warning_single()}
-								{/if}
-							</span>
-							</div>
-						{/if}
-					{/if}
-				</div>
-			{/if}
-		</div>
-	</fieldset>
+  <!-- Tâches -->
+  <fieldset
+    class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
+    disabled={isSubmitting || isNetworkUnavailable}
+  >
+    <div class="card-body sm-gap-6 gap-4">
+      <h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
+        <Plus class="text-primary" />
+        {msg.planform_responses_section()}
+      </h3>
 
-	<!-- Tâches -->
-	<fieldset
-		class="card card-xs sm:card-md bg-base-100 border-base-200 border shadow-sm"
-		disabled={isSubmitting || isNetworkUnavailable}
-	>
-		<div class="card-body sm-gap-6 gap-4">
-			<h3 class="card-title flex items-center gap-2 text-xl max-sm:p-2">
-				<Plus class="text-primary" />
-				{msg.planform_responses_section()}
-			</h3>
+      <div class=" space-y-4">
+        <!-- Checkbox allowResponses déplacée ici -->
+        <fieldset class="fieldset">
+          <label
+            class="label bg-primary/5 ring-primary/20 flex cursor-pointer items-start gap-4 rounded-xl p-4 ring-1"
+          >
+            <input
+              type="checkbox"
+              bind:checked={allowResponses}
+              class="checkbox checkbox-primary mt-1"
+            />
+            <div class="min-w-0 flex-1">
+              <span class="label-text text-base"
+                >{msg.planform_allow_responses()}</span
+              >
+              <p class="text-sm text-wrap opacity-80">
+                {msg.planform_allow_responses_desc()}
+              </p>
+            </div>
+          </label>
+        </fieldset>
 
-			<div class=" space-y-4">
-				<!-- Checkbox allowResponses déplacée ici -->
-				<fieldset class="fieldset">
-					<label
-						class="label bg-primary/5 ring-primary/20 flex cursor-pointer items-start gap-4 rounded-xl p-4 ring-1"
-					>
-						<input
-							type="checkbox"
-							bind:checked={allowResponses}
-							class="checkbox checkbox-primary mt-1"
-						/>
-						<div class="min-w-0 flex-1">
-							<span class="label-text text-base">{msg.planform_allow_responses()}</span>
-							<p class="text-sm text-wrap opacity-80">
-								{msg.planform_allow_responses_desc()}
-							</p>
-						</div>
-					</label>
-				</fieldset>
+        <!-- Sélection des ResponseType -->
+        {#if allowResponses}
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend font-medium"
+              >{msg.planform_min_present_label()}</legend
+            >
+            <div class="flex items-center gap-4">
+              <input
+                type="range"
+                min="1"
+                max="20"
+                bind:value={minPresentRequired}
+                class="range range-primary"
+                disabled={isSubmitting}
+              />
+              <span class="badge badge-lg badge-primary min-w-12 tabular-nums">
+                {minPresentRequired}
+              </span>
+            </div>
+            <p class="text-base-content/50 mt-2 text-sm">
+              {msg.planform_min_present_hint()}
+            </p>
+          </fieldset>
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend font-medium"
+              >{msg.planform_response_types_label()}</legend
+            >
+            <p class="text-base-content/50 mb-3 text-sm">
+              {msg.planform_response_types_hint()}
+            </p>
 
-				<!-- Sélection des ResponseType -->
-				{#if allowResponses}
-					<fieldset class="fieldset">
-						<legend class="fieldset-legend font-medium">{msg.planform_min_present_label()}</legend>
-						<div class="flex items-center gap-4">
-							<input
-								type="range"
-								min="1"
-								max="20"
-								bind:value={minPresentRequired}
-								class="range range-primary"
-								disabled={isSubmitting}
-							/>
-							<span class="badge badge-lg badge-primary min-w-12 tabular-nums">
-								{minPresentRequired}
-							</span>
-						</div>
-						<p class="text-base-content/50 mt-2 text-sm">
-							{msg.planform_min_present_hint()}
-						</p>
-					</fieldset>
-					<fieldset class="fieldset">
-						<legend class="fieldset-legend font-medium">{msg.planform_response_types_label()}</legend>
-						<p class="text-base-content/50 mb-3 text-sm">
-							{msg.planform_response_types_hint()}
-						</p>
+            <div
+              class="flex flex-wrap gap-3 {validationErrors.responses
+                ? 'ring-error rounded-xl p-2 ring-2 ring-offset-2'
+                : ''}"
+            >
+              {#each AVAILABLE_RESPONSE_TYPES as responseType (responseType)}
+                <label
+                  class="label border-base-300 bg-base-200/30 hover:bg-base-200 flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-2"
+                >
+                  <input
+                    type="checkbox"
+                    class="checkbox sm:checkbox-sm checkbox-primary"
+                    checked={availableResponseTypes.includes(responseType)}
+                    onchange={(e) => {
+                      if (e.currentTarget.checked) {
+                        availableResponseTypes = [
+                          ...availableResponseTypes,
+                          responseType,
+                        ];
+                      } else {
+                        availableResponseTypes = availableResponseTypes.filter(
+                          (rt) => rt !== responseType,
+                        );
+                      }
+                    }}
+                  />
+                  <span class="label-text text-sm font-medium">
+                    {RESPONSE_TYPE_LABELS[responseType]()}
+                  </span>
+                </label>
+              {/each}
+            </div>
+          </fieldset>
+        {/if}
+      </div>
 
-						<div
-							class="flex flex-wrap gap-3 {validationErrors.responses
-								? 'ring-error rounded-xl p-2 ring-2 ring-offset-2'
-								: ''}"
-						>
-							{#each AVAILABLE_RESPONSE_TYPES as responseType (responseType)}
-								<label
-									class="label border-base-300 bg-base-200/30 hover:bg-base-200 flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-2"
-								>
-									<input
-										type="checkbox"
-										class="checkbox sm:checkbox-sm checkbox-primary"
-										checked={availableResponseTypes.includes(responseType)}
-										onchange={(e) => {
-											if (e.currentTarget.checked) {
-												availableResponseTypes = [...availableResponseTypes, responseType];
-											} else {
-												availableResponseTypes = availableResponseTypes.filter(
-													(rt) => rt !== responseType
-												);
-											}
-										}}
-									/>
-									<span class="label-text text-sm font-medium">
-										{RESPONSE_TYPE_LABELS[responseType]()}
-									</span>
-								</label>
-							{/each}
-						</div>
-					</fieldset>
-				{/if}
-			</div>
+      <div class="divider my-0"></div>
+      <div
+        class="space-y-4 {validationErrors.tasks ||
+        validationErrors.taskInProgress
+          ? 'ring-error rounded-xl p-2 ring-2 ring-offset-2'
+          : ''}"
+      >
+        <h4 class="flex items-center gap-2 text-base font-medium">
+          <ClipboardCheck size={18} class="text-primary" />
+          {msg.planform_task_list()}
+        </h4>
+        {#if master && datesWithSpecificTasks.length > 0}
+          <div
+            class="alert alert-info max-sm:alert-vertical rounded-2xl shadow-sm"
+          >
+            <AlignLeft size={20} />
+            <div class="flex-1">
+              <h4 class="font-semibold">
+                {msg.planform_task_custom_detected()}
+              </h4>
+              <p class="text-sm opacity-70">
+                {msg.planform_task_custom_desc({
+                  count: datesWithSpecificTasks.length,
+                })}
+              </p>
+            </div>
+            <label
+              class="label bg-base-200 border-base-300 cursor-pointer gap-3 rounded-md border px-4 py-2"
+            >
+              <input
+                type="checkbox"
+                bind:checked={forceTaskRefresh}
+                class="checkbox sm:checkbox-sm checkbox-warning"
+              />
+              <span class="label-text text-sm font-medium"
+                >{msg.planform_task_replace_all()}</span
+              >
+            </label>
+          </div>
+        {/if}
 
-			<div class="divider my-0"></div>
-			<div
-				class="space-y-4 {validationErrors.tasks || validationErrors.taskInProgress
-					? 'ring-error rounded-xl p-2 ring-2 ring-offset-2'
-					: ''}"
-			>
-				<h4 class="flex items-center gap-2 text-base font-medium">
-					<ClipboardCheck size={18} class="text-primary" />
-					{msg.planform_task_list()}
-				</h4>
-				{#if master && datesWithSpecificTasks.length > 0}
-					<div class="alert alert-info max-sm:alert-vertical rounded-2xl shadow-sm">
-						<AlignLeft size={20} />
-						<div class="flex-1">
-							<h4 class="font-semibold">{msg.planform_task_custom_detected()}</h4>
-							<p class="text-sm opacity-70">
-								{msg.planform_task_custom_desc({ count: datesWithSpecificTasks.length })}
-							</p>
-						</div>
-						<label
-							class="label bg-base-200 border-base-300 cursor-pointer gap-3 rounded-md border px-4 py-2"
-						>
-							<input
-								type="checkbox"
-								bind:checked={forceTaskRefresh}
-								class="checkbox sm:checkbox-sm checkbox-warning"
-							/>
-							<span class="label-text text-sm font-medium">{msg.planform_task_replace_all()}</span>
-						</label>
-					</div>
-				{/if}
+        {#each tasks as task (task.id)}
+          {@const isEditing = editingTaskId === task.id}
+          <div
+            class="bg-accent/20 group flex items-center gap-4 rounded-lg px-3 py-2 {isEditing
+              ? 'ring-primary ring-2 ring-offset-2'
+              : ''}"
+          >
+            <div class="flex-1">
+              <div class="text-base font-medium">{task.name}</div>
 
-				{#each tasks as task (task.id)}
-					{@const isEditing = editingTaskId === task.id}
-					<div
-						class="bg-accent/20 group flex items-center gap-4 rounded-lg px-3 py-2 {isEditing
-							? 'ring-primary ring-2 ring-offset-2'
-							: ''}"
-					>
-						<div class="flex-1">
-							<div class="text-base font-medium">{task.name}</div>
+              {#if task.description}
+                <div class="text-sm opacity-70">{task.description}</div>
+              {/if}
+            </div>
 
-							{#if task.description}
-								<div class="text-sm opacity-70">{task.description}</div>
-							{/if}
-						</div>
+            <!-- Bouton supprimer -->
+            <button
+              type="button"
+              class="btn btn-ghost btn-circle text-error"
+              onclick={() => removeTask(task.id)}
+              disabled={isSubmitting}
+              title={msg.planform_task_delete_tooltip()}
+            >
+              <Trash2 size={14} />
+            </button>
+            <div class="badge badge-outline">
+              {msg.planform_task_volunteers({ count: task.requiredVolunteers })}
+            </div>
 
-						<!-- Bouton supprimer -->
-						<button
-							type="button"
-							class="btn btn-ghost btn-circle text-error"
-							onclick={() => removeTask(task.id)}
-							disabled={isSubmitting}
-							title={msg.planform_task_delete_tooltip()}
-						>
-							<Trash2 size={14} />
-						</button>
-						<div class="badge badge-outline">{msg.planform_task_volunteers({ count: task.requiredVolunteers })}</div>
+            <div class="flex gap-1">
+              <!-- Bouton édition -->
+              <button
+                type="button"
+                class="btn btn-ghost btn-circle"
+                onclick={() => editTask(task.id)}
+                disabled={isSubmitting}
+                title={msg.planform_task_edit_tooltip()}
+              >
+                <Pencil size={14} />
+              </button>
+            </div>
+          </div>
+        {/each}
 
-						<div class="flex gap-1">
-							<!-- Bouton édition -->
-							<button
-								type="button"
-								class="btn btn-ghost btn-circle"
-								onclick={() => editTask(task.id)}
-								disabled={isSubmitting}
-								title={msg.planform_task_edit_tooltip()}
-							>
-								<Pencil size={14} />
-							</button>
-						</div>
-					</div>
-				{/each}
-
-				<div class="space-y-3">
-					<div class="bg-base-200/50 space-y-3 rounded-xl p-4">
-						<div class="grid grid-cols-1 items-baseline gap-3 sm:grid-cols-2">
-							{#if editingTaskId}
-								<div
-									class="alert alert-info alert-outline rounded-lg py-2 text-sm"
-									transition:slide
-								>
-									<Pencil size={16} />
-									<span>{msg.planform_task_editing_banner()}</span>
-								</div>
-							{/if}
-							<fieldset class="fieldset">
-								<label class="input w-full {validationErrors.taskInProgress ? 'input-error' : ''}">
-									<input
-										type="text"
-										bind:value={newTaskName}
-										bind:this={taskNameInput}
-										placeholder={msg.planform_task_name_placeholder()}
-										disabled={isSubmitting}
-										maxlength="50"
-										onkeydown={(e) => {
-											if (e.key === 'Enter') {
-												e.preventDefault();
-												addTask();
-											}
-										}}
-									/>
-									<!-- Bouton + intégré visible uniquement en mobile -->
-									<button
-										type="button"
-										class="btn btn-primary btn-circle btn-sm hidden max-sm:flex"
-										onclick={addTask}
-										disabled={isSubmitting ||
-											newTaskName.trim().length === 0 ||
-											(isEditingTask && !taskHasChanges)}
-										title={msg.planform_task_add_title()}
-									>
-										<Plus size={16} />
-									</button>
-								</label>
-							</fieldset>
-							<div class="grid grid-cols-2 gap-3">
-								<fieldset class="fieldset">
-									<legend class="fieldset-legend">{msg.planform_task_header_label()}</legend>
-									<input
-										type="number"
-										bind:value={newTaskVolunteers}
-										class="input w-full"
-										min="1"
-										placeholder={msg.planform_task_header_count()}
-										disabled={isSubmitting}
-										max="1000"
-									/>
-								</fieldset>
-								<fieldset class="fieldset">
-									<legend class="fieldset-legend">{msg.planform_task_moment_label()}</legend>
-									<select bind:value={newTaskType} class="select w-full" disabled={isSubmitting}>
-										<option value="beforeEvent">{msg.task_type_before()}</option>
-										<option value="onEvent">{msg.task_type_during()}</option>
-										<option value="afterEvent">{msg.task_type_after()}</option>
-									</select>
-								</fieldset>
-							</div>
-						</div>
-						<!-- <textarea
+        <div class="space-y-3">
+          <div class="bg-base-200/50 space-y-3 rounded-xl p-4">
+            <div class="grid grid-cols-1 items-baseline gap-3 sm:grid-cols-2">
+              {#if editingTaskId}
+                <div
+                  class="alert alert-info alert-outline rounded-lg py-2 text-sm"
+                  transition:slide
+                >
+                  <Pencil size={16} />
+                  <span>{msg.planform_task_editing_banner()}</span>
+                </div>
+              {/if}
+              <fieldset class="fieldset">
+                <label
+                  class="input w-full {validationErrors.taskInProgress
+                    ? 'input-error'
+                    : ''}"
+                >
+                  <input
+                    type="text"
+                    bind:value={newTaskName}
+                    bind:this={taskNameInput}
+                    placeholder={msg.planform_task_name_placeholder()}
+                    disabled={isSubmitting}
+                    maxlength="50"
+                    onkeydown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addTask();
+                      }
+                    }}
+                  />
+                  <!-- Bouton + intégré visible uniquement en mobile -->
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-circle btn-sm hidden max-sm:flex"
+                    onclick={addTask}
+                    disabled={isSubmitting ||
+                      newTaskName.trim().length === 0 ||
+                      (isEditingTask && !taskHasChanges)}
+                    title={msg.planform_task_add_title()}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </label>
+              </fieldset>
+              <div class="grid grid-cols-2 gap-3">
+                <fieldset class="fieldset">
+                  <legend class="fieldset-legend"
+                    >{msg.planform_task_header_label()}</legend
+                  >
+                  <input
+                    type="number"
+                    bind:value={newTaskVolunteers}
+                    class="input w-full"
+                    min="1"
+                    placeholder={msg.planform_task_header_count()}
+                    disabled={isSubmitting}
+                    max="1000"
+                  />
+                </fieldset>
+                <fieldset class="fieldset">
+                  <legend class="fieldset-legend"
+                    >{msg.planform_task_moment_label()}</legend
+                  >
+                  <select
+                    bind:value={newTaskType}
+                    class="select w-full"
+                    disabled={isSubmitting}
+                  >
+                    <option value="beforeEvent">{msg.task_type_before()}</option
+                    >
+                    <option value="onEvent">{msg.task_type_during()}</option>
+                    <option value="afterEvent">{msg.task_type_after()}</option>
+                  </select>
+                </fieldset>
+              </div>
+            </div>
+            <!-- <textarea
 						bind:value={newTaskDescription}
 						class="textarea textarea-sm h-16 w-full"
 						placeholder="Description de la tâche (optionnel)"
 						disabled={isSubmitting}
 					></textarea> -->
-						<!-- Boutons d'action -->
-						<div class="flex justify-end gap-2">
-							{#if !isEditingTask && newTaskName.trim().length > 0}
-								<button
-									type="button"
-									class="btn sm:btn-sm btn-ghost"
-									onclick={cancelTaskInput}
-									disabled={isSubmitting}
-								>
-									{msg.common_cancel()}
-								</button>
-							{/if}
-							{#if isEditingTask}
-								<button type="button" class="btn sm:btn-sm btn-ghost" onclick={cancelTaskEdit}
-									>{msg.common_cancel()}</button
-								>
-							{/if}
-							<button
-								type="button"
-								class="btn sm:btn-sm btn-primary"
-								onclick={addTask}
-								disabled={isSubmitting ||
-									newTaskName.trim().length === 0 ||
-									(isEditingTask && !taskHasChanges)}
-							>
-								{isEditingTask ? msg.planform_task_edit_confirm() : msg.planform_task_add_confirm()}
-							</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</fieldset>
+            <!-- Boutons d'action -->
+            <div class="flex justify-end gap-2">
+              {#if !isEditingTask && newTaskName.trim().length > 0}
+                <button
+                  type="button"
+                  class="btn sm:btn-sm btn-ghost"
+                  onclick={cancelTaskInput}
+                  disabled={isSubmitting}
+                >
+                  {msg.common_cancel()}
+                </button>
+              {/if}
+              {#if isEditingTask}
+                <button
+                  type="button"
+                  class="btn sm:btn-sm btn-ghost"
+                  onclick={cancelTaskEdit}>{msg.common_cancel()}</button
+                >
+              {/if}
+              <button
+                type="button"
+                class="btn sm:btn-sm btn-primary"
+                onclick={addTask}
+                disabled={isSubmitting ||
+                  newTaskName.trim().length === 0 ||
+                  (isEditingTask && !taskHasChanges)}
+              >
+                {isEditingTask
+                  ? msg.planform_task_edit_confirm()
+                  : msg.planform_task_add_confirm()}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </fieldset>
 
-	<div
-		class="bg-base-100/80 fixed bottom-0 left-0 z-10 flex w-full justify-between gap-4 border-t border-slate-400 p-2 shadow-xl backdrop-blur md:sticky md:bottom-2 md:justify-end md:rounded-2xl md:border md:p-4"
-	>
-		<button
-			type="button"
-			class="btn btn-ghost"
-			onclick={() => history.back()}
-			disabled={isSubmitting}
-		>
-			{msg.common_cancel()}
-		</button>
-		<button type="submit" class="btn btn-primary px-8" disabled={isSubmitting}>
-			{#if isSubmitting}
-				<span class="loading loading-spinner loading-sm"></span>
-			{/if}
+  <div
+    class="bg-base-100/80 fixed bottom-0 left-0 z-10 flex w-full justify-between gap-4 border-t border-slate-400 p-2 shadow-xl backdrop-blur md:sticky md:bottom-2 md:justify-end md:rounded-2xl md:border md:p-4"
+  >
+    <button
+      type="button"
+      class="btn btn-ghost"
+      onclick={() => history.back()}
+      disabled={isSubmitting}
+    >
+      {msg.common_cancel()}
+    </button>
+    <button type="submit" class="btn btn-primary px-8" disabled={isSubmitting}>
+      {#if isSubmitting}
+        <span class="loading loading-spinner loading-sm"></span>
+      {/if}
 
-			<span class="hidden md:block">
-				{master ? msg.planform_submit_edit() : msg.planform_submit_create()}</span
-			>
+      <span class="hidden md:block">
+        {master
+          ? msg.planform_submit_edit()
+          : msg.planform_submit_create()}</span
+      >
 
-			<span class="md:hidden"> {master ? msg.planform_submit_edit_mobile() : msg.planform_submit_create_mobile()}</span>
-		</button>
-	</div>
+      <span class="md:hidden">
+        {master
+          ? msg.planform_submit_edit_mobile()
+          : msg.planform_submit_create_mobile()}</span
+      >
+    </button>
+  </div>
 </form>
 
 <Modal
-	open={slotModal.open}
-	onClose={closeSlotModal}
-	title={slotModal.state?.mode === 'edit' ? msg.planform_slot_modal_title_edit() : msg.planform_slot_modal_title_add()}
-	size="sm"
+  open={slotModal.open}
+  onClose={closeSlotModal}
+  title={slotModal.state?.mode === "edit"
+    ? msg.planform_slot_modal_title_edit()
+    : msg.planform_slot_modal_title_add()}
+  size="sm"
 >
-	{#if slotModal.state}
-		<div class="space-y-4">
-			<div class="grid grid-cols-2 gap-3">
-				<fieldset class="fieldset">
-					<legend class="fieldset-legend flex items-center gap-2">
-						<Clock size={16} /> {msg.planform_slot_modal_start()}
-					</legend>
-					<input
-						type="time"
-						bind:this={slotStartInput}
-						bind:value={slotModal.state.draft.startTime}
-						class="input w-full"
-						required
-					/>
-				</fieldset>
-				<fieldset class="fieldset">
-					<legend class="fieldset-legend flex items-center gap-2">
-						<Clock size={16} /> {msg.planform_slot_modal_end()}
-					</legend>
-					<input
-						type="time"
-						bind:value={slotModal.state.draft.endTime}
-						class="input w-full"
-						required
-					/>
-				</fieldset>
-			</div>
+  {#if slotModal.state}
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend flex items-center gap-2">
+            <Clock size={16} />
+            {msg.planform_slot_modal_start()}
+          </legend>
+          <input
+            type="time"
+            bind:this={slotStartInput}
+            bind:value={slotModal.state.draft.startTime}
+            class="input w-full"
+            required
+          />
+        </fieldset>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend flex items-center gap-2">
+            <Clock size={16} />
+            {msg.planform_slot_modal_end()}
+          </legend>
+          <input
+            type="time"
+            bind:value={slotModal.state.draft.endTime}
+            class="input w-full"
+            required
+          />
+        </fieldset>
+      </div>
 
-			<div class="space-y-2">
-				<p class="text-base-content/70 text-xs font-medium">{msg.planform_slot_modal_presets()}</p>
-				<div class="grid grid-cols-2 gap-2">
-					<button
-						type="button"
-						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
-						onclick={() => applyTimePreset('08:00', '12:00')}
-					>
-						<span>{msg.planform_slot_modal_preset_morning()}</span>
-						<span class="opacity-70">8h–12h</span>
-					</button>
-					<button
-						type="button"
-						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
-						onclick={() => applyTimePreset('13:00', '18:00')}
-					>
-						<span>{msg.planform_slot_modal_preset_afternoon()}</span>
-						<span class="opacity-70">13h–18h</span>
-					</button>
-					<button
-						type="button"
-						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
-						onclick={() => applyTimePreset('19:00', '23:00')}
-					>
-						<span>{msg.planform_slot_modal_preset_evening()}</span>
-						<span class="opacity-70">19h–23h</span>
-					</button>
-					<button
-						type="button"
-						class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
-						onclick={() => applyTimePreset('08:00', '23:00')}
-					>
-						<span>{msg.planform_slot_modal_preset_full_day()}</span>
-						<span class="opacity-70">8h–23h</span>
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
-	{#snippet actions()}
-		<button type="button" class="btn btn-ghost" onclick={closeSlotModal}>{msg.common_cancel()}</button>
-		<button
-			type="button"
-			class="btn btn-primary"
-			onclick={applySlotEdit}
-			disabled={!slotModal.state?.draft.startTime || !slotModal.state?.draft.endTime}
-		>
-			{msg.common_apply()}
-		</button>
-	{/snippet}
+      <div class="space-y-2">
+        <p class="text-base-content/70 text-xs font-medium">
+          {msg.planform_slot_modal_presets()}
+        </p>
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
+            onclick={() => applyTimePreset("08:00", "12:00")}
+          >
+            <span>{msg.planform_slot_modal_preset_morning()}</span>
+            <span class="opacity-70">8h–12h</span>
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
+            onclick={() => applyTimePreset("13:00", "18:00")}
+          >
+            <span>{msg.planform_slot_modal_preset_afternoon()}</span>
+            <span class="opacity-70">13h–18h</span>
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
+            onclick={() => applyTimePreset("19:00", "23:00")}
+          >
+            <span>{msg.planform_slot_modal_preset_evening()}</span>
+            <span class="opacity-70">19h–23h</span>
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs bg-base-200 h-auto flex-col"
+            onclick={() => applyTimePreset("08:00", "23:00")}
+          >
+            <span>{msg.planform_slot_modal_preset_full_day()}</span>
+            <span class="opacity-70">8h–23h</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+  {#snippet actions()}
+    <button type="button" class="btn btn-ghost" onclick={closeSlotModal}
+      >{msg.common_cancel()}</button
+    >
+    <button
+      type="button"
+      class="btn btn-primary"
+      onclick={applySlotEdit}
+      disabled={!slotModal.state?.draft.startTime ||
+        !slotModal.state?.draft.endTime}
+    >
+      {msg.common_apply()}
+    </button>
+  {/snippet}
 </Modal>
 
 <ConfirmModal
-	open={confirmState.open}
-	onClose={closeConfirm}
-	onConfirm={handleConfirm}
-	title={confirmState.config?.title ?? ''}
-	message={confirmState.config?.message ?? ''}
-	description={confirmState.config?.description}
-	variant={confirmState.config?.variant ?? 'warning'}
-	confirmLabel={confirmState.config?.confirmLabel}
+  open={confirmState.open}
+  onClose={closeConfirm}
+  onConfirm={handleConfirm}
+  title={confirmState.config?.title ?? ""}
+  message={confirmState.config?.message ?? ""}
+  description={confirmState.config?.description}
+  variant={confirmState.config?.variant ?? "warning"}
+  confirmLabel={confirmState.config?.confirmLabel}
 />

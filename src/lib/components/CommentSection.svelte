@@ -6,7 +6,7 @@ import { commentStateService } from "$lib/services/commentStateService";
 import { addComment } from "$lib/services/planningActions";
 import { drawerStore } from "$lib/stores/drawerStore.svelte";
 import { networkStore } from "$lib/stores/networkStore.svelte";
-import { formatDate } from "$lib/utils/date";
+import { formatDate, formatDateTime } from "$lib/utils/date";
 import { classifyError } from "$lib/utils/errorHandler";
 import NetworkAlert from "./NetworkAlert.svelte";
 
@@ -101,7 +101,7 @@ async function handleSubmit() {
 							<div class="chat-header mb-1 text-sm font-bold opacity-50">
 								{getParticipantName(comment.participantId)}
 								<time class="ml-1 font-normal"
-									>{formatDate(comment.createdAt, 'd MMM à HH:mm')}</time
+									>{formatDateTime(comment.createdAt)}</time
 								>
 							</div>
 							<div

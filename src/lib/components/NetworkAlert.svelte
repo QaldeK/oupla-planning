@@ -5,7 +5,7 @@ import * as m from "$lib/paraglide/messages.js";
 import { networkStore } from "$lib/stores/networkStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
-import { formatDate } from "$lib/utils/date";
+import { formatDateTime } from "$lib/utils/date";
 
 interface Props {
 	/**
@@ -34,7 +34,7 @@ const freshnessDate = $derived.by(() => {
 });
 
 const freshnessLabel = $derived(
-	freshnessDate ? `${m.net_last_sync()} ${formatDate(freshnessDate, "d MMM 'à' HH:mm")}` : ""
+	freshnessDate ? `${m.net_last_sync()} ${formatDateTime(freshnessDate)}` : ""
 );
 
 function reload() {

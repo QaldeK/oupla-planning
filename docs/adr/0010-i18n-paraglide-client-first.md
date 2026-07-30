@@ -13,6 +13,13 @@ La locale choisie est également écrite sur `users.locale` pour les utilisateur
 (champ write-only pour l'instant), afin qu'un futur effort de localisation côté serveur
 démarre avec une donnée déjà collectée.
 
+La `baseLocale` technique de Paraglide est `en` : c'est la locale qui sert de fallback
+final de résolution et qui est intégrée au bundle. Conséquence — un visiteur dont le
+navigateur n'est ni `fr` ni `en` (ex. `de`, `es`) voit l'app en anglais, pas en français.
+Cette `baseLocale` est un choix technique (fallback + locale embarquée) : le français
+reste la **source éditoriale** (l'équipe rédige `fr.json` en premier, l'anglais est la
+traduction). Le contrat humain et le fallback technique sont dissociés.
+
 Hors scope délibéré : le texte généré côté serveur — notifications push
 (`buildPushTitle`/`buildPushBody`) et emails agrégés par le cron PocketBase — reste en
 français. Un utilisateur en anglais recevra donc des push/emails en français jusqu'à un

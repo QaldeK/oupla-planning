@@ -47,6 +47,17 @@ export function formatDateWithDay(date: string | Date): string {
 }
 
 /**
+ * Formate une date avec son horaire. Le séparateur horaire est porté par la
+ * locale active : la locale localise les noms (mois, jours), mais le mot
+ * de liaison (« à » / « at ») doit lui aussi suivre la langue — il ne peut
+ * pas vivre dans un pattern partagé.
+ */
+export function formatDateTime(date: string | Date): string {
+	const pattern = getLocale() === "en" ? "MMM d 'at' HH:mm" : "d MMM 'à' HH:mm";
+	return formatDate(date, pattern);
+}
+
+/**
  * Formate une heure au format HH:MM
  */
 export function formatTime(time: string): string {

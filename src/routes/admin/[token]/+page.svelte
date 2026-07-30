@@ -329,127 +329,146 @@ const datesWithSpecificTasks = $derived(
 </script>
 
 <svelte:head>
-	<title>{master?.title || m.admin_title_fallback()} - Admin</title>
+  <title
+    >{master?.title || m.admin_title_fallback()} {m.admin_title_suffix()}</title
+  >
 </svelte:head>
 
 {#if isLoading}
-	<AdminSkeleton />
+  <AdminSkeleton />
 {:else if master}
-	<NetworkAlert />
-	<div class="mx-auto max-w-6xl py-2 md:px-4" in:fade={{ duration: 300 }} inert={isFormReadOnly}>
-		<div class="mb-4 flex justify-start">
-			<a href="/p/{master.participantToken}" class="btn btn-ghost sm:btn-sm gap-2">
-				<ArrowLeft size={18} />
-				{m.admin_back_to_planning()}
-			</a>
-		</div>
-		<!-- Contenu principal (Formulaire uniquement) -->
-		<div class="mb-6 flex flex-1 items-center gap-5">
-			<div class="bg-primary/10 self-start rounded-2xl p-2 sm:p-4">
-				<CalendarCog class="text-primary size-7 sm:size-6" />
-			</div>
-			<div class="flex-1 space-y-1">
-				<h3 class="font-semibold sm:text-xl">
-					{m.admin_config_title()}
-				</h3>
-				<p class="text-base-content/50 text-sm">
-					{m.admin_config_description()}
-				</p>
-			</div>
-		</div>
-		<PlanningForm
-			{master}
-			onSubmit={handleUpdatePlanning}
-			bind:isSubmitting
-			{datesWithData}
-			{datesWithSpecificTasks}
-			occurrences={planningStore.futureOccurrences}
-		/>
-	</div>
+  <NetworkAlert />
+  <div
+    class="mx-auto max-w-6xl py-2 md:px-4"
+    in:fade={{ duration: 300 }}
+    inert={isFormReadOnly}
+  >
+    <div class="mb-4 flex justify-start">
+      <a
+        href="/p/{master.participantToken}"
+        class="btn btn-ghost sm:btn-sm gap-2"
+      >
+        <ArrowLeft size={18} />
+        {m.admin_back_to_planning()}
+      </a>
+    </div>
+    <!-- Contenu principal (Formulaire uniquement) -->
+    <div class="mb-6 flex flex-1 items-center gap-5">
+      <div class="bg-primary/10 self-start rounded-2xl p-2 sm:p-4">
+        <CalendarCog class="text-primary size-7 sm:size-6" />
+      </div>
+      <div class="flex-1 space-y-1">
+        <h3 class="font-semibold sm:text-xl">
+          {m.admin_config_title()}
+        </h3>
+        <p class="text-base-content/50 text-sm">
+          {m.admin_config_description()}
+        </p>
+      </div>
+    </div>
+    <PlanningForm
+      {master}
+      onSubmit={handleUpdatePlanning}
+      bind:isSubmitting
+      {datesWithData}
+      {datesWithSpecificTasks}
+      occurrences={planningStore.futureOccurrences}
+    />
+  </div>
 
-	{#if lockState === 'locked-by-other'}
-		<LockOverlay
-			mode="locked-by-other"
-			lockInfo={heldBy}
-			returnUrl={lockReturnUrl}
-			onRetry={handleLockRetry}
-		/>
-	{:else if lockState === 'lock-lost'}
-		<LockOverlay mode="lock-lost" returnUrl={lockReturnUrl} onRetry={handleLockRetry} />
-	{/if}
+  {#if lockState === "locked-by-other"}
+    <LockOverlay
+      mode="locked-by-other"
+      lockInfo={heldBy}
+      returnUrl={lockReturnUrl}
+      onRetry={handleLockRetry}
+    />
+  {:else if lockState === "lock-lost"}
+    <LockOverlay
+      mode="lock-lost"
+      returnUrl={lockReturnUrl}
+      onRetry={handleLockRetry}
+    />
+  {/if}
 {:else if !networkStore.online}
-	<div class="flex min-h-[50vh] items-center justify-center p-4">
-		<div class="max-w-sm text-center">
-			<div class="alert alert-error alert-soft">
-				<WifiOff size={24} />
-				<div>
-					<h3 class="font-bold">{m.admin_offline_heading()}</h3>
-					<div class="text-xs">
-						<p>{m.admin_offline_message()}</p>
-					</div>
-				</div>
-			</div>
-			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
-				<RefreshCw size={16} />
-				{m.common_retry()}
-			</button>
-		</div>
-	</div>
-{:else if planningStore.error?.type === 'network'}
-	<div class="flex min-h-[50vh] items-center justify-center p-4">
-		<div class="max-w-sm text-center">
-			<div class="alert alert-error alert-soft">
-				<WifiOff size={24} />
-				<div>
-					<h3 class="font-bold">{m.admin_network_error_heading()}</h3>
-					<div class="text-xs">
-						<p>{m.admin_network_error_message()}</p>
-					</div>
-				</div>
-			</div>
-			<button class="btn btn-outline mt-4 gap-2" onclick={() => window.location.reload()}>
-				<RefreshCw size={16} />
-				{m.common_retry()}
-			</button>
-		</div>
-	</div>
-{:else if planningStore.error?.type === 'deleted'}
-	<div class="flex min-h-[50vh] items-center justify-center p-4">
-		<div class="max-w-sm text-center">
-			<div
-				class="bg-warning/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full p-4"
-			>
-				<Trash2 size={40} class="text-warning" />
-			</div>
-			<h2 class="mb-3 text-3xl font-semibold">{m.admin_deleted_heading()}</h2>
-			<p class="text-base-content/60 mb-8">{m.admin_deleted_message()}</p>
-			<a href="/" class="btn btn-primary btn-wide">{m.common_back_to_home()}</a>
-		</div>
-	</div>
+  <div class="flex min-h-[50vh] items-center justify-center p-4">
+    <div class="max-w-sm text-center">
+      <div class="alert alert-error alert-soft">
+        <WifiOff size={24} />
+        <div>
+          <h3 class="font-bold">{m.admin_offline_heading()}</h3>
+          <div class="text-xs">
+            <p>{m.admin_offline_message()}</p>
+          </div>
+        </div>
+      </div>
+      <button
+        class="btn btn-outline mt-4 gap-2"
+        onclick={() => window.location.reload()}
+      >
+        <RefreshCw size={16} />
+        {m.common_retry()}
+      </button>
+    </div>
+  </div>
+{:else if planningStore.error?.type === "network"}
+  <div class="flex min-h-[50vh] items-center justify-center p-4">
+    <div class="max-w-sm text-center">
+      <div class="alert alert-error alert-soft">
+        <WifiOff size={24} />
+        <div>
+          <h3 class="font-bold">{m.admin_network_error_heading()}</h3>
+          <div class="text-xs">
+            <p>{m.admin_network_error_message()}</p>
+          </div>
+        </div>
+      </div>
+      <button
+        class="btn btn-outline mt-4 gap-2"
+        onclick={() => window.location.reload()}
+      >
+        <RefreshCw size={16} />
+        {m.common_retry()}
+      </button>
+    </div>
+  </div>
+{:else if planningStore.error?.type === "deleted"}
+  <div class="flex min-h-[50vh] items-center justify-center p-4">
+    <div class="max-w-sm text-center">
+      <div
+        class="bg-warning/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full p-4"
+      >
+        <Trash2 size={40} class="text-warning" />
+      </div>
+      <h2 class="mb-3 text-3xl font-semibold">{m.admin_deleted_heading()}</h2>
+      <p class="text-base-content/60 mb-8">{m.admin_deleted_message()}</p>
+      <a href="/" class="btn btn-primary btn-wide">{m.common_back_to_home()}</a>
+    </div>
+  </div>
 {:else}
-	<div class="flex min-h-[50vh] items-center justify-center p-4">
-		<div class="max-w-sm text-center">
-			<div
-				class="bg-error/10 text-error mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full p-4"
-			>
-				<Calendar size={40} />
-			</div>
-			<h2 class="mb-3 text-3xl font-semibold">{m.admin_not_found_heading()}</h2>
-			<p class="text-base-content/60 mb-8">
-				{m.admin_not_found_message()}
-			</p>
-			<a href="/" class="btn btn-primary btn-wide">{m.common_back_to_home()}</a>
-		</div>
-	</div>
+  <div class="flex min-h-[50vh] items-center justify-center p-4">
+    <div class="max-w-sm text-center">
+      <div
+        class="bg-error/10 text-error mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full p-4"
+      >
+        <Calendar size={40} />
+      </div>
+      <h2 class="mb-3 text-3xl font-semibold">{m.admin_not_found_heading()}</h2>
+      <p class="text-base-content/60 mb-8">
+        {m.admin_not_found_message()}
+      </p>
+      <a href="/" class="btn btn-primary btn-wide">{m.common_back_to_home()}</a>
+    </div>
+  </div>
 {/if}
 
 {#if master && quitParticipantId}
-	<QuitReturnModal
-		bind:open={showQuitReturnModal}
-		onClose={() => (showQuitReturnModal = false)}
-		{master}
-		{token}
-		quitParticipantId={quitParticipantId!}
-		onRejoined={() => (showQuitReturnModal = false)}
-	/>
+  <QuitReturnModal
+    bind:open={showQuitReturnModal}
+    onClose={() => (showQuitReturnModal = false)}
+    {master}
+    {token}
+    quitParticipantId={quitParticipantId!}
+    onRejoined={() => (showQuitReturnModal = false)}
+  />
 {/if}

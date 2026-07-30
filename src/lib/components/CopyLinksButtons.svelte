@@ -1,4 +1,4 @@
- <script lang="ts">
+<script lang="ts">
 import { CalendarCog, Check, Copy, Share2 } from "@lucide/svelte";
 import { toast } from "svelte-sonner";
 import { goto } from "$app/navigation";
@@ -61,7 +61,7 @@ async function shareOrCopy(
 async function shareAdminLink() {
 	await shareOrCopy(
 		getAdminUrl(),
-		"Lien admin",
+		m.share_admin_label(),
 		() => copiedAdmin,
 		(v) => (copiedAdmin = v)
 	);
@@ -70,7 +70,7 @@ async function shareAdminLink() {
 async function shareParticipantLink() {
 	await shareOrCopy(
 		getParticipantUrl(),
-		"Lien public",
+		m.share_public_label(),
 		() => copiedParticipant,
 		(v) => (copiedParticipant = v)
 	);
@@ -78,35 +78,35 @@ async function shareParticipantLink() {
 </script>
 
 <div class="flex flex-wrap justify-around gap-2">
-	{#if adminToken}
-		<button
-			class="btn btn-primary min-w-1/3 gap-2 max-sm:w-2/3"
-			onclick={() => goto(`/admin/${adminToken}`)}
-			><CalendarCog size={20} />{m.share_edit_planning()}</button
-		>
-		<!-- TOCHECK: c'est quoi ces else et copiedAdmin ? -->
-		<button class="btn btn-warning min-w-1/3 gap-2" onclick={shareAdminLink}>
-			{#if canNativeShare}
-				<Share2 size={20} />
-			{:else if copiedAdmin}
-				<Check size={20} />
-			{:else}
-				<Copy size={20} />
-			{/if}
-			{m.share_admin_link()}
-		</button>
-	{/if}
+  {#if adminToken}
+    <button
+      class="btn btn-primary min-w-1/3 gap-2 max-sm:w-2/3"
+      onclick={() => goto(`/admin/${adminToken}`)}
+      ><CalendarCog size={20} />{m.share_edit_planning()}</button
+    >
+    <!-- TOCHECK: c'est quoi ces else et copiedAdmin ? -->
+    <button class="btn btn-warning min-w-1/3 gap-2" onclick={shareAdminLink}>
+      {#if canNativeShare}
+        <Share2 size={20} />
+      {:else if copiedAdmin}
+        <Check size={20} />
+      {:else}
+        <Copy size={20} />
+      {/if}
+      {m.share_admin_link()}
+    </button>
+  {/if}
 
-	{#if participantToken}
-		<button class="btn btn-info min-w-1/3 gap-2" onclick={shareParticipantLink}>
-			{#if canNativeShare}
-				<Share2 size={20} />
-			{:else if copiedParticipant}
-				<Check size={20} />
-			{:else}
-				<Copy size={20} />
-			{/if}
-			{m.share_public_link()}
-		</button>
-	{/if}
+  {#if participantToken}
+    <button class="btn btn-info min-w-1/3 gap-2" onclick={shareParticipantLink}>
+      {#if canNativeShare}
+        <Share2 size={20} />
+      {:else if copiedParticipant}
+        <Check size={20} />
+      {:else}
+        <Copy size={20} />
+      {/if}
+      {m.share_public_link()}
+    </button>
+  {/if}
 </div>

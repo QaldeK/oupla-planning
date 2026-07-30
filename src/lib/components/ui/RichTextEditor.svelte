@@ -182,25 +182,25 @@ const toolbar: ToolbarButton[] = $derived.by(() => {
 		},
 		{
 			icon: Heading2,
-			label: "Titre",
+			label: m.editor_h2_label(),
 			active: e.isActive("heading", { level: 2 }),
 			run: () => e.chain().focus().toggleHeading({ level: 2 }).run()
 		},
 		{
 			icon: Heading3,
-			label: "Sous-titre",
+			label: m.editor_h3_label(),
 			active: e.isActive("heading", { level: 3 }),
 			run: () => e.chain().focus().toggleHeading({ level: 3 }).run()
 		},
 		{
 			icon: List,
-			label: "Liste à puces",
+			label: m.editor_bullet_list_label(),
 			active: e.isActive("bulletList"),
 			run: () => e.chain().focus().toggleBulletList().run()
 		},
 		{
 			icon: ListOrdered,
-			label: "Liste numérotée",
+			label: m.editor_ordered_list_label(),
 			active: e.isActive("orderedList"),
 			run: () => e.chain().focus().toggleOrderedList().run()
 		},
@@ -215,85 +215,93 @@ const toolbar: ToolbarButton[] = $derived.by(() => {
 </script>
 
 <div
-	class="rich-text-editor border-base-300 textarea-container rounded-box relative border {className}"
-	aria-disabled={disabled || undefined}
+  class="rich-text-editor border-base-300 textarea-container rounded-box relative border {className}"
+  aria-disabled={disabled || undefined}
 >
-	{#if toolbar.length > 0}
-		<div
-			class="border-base-300 flex flex-wrap items-center gap-0.5 border-b px-1 py-1"
-			role="toolbar"
-			aria-label="Mise en forme du texte"
-		>
-			{#each toolbar as btn (btn.label)}
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm"
-					class:btn-active={btn.active}
-					aria-pressed={btn.active}
-					aria-label={btn.label}
-					title={btn.label}
-					onclick={btn.run}
-					{disabled}
-					tabindex={linkPopoverOpen ? -1 : 0}
-				>
-					<btn.icon size={16} />
-				</button>
-			{/each}
+  {#if toolbar.length > 0}
+    <div
+      class="border-base-300 flex flex-wrap items-center gap-0.5 border-b px-1 py-1"
+      role="toolbar"
+      aria-label={m.editor_toolbar_aria()}
+    >
+      {#each toolbar as btn (btn.label)}
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm"
+          class:btn-active={btn.active}
+          aria-pressed={btn.active}
+          aria-label={btn.label}
+          title={btn.label}
+          onclick={btn.run}
+          {disabled}
+          tabindex={linkPopoverOpen ? -1 : 0}
+        >
+          <btn.icon size={16} />
+        </button>
+      {/each}
 
-			{#if editorState.editor?.isActive('link')}
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm"
-					aria-label="Retirer le lien"
-					title="Retirer le lien"
-					onclick={removeLink}
-					{disabled}
-				>
-					<Unlink size={16} />
-				</button>
-			{/if}
-		</div>
-	{/if}
+      {#if editorState.editor?.isActive("link")}
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm"
+          aria-label={m.editor_unlink_label()}
+          title={m.editor_unlink_label()}
+          onclick={removeLink}
+          {disabled}
+        >
+          <Unlink size={16} />
+        </button>
+      {/if}
+    </div>
+  {/if}
 
-	{#if linkPopoverOpen}
-		<div class="border-base-300 bg-base-100 flex items-center gap-2 border-b px-2 py-2">
-			<input
-				bind:value={linkUrl}
-				type="url"
-				placeholder="https://exemple.com"
-				class="input input-sm min-w-0 flex-1"
-				onkeydown={(e) => {
-					if (e.key === 'Enter') {
-						e.preventDefault();
-						applyLink();
-					} else if (e.key === 'Escape') {
-						linkPopoverOpen = false;
-					}
-				}}
-				aria-label="URL du lien"
-			/>
-			<button type="button" class="btn btn-primary btn-sm" onclick={applyLink}>Appliquer</button>
-			<button type="button" class="btn btn-ghost btn-sm" onclick={() => (linkPopoverOpen = false)}>
-				Annuler
-			</button>
-		</div>
-	{/if}
+  {#if linkPopoverOpen}
+    <div
+      class="border-base-300 bg-base-100 flex items-center gap-2 border-b px-2 py-2"
+    >
+      <input
+        bind:value={linkUrl}
+        type="url"
+        placeholder="https://exemple.com"
+        class="input input-sm min-w-0 flex-1"
+        onkeydown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            applyLink();
+          } else if (e.key === "Escape") {
+            linkPopoverOpen = false;
+          }
+        }}
+        aria-label={m.editor_link_url_aria()}
+      />
+      <button type="button" class="btn btn-primary btn-sm" onclick={applyLink}
+        >{m.common_apply()}</button
+      >
+      <button
+        type="button"
+        class="btn btn-ghost btn-sm"
+        onclick={() => (linkPopoverOpen = false)}
+      >
+        {m.common_cancel()}
+      </button>
+    </div>
+  {/if}
 
-	<div bind:this={element} class="rich-text-editor-surface"></div>
+  <div bind:this={element} class="rich-text-editor-surface"></div>
 </div>
 
 <style>
-	/* Le contenu est rendu par TipTap à l'intérieur de .rich-text-editor-surface.
+  /* Le contenu est rendu par TipTap à l'intérieur de .rich-text-editor-surface.
 	   Les styles de typographie (.rich-text-content) vivent dans app.css pour être
 	   partagés avec DescriptionCard. */
-	.textarea-container :global(.ProseMirror) {
-		min-height: 60px;
-	}
-	.textarea-container :global(.ProseMirror:focus) {
-		outline: none;
-	}
-	.textarea-container[aria-disabled='true'] {
-		opacity: 0.6;
-		pointer-events: none;
-	}
+  .textarea-container :global(.ProseMirror) {
+    min-height: 60px;
+  }
+  .textarea-container :global(.ProseMirror:focus) {
+    outline: none;
+  }
+  .textarea-container[aria-disabled="true"] {
+    opacity: 0.6;
+    pointer-events: none;
+  }
 </style>

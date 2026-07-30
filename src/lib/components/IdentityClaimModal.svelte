@@ -1,431 +1,387 @@
 <script lang="ts">
-  import {
-    ArrowRight,
-    Check,
-    Info,
-    LoaderCircle,
-    LogOut,
-    User,
-    UserCheck,
-    Users,
-  } from "@lucide/svelte";
-  import { untrack } from "svelte";
-  import { fade, slide } from "svelte/transition";
-  import { toast } from "svelte-sonner";
-  import Modal from "$lib/components/ui/Modal.svelte";
-  import { RESPONSE_TYPE_CONFIG, RESPONSE_TYPE_LABELS } from "$lib/constants";
-  import * as m from "$lib/paraglide/messages.js";
-  import {
-    addParticipant,
-    type ClaimIdentityStats,
-    claimParticipantIdentity,
-    updateParticipant,
-  } from "$lib/services/planningActions";
-  import { ensurePlanningParticipant } from "$lib/services/planningParticipants";
-  import { userStore } from "$lib/stores/userStore.svelte";
-  import type {
-    Participant,
-    PlanningIdentity,
-    PlanningMaster,
-    PlanningOccurrence,
-    ResponseType,
-  } from "$lib/types/planning.types";
-  import { formatDateShort } from "$lib/utils/date";
+import {
+	ArrowRight,
+	Check,
+	Info,
+	LoaderCircle,
+	LogOut,
+	User,
+	UserCheck,
+	Users
+} from "@lucide/svelte";
+import { untrack } from "svelte";
+import { fade, slide } from "svelte/transition";
+import { toast } from "svelte-sonner";
+import Modal from "$lib/components/ui/Modal.svelte";
+import { RESPONSE_TYPE_CONFIG, RESPONSE_TYPE_LABELS } from "$lib/constants";
+import * as m from "$lib/paraglide/messages.js";
+import {
+	addParticipant,
+	type ClaimIdentityStats,
+	claimParticipantIdentity,
+	updateParticipant
+} from "$lib/services/planningActions";
+import { ensurePlanningParticipant } from "$lib/services/planningParticipants";
+import { userStore } from "$lib/stores/userStore.svelte";
+import type {
+	Participant,
+	PlanningIdentity,
+	PlanningMaster,
+	PlanningOccurrence,
+	ResponseType
+} from "$lib/types/planning.types";
+import { formatDateShort } from "$lib/utils/date";
 
-  interface Props {
-    open: boolean;
-    onClose: () => void;
-    mode: "new" | "manage";
-    master: PlanningMaster;
-    pbUser: { id: string; name: string; email: string };
-    token: string;
-    occurrences: PlanningOccurrence[];
-    /** Callback appelé après un changement d'identité réussi (ajout, rename, claim) */
-    onIdentityChanged?: (identity: PlanningIdentity) => void;
-    /** Participant proposé au claim direct à l'ouverture (flux de transition guest → auth). */
-    suggestionParticipant?: Participant | null;
-    /** Callback quand l'user refuse la suggestion (le parent peut auto-add si pas de conflit). */
-    onDeclineSuggestion?: () => void;
-  }
+interface Props {
+	open: boolean;
+	onClose: () => void;
+	mode: "new" | "manage";
+	master: PlanningMaster;
+	pbUser: { id: string; name: string; email: string };
+	token: string;
+	occurrences: PlanningOccurrence[];
+	/** Callback appelé après un changement d'identité réussi (ajout, rename, claim) */
+	onIdentityChanged?: (identity: PlanningIdentity) => void;
+	/** Participant proposé au claim direct à l'ouverture (flux de transition guest → auth). */
+	suggestionParticipant?: Participant | null;
+	/** Callback quand l'user refuse la suggestion (le parent peut auto-add si pas de conflit). */
+	onDeclineSuggestion?: () => void;
+}
 
-  let {
-    open = $bindable(false),
-    onClose,
-    mode,
-    master,
-    pbUser,
-    token,
-    occurrences,
-    onIdentityChanged,
-    suggestionParticipant = null,
-    onDeclineSuggestion,
-  }: Props = $props();
+let {
+	open = $bindable(false),
+	onClose,
+	mode,
+	master,
+	pbUser,
+	token,
+	occurrences,
+	onIdentityChanged,
+	suggestionParticipant = null,
+	onDeclineSuggestion
+}: Props = $props();
 
-  // === Est-ce que l'utilisateur courant est admin de ce planning ? ===
-  let isAdmin = $derived(!!master.adminToken);
+// === Est-ce que l'utilisateur courant est admin de ce planning ? ===
+let isAdmin = $derived(!!master.adminToken);
 
-  // === Identifiant le participant auth actuel (mode "manage") ===
-  let authParticipant = $derived(
-    master.participants.find((p) => p.userId === pbUser.id && !p.hasQuit),
-  );
+// === Identifiant le participant auth actuel (mode "manage") ===
+let authParticipant = $derived(
+	master.participants.find((p) => p.userId === pbUser.id && !p.hasQuit)
+);
 
-  // === Nom saisi dans l'input ===
-  let name = $state("");
+// === Nom saisi dans l'input ===
+let name = $state("");
 
-  // True tant que l'user n'a pas répondu à la suggestion. Permet de basculer
-  // de l'étape suggestion vers l'étape principale sans appeler onClose.
-  let suggestionDeclined = $state(false);
+// True tant que l'user n'a pas répondu à la suggestion. Permet de basculer
+// de l'étape suggestion vers l'étape principale sans appeler onClose.
+let suggestionDeclined = $state(false);
 
-  // Re-init quand le modal s'ouvre. `untrack` sinon
-  // l'$effect dépendrait de `authParticipant` (dérivé de `master.participants`)
-  // et se redéclencherait sur tout push realtime, écrasant la saisie de
-  // l'utilisateur (cf. scénario : un autre participant répond pendant que
-  // l'user tape son nom).
-  $effect(() => {
-    if (!open) return;
-    untrack(() => {
-      name = authParticipant?.name ?? pbUser.name ?? "";
-      pendingClaimParticipant = null;
-      pendingMergeStats = null;
-      suggestionDeclined = false;
-    });
-  });
+// Re-init quand le modal s'ouvre. `untrack` sinon
+// l'$effect dépendrait de `authParticipant` (dérivé de `master.participants`)
+// et se redéclencherait sur tout push realtime, écrasant la saisie de
+// l'utilisateur (cf. scénario : un autre participant répond pendant que
+// l'user tape son nom).
+$effect(() => {
+	if (!open) return;
+	untrack(() => {
+		name = authParticipant?.name ?? pbUser.name ?? "";
+		pendingClaimParticipant = null;
+		pendingMergeStats = null;
+		suggestionDeclined = false;
+	});
+});
 
-  // === Liste des participants non-liés à revendiquer ===
-  let claimableParticipants = $derived(
-    master.participants.filter(
-      (p) => !p.userId && !p.hasQuit && p.id !== authParticipant?.id,
-    ),
-  );
+// === Liste des participants non-liés à revendiquer ===
+let claimableParticipants = $derived(
+	master.participants.filter((p) => !p.userId && !p.hasQuit && p.id !== authParticipant?.id)
+);
 
-  // === Conflit de nom ===
-  let trimmedName = $derived(name.trim());
-  let normalizedName = $derived(trimmedName.toLowerCase());
+// === Conflit de nom ===
+let trimmedName = $derived(name.trim());
+let normalizedName = $derived(trimmedName.toLowerCase());
 
-  let nameConflictParticipant = $derived.by(() => {
-    if (!normalizedName) return null;
-    return (
-      master.participants.find(
-        (p) =>
-          p.name.toLowerCase() === normalizedName &&
-          p.id !== authParticipant?.id &&
-          !p.hasQuit,
-      ) ?? null
-    );
-  });
+let nameConflictParticipant = $derived.by(() => {
+	if (!normalizedName) return null;
+	return (
+		master.participants.find(
+			(p) => p.name.toLowerCase() === normalizedName && p.id !== authParticipant?.id && !p.hasQuit
+		) ?? null
+	);
+});
 
-  let nameConflictIsClaimable = $derived(
-    nameConflictParticipant !== null &&
-      !nameConflictParticipant.userId &&
-      !nameConflictParticipant.hasQuit,
-  );
+let nameConflictIsClaimable = $derived(
+	nameConflictParticipant !== null &&
+		!nameConflictParticipant.userId &&
+		!nameConflictParticipant.hasQuit
+);
 
-  // === États de soumission ===
-  let isSubmitting = $state(false);
-  let pendingClaimParticipant = $state<Participant | null>(null);
-  let pendingMergeStats = $state<ClaimIdentityStats | null>(null);
+// === États de soumission ===
+let isSubmitting = $state(false);
+let pendingClaimParticipant = $state<Participant | null>(null);
+let pendingMergeStats = $state<ClaimIdentityStats | null>(null);
 
-  let canSubmitName = $derived(
-    trimmedName.length > 0 && !nameConflictParticipant && !isSubmitting,
-  );
+let canSubmitName = $derived(trimmedName.length > 0 && !nameConflictParticipant && !isSubmitting);
 
-  // Aperçu pré-calculé pour le participant en cours de revendication
-  let pendingClaimPreview = $derived(
-    pendingClaimParticipant
-      ? getFutureResponsesPreview(pendingClaimParticipant.id)
-      : null,
-  );
+// Aperçu pré-calculé pour le participant en cours de revendication
+let pendingClaimPreview = $derived(
+	pendingClaimParticipant ? getFutureResponsesPreview(pendingClaimParticipant.id) : null
+);
 
-  // Aperçu pré-calculé pour l'étape suggestion
-  let suggestionPreview = $derived(
-    suggestionParticipant
-      ? getFutureResponsesPreview(suggestionParticipant.id)
-      : null,
-  );
+// Aperçu pré-calculé pour l'étape suggestion
+let suggestionPreview = $derived(
+	suggestionParticipant ? getFutureResponsesPreview(suggestionParticipant.id) : null
+);
 
-  // Étape courante du modal. La confirmation (claim manuel) est prioritaire sur
-  // tout ; la suggestion est prioritaire sur l'étape principale tant que l'user
-  // n'a pas répondu.
-  let currentStep = $derived<"confirmation" | "suggestion" | "main">(
-    pendingClaimParticipant
-      ? "confirmation"
-      : suggestionParticipant && !suggestionDeclined
-        ? "suggestion"
-        : "main",
-  );
+// Étape courante du modal. La confirmation (claim manuel) est prioritaire sur
+// tout ; la suggestion est prioritaire sur l'étape principale tant que l'user
+// n'a pas répondu.
+let currentStep = $derived<"confirmation" | "suggestion" | "main">(
+	pendingClaimParticipant
+		? "confirmation"
+		: suggestionParticipant && !suggestionDeclined
+			? "suggestion"
+			: "main"
+);
 
-  // Fermable seulement sur l'étape principale, avec une identité liée valide et
-  // aucun conflit sur le nom saisi. Suggestion et confirmation exigent un choix.
-  let closable = $derived(
-    currentStep === "main" && !!authParticipant && !nameConflictParticipant,
-  );
+// Fermable seulement sur l'étape principale, avec une identité liée valide et
+// aucun conflit sur le nom saisi. Suggestion et confirmation exigent un choix.
+let closable = $derived(currentStep === "main" && !!authParticipant && !nameConflictParticipant);
 
-  // === Aperçu des réponses futures d'un participant ===
-  interface ResponsePreviewItem {
-    date: string;
-    startTime: string;
-    response: ResponseType;
-  }
+// === Aperçu des réponses futures d'un participant ===
+interface ResponsePreviewItem {
+	date: string;
+	startTime: string;
+	response: ResponseType;
+}
 
-  interface ResponsePreview {
-    items: ResponsePreviewItem[];
-    totalCount: number;
-    remaining: number;
-  }
+interface ResponsePreview {
+	items: ResponsePreviewItem[];
+	totalCount: number;
+	remaining: number;
+}
 
-  function getFutureResponsesPreview(participantId: string): ResponsePreview {
-    const today = new Date().toISOString().split("T")[0];
-    const future = occurrences
-      .filter((o) => o.date >= today && !o.isCanceled)
-      .sort((a, b) => a.date.localeCompare(b.date));
+function getFutureResponsesPreview(participantId: string): ResponsePreview {
+	const today = new Date().toISOString().split("T")[0];
+	const future = occurrences
+		.filter((o) => o.date >= today && !o.isCanceled)
+		.sort((a, b) => a.date.localeCompare(b.date));
 
-    const withResponse: ResponsePreviewItem[] = [];
-    for (const occ of future) {
-      const r = (occ.responses || []).find(
-        (x) => x.participantId === participantId,
-      );
-      if (r) {
-        withResponse.push({
-          date: occ.date,
-          startTime: occ.startTime,
-          response: r.response,
-        });
-      }
-    }
+	const withResponse: ResponsePreviewItem[] = [];
+	for (const occ of future) {
+		const r = (occ.responses || []).find((x) => x.participantId === participantId);
+		if (r) {
+			withResponse.push({
+				date: occ.date,
+				startTime: occ.startTime,
+				response: r.response
+			});
+		}
+	}
 
-    const limit = 5;
-    return {
-      items: withResponse.slice(0, limit),
-      totalCount: withResponse.length,
-      remaining: Math.max(0, withResponse.length - limit),
-    };
-  }
+	const limit = 5;
+	return {
+		items: withResponse.slice(0, limit),
+		totalCount: withResponse.length,
+		remaining: Math.max(0, withResponse.length - limit)
+	};
+}
 
-  // === Calcul du merge preview (mode manage uniquement) ===
-  function computeMergePreview(guestParticipantId: string): ClaimIdentityStats {
-    const stats: ClaimIdentityStats = {
-      identical: 0,
-      conflict: 0,
-      migrated: 0,
-      commentsMigrated: 0,
-    };
+// === Calcul du merge preview (mode manage uniquement) ===
+function computeMergePreview(guestParticipantId: string): ClaimIdentityStats {
+	const stats: ClaimIdentityStats = {
+		identical: 0,
+		conflict: 0,
+		migrated: 0,
+		commentsMigrated: 0
+	};
 
-    if (!authParticipant) return stats;
+	if (!authParticipant) return stats;
 
-    for (const occ of occurrences) {
-      const responses = occ.responses || [];
-      const guestResp = responses.find(
-        (r) => r.participantId === guestParticipantId,
-      );
-      const authResp = responses.find(
-        (r) => r.participantId === authParticipant.id,
-      );
+	for (const occ of occurrences) {
+		const responses = occ.responses || [];
+		const guestResp = responses.find((r) => r.participantId === guestParticipantId);
+		const authResp = responses.find((r) => r.participantId === authParticipant.id);
 
-      if (guestResp && authResp) {
-        if (
-          JSON.stringify(guestResp.response) ===
-          JSON.stringify(authResp.response)
-        ) {
-          stats.identical++;
-        } else {
-          stats.conflict++;
-        }
-      } else if (guestResp) {
-        stats.migrated++;
-      }
+		if (guestResp && authResp) {
+			if (JSON.stringify(guestResp.response) === JSON.stringify(authResp.response)) {
+				stats.identical++;
+			} else {
+				stats.conflict++;
+			}
+		} else if (guestResp) {
+			stats.migrated++;
+		}
 
-      const guestComments = (occ.comments || []).filter(
-        (c) => c.participantId === guestParticipantId,
-      );
-      stats.commentsMigrated += guestComments.length;
-    }
+		const guestComments = (occ.comments || []).filter(
+			(c) => c.participantId === guestParticipantId
+		);
+		stats.commentsMigrated += guestComments.length;
+	}
 
-    return stats;
-  }
+	return stats;
+}
 
-  // === Actions ===
+// === Actions ===
 
-  /**
-   * Enregistrer le nom : soit ajouter un nouveau participant (mode "new"),
-   * soit mettre à jour le nom du participant auth existant (mode "manage").
-   */
-  async function handleSaveName() {
-    if (!canSubmitName) return;
+/**
+ * Enregistrer le nom : soit ajouter un nouveau participant (mode "new"),
+ * soit mettre à jour le nom du participant auth existant (mode "manage").
+ */
+async function handleSaveName() {
+	if (!canSubmitName) return;
 
-    isSubmitting = true;
-    try {
-      if (mode === "new") {
-        // Créer nouveau participant avec userId = pbUser.id
-        await addParticipant(
-          master.id,
-          {
-            id: pbUser.id,
-            name: trimmedName,
-            isAdmin: false,
-            userId: pbUser.id,
-          },
-          token,
-        );
-        try {
-          await ensurePlanningParticipant(
-            master.id,
-            pbUser.id,
-            master.recurrence.type,
-            isAdmin,
-          );
-        } catch (err) {
-          console.error("ensurePlanningParticipant failed:", err);
-        }
-        onIdentityChanged?.({
-          id: pbUser.id,
-          name: trimmedName,
-          email: pbUser.email,
-        });
-        toast.success(m.claim_welcome({ name: trimmedName }));
-      } else {
-        // Mettre à jour le nom du participant auth
-        if (!authParticipant) {
-          console.error("authParticipant introuvable en mode manage");
-          return;
-        }
-        await updateParticipant(
-          master.id,
-          authParticipant.id,
-          { name: trimmedName },
-          token,
-          master,
-        );
-        onIdentityChanged?.({
-          id: authParticipant.id,
-          name: trimmedName,
-          email: pbUser.email,
-        });
-        toast.success(m.claim_name_updated());
-      }
-      open = false;
-    } catch (err) {
-      console.error("Error saving name:", err);
-      toast.error(m.claim_update_error());
-    } finally {
-      isSubmitting = false;
-    }
-  }
+	isSubmitting = true;
+	try {
+		if (mode === "new") {
+			// Créer nouveau participant avec userId = pbUser.id
+			await addParticipant(
+				master.id,
+				{
+					id: pbUser.id,
+					name: trimmedName,
+					isAdmin: false,
+					userId: pbUser.id
+				},
+				token
+			);
+			try {
+				await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin);
+			} catch (err) {
+				console.error("ensurePlanningParticipant failed:", err);
+			}
+			onIdentityChanged?.({
+				id: pbUser.id,
+				name: trimmedName,
+				email: pbUser.email
+			});
+			toast.success(m.claim_welcome({ name: trimmedName }));
+		} else {
+			// Mettre à jour le nom du participant auth
+			if (!authParticipant) {
+				console.error("authParticipant introuvable en mode manage");
+				return;
+			}
+			await updateParticipant(master.id, authParticipant.id, { name: trimmedName }, token, master);
+			onIdentityChanged?.({
+				id: authParticipant.id,
+				name: trimmedName,
+				email: pbUser.email
+			});
+			toast.success(m.claim_name_updated());
+		}
+		open = false;
+	} catch (err) {
+		console.error("Error saving name:", err);
+		toast.error(m.claim_update_error());
+	} finally {
+		isSubmitting = false;
+	}
+}
 
-  /** Démarrer la revendication d'une identité guest */
-  function handleStartClaim(p: Participant) {
-    pendingClaimParticipant = p;
-    // En mode "manage", l'auth a peut-être des réponses à fusionner
-    pendingMergeStats = authParticipant ? computeMergePreview(p.id) : null;
-  }
+/** Démarrer la revendication d'une identité guest */
+function handleStartClaim(p: Participant) {
+	pendingClaimParticipant = p;
+	// En mode "manage", l'auth a peut-être des réponses à fusionner
+	pendingMergeStats = authParticipant ? computeMergePreview(p.id) : null;
+}
 
-  /** Annuler la revendication en cours */
-  function handleCancelClaim() {
-    pendingClaimParticipant = null;
-    pendingMergeStats = null;
-  }
+/** Annuler la revendication en cours */
+function handleCancelClaim() {
+	pendingClaimParticipant = null;
+	pendingMergeStats = null;
+}
 
-  /**
-   * Échappatoire : se déconnecter pour participer sous un autre compte.
-   * Reste sur le planning courant (pas de goto('/')) ; l'$effect de la page
-   * rouvrira IdentifyModal une fois l'identité absente.
-   */
-  async function handleLogoutSwitch() {
-    isSubmitting = true;
-    try {
-      await userStore.logoutAndStayOnPlanning(token);
-      onClose();
-    } catch (err) {
-      console.error("logoutAndStayOnPlanning failed:", err);
-      toast.error(m.claim_logout_error());
-    } finally {
-      isSubmitting = false;
-    }
-  }
+/**
+ * Échappatoire : se déconnecter pour participer sous un autre compte.
+ * Reste sur le planning courant (pas de goto('/')) ; l'$effect de la page
+ * rouvrira IdentifyModal une fois l'identité absente.
+ */
+async function handleLogoutSwitch() {
+	isSubmitting = true;
+	try {
+		await userStore.logoutAndStayOnPlanning(token);
+		onClose();
+	} catch (err) {
+		console.error("logoutAndStayOnPlanning failed:", err);
+		toast.error(m.claim_logout_error());
+	} finally {
+		isSubmitting = false;
+	}
+}
 
-  /** Confirmer la revendication (appel endpoint PB). `target` explicite pour le claim direct depuis l'étape suggestion (sinon fallback sur `pendingClaimParticipant`). */
-  async function handleConfirmClaim(target?: Participant) {
-    const participant = target ?? pendingClaimParticipant;
-    if (!participant) return;
+/** Confirmer la revendication (appel endpoint PB). `target` explicite pour le claim direct depuis l'étape suggestion (sinon fallback sur `pendingClaimParticipant`). */
+async function handleConfirmClaim(target?: Participant) {
+	const participant = target ?? pendingClaimParticipant;
+	if (!participant) return;
 
-    isSubmitting = true;
-    try {
-      const result = await claimParticipantIdentity(
-        master.id,
-        participant.id,
-        token,
-      );
+	isSubmitting = true;
+	try {
+		const result = await claimParticipantIdentity(master.id, participant.id, token);
 
-      // Construire la nouvelle identité
-      const newIdentity: PlanningIdentity = {
-        id: result.authParticipantId,
-        name: participant.name,
-        email: pbUser.email,
-      };
+		// Construire la nouvelle identité
+		const newIdentity: PlanningIdentity = {
+			id: result.authParticipantId,
+			name: participant.name,
+			email: pbUser.email
+		};
 
-      // S'assurer que l'entrée planning_participants existe
-      try {
-        await ensurePlanningParticipant(
-          master.id,
-          pbUser.id,
-          master.recurrence.type,
-          isAdmin,
-        );
-      } catch (err) {
-        console.error("ensurePlanningParticipant failed:", err);
-      }
+		// S'assurer que l'entrée planning_participants existe
+		try {
+			await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin);
+		} catch (err) {
+			console.error("ensurePlanningParticipant failed:", err);
+		}
 
-      onIdentityChanged?.(newIdentity);
+		onIdentityChanged?.(newIdentity);
 
-      // Toast bilan
-      const parts: string[] = [];
-      if (result.stats.migrated > 0) {
-        parts.push(`${result.stats.migrated} ${m.claim_response_migrated()}`);
-      }
-      if (result.stats.conflict > 0) {
-        parts.push(`${result.stats.conflict} ${m.claim_conflict_resolved()}`);
-      }
-      if (result.stats.commentsMigrated > 0) {
-        parts.push(
-          `${result.stats.commentsMigrated} ${m.claim_comment_migrated()}`,
-        );
-      }
+		// Toast bilan
+		const parts: string[] = [];
+		if (result.stats.migrated > 0) {
+			parts.push(`${result.stats.migrated} ${m.claim_response_migrated()}`);
+		}
+		if (result.stats.conflict > 0) {
+			parts.push(`${result.stats.conflict} ${m.claim_conflict_resolved()}`);
+		}
+		if (result.stats.commentsMigrated > 0) {
+			parts.push(`${result.stats.commentsMigrated} ${m.claim_comment_migrated()}`);
+		}
 
-      if (parts.length > 0) {
-        toast.success(m.claim_identity_claimed({ details: parts.join(", ") }));
-      } else {
-        toast.success(m.claim_welcome({ name: participant.name }));
-      }
+		if (parts.length > 0) {
+			toast.success(m.claim_identity_claimed({ details: parts.join(", ") }));
+		} else {
+			toast.success(m.claim_welcome({ name: participant.name }));
+		}
 
-      open = false;
-    } catch (err: unknown) {
-      console.error("Error claiming identity:", err);
-      const status = (err as { status?: number })?.status ?? 0;
-      if (status === 409) {
-        toast.error(m.claim_already_claimed());
-      } else if (status === 403) {
-        toast.error(m.claim_invalid_token());
-      } else if (status === 404) {
-        toast.error(m.claim_participant_not_found());
-      } else {
-        toast.error(m.claim_error());
-      }
-    } finally {
-      isSubmitting = false;
-      pendingClaimParticipant = null;
-      pendingMergeStats = null;
-    }
-  }
+		open = false;
+	} catch (err: unknown) {
+		console.error("Error claiming identity:", err);
+		const status = (err as { status?: number })?.status ?? 0;
+		if (status === 409) {
+			toast.error(m.claim_already_claimed());
+		} else if (status === 403) {
+			toast.error(m.claim_invalid_token());
+		} else if (status === 404) {
+			toast.error(m.claim_participant_not_found());
+		} else {
+			toast.error(m.claim_error());
+		}
+	} finally {
+		isSubmitting = false;
+		pendingClaimParticipant = null;
+		pendingMergeStats = null;
+	}
+}
 
-  /** Refuser la suggestion : bascule sur l'étape principale. Le parent décide (via `onDeclineSuggestion`) s'il auto-add le nom du compte. */
-  function handleDeclineSuggestion() {
-    suggestionDeclined = true;
-    onDeclineSuggestion?.();
-  }
+/** Refuser la suggestion : bascule sur l'étape principale. Le parent décide (via `onDeclineSuggestion`) s'il auto-add le nom du compte. */
+function handleDeclineSuggestion() {
+	suggestionDeclined = true;
+	onDeclineSuggestion?.();
+}
 
-  /** L'user a participé sous un autre nom : bascule sur l'étape principale sans auto-add (il utilisera la liste des claimables). */
-  function handleSuggestionOtherName() {
-    suggestionDeclined = true;
-  }
+/** L'user a participé sous un autre nom : bascule sur l'étape principale sans auto-add (il utilisera la liste des claimables). */
+function handleSuggestionOtherName() {
+	suggestionDeclined = true;
+}
 </script>
 
 <Modal
@@ -475,11 +431,15 @@
                 <li class="flex items-center gap-2">
                   <ArrowRight size={16} class="text-info shrink-0" />
                   <span>
-                    {pendingMergeStats.migrated}
-                    {m.claim_response()} de
-                    {pendingClaimParticipant.name}
-                    {m.claim_migrated()}
-                    {m.claim_to_your_account()}
+                    {pendingMergeStats.migrated === 1
+                      ? m.claim_responses_migrated_from_one({
+                          count: pendingMergeStats.migrated,
+                          name: pendingClaimParticipant.name,
+                        })
+                      : m.claim_responses_migrated_from_other({
+                          count: pendingMergeStats.migrated,
+                          name: pendingClaimParticipant.name,
+                        })}
                   </span>
                 </li>
               {/if}
@@ -487,10 +447,15 @@
                 <li class="flex items-center gap-2">
                   <ArrowRight size={16} class="text-info shrink-0" />
                   <span>
-                    {pendingMergeStats.commentsMigrated}
-                    {m.claim_comment()} de {pendingClaimParticipant.name}
-                    {m.claim_migrated()}
-                    {m.claim_to_your_account()}
+                    {pendingMergeStats.commentsMigrated === 1
+                      ? m.claim_comments_migrated_from_one({
+                          count: pendingMergeStats.commentsMigrated,
+                          name: pendingClaimParticipant.name,
+                        })
+                      : m.claim_comments_migrated_from_other({
+                          count: pendingMergeStats.commentsMigrated,
+                          name: pendingClaimParticipant.name,
+                        })}
                   </span>
                 </li>
               {/if}
@@ -717,9 +682,9 @@
                   {#if conflictPreview.totalCount > 0}
                     <div class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
                       <p>
-                        Réponses déjà enregistrées sous le nom <strong
-                          >{trimmedName}</strong
-                        > :
+                        {m.claim_conflict_responses_intro({
+                          name: trimmedName,
+                        })}
                       </p>
                       {#each conflictPreview.items.slice(0, 3) as item (item.date)}
                         <span
@@ -733,11 +698,16 @@
                         </span>
                       {/each}
                       {#if conflictPreview.totalCount > 3}
+                        {@const remainingOthers =
+                          conflictPreview.totalCount - 3}
                         <span class="self-center text-xs opacity-60">
-                          + {conflictPreview.totalCount - 3}
-                          {m.claim_more_response({
-                            count: conflictPreview.totalCount - 3,
-                          })}
+                          {remainingOthers === 1
+                            ? m.claim_more_others_one({
+                                count: remainingOthers,
+                              })
+                            : m.claim_more_others_other({
+                                count: remainingOthers,
+                              })}
                         </span>
                       {/if}
                     </div>

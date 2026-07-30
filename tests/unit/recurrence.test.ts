@@ -6,7 +6,8 @@
  */
 
 import { parse } from "date-fns";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { getLocale, overwriteGetLocale } from "$lib/paraglide/runtime.js";
 import {
 	generateRecurrenceDates,
 	getRecurrenceLabel,
@@ -283,6 +284,15 @@ describe("Non-régression autres types", () => {
 // =============================================
 
 describe("getRecurrenceLabel — MONTHLY_BY_DATE", () => {
+	// Ces assertions portent sur des libellés localisés : il faut pinner "fr"
+	// explicitement. En environnement de test (isServer=true), la strategy
+	// `preferredLanguage` est ignorée et getLocale() tombe sur la baseLocale
+	// (en), ce qui ferait échouer ces assertions. On override donc la résolution
+	// pour tout le describe, et on restore après pour ne pas polluer les autres tests.
+	const originalGetLocale = getLocale;
+	beforeAll(() => overwriteGetLocale(() => "fr"));
+	afterAll(() => overwriteGetLocale(originalGetLocale));
+
 	it('fixed-day (défaut) → "Tous les N du mois"', () => {
 		const label = getRecurrenceLabel({
 			type: "MONTHLY_BY_DATE",
