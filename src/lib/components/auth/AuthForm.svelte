@@ -57,6 +57,12 @@ let emailError = $state("");
 let passwordError = $state("");
 let passwordConfirmError = $state("");
 
+// Acceptation des CGU : non-cochée par défaut — consentement explicite
+// requis (la case pré-cochée est proscrite pour le consentement RGPD et
+// défendable pour un contrat uniquement ; l'opt-in libre est la pratique
+// robuste pour les deux).
+let acceptTerms = $state(false);
+
 // Focus auto sur l'email si demandé
 $effect(() => {
 	if (focusEmail && emailInputRef) {
@@ -119,8 +125,9 @@ async function handleSubmit(e: Event) {
 	const isEmailValid = validateEmail();
 	const isPasswordValid = validatePassword();
 	const isPasswordConfirmValid = mode === "register" ? validatePasswordConfirm() : true;
+	const isTermsValid = mode === "register" ? acceptTerms : true;
 
-	if (!isEmailValid || !isPasswordValid || !isPasswordConfirmValid) {
+	if (!isEmailValid || !isPasswordValid || !isPasswordConfirmValid || !isTermsValid) {
 		return;
 	}
 
@@ -269,6 +276,29 @@ async function handleSubmit(e: Event) {
 				<p class="text-error mt-1 text-xs">{passwordConfirmError}</p>
 			{/if}
 		</fieldset>
+	{/if}
+
+	{#if mode === 'register'}
+		<label class="flex cursor-pointer items-start gap-2 text-sm">
+			<input
+				type="checkbox"
+				name="acceptTerms"
+				class="checkbox checkbox-sm mt-0.5"
+				bind:checked={acceptTerms}
+				required
+				disabled={isSubmitting}
+			/>
+			<span>
+				{m.auth_accept_terms_prefix()}
+				<a
+					href="/legal"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="link link-primary"
+					>{m.auth_accept_terms_link()}</a
+				>
+			</span>
+		</label>
 	{/if}
 
 	<button type="submit" class="btn btn-primary btn-block" disabled={isSubmitting}>

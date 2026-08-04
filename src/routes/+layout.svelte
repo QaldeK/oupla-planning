@@ -211,6 +211,10 @@ function toggleTheme() {
           >
             AGPL v3
           </a>
+          <span class="opacity-40">·</span>
+          <a href="/legal" class="hover:text-primary transition">
+            {m.nav_legal()}
+          </a>
         </div>
       </div>
     </footer>
