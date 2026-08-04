@@ -355,6 +355,105 @@ routerAdd('POST', '/api/claim-participant-identity', (e) => {
 });
 
 // ============================================
+// DELETE ACCOUNT (ADR-0013)
+// ============================================
+
+/**
+ * Supprime définitivement le compte du user authentifié.
+ *
+ * Cascade en transaction (tout échec → rollback, compte intact) :
+ *  1. Retire `userId`/`claimedAt` des entrées `participants[]` du user (match
+ *     par `userId` OU `id` = userId — auto-add CAS C) sur TOUS les masters,
+ *     et pose `hasQuit = true` : le user « quitte » ses plannings, le lien
+ *     avec les identités guest revendiquées est coupé.
+ *  2. Supprime les rows `planning_participants` (prefs de notification).
+ *  3. Supprime les `planning_locks` détenus par le user (cosmétique — le TTL
+ *     de 5 min suffirait, mais autant nettoyer).
+ *  4. Supprime le record `users` en dernier.
+ *
+ * Les `planning_masters`, `planning_occurrences` et `notification_events` ne
+ * sont jamais supprimés : les plannings survivent via leurs tokens (ADR-0013).
+ * Le pseudonyme (`participants[].name`) reste visible dans les messages.
+ *
+ * La vérification du mot de passe est faite côté client (authWithPassword,
+ * pattern handlePasswordChange) : un token frais est obtenu avant l'appel,
+ * le serveur ne refait confiance qu'à `e.auth`.
+ */
+routerAdd('POST', '/api/delete-account', (e) => {
+	if (!e.auth) throw new ApiError(401, 'Auth required');
+	if (e.auth.collection().name !== 'users') throw new ApiError(400, 'Invalid auth context');
+
+	const { parseJsonArray } = require(`${__hooks}/pb-helpers.cjs`);
+	const userId = e.auth.id;
+
+	e.app.runInTransaction((txApp) => {
+		// 1. Masters où le user a une participation. Le filtre `~` cherche le
+		//    userId dans le texte sérialisé du JSON participants (candidat) ;
+		//    le matching exact est fait en JS (userId OU id = userId).
+		const masters = txApp.findRecordsByFilter(
+			'planning_masters',
+			'participants ~ {:userId}',
+			'',
+			0,
+			0,
+			{ userId: `%${userId}%` }
+		);
+
+		for (const master of masters) {
+			const participants = parseJsonArray(master, 'participants');
+
+			let changed = false;
+			const newParticipants = participants.map((p) => {
+				if (!p || !(p.userId === userId || p.id === userId)) return p;
+				changed = true;
+				const clean = { ...p };
+				delete clean.userId;
+				delete clean.claimedAt;
+				clean.hasQuit = true;
+				return clean;
+			});
+
+			if (changed) {
+				master.set('participants', newParticipants);
+				txApp.save(master);
+			}
+		}
+
+		// 2. Prefs de notification du user
+		const prefs = txApp.findRecordsByFilter(
+			'planning_participants',
+			'user = {:userId}',
+			'',
+			0,
+			0,
+			{ userId }
+		);
+		for (const pref of prefs) {
+			txApp.delete(pref);
+		}
+
+		// 3. Locks détenus par le user
+		const locks = txApp.findRecordsByFilter(
+			'planning_locks',
+			'lockedBy = {:userId}',
+			'',
+			0,
+			0,
+			{ userId }
+		);
+		for (const lock of locks) {
+			txApp.delete(lock);
+		}
+
+		// 4. Le record users en dernier
+		const user = txApp.findRecordById('users', userId);
+		txApp.delete(user);
+	});
+
+	return e.json(200, { success: true });
+});
+
+// ============================================
 // PLANNING EDIT LOCK (R5.3)
 // ============================================
 // Verrouillage d'édition purement UX : aucune restriction d'écriture côté serveur

@@ -36,6 +36,10 @@ _Avoid_: clé, secret, code, lien
 
 ### Authentification
 
+**Compte** :
+Compte PocketBase authentifié, global à l'appareil et cross-device (email + mot de passe). Distinct de l'identité scopée au planning. La suppression d'un compte ne supprime pas les plannings (ADR-0013) : elle marque ses participations comme quittées (`hasQuit`) et retire le lien `userId`.
+_Avoid_: profil (Identity), utilisateur (guest)
+
 **Guest** :
 Utilisateur non authentifié. Son identité est locale à l'appareil, stockée dans `localStorage`, et scopée à un planning spécifique — pas de profil global.
 _Avoid_: anonyme, visiteur, invité non connecté

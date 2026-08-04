@@ -231,6 +231,24 @@ export class UserStore {
 	}
 
 	/**
+	 * Supprime définitivement le compte (ADR-0013), après vérification du mot
+	 * de passe par l'appelant (pattern handlePasswordChange côté UI). Appelle
+	 * l'endpoint `/api/delete-account` qui cascade en transaction (participations
+	 * marquées quittées, prefs supprimées, record `users` supprimé — les plannings
+	 * survivent via leurs tokens), puis nettoie l'état local comme `logout()`
+	 * et redirige vers l'accueil.
+	 *
+	 * @throws ClientResponseError 401/500 si l'endpoint échoue.
+	 */
+	async deleteAccount(): Promise<void> {
+		if (!this.pbUser) throw new Error("Not authenticated");
+
+		await pb.send("/api/delete-account", { method: "POST" });
+
+		await this.logout();
+	}
+
+	/**
 	 * Supprime TOUTES les données locales de l'application.
 	 */
 	async clearAllLocalData() {

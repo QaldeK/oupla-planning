@@ -328,8 +328,10 @@ export async function cleanupUsers(emails: string[]) {
 export interface SeedParticipantPrefsOptions {
 	push?: boolean;
 	email?: boolean;
-	reminderDays?: number;
-	missingParticipantsDays?: number;
+	/** Options multi-select : "1" | "3" | "7" (laisser vide = aucune relance). */
+	reminderDays?: string[];
+	/** Options multi-select : "1" | "3" | "7" | "15" (laisser vide = aucune relance). */
+	missingParticipantsDays?: string[];
 	onCancellation?: boolean;
 	onTimeChange?: boolean;
 }
@@ -346,8 +348,8 @@ export async function seedParticipantPrefs(
 		user: userId,
 		push: options?.push ?? false,
 		email: options?.email ?? false,
-		reminderDays: options?.reminderDays ?? 0,
-		missingParticipantsDays: options?.missingParticipantsDays ?? 0,
+		reminderDays: options?.reminderDays ?? [],
+		missingParticipantsDays: options?.missingParticipantsDays ?? [],
 		onCancellation: options?.onCancellation ?? false,
 		onTimeChange: options?.onTimeChange ?? false
 	});
