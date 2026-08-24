@@ -151,13 +151,22 @@ export async function syncPushSubscription(
 	options: { requestPermission?: boolean } = {}
 ): Promise<boolean> {
 	if (!pb.authStore.isValid || !pb.authStore.record) return false;
-	if (await isPushOptOut()) return false;
-	if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+	if (await isPushOptOut()) {
+		console.warn("[push] sync ignoré : opt-out local actif");
+		return false;
+	}
+	if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+		console.warn("[push] sync ignoré : Push API non supportée (contexte non sécurisé ?)");
+		return false;
+	}
 
 	try {
 		if (Notification.permission !== "granted") {
 			if (!options.requestPermission) return false;
-			if ((await Notification.requestPermission()) !== "granted") return false;
+			if ((await Notification.requestPermission()) !== "granted") {
+				console.warn("[push] sync ignoré : permission refusée");
+				return false;
+			}
 		}
 
 		const reg = await getServiceWorkerWithTimeout();
@@ -178,7 +187,10 @@ export async function syncPushSubscription(
 				})
 				.then((r) => r.totalItems > 0)
 				.catch(() => false);
-			if (!hasPushPlanning) return false;
+			if (!hasPushPlanning) {
+				console.warn("[push] sync ignoré : aucun planning avec push activé");
+				return false;
+			}
 
 			const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 			if (!vapidKey) {

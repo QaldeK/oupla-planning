@@ -125,18 +125,9 @@ async function handleSave() {
 
 	isSaving = true;
 	try {
-		// Activation push : geste utilisateur → le prompt de permission est
-		// autorisé ici. La désactivation ne touche jamais la subscription :
-		// la persistance `planning_participants.push` suffit (filtre côté envoi).
-		if (prefs.push && pushSupported) {
-			await clearPushOptOut();
-			const success = await syncPushSubscription({ requestPermission: true });
-			if (!success) {
-				toast.error(m.notif_toast_push_error());
-				prefs.push = false;
-			}
-		}
-
+		// Persister les prefs D'ABORD : le guard « au moins un planning avec
+		// push » du sync lit ce champ en base — la première activation push
+		// d'un compte échouerait sinon (le flag n'existe pas encore).
 		await updateParticipantPrefs(
 			planningId,
 			pb.authStore.record.id,
@@ -144,6 +135,17 @@ async function handleSave() {
 			recurrenceType,
 			isAdmin
 		);
+
+		// Activation push : geste utilisateur → le prompt de permission est
+		// autorisé ici. La désactivation ne touche jamais la subscription :
+		// la persistance `planning_participants.push` suffit (filtre côté envoi).
+		if (prefs.push && pushSupported) {
+			await clearPushOptOut();
+			const success = await syncPushSubscription({ requestPermission: true });
+			if (!success) {
+				toast.warning(m.notif_toast_push_error());
+			}
+		}
 
 		toast.success(m.notif_toast_save_success());
 		onClose();
