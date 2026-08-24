@@ -88,7 +88,8 @@ const trackedIds = {
 	planning_masters: new Set<string>(),
 	planning_occurrences: new Set<string>(),
 	planning_participants: new Set<string>(),
-	users: new Set<string>()
+	users: new Set<string>(),
+	contact_messages: new Set<string>()
 };
 
 /**
@@ -96,7 +97,12 @@ const trackedIds = {
  * À appeler manuellement pour les records créés hors de seedPlanning/seedUser.
  */
 export function trackIds(
-	collection: "planning_masters" | "planning_occurrences" | "planning_participants" | "users",
+	collection:
+		| "planning_masters"
+		| "planning_occurrences"
+		| "planning_participants"
+		| "users"
+		| "contact_messages",
 	...ids: string[]
 ) {
 	const set = trackedIds[collection];
@@ -116,6 +122,7 @@ export function clearTrackedIds() {
 	trackedIds.planning_occurrences.clear();
 	trackedIds.planning_participants.clear();
 	trackedIds.users.clear();
+	trackedIds.contact_messages.clear();
 }
 
 /**
@@ -153,6 +160,14 @@ export async function cleanupTrackedRecords() {
 	for (const id of trackedIds.users) {
 		try {
 			await pb.collection("users").delete(id);
+		} catch {
+			// ignore
+		}
+	}
+
+	for (const id of trackedIds.contact_messages) {
+		try {
+			await pb.collection("contact_messages").delete(id);
 		} catch {
 			// ignore
 		}

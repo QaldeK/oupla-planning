@@ -11,6 +11,7 @@ export const Collections = {
 	Mfas: "_mfas",
 	Otps: "_otps",
 	Superusers: "_superusers",
+	ContactMessages: "contact_messages",
 	NotificationEvents: "notification_events",
 	PlanningLocks: "planning_locks",
 	PlanningMasters: "planning_masters",
@@ -96,6 +97,17 @@ export type SuperusersRecord = {
 	tokenKey: string
 	updated: IsoAutoDateString
 	verified?: boolean
+}
+
+export type ContactMessagesRecord = {
+	created: IsoAutoDateString
+	email: string
+	id: string
+	ip?: string
+	message: string
+	name?: string
+	subject?: string
+	updated: IsoAutoDateString
 }
 
 export const NotificationEventsTypeOptions = {
@@ -244,6 +256,7 @@ export type ExternalauthsResponse<Texpand = unknown> = Required<ExternalauthsRec
 export type MfasResponse<Texpand = unknown> = Required<MfasRecord> & BaseSystemFields<Texpand>
 export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemFields<Texpand>
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
+export type ContactMessagesResponse<Texpand = unknown> = Required<ContactMessagesRecord> & BaseSystemFields<Texpand>
 export type NotificationEventsResponse<Tpayload = unknown, Texpand = unknown> = Required<NotificationEventsRecord<Tpayload>> & BaseSystemFields<Texpand>
 export type PlanningLocksResponse<Texpand = unknown> = Required<PlanningLocksRecord> & BaseSystemFields<Texpand>
 export type PlanningMastersResponse<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown, TtimeSlots = unknown, Texpand = unknown> = Required<PlanningMastersRecord<TavailableResponseTypes, Tparticipants, Trecurrence, Ttasks, TtimeSlots>> & BaseSystemFields<Texpand>
@@ -259,6 +272,7 @@ export type CollectionRecords = {
 	_mfas: MfasRecord
 	_otps: OtpsRecord
 	_superusers: SuperusersRecord
+	contact_messages: ContactMessagesRecord
 	notification_events: NotificationEventsRecord
 	planning_locks: PlanningLocksRecord
 	planning_masters: PlanningMastersRecord
@@ -273,6 +287,7 @@ export type CollectionResponses = {
 	_mfas: MfasResponse
 	_otps: OtpsResponse
 	_superusers: SuperusersResponse
+	contact_messages: ContactMessagesResponse
 	notification_events: NotificationEventsResponse
 	planning_locks: PlanningLocksResponse
 	planning_masters: PlanningMastersResponse

@@ -19,7 +19,8 @@ import * as m from "$lib/paraglide/messages.js";
         <h2 class="card-title text-xl">1. Mentions légales</h2>
         <ul class="list-inside list-disc space-y-2 text-sm opacity-80">
           <li>
-            <strong>Contact</strong> : formulaire de contact
+            <strong>Contact</strong> :
+            <a href="/contact" class="link link-primary">{m.contact_link_label()}</a>
           </li>
           <li>
             <strong>Hébergement</strong> : site statique servi par Cloudflare,
@@ -183,10 +184,7 @@ import * as m from "$lib/paraglide/messages.js";
             du site (société certifiée <em>Data Privacy Framework</em>
             UE-États-Unis)
           </li>
-          <li>
-            <strong>Stalwart Mail Server</strong> — envoi des emails de
-            notification (serveur auto-hébergé sur la même infrastructure)
-          </li>
+
           <li>
             <strong>Services push des navigateurs</strong> (Google, Apple,
             Mozilla…) — acheminement des notifications push
@@ -235,7 +233,8 @@ import * as m from "$lib/paraglide/messages.js";
           de <strong>retrait du consentement</strong> à tout moment.
         </p>
         <p class="text-sm opacity-80">
-          Pour les exercer, utilisez le formulaire de contact. Nous répondons
+          Pour les exercer, utilisez le
+          <a href="/contact" class="link link-primary">{m.contact_link_label()}</a>. Nous répondons
           sous un mois. Vous pouvez également saisir la
           <strong>CNIL</strong> (cnil.fr) si vous estimez que vos droits ne sont
           pas respectés.
@@ -315,9 +314,10 @@ import * as m from "$lib/paraglide/messages.js";
     <!-- 14. Contact -->
     <section id="contact" class="card card-compact bg-base-200 shadow-xl">
       <div class="card-body">
-        <h2 class="card-title text-xl">14. Contact</h2>
+        <h2 class="card-title text-xl">14. {m.contact_section_title()}</h2>
         <p class="text-sm opacity-80">
-          Pour toute question : utilisez le formulaire de contact.
+          {m.contact_legal_section_intro()}
+          <a href="/contact" class="link link-primary">{m.contact_link_label()}</a>.
         </p>
       </div>
     </section>
