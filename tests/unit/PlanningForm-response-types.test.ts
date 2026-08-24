@@ -64,7 +64,7 @@ describe("PlanningForm — availableResponseTypes behavior (ticket 04)", () => {
 		const { user, onSubmit } = renderForm();
 
 		// Remplir le titre pour ne pas être bloqué par la validation #2
-		const titreFieldset = screen.getByRole("group", { name: /titre du planning/i });
+		const titreFieldset = screen.getByRole("group", { name: /planning title/i });
 		const titreInput = titreFieldset.querySelector("input") as HTMLInputElement;
 		await user.type(titreInput, "Planning test");
 
@@ -80,7 +80,7 @@ describe("PlanningForm — availableResponseTypes behavior (ticket 04)", () => {
 		await user.click(getSubmitButton());
 
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(toast.error).toHaveBeenCalledWith("Réponses possibles requises", expect.anything());
+		expect(toast.error).toHaveBeenCalledWith("Response types required", expect.anything());
 	});
 
 	it("création fraîche → tous les types sont cochés initialement", () => {

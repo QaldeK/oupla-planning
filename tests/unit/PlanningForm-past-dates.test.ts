@@ -32,7 +32,7 @@ vi.mock("svelte-sonner", () => ({
 
 /** Bascule le <select> « Type de récurrence » sur la valeur donnée. */
 async function selectRecurrence(user: ReturnType<typeof userEvent.setup>, value: string) {
-	const fieldset = screen.getByRole("group", { name: /type de récurrence/i });
+	const fieldset = screen.getByRole("group", { name: /recurrence type/i });
 	const select = fieldset.querySelector("select") as HTMLSelectElement;
 	await user.selectOptions(select, value);
 }
@@ -55,13 +55,15 @@ describe("A — Picker refuse les dates passées", () => {
 	it("les jours passés du calendrier sont disabled et un clic n'ajoute pas la date", async () => {
 		const { user, container } = renderForm();
 
-		// Passer en CUSTOM (le picker est toujours visible dans ce mode)
+		// Passer en CUSTOM (le picker est toujours visible dans ce mode).
 		await selectRecurrence(user, "CUSTOM");
-		expect(screen.getByText(/dates libres/i)).toBeInTheDocument();
+		// Titre avec compteurs — distingue la section de l'option « Custom dates ».
+		expect(screen.getByText(/custom dates \(\d+/i)).toBeInTheDocument();
 
 		// Le calendrier affiche par défaut le mois courant (juillet 2026).
 		// « 10 juillet 2026 » est dans le passé (today = 2026-07-21) → disabled.
-		const pastDay = screen.getByRole("button", { name: "10 juillet 2026" });
+		// Locale de test = "en" : aria-labels du picker au format en-US (PPP).
+		const pastDay = screen.getByRole("button", { name: "July 10th, 2026" });
 		expect(pastDay.hasAttribute("disabled")).toBe(true);
 		// Le marqueur visuel de désactivation est posé par MultiDatePicker
 		expect(pastDay.className).toContain("cursor-not-allowed");
@@ -76,7 +78,7 @@ describe("A — Picker refuse les dates passées", () => {
 		expect(container.querySelectorAll("button[data-slot-ui]")).toHaveLength(0);
 
 		// Sanity check : un jour futur reste enabled et son clic ajoute bien un badge.
-		const futureDay = screen.getByRole("button", { name: "25 juillet 2026" });
+		const futureDay = screen.getByRole("button", { name: "July 25th, 2026" });
 		expect(futureDay.hasAttribute("disabled")).toBe(false);
 		await user.click(futureDay);
 		// Maintenant 1 badge (DateSlot futur) est rendu.
@@ -99,12 +101,12 @@ describe("B — Badges passés masqués au rendu", () => {
 		});
 
 		// Section de sélection rendue (mode récurrent avec cycle futur).
-		expect(screen.getByText(/sélection des dates/i)).toBeInTheDocument();
+		expect(screen.getByText(/date selection/i)).toBeInTheDocument();
 
-		// Le badge future "mer. 12 août" doit être affiché.
-		expect(container.textContent).toContain("12 août");
-		// Le badge passé "jeu. 25 déc." doit être masqué au rendu.
-		expect(container.textContent).not.toContain("25 déc.");
+		// Le badge future "Wed 12 Aug" doit être affiché (locale en, EEE d MMM).
+		expect(container.textContent).toContain("12 Aug");
+		// Le badge passé "Thu 25 Dec" doit être masqué au rendu.
+		expect(container.textContent).not.toContain("25 Dec");
 	});
 });
 
@@ -125,9 +127,7 @@ describe("C — Indicateur dates passées masquées", () => {
 		});
 
 		// L'indicateur discret doit mentionner les 3 dates passées au pluriel.
-		expect(container.textContent).toContain(
-			"3 dates passées, consultables depuis la page archives."
-		);
+		expect(container.textContent).toContain("3 past dates, viewable in the archives.");
 	});
 
 	it("1 occurrence passée + 1 future → l'indicateur affiche le singulier", async () => {
@@ -139,7 +139,7 @@ describe("C — Indicateur dates passées masquées", () => {
 			]
 		});
 
-		expect(container.textContent).toContain("1 date passée, consultables depuis la page archives.");
+		expect(container.textContent).toContain("1 past date, viewable in the archives.");
 	});
 
 	it("aucune occurrence passée → l'indicateur n'est pas rendu", async () => {
@@ -148,7 +148,7 @@ describe("C — Indicateur dates passées masquées", () => {
 			occurrences: [makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" })]
 		});
 
-		expect(container.textContent).not.toContain("consultables depuis la page archives");
+		expect(container.textContent).not.toContain("viewable in the archives");
 	});
 });
 

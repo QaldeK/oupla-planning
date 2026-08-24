@@ -12,19 +12,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { countBadges, getSubmitButton, makeMaster, renderForm } from "./_helpers/planningForm.js";
 
 // Les inputs firstDate/lastDate n'ont pas de <label> associé : leur fieldset porte la legend
-// (« Du » / « Au ») qui sert de nom accessible. On descend depuis le fieldset jusqu'à l'input.
+// (« From » / « To ») qui sert de nom accessible. On descend depuis le fieldset jusqu'à l'input.
 function getDateInputs() {
-	const du = screen.getByRole("group", { name: /^Du$/ });
-	const au = screen.getByRole("group", { name: /^Au$/ });
+	const du = screen.getByRole("group", { name: /^From$/ });
+	const au = screen.getByRole("group", { name: /^To$/ });
 	return {
 		firstDate: du.querySelector("input") as HTMLInputElement,
 		lastDate: au.querySelector("input") as HTMLInputElement
 	};
 }
 
-// Le select de récurrence est englobé dans un fieldset « Type de récurrence » (legend).
+// Le select de récurrence est englobé dans un fieldset « Recurrence type » (legend).
 function getRecurrenceSelect() {
-	const fieldset = screen.getByRole("group", { name: /type de récurrence/i });
+	const fieldset = screen.getByRole("group", { name: /recurrence type/i });
 	return fieldset.querySelector("select") as HTMLSelectElement;
 }
 
@@ -58,7 +58,7 @@ afterEach(() => {
 describe("A — Auto-clear des erreurs de validation", () => {
 	it("titre : remplir le titre après un submit échoué efface l'erreur visuelle", async () => {
 		const { user } = renderForm();
-		const titreFieldset = screen.getByRole("group", { name: /titre du planning/i });
+		const titreFieldset = screen.getByRole("group", { name: /planning title/i });
 		const titreInput = titreFieldset.querySelector("input") as HTMLInputElement;
 
 		// Submit échoué → input-error apparaît
@@ -75,24 +75,24 @@ describe("A — Auto-clear des erreurs de validation", () => {
 
 		// Titre valide pour passer cette porte et atteindre la validation dates
 		const titreInput = screen
-			.getByRole("group", { name: /titre du planning/i })
+			.getByRole("group", { name: /planning title/i })
 			.querySelector("input") as HTMLInputElement;
 		await user.type(titreInput, "Planning CUSTOM");
 
 		// Passer en CUSTOM (pas de firstDate/lastDate, dates libres via MultiDatePicker)
 		await user.selectOptions(getRecurrenceSelect(), "CUSTOM");
 
-		// La zone CUSTOM est rendue
-		expect(screen.getByText(/dates libres/i)).toBeInTheDocument();
+		// La zone CUSTOM est rendue (titre avec compteurs)
+		expect(screen.getByText(/custom dates \(\d+/i)).toBeInTheDocument();
 
 		// Submit échoué : aucun date sélectionnée → validationErrors.dates = true
 		await user.click(getSubmitButton());
 		const ringErrorAvant = container.querySelectorAll(".ring-error").length;
 		expect(ringErrorAvant).toBeGreaterThan(0);
 
-		// Sélectionner une date future via le calendrier (aria-label = format PPP fr).
-		// La date est clickable car dans le mois courant (janvier 2026 avec fake time).
-		const dateButton = screen.getByRole("button", { name: "10 janvier 2026" });
+		// Sélectionner une date future via le calendrier (aria-label = format PPP en-US
+		// en locale de test). La date est clickable car dans le mois courant (janvier 2026).
+		const dateButton = screen.getByRole("button", { name: "January 10th, 2026" });
 		await user.click(dateButton);
 
 		// L'erreur visuelle disparaît : au moins une DateSlot future est maintenant active
@@ -105,22 +105,22 @@ describe("A — Auto-clear des erreurs de validation", () => {
 
 		// Titre valide pour atteindre la porte responses
 		const titreInput = screen
-			.getByRole("group", { name: /titre du planning/i })
+			.getByRole("group", { name: /planning title/i })
 			.querySelector("input") as HTMLInputElement;
 		await user.type(titreInput, "Planning");
 
 		// Décocher les 4 response types manuellement
-		for (const label of [/^présent$/i, /^si besoin$/i, /^peut-être$/i, /^absent$/i]) {
+		for (const label of [/^present$/i, /^if needed$/i, /^maybe$/i, /^absent$/i]) {
 			await user.click(screen.getByRole("checkbox", { name: label }));
 		}
 
-		// Submit → validationErrors.responses=true, ring-error sur la zone « Réponses possibles »
+		// Submit → validationErrors.responses=true, ring-error sur la zone « Possible responses »
 		await user.click(getSubmitButton());
-		const responsesFieldset = screen.getByRole("group", { name: /réponses possibles/i });
+		const responsesFieldset = screen.getByRole("group", { name: /possible responses/i });
 		expect(responsesFieldset.querySelector(".ring-error")).not.toBeNull();
 
 		// Recocher un type → auto-clear responses
-		await user.click(screen.getByRole("checkbox", { name: /^présent$/i }));
+		await user.click(screen.getByRole("checkbox", { name: /^present$/i }));
 		expect(responsesFieldset.querySelector(".ring-error")).toBeNull();
 	});
 
@@ -129,27 +129,27 @@ describe("A — Auto-clear des erreurs de validation", () => {
 
 		// Titre valide
 		const titreInput = screen
-			.getByRole("group", { name: /titre du planning/i })
+			.getByRole("group", { name: /planning title/i })
 			.querySelector("input") as HTMLInputElement;
 		await user.type(titreInput, "Planning");
 
 		// Décocher allowResponses → config invalide (0 tâche, 0 responses)
 		const allowCheckbox = screen.getByRole("checkbox", {
-			name: /activer le formulaire de présence/i
+			name: /enable attendance form/i
 		});
 		await user.click(allowCheckbox);
 
 		await user.click(getSubmitButton());
 
-		// La zone tasks porte le h4 « Liste des tâches ». Son parent direct reçoit ring-error.
-		const tasksHeader = screen.getByRole("heading", { name: /liste des tâches/i, level: 4 });
+		// La zone tasks porte le h4 « Task list ». Son parent direct reçoit ring-error.
+		const tasksHeader = screen.getByRole("heading", { name: /task list/i, level: 4 });
 		const tasksZone = tasksHeader.parentElement as HTMLElement;
 		expect(tasksZone.className).toContain("ring-error");
 
 		// Ajouter une tâche
-		const newTaskInput = screen.getByPlaceholderText(/nom de la tâche/i);
+		const newTaskInput = screen.getByPlaceholderText(/task name/i);
 		await user.type(newTaskInput, "Buvette");
-		await user.click(screen.getByRole("button", { name: /^ajouter la tâche$/i }));
+		await user.click(screen.getByRole("button", { name: /^add task$/i }));
 
 		// L'erreur tasks s'efface (effet auto-clear : tasks.length > 0)
 		expect(tasksZone.className).not.toContain("ring-error");
@@ -161,7 +161,7 @@ describe("A — Auto-clear des erreurs de validation", () => {
 		// Sans submit préalable, remplir le titre ne déclenche aucun affichage d'erreur.
 		// L'effet d'auto-clear court-circuite tant que hasAttemptedSubmit reste false.
 		const titreInput = screen
-			.getByRole("group", { name: /titre du planning/i })
+			.getByRole("group", { name: /planning title/i })
 			.querySelector("input") as HTMLInputElement;
 		await user.type(titreInput, "X");
 
@@ -261,16 +261,17 @@ describe("C — Cohérence réactive (cascade)", () => {
 		const { firstDate } = getDateInputs();
 
 		// Cycle initial : WEEKLY à partir du 7 janvier 2026 (auto-calc lastDate = +6 mois)
+		// Badge au format en-US « EEE d MMM » (locale de test = en).
 		await setDate(user, firstDate, "2026-01-07");
-		expect(container.textContent).toContain("mer. 7 janv.");
+		expect(container.textContent).toContain("Wed 7 Jan");
 		const beforeCount = countBadges(container);
 		expect(beforeCount).toBeGreaterThan(0);
 
 		// Décaler firstDate d'un mois → la cascade ré-affiche les nouvelles dates
 		// (la firstDate elle-même change de badge, ce qui prouve le recalcul réactif)
 		await setDate(user, firstDate, "2026-02-04");
-		expect(container.textContent).toContain("mer. 4 févr.");
-		expect(container.textContent).not.toContain("mer. 7 janv.");
+		expect(container.textContent).toContain("Wed 4 Feb");
+		expect(container.textContent).not.toContain("Wed 7 Jan");
 
 		// Le compte peut varier de ±1 selon le nombre exact de semaines dans la période
 		// (on ne le fige pas, on valide juste que la cascade a bien re-dérivé).
@@ -304,24 +305,24 @@ describe("C — Cohérence réactive (cascade)", () => {
 		await setDate(user, firstDate, "2026-01-07");
 		const before = countBadges(container);
 
-		// Ouvrir le modal « Ajouter un créneau »
-		await user.click(screen.getByRole("button", { name: /ajouter un créneau/i }));
+		// Ouvrir le modal « Add a time slot »
+		await user.click(screen.getByRole("button", { name: /add a time slot/i }));
 
-		// Le modal porte deux fieldsets « Début » et « Fin » (inputs type="time").
+		// Le modal porte deux fieldsets « Start » et « End » (inputs type="time").
 		// On descend depuis la legend (inputs sans <label> associé).
 		const debutInput = screen
-			.getByRole("group", { name: /début/i })
+			.getByRole("group", { name: /^start$/i })
 			.querySelector("input") as HTMLInputElement;
 		const finInput = screen
-			.getByRole("group", { name: /fin/i })
+			.getByRole("group", { name: /^end$/i })
 			.querySelector("input") as HTMLInputElement;
 		await user.clear(debutInput);
 		await user.type(debutInput, "08:00");
 		await user.clear(finInput);
 		await user.type(finInput, "12:00");
 
-		// Appliquer crée le slot en création (pas de confirmation)
-		await user.click(screen.getByRole("button", { name: /^appliquer$/i }));
+		// Apply crée le slot en création (pas de confirmation)
+		await user.click(screen.getByRole("button", { name: /^apply$/i }));
 
 		const after = countBadges(container);
 		// Produit cartésien : chaque date × 2 slots → badge count double

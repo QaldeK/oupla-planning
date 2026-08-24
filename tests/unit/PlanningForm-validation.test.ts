@@ -35,17 +35,17 @@ vi.mock("svelte-sonner", () => ({
 // Importé APRÈS vi.mock (hoisté par vitest) pour récupérer le mock.
 import { toast } from "svelte-sonner";
 
-/** Remplit le champ titre (legend "Titre du planning"). */
+/** Remplit le champ titre (legend "Planning title"). */
 async function fillTitle(user: UserEvent, value: string) {
-	const fieldset = screen.getByRole("group", { name: /titre du planning/i });
+	const fieldset = screen.getByRole("group", { name: /planning title/i });
 	const input = within(fieldset).getByRole("textbox") as HTMLInputElement;
 	await user.clear(input);
 	if (value) await user.type(input, value);
 }
 
-/** Récupère l'<input type="date"> par sa legend ("Du" ou "Au"). */
-function getDateInput(which: "Du" | "Au"): HTMLInputElement {
-	const fieldset = screen.getByRole("group", { name: which === "Du" ? /^Du$/ : /^Au$/ });
+/** Récupère l'<input type="date"> par sa legend ("From" ou "To"). */
+function getDateInput(which: "From" | "To"): HTMLInputElement {
+	const fieldset = screen.getByRole("group", { name: which === "From" ? /^From$/ : /^To$/ });
 	return fieldset.querySelector('input[type="date"]') as HTMLInputElement;
 }
 
@@ -55,20 +55,20 @@ function getDateInput(which: "Du" | "Au"): HTMLInputElement {
  * côté composant et empêche tout recalcul ultérieur).
  */
 async function fillDateRange(user: UserEvent, firstDateStr: string, lastDateStr: string) {
-	const firstInput = getDateInput("Du");
+	const firstInput = getDateInput("From");
 	await user.clear(firstInput);
 	await user.type(firstInput, firstDateStr);
 	await user.tab();
 
-	const lastInput = getDateInput("Au");
+	const lastInput = getDateInput("To");
 	await user.clear(lastInput);
 	await user.type(lastInput, lastDateStr);
 	await user.tab();
 }
 
-/** Bascule le <select> "Type de récurrence" sur la valeur donnée. */
+/** Bascule le <select> "Recurrence type" sur la valeur donnée. */
 async function selectRecurrence(user: UserEvent, value: string) {
-	const fieldset = screen.getByRole("group", { name: /type de récurrence/i });
+	const fieldset = screen.getByRole("group", { name: /recurrence type/i });
 	const select = within(fieldset).getByRole("combobox") as HTMLSelectElement;
 	await user.selectOptions(select, value);
 }
@@ -83,7 +83,7 @@ async function selectRecurrence(user: UserEvent, value: string) {
 async function submit(user: UserEvent) {
 	const form = document.querySelector("form") as HTMLFormElement;
 	form.setAttribute("novalidate", "");
-	const btn = screen.getByRole("button", { name: /créer le planning/i });
+	const btn = screen.getByRole("button", { name: /create planning/i });
 	await user.click(btn);
 }
 
@@ -106,15 +106,15 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 		const farFuture = format(addDays(new Date(), 200), "yyyy-MM-dd");
 		await fillDateRange(user, today, farFuture);
 
-		// Ajoute un 2ème slot via le modal (bouton "Ajouter un créneau" → modal create
-		// pré-rempli avec 14:00-18:00 → bouton "Appliquer").
-		await user.click(screen.getByRole("button", { name: /ajouter un créneau/i }));
-		await user.click(screen.getByRole("button", { name: /^appliquer$/i }));
+		// Ajoute un 2ème slot via le modal (bouton "Add a time slot" → modal create
+		// pré-rempli avec 14:00-18:00 → bouton "Apply").
+		await user.click(screen.getByRole("button", { name: /add a time slot/i }));
+		await user.click(screen.getByRole("button", { name: /^apply$/i }));
 
 		await submit(user);
 
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(toast.error).toHaveBeenCalledWith("Trop de créneaux planifiés", expect.anything());
+		expect(toast.error).toHaveBeenCalledWith("Too many planned slots", expect.anything());
 	});
 
 	it('#2 titre vide → toast "Le titre est requis" + onSubmit non appelé', async () => {
@@ -124,7 +124,7 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 		await submit(user);
 
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(toast.error).toHaveBeenCalledWith("Le titre est requis");
+		expect(toast.error).toHaveBeenCalledWith("Title is required");
 	});
 
 	// SKIP #3 (0 slot) : impossible via l'UI. Le bouton "Supprimer ce créneau"
@@ -141,14 +141,14 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 		const { user, onSubmit } = renderForm();
 		await fillTitle(user, "Planning test");
 
-		// Saisir un nom de tâche sans cliquer "Ajouter la tâche".
-		const taskInput = screen.getByPlaceholderText("Nom de la tâche") as HTMLInputElement;
+		// Saisir un nom de tâche sans cliquer "Add task".
+		const taskInput = screen.getByPlaceholderText("Task name") as HTMLInputElement;
 		await user.type(taskInput, "Tâche ébauchée");
 
 		await submit(user);
 
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(toast.error).toHaveBeenCalledWith("Tâche en cours de saisie", expect.anything());
+		expect(toast.error).toHaveBeenCalledWith("Task being edited", expect.anything());
 	});
 
 	it('#6 modal d\'édition de slot ouvert → toast "Créneau en cours de modification" + onSubmit non appelé', async () => {
@@ -157,23 +157,23 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 
 		// Ouvre le modal d'édition du slot existant (bouton pencil aria-label).
 		const editBtn = screen.getByRole("button", {
-			name: /modifier les horaires du créneau/i
+			name: /edit slot times/i
 		});
 		await user.click(editBtn);
 
 		await submit(user);
 
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(toast.error).toHaveBeenCalledWith("Créneau en cours de modification", expect.anything());
+		expect(toast.error).toHaveBeenCalledWith("Slot being edited", expect.anything());
 	});
 
 	it('#7 ni tâches ni allowResponses → toast "Configuration incomplète" + onSubmit non appelé', async () => {
 		const { user, onSubmit } = renderForm();
 		await fillTitle(user, "Planning test");
 
-		// Décocher "Activer le formulaire de présence" (coché par défaut en création).
+		// Décocher "Enable attendance form" (coché par défaut en création).
 		const checkbox = screen.getByRole("checkbox", {
-			name: /activer le formulaire de présence/i
+			name: /enable attendance form/i
 		});
 		await user.click(checkbox);
 
@@ -181,7 +181,7 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 		await submit(user);
 
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(toast.error).toHaveBeenCalledWith("Configuration incomplète", expect.anything());
+		expect(toast.error).toHaveBeenCalledWith("Incomplete configuration", expect.anything());
 	});
 
 	it('#8 allowResponses=true avec 0 types → toast "Réponses possibles requises" + onSubmit non appelé', async () => {
@@ -189,14 +189,14 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 		await fillTitle(user, "Planning test");
 
 		// Décocher tous les response types manuellement
-		for (const label of [/présent/i, /si besoin/i, /peut-être/i, /absent/i]) {
+		for (const label of [/present/i, /if needed/i, /maybe/i, /absent/i]) {
 			await user.click(screen.getByRole("checkbox", { name: label }));
 		}
 
 		await submit(user);
 
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(toast.error).toHaveBeenCalledWith("Réponses possibles requises", expect.anything());
+		expect(toast.error).toHaveBeenCalledWith("Response types required", expect.anything());
 	});
 
 	it('#9 0 DateSlot actif (CUSTOM sans date) → toast "Aucune date sélectionnée" + onSubmit non appelé', async () => {
@@ -210,7 +210,7 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 		await submit(user);
 
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(toast.error).toHaveBeenCalledWith("Aucune date sélectionnée", expect.anything());
+		expect(toast.error).toHaveBeenCalledWith("No dates selected", expect.anything());
 	});
 
 	// SKIP #10 (DateSlots toutes passées) : non déclenchable de façon déterministe via
@@ -271,7 +271,7 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 			await user.click(submitBtn);
 
 			expect(onSubmit).not.toHaveBeenCalled();
-			expect(toast.error).toHaveBeenCalledWith("Dates passées", expect.anything());
+			expect(toast.error).toHaveBeenCalledWith("Past dates", expect.anything());
 		} finally {
 			vi.useRealTimers();
 		}

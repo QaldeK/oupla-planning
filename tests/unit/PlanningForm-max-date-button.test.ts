@@ -38,13 +38,13 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 		});
 
 		// Alerte présente
-		expect(screen.getByText(/limite dépassée/i)).toBeInTheDocument();
+		expect(screen.getByText(/limit exceeded/i)).toBeInTheDocument();
 
-		// Bouton présent avec une date au format français court.
-		const button = screen.getByRole("button", { name: /ajuster au/i });
+		// Bouton présent avec une date au format court.
+		const button = screen.getByRole("button", { name: /adjust to/i });
 		expect(button).toBeInTheDocument();
-		// 100e date depuis 2026-08-01 = 2026-11-08 → « 8 nov. 2026 ».
-		expect(button.textContent).toMatch(/8 nov\.? 2026/i);
+		// 100e date depuis 2026-08-01 = 2026-11-08 → « 8 Nov 2026 » (en-US, d MMM yyyy).
+		expect(button.textContent).toMatch(/8 nov 2026/i);
 	});
 
 	it("PAS visible en mode CUSTOM (pas de cycle à ajuster)", () => {
@@ -71,10 +71,10 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 		});
 
 		// L'alerte CUSTOM est bien affichée (limite dépassée).
-		expect(screen.getByText(/limite dépassée/i)).toBeInTheDocument();
+		expect(screen.getByText(/limit exceeded/i)).toBeInTheDocument();
 
 		// Pas de bouton « Ajuster au ».
-		expect(screen.queryByRole("button", { name: /ajuster au/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /adjust to/i })).not.toBeInTheDocument();
 	});
 
 	it("PAS visible quand la limite n'est pas atteinte (WEEKLY court)", () => {
@@ -87,8 +87,8 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 		});
 
 		// Ni alerte, ni bouton.
-		expect(screen.queryByText(/limite dépassée/i)).not.toBeInTheDocument();
-		expect(screen.queryByRole("button", { name: /ajuster au/i })).not.toBeInTheDocument();
+		expect(screen.queryByText(/limit exceeded/i)).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /adjust to/i })).not.toBeInTheDocument();
 	});
 
 	it("au clic : lastDate est mise à jour et l'alerte disparaît", async () => {
@@ -101,9 +101,9 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 
 		// État initial : lastDate = 2026-12-31, alerte présente.
 		expect(getLastDateInput().value).toBe("2026-12-31");
-		expect(screen.getByText(/limite dépassée/i)).toBeInTheDocument();
+		expect(screen.getByText(/limit exceeded/i)).toBeInTheDocument();
 
-		const button = screen.getByRole("button", { name: /ajuster au/i });
+		const button = screen.getByRole("button", { name: /adjust to/i });
 		await user.click(button);
 
 		// Après clic : lastDate = 2026-11-08 (100e jour depuis firstDate, pour
@@ -111,9 +111,9 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 		expect(getLastDateInput().value).toBe("2026-11-08");
 
 		// L'alerte a disparu (le compte de DateSlots futurs est redescendu à 100).
-		expect(screen.queryByText(/limite dépassée/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/limit exceeded/i)).not.toBeInTheDocument();
 		// Le bouton aussi (puisque maxAdjustDate repasse à null une fois sous la limite).
-		expect(screen.queryByRole("button", { name: /ajuster au/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /adjust to/i })).not.toBeInTheDocument();
 	});
 
 	it("le libellé contient la date calculée au format « d MMM yyyy »", () => {
@@ -124,8 +124,8 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 			occurrences: []
 		});
 
-		const button = screen.getByRole("button", { name: /ajuster au/i });
-		// « Ajuster au 8 nov. 2026 » — date-fns 'd MMM yyyy' avec locale fr.
-		expect(button).toHaveTextContent(/ajuster au 8 nov\.? 2026/i);
+		const button = screen.getByRole("button", { name: /adjust to/i });
+		// « Adjust to 8 Nov 2026 » — date-fns 'd MMM yyyy' avec locale en-US.
+		expect(button).toHaveTextContent(/adjust to 8 nov 2026/i);
 	});
 });

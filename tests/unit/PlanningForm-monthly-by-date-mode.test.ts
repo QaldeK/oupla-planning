@@ -12,8 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSubmitButton, makeMaster, renderForm } from "./_helpers/planningForm.js";
 
 function getDateInputs() {
-	const du = screen.getByRole("group", { name: /^Du$/ });
-	const au = screen.getByRole("group", { name: /^Au$/ });
+	const du = screen.getByRole("group", { name: /^From$/ });
+	const au = screen.getByRole("group", { name: /^To$/ });
 	return {
 		firstDate: du.querySelector("input") as HTMLInputElement,
 		lastDate: au.querySelector("input") as HTMLInputElement
@@ -21,7 +21,7 @@ function getDateInputs() {
 }
 
 function getRecurrenceSelect() {
-	const fieldset = screen.getByRole("group", { name: /type de récurrence/i });
+	const fieldset = screen.getByRole("group", { name: /recurrence type/i });
 	return fieldset.querySelector("select") as HTMLSelectElement;
 }
 
@@ -55,8 +55,9 @@ describe("Visibilité du toggle MONTHLY_BY_DATE", () => {
 		await setDate(user, firstDate, "2026-07-31");
 
 		// Les deux radios doivent être présentes (n'importe quel sélecteur : texte).
-		expect(screen.getByText(/le 31 de chaque mois/i)).toBeInTheDocument();
-		expect(screen.getByText(/le dernier jour de chaque mois/i)).toBeInTheDocument();
+		// Locale de test = baseLocale "en" — libellés Paraglide anglais.
+		expect(screen.getByText(/the 31 of each month/i)).toBeInTheDocument();
+		expect(screen.getByText(/the last day of each month/i)).toBeInTheDocument();
 	});
 
 	it("firstDate non-dernier de mois → toggle caché", async () => {
@@ -65,8 +66,8 @@ describe("Visibilité du toggle MONTHLY_BY_DATE", () => {
 		const { firstDate } = getDateInputs();
 		await setDate(user, firstDate, "2026-07-15");
 
-		expect(screen.queryByText(/le 15 de chaque mois/i)).not.toBeInTheDocument();
-		expect(screen.queryByText(/le dernier jour de chaque mois/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/the 15 of each month/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/the last day of each month/i)).not.toBeInTheDocument();
 	});
 
 	it("WEEKLY → toggle caché même si firstDate est dernier de mois", async () => {
@@ -74,7 +75,7 @@ describe("Visibilité du toggle MONTHLY_BY_DATE", () => {
 		const { firstDate } = getDateInputs();
 		await setDate(user, firstDate, "2026-07-31");
 
-		expect(screen.queryByText(/le 31 de chaque mois/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/the 31 of each month/i)).not.toBeInTheDocument();
 	});
 
 	it("firstDate=2026-02-28 (non-bis) → toggle visible (28 = dernier jour de fév)", async () => {
@@ -83,8 +84,8 @@ describe("Visibilité du toggle MONTHLY_BY_DATE", () => {
 		const { firstDate } = getDateInputs();
 		await setDate(user, firstDate, "2026-02-28");
 
-		expect(screen.getByText(/le 28 de chaque mois/i)).toBeInTheDocument();
-		expect(screen.getByText(/le dernier jour de chaque mois/i)).toBeInTheDocument();
+		expect(screen.getByText(/the 28 of each month/i)).toBeInTheDocument();
+		expect(screen.getByText(/the last day of each month/i)).toBeInTheDocument();
 	});
 });
 
@@ -99,8 +100,8 @@ describe("Mode par défaut et bascule", () => {
 		const { firstDate } = getDateInputs();
 		await setDate(user, firstDate, "2026-07-31");
 
-		const radioFixed = screen.getByRole("radio", { name: /le 31 de chaque mois/i });
-		const radioLast = screen.getByRole("radio", { name: /le dernier jour de chaque mois/i });
+		const radioFixed = screen.getByRole("radio", { name: /the 31 of each month/i });
+		const radioLast = screen.getByRole("radio", { name: /the last day of each month/i });
 		expect(radioFixed).toBeChecked();
 		expect(radioLast).not.toBeChecked();
 	});
@@ -113,18 +114,18 @@ describe("Mode par défaut et bascule", () => {
 		// Borner explicitement à Dec 31 pour avoir un cycle prédictif
 		await setDate(user, lastDate, "2026-12-31");
 
-		// fixed-day (défaut) : Sep et Nov sont skip
-		expect(container.textContent).not.toContain("30 sept.");
-		expect(container.textContent).not.toContain("30 nov.");
+		// fixed-day (défaut) : Sep et Nov sont skip (badge "EEE d MMM", locale en)
+		expect(container.textContent).not.toContain("30 Sep");
+		expect(container.textContent).not.toContain("30 Nov");
 
 		// Bascule vers last-day
-		await user.click(screen.getByRole("radio", { name: /le dernier jour de chaque mois/i }));
+		await user.click(screen.getByRole("radio", { name: /the last day of each month/i }));
 
 		// Les badges Sep 30 et Nov 30 apparaissent maintenant
-		expect(container.textContent).toContain("30 sept.");
-		expect(container.textContent).toContain("30 nov.");
-		// Et le label récurrence change
-		expect(container.textContent).toMatch(/le dernier jour du mois/i);
+		expect(container.textContent).toContain("30 Sep");
+		expect(container.textContent).toContain("30 Nov");
+		// Et le label récurrence change (distinct du libellé radio « each month »)
+		expect(container.textContent).toMatch(/Last day of the month/);
 	});
 });
 
@@ -144,8 +145,8 @@ describe("Édition : seeding du mode", () => {
 		});
 		renderForm({ master });
 
-		const radioFixed = screen.getByRole("radio", { name: /le 31 de chaque mois/i });
-		const radioLast = screen.getByRole("radio", { name: /le dernier jour de chaque mois/i });
+		const radioFixed = screen.getByRole("radio", { name: /the 31 of each month/i });
+		const radioLast = screen.getByRole("radio", { name: /the last day of each month/i });
 		expect(radioLast).toBeChecked();
 		expect(radioFixed).not.toBeChecked();
 	});
@@ -160,8 +161,8 @@ describe("Édition : seeding du mode", () => {
 		});
 		renderForm({ master });
 
-		const radioFixed = screen.getByRole("radio", { name: /le 31 de chaque mois/i });
-		const radioLast = screen.getByRole("radio", { name: /le dernier jour de chaque mois/i });
+		const radioFixed = screen.getByRole("radio", { name: /the 31 of each month/i });
+		const radioLast = screen.getByRole("radio", { name: /the last day of each month/i });
 		expect(radioFixed).toBeChecked();
 		expect(radioLast).not.toBeChecked();
 	});
@@ -179,15 +180,15 @@ describe("Préservation implicite du mode", () => {
 		await setDate(user, firstDate, "2026-07-31");
 
 		// Active last-day
-		await user.click(screen.getByRole("radio", { name: /le dernier jour de chaque mois/i }));
+		await user.click(screen.getByRole("radio", { name: /the last day of each month/i }));
 
 		// Change firstDate vers un non-dernier-de-mois
 		await setDate(user, firstDate, "2026-07-15");
 
 		// Toggle caché
-		expect(screen.queryByRole("radio", { name: /le 15 de chaque mois/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("radio", { name: /the 15 of each month/i })).not.toBeInTheDocument();
 		expect(
-			screen.queryByRole("radio", { name: /le dernier jour de chaque mois/i })
+			screen.queryByRole("radio", { name: /the last day of each month/i })
 		).not.toBeInTheDocument();
 	});
 
@@ -198,13 +199,13 @@ describe("Préservation implicite du mode", () => {
 		await setDate(user, firstDate, "2026-07-31");
 
 		// Active last-day
-		await user.click(screen.getByRole("radio", { name: /le dernier jour de chaque mois/i }));
+		await user.click(screen.getByRole("radio", { name: /the last day of each month/i }));
 
 		// Change vers un autre dernier-de-mois
 		await setDate(user, firstDate, "2026-08-31");
 
 		// Le radio last-day reste coché
-		const radioLast = screen.getByRole("radio", { name: /le dernier jour de chaque mois/i });
+		const radioLast = screen.getByRole("radio", { name: /the last day of each month/i });
 		expect(radioLast).toBeChecked();
 	});
 });
@@ -221,11 +222,11 @@ describe("Soumission : monthlyByDateMode propagé", () => {
 		await setDate(user, firstDate, "2026-07-31");
 
 		// Active last-day
-		await user.click(screen.getByRole("radio", { name: /le dernier jour de chaque mois/i }));
+		await user.click(screen.getByRole("radio", { name: /the last day of each month/i }));
 
 		// Titre requis pour passer la validation
 		const titreInput = screen
-			.getByRole("group", { name: /titre du planning/i })
+			.getByRole("group", { name: /planning title/i })
 			.querySelector("input") as HTMLInputElement;
 		await user.type(titreInput, "Planning test");
 
@@ -244,7 +245,7 @@ describe("Soumission : monthlyByDateMode propagé", () => {
 
 		// L'utilisateur ne touche pas au toggle — fixed-day est le défaut implicite
 		const titreInput = screen
-			.getByRole("group", { name: /titre du planning/i })
+			.getByRole("group", { name: /planning title/i })
 			.querySelector("input") as HTMLInputElement;
 		await user.type(titreInput, "Planning test");
 

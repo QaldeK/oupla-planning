@@ -78,7 +78,7 @@ describe("A — Génération pure (cycle non tronqué)", () => {
 		});
 
 		// Section de sélection rendue (mode récurrent avec cycle futur).
-		expect(screen.getByText(/sélection des dates/i)).toBeInTheDocument();
+		expect(screen.getByText(/date selection/i)).toBeInTheDocument();
 
 		// Critère d'acceptation : > 100 badges rendus (la troncature à 100 est levée).
 		// On attend 122 (31 + 30 + 31 + 30 jours).
@@ -88,7 +88,7 @@ describe("A — Génération pure (cycle non tronqué)", () => {
 
 		// L'alert-warning live s'affiche (> 100 DateSlots futurs).
 		// Mono-slot → variante "dates futures" du libellé.
-		expect(screen.getByText(/limite dépassée/i)).toBeInTheDocument();
+		expect(screen.getByText(/limit exceeded/i)).toBeInTheDocument();
 	});
 });
 
@@ -122,14 +122,15 @@ describe("B — Alerte DateSlots en multi-slot", () => {
 			occurrences
 		});
 
-		// Section CUSTOM rendue.
-		expect(screen.getByText(/dates libres/i)).toBeInTheDocument();
+		// Section CUSTOM rendue — titre avec compteurs, pour le distinguer de
+		// l'option « Custom dates » du sélecteur de récurrence.
+		expect(screen.getByText(/custom dates \(\d+ \/ \d+ combinations\)/i)).toBeInTheDocument();
 
 		// 120 badges (60 dates × 2 slots) attendus.
 		expect(countBadges(container)).toBe(120);
 
 		// Alerte multi-slot : variante "combinaisons date×créneau".
-		expect(screen.getByText(/limite dépassée.*combinaisons/i)).toBeInTheDocument();
+		expect(screen.getByText(/limit exceeded.*combinations/i)).toBeInTheDocument();
 	});
 });
 
@@ -159,9 +160,9 @@ describe("C — Submit bloqué > 100 DateSlots futurs", () => {
 		// La garde DateSlots (> 100) est la première validation de handleSubmit :
 		// elle court-circuite avant tout autre check.
 		expect(toast.error).toHaveBeenCalledWith(
-			"Trop de créneaux planifiés",
+			"Too many planned slots",
 			expect.objectContaining({
-				description: expect.stringContaining("120 combinaisons date×créneau futures")
+				description: expect.stringContaining("120 future date×slot combinations")
 			})
 		);
 		expect(onSubmit).not.toHaveBeenCalled();
@@ -195,8 +196,8 @@ describe("D — Picker : maxSelection dynamique", () => {
 		// 49 dates × 2 slots = 98 badges.
 		expect(countBadges(container)).toBe(98);
 
-		// 1er clic : 22 juillet 2026 est future et enabled (minDate = today=21).
-		const firstClick = screen.getByRole("button", { name: "22 juillet 2026" });
+		// Locale de test = baseLocale "en" : aria-labels du picker au format en-US.
+		const firstClick = screen.getByRole("button", { name: "July 22nd, 2026" });
 		expect(firstClick.hasAttribute("disabled")).toBe(false);
 		await user.click(firstClick);
 
@@ -204,7 +205,7 @@ describe("D — Picker : maxSelection dynamique", () => {
 		expect(countBadges(container)).toBe(100);
 
 		// 2e clic : 23 juillet 2026 doit être refusé par le picker (maxSelection=50).
-		const overflowClick = screen.getByRole("button", { name: "23 juillet 2026" });
+		const overflowClick = screen.getByRole("button", { name: "July 23rd, 2026" });
 		expect(overflowClick.hasAttribute("disabled")).toBe(false);
 		await user.click(overflowClick);
 		expect(countBadges(container)).toBe(100); // inchangé : la 51e date a été refusée
@@ -230,13 +231,13 @@ describe("D — Picker : maxSelection dynamique", () => {
 		expect(countBadges(container)).toBe(99);
 
 		// 1er clic : 22 juillet 2026 → 100e date acceptée.
-		const firstClick = screen.getByRole("button", { name: "22 juillet 2026" });
+		const firstClick = screen.getByRole("button", { name: "July 22nd, 2026" });
 		expect(firstClick.hasAttribute("disabled")).toBe(false);
 		await user.click(firstClick);
 		expect(countBadges(container)).toBe(100);
 
 		// 2e clic : 23 juillet 2026 doit être refusé (maxSelection=100 en mono-slot).
-		const overflowClick = screen.getByRole("button", { name: "23 juillet 2026" });
+		const overflowClick = screen.getByRole("button", { name: "July 23rd, 2026" });
 		expect(overflowClick.hasAttribute("disabled")).toBe(false);
 		await user.click(overflowClick);
 		expect(countBadges(container)).toBe(100); // inchangé : la 101e date a été refusée

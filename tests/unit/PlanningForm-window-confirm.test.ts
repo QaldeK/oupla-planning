@@ -12,7 +12,7 @@
 import { render, screen, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { format, parse } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanningFormData } from "$lib/components/PlanningForm.svelte";
 import PlanningForm from "$lib/components/PlanningForm.svelte";
@@ -27,9 +27,10 @@ function futureISO(offsetDays: number): string {
 	return d.toISOString().slice(0, 10);
 }
 
-/** Formate une date YYYY-MM-DD comme le composant (EEE d MMM, locale fr). */
-function formatDateFr(iso: string): string {
-	return format(parse(iso, "yyyy-MM-dd", new Date()), "EEE d MMM", { locale: fr });
+/** Formate une date YYYY-MM-DD comme le composant (EEE d MMM).
+ * Locale de test = baseLocale "en" → badges au format en-US. */
+function formatBadgeDate(iso: string): string {
+	return format(parse(iso, "yyyy-MM-dd", new Date()), "EEE d MMM", { locale: enUS });
 }
 
 // --- Fixture master minimal valide (mode édition) ---
@@ -88,22 +89,22 @@ describe("PlanningForm — retrait du window.confirm au submit (ticket 03)", () 
 
 		// 1. Ouvre le popover de la DateSlot pour `targetDate`.
 		const dateSlotButton = screen.getByRole("button", {
-			name: new RegExp(formatDateFr(targetDate), "i")
+			name: new RegExp(formatBadgeDate(targetDate), "i")
 		});
 		await user.click(dateSlotButton);
 
-		// 2. Clic sur « Désactiver » dans le popover → déclenche la porte 4.
+		// 2. Clic sur « Disable » dans le popover → déclenche la porte 4.
 		//    À ce stade, la ConfirmModal n'est pas encore ouverte : un seul bouton
-		//    « Désactiver » est présent (celui du popover).
-		await user.click(screen.getByRole("button", { name: /désactiver/i }));
+		//    « Disable » est présent (celui du popover).
+		await user.click(screen.getByRole("button", { name: /^disable$/i }));
 
-		// 3. La ConfirmModal s'ouvre (porte 4, confirmLabel « Désactiver »).
+		// 3. La ConfirmModal s'ouvre (porte 4, confirmLabel « Disable »).
 		const dialog = await screen.findByRole("dialog");
-		expect(dialog).toHaveTextContent(/des participant/i);
-		await user.click(within(dialog).getByRole("button", { name: /désactiver/i }));
+		expect(dialog).toHaveTextContent(/participants have responded/i);
+		await user.click(within(dialog).getByRole("button", { name: /^disable$/i }));
 
 		// 4. Submit.
-		await user.click(screen.getByRole("button", { name: /enregistrer les modifications/i }));
+		await user.click(screen.getByRole("button", { name: /save changes/i }));
 
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 		expect(confirmSpy).not.toHaveBeenCalled();
@@ -130,13 +131,13 @@ describe("PlanningForm — retrait du window.confirm au submit (ticket 03)", () 
 		await user.type(firstDateInput, newFirstDate);
 		await user.tab(); // blur → onchange → requestDateChange
 
-		// 2. ConfirmModal porte 2 (titre « Modifier la période », confirmLabel « Modifier »).
+		// 2. ConfirmModal porte 2 (titre « Edit period », confirmLabel « Edit »).
 		const dialog = await screen.findByRole("dialog");
-		expect(dialog).toHaveTextContent(/modifier la période/i);
-		await user.click(within(dialog).getByRole("button", { name: /modifier/i }));
+		expect(dialog).toHaveTextContent(/edit period/i);
+		await user.click(within(dialog).getByRole("button", { name: /^edit$/i }));
 
 		// 3. Submit.
-		await user.click(screen.getByRole("button", { name: /enregistrer les modifications/i }));
+		await user.click(screen.getByRole("button", { name: /save changes/i }));
 
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 		expect(confirmSpy).not.toHaveBeenCalled();
@@ -157,7 +158,7 @@ describe("PlanningForm — retrait du window.confirm au submit (ticket 03)", () 
 			}
 		});
 
-		await user.click(screen.getByRole("button", { name: /enregistrer les modifications/i }));
+		await user.click(screen.getByRole("button", { name: /save changes/i }));
 
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 		expect(confirmSpy).not.toHaveBeenCalled();
