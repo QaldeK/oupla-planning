@@ -17,6 +17,7 @@ export const Collections = {
 	PlanningMasters: "planning_masters",
 	PlanningOccurrences: "planning_occurrences",
 	PlanningParticipants: "planning_participants",
+	PushSubscriptions: "push_subscriptions",
 	Users: "users",
 } as const
 export type Collections = typeof Collections[keyof typeof Collections]
@@ -227,6 +228,18 @@ export type PlanningParticipantsRecord<TcommentReadState = unknown> = {
 	user?: RecordIdString
 }
 
+export type PushSubscriptionsRecord = {
+	auth: string
+	created: IsoAutoDateString
+	endpoint: string
+	id: string
+	p256dh: string
+	refreshed_at?: IsoDateString
+	updated: IsoAutoDateString
+	user: RecordIdString
+	user_agent?: string
+}
+
 export const UsersLocaleOptions = {
 	"fr": "fr",
 	"en": "en",
@@ -262,6 +275,7 @@ export type PlanningLocksResponse<Texpand = unknown> = Required<PlanningLocksRec
 export type PlanningMastersResponse<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown, TtimeSlots = unknown, Texpand = unknown> = Required<PlanningMastersRecord<TavailableResponseTypes, Tparticipants, Trecurrence, Ttasks, TtimeSlots>> & BaseSystemFields<Texpand>
 export type PlanningOccurrencesResponse<Tcomments = unknown, Tresponses = unknown, Ttasks = unknown, Texpand = unknown> = Required<PlanningOccurrencesRecord<Tcomments, Tresponses, Ttasks>> & BaseSystemFields<Texpand>
 export type PlanningParticipantsResponse<TcommentReadState = unknown, Texpand = unknown> = Required<PlanningParticipantsRecord<TcommentReadState>> & BaseSystemFields<Texpand>
+export type PushSubscriptionsResponse<Texpand = unknown> = Required<PushSubscriptionsRecord> & BaseSystemFields<Texpand>
 export type UsersResponse<TadminOf = unknown, Tpush_subscription = unknown, Texpand = unknown> = Required<UsersRecord<TadminOf, Tpush_subscription>> & AuthSystemFields<Texpand>
 
 // Types containing all Records and Responses, useful for creating typing helper functions
@@ -278,6 +292,7 @@ export type CollectionRecords = {
 	planning_masters: PlanningMastersRecord
 	planning_occurrences: PlanningOccurrencesRecord
 	planning_participants: PlanningParticipantsRecord
+	push_subscriptions: PushSubscriptionsRecord
 	users: UsersRecord
 }
 
@@ -293,6 +308,7 @@ export type CollectionResponses = {
 	planning_masters: PlanningMastersResponse
 	planning_occurrences: PlanningOccurrencesResponse
 	planning_participants: PlanningParticipantsResponse
+	push_subscriptions: PushSubscriptionsResponse
 	users: UsersResponse
 }
 

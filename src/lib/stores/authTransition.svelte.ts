@@ -13,6 +13,7 @@ import { mastersCollection, occurrencesCollection } from "$lib/data/collections"
 import { db } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
 import { commentStateService } from "$lib/services/commentStateService";
+import { syncPushSubscription } from "$lib/services/push";
 import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import type { AuthTransitionResult } from "$lib/utils/authTransition";
@@ -76,6 +77,10 @@ class AuthTransitionWrapper {
 		} finally {
 			this.isTransitioning = false;
 		}
+
+		// Réactivation push silencieuse après login — fire-and-forget : ne doit
+		// jamais bloquer ni faire échouer la transition (aucun prompt ici).
+		syncPushSubscription().catch((err) => console.error("push sync failed:", err));
 	}
 
 	/**

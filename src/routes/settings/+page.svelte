@@ -1,12 +1,19 @@
 <script lang="ts">
-import { Lock, LogOut, Mail, ShieldCheck, Trash2, User } from "@lucide/svelte";
+import { Bell, BellOff, Lock, LogOut, Mail, ShieldCheck, Trash2, User } from "@lucide/svelte";
 import { toast } from "svelte-sonner";
 import { goto } from "$app/navigation";
+import NotificationsSettingsCard from "$lib/components/notifications/NotificationsSettingsCard.svelte";
 import Modal from "$lib/components/ui/Modal.svelte";
 import * as m from "$lib/paraglide/messages.js";
 import { getLocale } from "$lib/paraglide/runtime";
 import { pb } from "$lib/pocketbase/pb";
 import { userStore } from "$lib/stores/userStore.svelte";
+import type { RecurrenceType } from "$lib/types/planning.types";
+import type {
+	PlanningMastersResponse,
+	PlanningParticipantsResponse,
+	PushSubscriptionsResponse
+} from "$lib/types/pocketbase-types";
 
 // Vérifier que l'utilisateur est connecté
 if (!userStore.isLoggedIn) {
@@ -33,6 +40,85 @@ let showPasswordModal = $state(false);
 let showDeleteModal = $state(false);
 let deletePassword = $state("");
 let isDeleting = $state(false);
+
+// Card Notifications : appareils + plannings (chargés au mount, endpoint courant async)
+let subscriptions = $state<PushSubscriptionsResponse[]>([]);
+let entries = $state<PlanningEntry[]>([]);
+let currentEndpoint = $state<string | null>(null);
+let permissionState = $state<NotificationPermission | "unsupported">(
+	typeof Notification === "undefined" ? "unsupported" : Notification.permission
+);
+
+interface PlanningEntry {
+	participantId: string;
+	planningId: string;
+	title: string;
+	push: boolean;
+	email: boolean;
+	reminderDays: string[];
+	missingDays: string[];
+	newCommentScope: "off" | "concerned" | "all";
+	recurrenceType: RecurrenceType;
+	isAdmin: boolean;
+}
+
+/**
+ * Endpoint de la subscription push de cet appareil (async — résolu au mount).
+ */
+async function getCurrentPushEndpoint(): Promise<{ endpoint: string } | null> {
+	if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+	try {
+		const reg = await Promise.race([
+			navigator.serviceWorker.ready,
+			new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))
+		]);
+		return reg ? await reg.pushManager.getSubscription() : null;
+	} catch {
+		return null;
+	}
+}
+
+$effect(() => {
+	if (!userStore.isLoggedIn || !pb.authStore.record) return;
+	const userId = pb.authStore.record.id;
+
+	getCurrentPushEndpoint().then((sub) => (currentEndpoint = sub?.endpoint ?? null));
+
+	pb.collection("push_subscriptions")
+		.getFullList<PushSubscriptionsResponse>({ sort: "-updated" })
+		.then((rows) => {
+			subscriptions = rows;
+		});
+
+	pb.collection("planning_participants")
+		.getFullList<PlanningParticipantsResponse<unknown, { planning: PlanningMastersResponse }>>({
+			filter: pb.filter("user = {:userId}", { userId }),
+			expand: "planning"
+		})
+		.then((rows) => {
+			const adminOf = userStore.pbUser?.adminOf ?? [];
+			entries = rows
+				.filter((row) => row.expand?.planning && !row.expand.planning.deleted)
+				.map((row) => {
+					const planning = row.expand?.planning;
+					return {
+						participantId: row.id,
+						planningId: row.planning ?? "",
+						title: planning?.title ?? "",
+						push: row.push === true,
+						email: row.email !== false,
+						reminderDays: row.reminderDays ?? [],
+						missingDays: row.missingDays ?? [],
+						newCommentScope:
+							row.newCommentScope === "concerned" || row.newCommentScope === "all"
+								? row.newCommentScope
+								: "off",
+						recurrenceType: (planning?.recurrence?.type ?? "WEEKLY") as RecurrenceType,
+						isAdmin: adminOf.includes(row.planning ?? "")
+					};
+				});
+		});
+});
 
 async function handleProfileUpdate() {
 	if (!name.trim()) {
@@ -238,6 +324,32 @@ async function handleDeleteAccount() {
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Section Notifications -->
+  <div class="card card-compact bg-base-200 shadow-xl mb-6">
+    <div class="card-body">
+      <h2 class="card-title mb-4">
+        <Bell size={18} />
+        {m.settings_notifications_title()}
+      </h2>
+      <p class="mb-6 text-sm opacity-70">
+        {m.settings_notifications_description()}
+      </p>
+
+      {#if permissionState !== "granted"}
+        <div role="status" class="alert alert-info alert-soft mb-6">
+          <BellOff size={18} />
+          <span>{m.settings_notifications_permission_banner()}</span>
+        </div>
+      {/if}
+
+      <NotificationsSettingsCard
+        {subscriptions}
+        {currentEndpoint}
+        {entries}
+      />
     </div>
   </div>
 

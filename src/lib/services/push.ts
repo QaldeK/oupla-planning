@@ -4,6 +4,7 @@ import type {
 	PlanningParticipantsMissingDaysOptions,
 	PlanningParticipantsReminderDaysOptions
 } from "$lib/types/pocketbase-types";
+import { storage } from "$lib/utils/storage";
 
 /**
  * Périmètre des notifications de nouveaux messages sur les occurrences.
@@ -105,13 +106,60 @@ async function getServiceWorkerWithTimeout(): Promise<ServiceWorkerRegistration 
 	}
 }
 
-export async function subscribeToPush(userId: string): Promise<boolean> {
+/**
+ * Flag local (persistant) posé quand l'utilisateur retire explicitement cet
+ * appareil : sans lui, le sync au login/visite recréerait une subscription
+ * que l'utilisateur vient de supprimer.
+ */
+const PUSH_OPTOUT_KEY = "oupla_push_optout";
+
+async function isPushOptOut(): Promise<boolean> {
+	return (await storage.getItem<boolean>(PUSH_OPTOUT_KEY)) === true;
+}
+
+/** Efface l'opt-out local — appelé à la réactivation explicite (modal/settings). */
+export async function clearPushOptOut(): Promise<void> {
+	await storage.removeItem(PUSH_OPTOUT_KEY);
+}
+
+async function upsertSubscription(sub: PushSubscription): Promise<void> {
+	await pb.send("/api/push-subscription", {
+		method: "POST",
+		body: {
+			subscription: sub.toJSON(),
+			userAgent: navigator.userAgent
+		}
+	});
+}
+
+/**
+ * Aligne la subscription push de cet appareil avec l'état serveur.
+ *
+ * Idempotent et silencieux par design :
+ * - opt-out local ou utilisateur non authentifié → no-op ;
+ * - permission non accordée → no-op (jamais de `requestPermission()` implicite,
+ *   le prompt ne peut être déclenché que sur geste utilisateur via l'option) ;
+ * - subscription existante → upsert serveur (rafraîchit clés + ownership,
+ *   mécanisme de résilience à la rotation des clés navigateur) ;
+ * - pas de subscription → souscription VAPID uniquement si au moins un
+ *   planning du user a push activé.
+ *
+ * @param options.requestPermission Autorise le prompt navigateur (appel sur geste utilisateur uniquement).
+ * @returns true si une subscription est enregistrée côté serveur.
+ */
+export async function syncPushSubscription(
+	options: { requestPermission?: boolean } = {}
+): Promise<boolean> {
+	if (!pb.authStore.isValid || !pb.authStore.record) return false;
+	if (await isPushOptOut()) return false;
 	if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
 
-	const permission = await Notification.requestPermission();
-	if (permission !== "granted") return false;
-
 	try {
+		if (Notification.permission !== "granted") {
+			if (!options.requestPermission) return false;
+			if ((await Notification.requestPermission()) !== "granted") return false;
+		}
+
 		const reg = await getServiceWorkerWithTimeout();
 		if (!reg) {
 			console.error("ServiceWorker non disponible ou timeout");
@@ -121,6 +169,17 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
 		let sub = await reg.pushManager.getSubscription();
 
 		if (!sub) {
+			const hasPushPlanning = await pb
+				.collection("planning_participants")
+				.getList(1, 1, {
+					filter: pb.filter(`user = {:userId} && push = true`, {
+						userId: pb.authStore.record.id
+					})
+				})
+				.then((r) => r.totalItems > 0)
+				.catch(() => false);
+			if (!hasPushPlanning) return false;
+
 			const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 			if (!vapidKey) {
 				console.error("VITE_VAPID_PUBLIC_KEY missing");
@@ -132,30 +191,69 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
 			});
 		}
 
-		await pb.collection("users").update(userId, {
-			push_subscription: JSON.parse(JSON.stringify(sub))
-		});
+		await upsertSubscription(sub);
 		return true;
 	} catch (error) {
-		console.error("Erreur lors de la souscription push", error);
+		console.error("Erreur lors de la synchronisation push", error);
 		return false;
 	}
 }
 
-export async function unsubscribeFromPush(userId: string): Promise<void> {
+/**
+ * Détache l'appareil du compte sans tuer la subscription navigateur : la
+ * suppression serveur (par endpoint) est tolérante aux erreurs réseau — une
+ * row résiduelle sera nettoyée par le 410 d'un prochain envoi. La subscription
+ * reste réutilisable, notamment pour le cas deux-users-un-navigateur.
+ */
+export async function detachCurrentDeviceFromAccount(): Promise<void> {
+	try {
+		const reg = await getServiceWorkerWithTimeout();
+		if (!reg) return;
+
+		const sub = await reg.pushManager.getSubscription();
+		if (!sub) return;
+
+		await pb.send("/api/push-subscription", {
+			method: "DELETE",
+			body: { endpoint: sub.endpoint }
+		});
+	} catch (error) {
+		console.error("Erreur lors du détachement de l'appareil push", error);
+	}
+}
+
+/**
+ * Retire cet appareil : suppression serveur (par endpoint), unsubscribe
+ * navigateur, puis pose de l'opt-out local pour empêcher toute re-souscription
+ * automatique au prochain sync.
+ */
+export async function removeCurrentDevice(): Promise<void> {
+	await storage.setItem(PUSH_OPTOUT_KEY, true, { persist: true });
+
 	try {
 		const reg = await getServiceWorkerWithTimeout();
 		if (!reg) {
-			console.warn("ServiceWorker non disponible, skip unsubscribe");
+			console.warn("ServiceWorker non disponible, skip retrait push");
 			return;
 		}
 
 		const sub = await reg.pushManager.getSubscription();
-		if (sub) {
-			await sub.unsubscribe();
-		}
-		await pb.collection("users").update(userId, { push_subscription: null });
+		if (!sub) return;
+
+		await pb.send("/api/push-subscription", {
+			method: "DELETE",
+			body: { endpoint: sub.endpoint }
+		});
+		await sub.unsubscribe();
 	} catch (error) {
-		console.error("Erreur unsubscribe push", error);
+		console.error("Erreur lors du retrait de l'appareil push", error);
 	}
+}
+
+/**
+ * Retrait d'un appareil distant (autre navigateur de l'utilisateur) : delete
+ * SDK direct, couvert par la deleteRule `user = @request.auth.id`.
+ */
+export async function removeRemoteDevice(subscriptionId: string): Promise<void> {
+	await pb.collection("push_subscriptions").delete(subscriptionId);
 }

@@ -4,6 +4,7 @@ import { setLocale } from "$lib/paraglide/runtime";
 import { db, ensureDbReady } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
 import { commentStateService } from "$lib/services/commentStateService";
+import { detachCurrentDeviceFromAccount, syncPushSubscription } from "$lib/services/push";
 import { authTransition } from "$lib/stores/authTransition.svelte";
 import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
@@ -98,6 +99,10 @@ export class UserStore {
 		// Si déjà auth au chargement → données déjà en Dexie, delta fetch + subscribe
 		if (this.isLoggedIn) {
 			this.#subscribeAuth();
+
+			// Réactivation push silencieuse à la visite (upsert idempotent) —
+			// fire-and-forget, jamais bloquant pour le boot.
+			syncPushSubscription().catch((err) => console.error("push sync failed:", err));
 		}
 
 		this.isReady = true;
@@ -182,6 +187,10 @@ export class UserStore {
 	// === Auth ===
 
 	async logout() {
+		// Détachement push fire-and-forget : le logout ne doit jamais échouer ni
+		// ralentir à cause de ça (subscription navigateur conservée).
+		detachCurrentDeviceFromAccount().catch((err) => console.error("push detach failed:", err));
+
 		goto("/");
 		authTransition.clearPendingGuestClaim();
 		this.lastAuthSyncAt = null;
@@ -210,6 +219,7 @@ export class UserStore {
 		// Guard authTransition.isTransitioning pour éviter qu'un $effect ne réagisse
 		// à un état intermédiaire (auth cleared, planning pas encore re-activé).
 		authTransition.isTransitioning = true;
+		detachCurrentDeviceFromAccount().catch((err) => console.error("push detach failed:", err));
 		try {
 			authTransition.clearPendingGuestClaim();
 			pb.authStore.clear();

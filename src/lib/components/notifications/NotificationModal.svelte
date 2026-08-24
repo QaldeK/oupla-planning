@@ -15,11 +15,11 @@ import * as m from "$lib/paraglide/messages.js";
 import { pb } from "$lib/pocketbase/pb";
 import { getParticipantPrefs, updateParticipantPrefs } from "$lib/services/planningParticipants";
 import {
+	clearPushOptOut,
 	getDefaultPlanningPrefs,
 	type NewCommentScope,
 	type PlanningParticipantPrefs,
-	subscribeToPush,
-	unsubscribeFromPush
+	syncPushSubscription
 } from "$lib/services/push";
 import type { RecurrenceType } from "$lib/types/planning.types";
 
@@ -46,7 +46,6 @@ let prefs = $state<PlanningParticipantPrefs>({
 });
 let isSaving = $state(false);
 let pushSupported = $state(false);
-let initialPushState = $state(false); // Track l'état initial pour éviter les désinscriptions inutiles
 
 const reminderOptions: Array<{ value: "1" | "3" | "7"; label: string }> = [
 	{ value: "1", label: m.notif_reminder_1_day() },
@@ -114,11 +113,9 @@ $effect(() => {
 					...merged,
 					newCommentScope: normalizeNewCommentScope(merged.newCommentScope)
 				};
-				initialPushState = prefs.push;
 			})
 			.catch(() => {
 				prefs = getDefaultPlanningPrefs(recurrenceType, isAdmin);
-				initialPushState = prefs.push;
 			});
 	});
 });
@@ -128,16 +125,16 @@ async function handleSave() {
 
 	isSaving = true;
 	try {
-		// Gestion de la souscription Push
+		// Activation push : geste utilisateur → le prompt de permission est
+		// autorisé ici. La désactivation ne touche jamais la subscription :
+		// la persistance `planning_participants.push` suffit (filtre côté envoi).
 		if (prefs.push && pushSupported) {
-			const success = await subscribeToPush(pb.authStore.record.id);
+			await clearPushOptOut();
+			const success = await syncPushSubscription({ requestPermission: true });
 			if (!success) {
 				toast.error(m.notif_toast_push_error());
 				prefs.push = false;
 			}
-		} else if (!prefs.push && pushSupported && initialPushState) {
-			// Désinscrire uniquement si c'était activé au chargement
-			await unsubscribeFromPush(pb.authStore.record.id);
 		}
 
 		await updateParticipantPrefs(

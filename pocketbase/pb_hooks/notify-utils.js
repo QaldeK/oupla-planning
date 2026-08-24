@@ -4,7 +4,7 @@
  *
  * Fournit :
  *  - formatDateFR          : formatage de date FR court
- *  - sendPushNotification  : envoi push à un user (HTTP synchrone vers notify-service)
+ *  - sendPushNotification  : envoi push multi-appareils à un user (HTTP synchrone vers notify-service)
  *  - sendIndividualEmail   : envoi email multipart (HTML + texte) à un user unique
  */
 
@@ -54,96 +54,129 @@ module.exports = {
 	// ============================================================================
 
 	/**
-	 * Envoyer une notification push à un user.
-	 * $http.send() est synchrone dans la JSVM PocketBase — pas de Promise.
-	 * Si la subscription est expirée (410/404), elle est nettoyée dans PocketBase.
+	 * Envoyer une notification push à TOUS les appareils d'un user.
 	 *
-	 * Lecture du champ JSON via getString() + JSON.parse() : en JSVM (Goja),
-	 * record.get() retourne les bytes Go bruts ([]byte → Array<number>),
-	 * ce qui sérialise en HTTP comme un tableau de nombres et fait échouer
-	 * web-push côté notify-service avec "subscription with at least an endpoint".
+	 * Un appareil = une row `push_subscriptions`. Pour chaque row : POST
+	 * synchrone vers notify-service ($http.send est synchrone en JSVM, pas de
+	 * Promise). Une row morte (réponse 410/404) est supprimée individuellement —
+	 * les autres appareils du user restent notifiés.
+	 *
+	 * endpoint/p256dh/auth sont des champs text : lecture directe via
+	 * getString(). Le pattern getString()+JSON.parse() ne concerne que les
+	 * champs JSON, dont record.get() retourne les bytes Go bruts en JSVM.
+	 *
+	 * L'URL du notify-service est lue dans NOTIFY_SERVICE_URL à CHAQUE appel
+	 * (défaut : service Docker interne) — sans cache au chargement du module,
+	 * pour rester pilotable sans redémarrer PocketBase.
+	 *
+	 * Ne throw jamais : chaque itération est isolée, les erreurs sont logguées.
 	 */
 	sendPushNotification(app, user, title, body, url) {
-		const subRaw = user.getString('push_subscription');
-		if (!subRaw) return;
+		const userId = user.get('id');
 
-		let sub;
+		let rows;
 		try {
-			sub = JSON.parse(subRaw);
+			rows = app.findRecordsByFilter(
+				'push_subscriptions',
+				'user = {:userId}',
+				'',
+				0,
+				0,
+				{ userId }
+			);
 		} catch (err) {
 			app.logger().error(
-				'[Notification] push_subscription JSON invalide',
+				'[Notification] push_subscriptions lookup failed',
 				'err',
 				err?.message || String(err),
 				'userId',
-				user.get('id')
+				userId
 			);
 			return;
 		}
+		// Aucun appareil souscrit → envoi silencieux
+		if (!rows || rows.length === 0) return;
 
-		let res;
-		try {
-			res = $http.send({
-				method: 'POST',
-				url: 'http://services-notifyservice-rbwdvg:3001/notify',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					subscription: sub,
-					title,
-					body,
-					url: `https://planning.oupla.net${url}`
-				}),
-				timeout: 10
-			});
-		} catch (err) {
-			app
-				.logger()
-				.error(
-					'[Notification] Push HTTP error',
-					'err',
-					err?.message || err,
-					'userId',
-					user.get('id')
-				);
-			return;
-		}
+		const notifyUrl =
+			$os.getenv('NOTIFY_SERVICE_URL') || 'http://services-notifyservice-rbwdvg:3001/notify';
 
-		// Subscription expirée ou révoquée — nettoyer dans PocketBase
-		if (res.statusCode === 410 || res.statusCode === 404) {
-			app.logger().info('[Notification] Subscription expirée, nettoyage', 'userId', user.get('id'));
+		for (const row of rows) {
+			const sub = {
+				endpoint: row.getString('endpoint'),
+				keys: {
+					p256dh: row.getString('p256dh'),
+					auth: row.getString('auth')
+				}
+			};
+
 			try {
-				user.set('push_subscription', null);
-				app.save(user);
-			} catch (cleanupErr) {
-				app
-					.logger()
-					.error(
-						'[Notification] Erreur nettoyage subscription',
-						'err',
-						cleanupErr?.message || cleanupErr,
+				const res = $http.send({
+					method: 'POST',
+					url: notifyUrl,
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						subscription: sub,
+						title,
+						body,
+						url: `https://planning.oupla.net${url}`
+					}),
+					timeout: 10
+				});
+
+				// Subscription expirée ou révoquée : supprimer uniquement la row de
+			// CET appareil, les autres appareils du user restent notifiés.
+				if (res.statusCode === 410 || res.statusCode === 404) {
+					app.logger().info(
+						'[Notification] Subscription expirée, nettoyage',
 						'userId',
-						user.get('id')
+						userId,
+						'endpoint',
+						sub.endpoint
+					);
+					try {
+						app.delete(row);
+					} catch (cleanupErr) {
+						app
+							.logger()
+							.error(
+								'[Notification] Erreur nettoyage subscription',
+								'err',
+								cleanupErr?.message || cleanupErr,
+								'userId',
+								'endpoint',
+								sub.endpoint
+							);
+					}
+					continue;
+				}
+
+				if (res.statusCode !== 200) {
+					app.logger().error(
+						'[Notification] Push error',
+						'status',
+						res.statusCode,
+						'userId',
+						userId,
+						'url',
+						url
+					);
+					continue;
+				}
+
+				app.logger().info('[Notification] Push sent', 'userId', userId);
+			} catch (err) {
+				// L'échec d'un appareil n'interrompt pas l'envoi aux autres.
+				app.logger().error(
+						'[Notification] Push HTTP error',
+						'err',
+						err?.message || err,
+						'userId',
+						userId,
+						'endpoint',
+						sub.endpoint
 					);
 			}
-			return;
 		}
-
-		if (res.statusCode !== 200) {
-			app
-				.logger()
-				.error(
-					'[Notification] Push error',
-					'status',
-					res.statusCode,
-					'userId',
-					user.get('id'),
-					'url',
-					url
-				);
-			return;
-		}
-
-		app.logger().info('[Notification] Push sent', 'userId', user.get('id'));
 	},
 
 	/**
