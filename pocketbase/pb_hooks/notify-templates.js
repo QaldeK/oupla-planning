@@ -23,7 +23,7 @@
  *   - Footer avec lien vers le planning
  */
 
-const { formatDateFR } = require(`${__hooks}/notify-utils.js`);
+const { formatDateFR } = require(`${__hooks}/notify-utils.cjs`);
 const { buildContentPreview, TASK_TYPE_LABEL } = require(`${__hooks}/notification-core.cjs`);
 
 // ============================================================================

@@ -467,7 +467,7 @@ describe("POST/DELETE /api/push-subscription — upsert et retrait", () => {
 });
 
 // ============================================================================
-// Boucle d'envoi multi-appareils — sendPushNotification (notify-utils.js)
+// Boucle d'envoi multi-appareils — sendPushNotification (notify-utils.cjs)
 //
 // L'URL du notify-service est lue par le hook via $os.getenv('NOTIFY_SERVICE_URL')
 // dans le PROCESSUS PocketBase. Le serveur principal (127.0.0.1:8090) étant

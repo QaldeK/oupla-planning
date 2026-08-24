@@ -14,11 +14,11 @@
  *  - Résolution des noms de tâches user ("Préparer salle (avant)")
  *  - Rendu push (titre + corps court) — utilisé par le cron ET par le hook
  *    `notify-on-occurrence-update.pb.js` pour les push immédiats
- *  - Les helpers de parsing/dates sont dans `pb-helpers.cjs` et `notify-utils.js`
+ *  - Les helpers de parsing/dates sont dans `pb-helpers.cjs` et `notify-utils.cjs`
  */
 
 const { parseJsonArray, resolveMinPresentRequired } = require(`${__hooks}/pb-helpers.cjs`);
-const { formatDateFR } = require(`${__hooks}/notify-utils.js`);
+const { formatDateFR } = require(`${__hooks}/notify-utils.cjs`);
 const {
 	MAX_CONTENT_PREVIEW,
 	TASK_TYPE_LABEL,

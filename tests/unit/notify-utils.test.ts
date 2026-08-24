@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const notifyUtils = await import("../../pocketbase/pb_hooks/notify-utils.js");
+const notifyUtils = await import("../../pocketbase/pb_hooks/notify-utils.cjs");
 const { formatDateFR, sendPushNotification, sendIndividualEmail } = notifyUtils;
 
 function mockLogger() {
@@ -28,27 +28,27 @@ function mockApp(overrides: Record<string, any> = {}) {
 	};
 }
 
-function mockUser(overrides: { id?: string; email?: string; push_subscription?: any } = {}) {
-	const data: Record<string, any> = {
-		push_subscription: overrides.push_subscription ?? null,
-		...overrides
-	};
-	// Simulation du comportement JSVM réel : getString() sur un champ json retourne
-	// la string JSON (vide si null), pas les bytes bruts. Sans ça, le test ne
-	// couvrirait pas le bug `[]byte` qui plantaient notify-service en production.
-	const getString = (key: string): string => {
-		const val = data[key];
-		if (val === null || val === undefined) return "";
-		return typeof val === "string" ? val : JSON.stringify(val);
-	};
+function mockUser(overrides: { id?: string; email?: string } = {}) {
 	return {
-		get: vi.fn((key: string) => data[key]),
-		getString: vi.fn(getString),
+		get: vi.fn((key: string) => (key === "id" ? (overrides.id ?? "user-1") : undefined)),
 		getId: vi.fn(() => overrides.id ?? "user-1"),
 		email: vi.fn(() => overrides.email ?? "user@test.com"),
-		set: vi.fn((key: string, val: any) => {
-			data[key] = val;
-		})
+		set: vi.fn()
+	};
+}
+
+/**
+ * Simulation d'une row push_subscriptions : champs text lus via getString(),
+ * comme en JSVM.
+ */
+function mockSubscriptionRow(overrides: { endpoint?: string; p256dh?: string; auth?: string } = {}) {
+	const data = {
+		endpoint: overrides.endpoint ?? "https://push.example/abc",
+		p256dh: overrides.p256dh ?? "key-p256dh",
+		auth: overrides.auth ?? "key-auth"
+	};
+	return {
+		getString: vi.fn((key: string) => data[key as keyof typeof data])
 	};
 }
 
@@ -90,10 +90,15 @@ describe("formatDateFR", () => {
 describe("sendPushNotification", () => {
 	let app: ReturnType<typeof mockApp>;
 	let originalHttp: any;
+	let originalOs: any;
 
 	beforeEach(() => {
 		app = mockApp();
 		originalHttp = (globalThis as any).$http;
+		// $os est un global JSVM — absent de l'environnement vitest, le hook lit
+		// NOTIFY_SERVICE_URL à chaque appel.
+		originalOs = (globalThis as any).$os;
+		(globalThis as any).$os = { getenv: vi.fn(() => "") };
 	});
 
 	afterEach(() => {
@@ -102,54 +107,79 @@ describe("sendPushNotification", () => {
 		} else {
 			(globalThis as any).$http = originalHttp;
 		}
+		if (originalOs === undefined) {
+			delete (globalThis as any).$os;
+		} else {
+			(globalThis as any).$os = originalOs;
+		}
 	});
 
 	it("returns without calling $http.send when no subscription", () => {
 		const send = vi.fn();
 		(globalThis as any).$http = { send };
+		app.findRecordsByFilter = vi.fn(() => []);
 
-		const user = mockUser({ push_subscription: null });
+		const user = mockUser({ id: "u1" });
 		sendPushNotification(app, user, "title", "body", "/p/abc");
 
 		expect(send).not.toHaveBeenCalled();
 	});
 
-	it("calls $http.send with correct payload on success", () => {
+	it("sends to every device of the user with reconstructed subscription", () => {
 		const send: ReturnType<typeof vi.fn> = vi.fn(() => ({ statusCode: 200 }));
 		(globalThis as any).$http = { send };
 
-		const sub = { endpoint: "https://push.example/abc" };
-		const user = mockUser({ id: "u1", push_subscription: sub });
+		const rows = [
+			mockSubscriptionRow({ endpoint: "https://push.example/abc" }),
+			mockSubscriptionRow({ endpoint: "https://push.example/def" })
+		];
+		app.findRecordsByFilter = vi.fn(() => rows);
+
+		const user = mockUser({ id: "u1" });
 		sendPushNotification(app, user, "title", "body", "/p/abc");
 
-		expect(send).toHaveBeenCalledTimes(1);
-		const callArg = send.mock.calls[0][0] as { method: string; body: string };
-		expect(callArg.method).toBe("POST");
-		expect(callArg.body).toContain('"title":"title"');
-		expect(callArg.body).toContain('"body":"body"');
+		expect(send).toHaveBeenCalledTimes(2);
+		const firstCall = send.mock.calls[0][0] as { method: string; body: string };
+		expect(firstCall.method).toBe("POST");
+		expect(firstCall.body).toContain('"title":"title"');
+		expect(firstCall.body).toContain('"body":"body"');
+		expect(firstCall.body).toContain('"endpoint":"https://push.example/abc"');
+		expect(firstCall.body).toContain('"p256dh":"key-p256dh"');
+		const secondCall = send.mock.calls[1][0] as { body: string };
+		expect(secondCall.body).toContain('"endpoint":"https://push.example/def"');
 	});
 
-	it("cleans up subscription on HTTP 410", () => {
-		const send = vi.fn(() => ({ statusCode: 410 }));
+	it("deletes only the dead row on HTTP 410, keeps sending to others", () => {
+		const deadRow = mockSubscriptionRow({ endpoint: "https://push.example/gone" });
+		const aliveRow = mockSubscriptionRow({ endpoint: "https://push.example/ok" });
+		const send = vi.fn(({ body }: { body: string }) => ({
+			statusCode: body.includes("gone") ? 410 : 200
+		}));
 		(globalThis as any).$http = { send };
 
-		const sub = { endpoint: "https://push.example/abc" };
-		const user = mockUser({ id: "u1", push_subscription: sub });
+		app.findRecordsByFilter = vi.fn(() => [deadRow, aliveRow]);
+		app.delete = vi.fn();
+
+		const user = mockUser({ id: "u1" });
 		sendPushNotification(app, user, "t", "b", "/p/x");
 
-		expect(user.set).toHaveBeenCalledWith("push_subscription", null);
-		expect(app.save).toHaveBeenCalledWith(user);
+		expect(send).toHaveBeenCalledTimes(2);
+		expect(app.delete).toHaveBeenCalledTimes(1);
+		expect(app.delete).toHaveBeenCalledWith(deadRow);
 	});
 
-	it("cleans up subscription on HTTP 404", () => {
+	it("deletes the dead row on HTTP 404", () => {
 		const send = vi.fn(() => ({ statusCode: 404 }));
 		(globalThis as any).$http = { send };
 
-		const sub = { endpoint: "https://push.example/abc" };
-		const user = mockUser({ id: "u1", push_subscription: sub });
+		const row = mockSubscriptionRow();
+		app.findRecordsByFilter = vi.fn(() => [row]);
+		app.delete = vi.fn();
+
+		const user = mockUser({ id: "u1" });
 		sendPushNotification(app, user, "t", "b", "/p/x");
 
-		expect(user.set).toHaveBeenCalledWith("push_subscription", null);
+		expect(app.delete).toHaveBeenCalledWith(row);
 	});
 
 	it("logs error and does not crash on network error", () => {
@@ -158,8 +188,9 @@ describe("sendPushNotification", () => {
 		});
 		(globalThis as any).$http = { send };
 
-		const sub = { endpoint: "https://push.example/abc" };
-		const user = mockUser({ id: "u1", push_subscription: sub });
+		app.findRecordsByFilter = vi.fn(() => [mockSubscriptionRow()]);
+
+		const user = mockUser({ id: "u1" });
 
 		expect(() => sendPushNotification(app, user, "t", "b", "/p/x")).not.toThrow();
 		expect(app._logger.error).toHaveBeenCalledWith(
@@ -167,7 +198,9 @@ describe("sendPushNotification", () => {
 			"err",
 			"network",
 			"userId",
-			"u1"
+			"u1",
+			"endpoint",
+			"https://push.example/abc"
 		);
 	});
 
@@ -175,8 +208,9 @@ describe("sendPushNotification", () => {
 		const send = vi.fn(() => ({ statusCode: 500 }));
 		(globalThis as any).$http = { send };
 
-		const sub = { endpoint: "https://push.example/abc" };
-		const user = mockUser({ id: "u1", push_subscription: sub });
+		app.findRecordsByFilter = vi.fn(() => [mockSubscriptionRow()]);
+
+		const user = mockUser({ id: "u1" });
 		sendPushNotification(app, user, "t", "b", "/p/x");
 
 		expect(app._logger.error).toHaveBeenCalledWith(

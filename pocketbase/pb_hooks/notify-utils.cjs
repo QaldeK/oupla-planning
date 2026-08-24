@@ -124,7 +124,7 @@ module.exports = {
 				});
 
 				// Subscription expirée ou révoquée : supprimer uniquement la row de
-			// CET appareil, les autres appareils du user restent notifiés.
+				// CET appareil, les autres appareils du user restent notifiés.
 				if (res.statusCode === 410 || res.statusCode === 404) {
 					app.logger().info(
 						'[Notification] Subscription expirée, nettoyage',
@@ -167,14 +167,14 @@ module.exports = {
 			} catch (err) {
 				// L'échec d'un appareil n'interrompt pas l'envoi aux autres.
 				app.logger().error(
-						'[Notification] Push HTTP error',
-						'err',
-						err?.message || err,
-						'userId',
-						userId,
-						'endpoint',
-						sub.endpoint
-					);
+					'[Notification] Push HTTP error',
+					'err',
+					err?.message || err,
+					'userId',
+					userId,
+					'endpoint',
+					sub.endpoint
+				);
 			}
 		}
 	},

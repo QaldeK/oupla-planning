@@ -30,7 +30,7 @@ onRecordAfterUpdateSuccess((e) => {
 	const { detectCommentChanges } = require(`${__hooks}/new-comment-detector.js`);
 	const { computeRecipients } = require(`${__hooks}/notification-recipients.js`);
 	const { buildPushTitle, buildPushBody } = require(`${__hooks}/notification-cron-utils.js`);
-	const { sendPushNotification } = require(`${__hooks}/notify-utils.js`);
+	const { sendPushNotification } = require(`${__hooks}/notify-utils.cjs`);
 	const { dispatchPushForEvent } = require(`${__hooks}/push-dispatch.js`);
 
 	// Filtre temporel : les occurrences passées ne génèrent plus d'events.

@@ -15,14 +15,14 @@ const { dispatchPushForEvent } = await import("../../pocketbase/pb_hooks/push-di
 // ============================================================================
 // Chargement de notification-cron-utils.js — contournement de l'interop CJS
 // de Vite (cf. notify-templates.test.ts). Le module fait au top level
-// `require(`${__hooks}/notify-utils.js`)` et `require(`${__hooks}/pb-helpers.cjs`)`.
+// `require(`${__hooks}/notify-utils.cjs`)` et `require(`${__hooks}/pb-helpers.cjs`).
 // Vite ne sait pas transformer ces require dynamiques (template literal +
 // package.json "type":"module"). On pré-importe les deux dépendances via Vite
 // (qui gère leur CJS en import statique), on les injecte via des globales, puis
 // on charge le source du module via une data URL après avoir remplacé les
 // require CJS et le module.exports par des références globales.
 // ============================================================================
-const notifyUtils = await import("../../pocketbase/pb_hooks/notify-utils.js");
+const notifyUtils = await import("../../pocketbase/pb_hooks/notify-utils.cjs");
 (globalThis as any).__notifyUtils__ = notifyUtils;
 const notifyCore = await import("../../pocketbase/pb_hooks/notification-core.cjs");
 (globalThis as any).__notifyCore__ = notifyCore;
@@ -30,7 +30,7 @@ const pbHelpers = await import("../../pocketbase/pb_hooks/pb-helpers.cjs");
 (globalThis as any).__pbHelpers__ = pbHelpers;
 
 const cronUtilsSource = readFileSync(path.join(HOOKS_DIR, "notification-cron-utils.js"), "utf-8")
-	.replace(/require\(`\$\{__hooks\}\/notify-utils\.js`\)/, "globalThis.__notifyUtils__")
+	.replace(/require\(`\$\{__hooks\}\/notify-utils\.cjs`\)/, "globalThis.__notifyUtils__")
 	.replace(/require\(`\$\{__hooks\}\/pb-helpers\.cjs`\)/, "globalThis.__pbHelpers__")
 	.replace(/require\(`\$\{__hooks\}\/notification-core\.cjs`\)/, "globalThis.__notifyCore__")
 	.replace(/module\.exports\s*=\s*\{/, "globalThis.__cronUtils_exports__ = {");

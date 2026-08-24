@@ -30,7 +30,7 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	const { detectJxEvents } = require(`${__hooks}/notification-jx-detector.js`);
 	const { computeRecipients } = require(`${__hooks}/notification-recipients.js`);
 	const cronUtils = require(`${__hooks}/notification-cron-utils.js`);
-	const { sendIndividualEmail, sendPushNotification } = require(`${__hooks}/notify-utils.js`);
+	const { sendIndividualEmail, sendPushNotification } = require(`${__hooks}/notify-utils.cjs`);
 	const { buildSubject, buildHtmlEmail, buildTextEmail } = require(
 		`${__hooks}/notify-templates.js`
 	);

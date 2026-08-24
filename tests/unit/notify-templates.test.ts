@@ -18,9 +18,9 @@ import {
 // ============================================================================
 // Module under test — contournement de l'interop CJS de Vite.
 //
-// notify-templates.js fait `require(`${__hooks}/notify-utils.js`)` au top
+// notify-templates.js fait `require(`${__hooks}/notify-utils.cjs`)` au top
 // level. Vite ne sait pas transformer ce require dynamique (template literal
-// + package.json "type": "module" + module.exports dans notify-utils.js) et
+// + package.json "type": "module" + module.exports dans notify-utils.cjs) et
 // tente de le résoudre statiquement comme un import ESM, ce qui échoue.
 //
 // Solution : on lit le source, on remplace le require CJS et le module.exports
@@ -33,7 +33,7 @@ const HOOKS_DIR = path.resolve(__dirname, "../../", "pocketbase/pb_hooks");
 
 // Pré-import de notify-utils via Vite (qui gère son module.exports via son
 // plugin CJS quand c'est un import statique).
-const notifyUtils = await import("../../pocketbase/pb_hooks/notify-utils.js");
+const notifyUtils = await import("../../pocketbase/pb_hooks/notify-utils.cjs");
 (globalThis as any).__notifyUtils__ = notifyUtils;
 
 // notification-core.js fournit les constantes et helpers partagés (TASK_TYPE_LABEL,
@@ -44,7 +44,7 @@ const notifyCore = await import("../../pocketbase/pb_hooks/notification-core.cjs
 // Source de notify-templates.js avec les require CJS et le module.exports
 // remplacés par des références à des globales, pour exécution sous Vite ESM.
 const templatesSource = readFileSync(path.join(HOOKS_DIR, "notify-templates.js"), "utf-8")
-	.replace(/require\(`\$\{__hooks\}\/notify-utils\.js`\)/, "globalThis.__notifyUtils__")
+	.replace(/require\(`\$\{__hooks\}\/notify-utils\.cjs`\)/, "globalThis.__notifyUtils__")
 	.replace(/require\(`\$\{__hooks\}\/notification-core\.cjs`\)/, "globalThis.__notifyCore__")
 	.replace(/module\.exports\s*=\s*\{/, "globalThis.__templates_exports__ = {");
 
