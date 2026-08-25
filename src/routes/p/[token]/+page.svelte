@@ -10,6 +10,7 @@ import {
 	MapPin,
 	Settings,
 	Share2,
+	Trash2,
 	Undo2,
 	User,
 	UserCheck,
@@ -385,7 +386,7 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
   <!-- Bannière réseau : affichée automatiquement quand !networkStore.isNetworkOk (fraîcheur + reload si serveur indispo) -->
   <NetworkAlert />
   	{#if isDeleted}
-  		<div class="alert alert-warning alert-soft mx-auto max-w-6xl md:px-4" role="alert">
+  		<div class="alert alert-warning alert-soft mx-auto max-w-6xl md:px-4 alert-vertical md:alert-horizontal mb-8" role="alert">
   			<Trash2 size={24} class="shrink-0" />
   			<div class="flex-1">
   				<h3 class="font-bold">{m.deleted_alert_title()}</h3>
