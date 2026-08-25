@@ -8,6 +8,18 @@
  *  - sendIndividualEmail   : envoi email multipart (HTML + texte) à un user unique
  */
 
+/**
+ * Base publique des liens envoyés (URL de clic des push). Lue dans
+ * PUBLIC_BASE_URL à chaque appel, sans cache au chargement du module —
+ * pilotable sans redémarrer PocketBase (même contrat que NOTIFY_SERVICE_URL).
+ * Le garde typeof garde le module chargeable hors JSVM (tests unitaires Node,
+ * où $os n'existe pas).
+ */
+function publicBaseUrl() {
+	const env = typeof $os !== 'undefined' ? $os.getenv('PUBLIC_BASE_URL') : '';
+	return (env || 'https://planning.oupla.net').replace(/\/+$/, '');
+}
+
 module.exports = {
 	// ============================================================================
 	// FORMATTAGE
@@ -67,7 +79,8 @@ module.exports = {
 	 *
 	 * L'URL du notify-service est lue dans NOTIFY_SERVICE_URL à CHAQUE appel
 	 * (défaut : service Docker interne) — sans cache au chargement du module,
-	 * pour rester pilotable sans redémarrer PocketBase.
+	 * pour rester pilotable sans redémarrer PocketBase. La base de l'URL de clic
+	 * suit le même contrat via PUBLIC_BASE_URL (défaut : domaine public).
 	 *
 	 * Ne throw jamais : chaque itération est isolée, les erreurs sont logguées.
 	 */
@@ -118,7 +131,7 @@ module.exports = {
 						subscription: sub,
 						title,
 						body,
-						url: `https://planning.oupla.net${url}`
+						url: `${publicBaseUrl()}${url}`
 					}),
 					timeout: 10
 				});

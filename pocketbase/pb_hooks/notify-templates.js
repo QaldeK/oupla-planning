@@ -26,6 +26,16 @@
 const { formatDateFR } = require(`${__hooks}/notify-utils.cjs`);
 const { buildContentPreview, TASK_TYPE_LABEL } = require(`${__hooks}/notification-core.cjs`);
 
+/**
+ * Fallback de base publique quand ctx.baseUrl est absent (les liens emails).
+ * Lue dans PUBLIC_BASE_URL à chaque appel — même contrat que NOTIFY_SERVICE_URL,
+ * le garde typeof garde le module chargeable hors JSVM (tests unitaires Node).
+ */
+function publicBaseUrl() {
+	const env = typeof $os !== 'undefined' ? $os.getenv('PUBLIC_BASE_URL') : '';
+	return (env || 'https://planning.oupla.net').replace(/\/+$/, '');
+}
+
 // ============================================================================
 // Constantes
 // ============================================================================
@@ -897,7 +907,7 @@ function buildHtmlEmail(master, events, user, ctx) {
 
 /** Construit l'URL absolue du planning à partir du participantToken du master. */
 function _buildPlanningUrl(master, ctx) {
-	const baseUrl = (ctx && ctx.baseUrl) || 'https://planning.oupla.net';
+	const baseUrl = (ctx && ctx.baseUrl) || publicBaseUrl();
 	const token = master.getString('participantToken');
 	return `${baseUrl}/p/${token}`;
 }

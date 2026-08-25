@@ -38,7 +38,7 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 
 	const {
 		MAX_SMTP_FAILURES,
-		BASE_URL,
+		publicBaseUrl,
 		JX_EVENT_TYPES,
 		nowIsoCompat,
 		parseJsonArray,
@@ -374,7 +374,7 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			occCache: localOccCache,
 			userNamesById,
 			master: bucket.master,
-			baseUrl: BASE_URL
+			baseUrl: publicBaseUrl()
 		};
 
 		const eventsForTemplate = bucket.items.map((it) => it.event);

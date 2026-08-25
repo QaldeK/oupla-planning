@@ -9,7 +9,7 @@
  * dans un `*-utils.js` et de les `require()` au début du handler.
  *
  * Contenu :
- *  - Constantes (seuils, base URL, ensembles de types d'events)
+ *  - Constantes (seuils, ensembles de types d'events)
  *  - Construction du payload missings (presentCount, tasksToFill, etc.)
  *  - Résolution des noms de tâches user ("Préparer salle (avant)")
  *  - Rendu push (titre + corps court) — utilisé par le cron ET par le hook
@@ -29,7 +29,16 @@ const {
 
 const MAX_SMTP_FAILURES = 3;
 
-const BASE_URL = 'https://planning.oupla.net';
+/**
+ * Base publique des liens (emails via ctx.baseUrl). Lue dans PUBLIC_BASE_URL
+ * à chaque appel, sans cache au chargement du module — pilotable sans
+ * redémarrer PocketBase (même contrat que NOTIFY_SERVICE_URL). Le garde
+ * typeof garde le module chargeable hors JSVM (tests unitaires Node).
+ */
+function publicBaseUrl() {
+	const env = typeof $os !== 'undefined' ? $os.getenv('PUBLIC_BASE_URL') : '';
+	return (env || 'https://planning.oupla.net').replace(/\/+$/, '');
+}
 
 /** Timestamp courant au format PocketBase "YYYY-MM-DD HH:MM:SS.000Z". */
 function nowIsoCompat() {
@@ -190,7 +199,7 @@ function buildPushBody(event, occ, recipient, occTasks) {
 
 module.exports = {
 	MAX_SMTP_FAILURES,
-	BASE_URL,
+	publicBaseUrl,
 	MAX_CONTENT_PREVIEW,
 	TASK_TYPE_LABEL,
 	JX_EVENT_TYPES,

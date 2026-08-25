@@ -41,7 +41,9 @@ function mockUser(overrides: { id?: string; email?: string } = {}) {
  * Simulation d'une row push_subscriptions : champs text lus via getString(),
  * comme en JSVM.
  */
-function mockSubscriptionRow(overrides: { endpoint?: string; p256dh?: string; auth?: string } = {}) {
+function mockSubscriptionRow(
+	overrides: { endpoint?: string; p256dh?: string; auth?: string } = {}
+) {
 	const data = {
 		endpoint: overrides.endpoint ?? "https://push.example/abc",
 		p256dh: overrides.p256dh ?? "key-p256dh",
@@ -143,10 +145,27 @@ describe("sendPushNotification", () => {
 		expect(firstCall.method).toBe("POST");
 		expect(firstCall.body).toContain('"title":"title"');
 		expect(firstCall.body).toContain('"body":"body"');
+		// $os mocké → getenv retourne "" → défaut PUBLIC_BASE_URL (domaine public)
+		expect(firstCall.body).toContain('"url":"https://planning.oupla.net/p/abc"');
 		expect(firstCall.body).toContain('"endpoint":"https://push.example/abc"');
 		expect(firstCall.body).toContain('"p256dh":"key-p256dh"');
 		const secondCall = send.mock.calls[1][0] as { body: string };
 		expect(secondCall.body).toContain('"endpoint":"https://push.example/def"');
+	});
+
+	it("préfixe l'URL de clic avec PUBLIC_BASE_URL quand défini (slash final normalisé)", () => {
+		const send = vi.fn(() => ({ statusCode: 200 }));
+		(globalThis as any).$http = { send };
+		(globalThis as any).$os = {
+			getenv: vi.fn((k: string) => (k === "PUBLIC_BASE_URL" ? "http://localhost:5173/" : ""))
+		};
+		app.findRecordsByFilter = vi.fn(() => [mockSubscriptionRow()]);
+
+		const user = mockUser({ id: "u1" });
+		sendPushNotification(app, user, "t", "b", "/p/x");
+
+		const body = JSON.parse((send.mock.calls[0][0] as { body: string }).body);
+		expect(body.url).toBe("http://localhost:5173/p/x");
 	});
 
 	it("deletes only the dead row on HTTP 410, keeps sending to others", () => {

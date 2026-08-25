@@ -84,6 +84,67 @@ Oupla s'adresse à tout groupe ayant besoin de coordonner des présences et des 
 | Styles          | Tailwind CSS 4 + DaisyUI 5                    |
 | Icônes          | lucide-svelte                                 |
 
+## Développement
+
+### Prérequis
+
+- [Bun](https://bun.sh)
+- Le binaire PocketBase est inclus dans le dépôt (`pocketbase/pocketbase`)
+
+### Lancer l'app (2 terminaux)
+
+```bash
+bun install
+
+# Terminal 1 — front (http://localhost:5173)
+bun run dev
+
+# Terminal 2 — PocketBase (http://127.0.0.1:8090)
+cd pocketbase && ./pocketbase serve --dev
+```
+
+`--dev` recharge les hooks (`pb_hooks/`) à chaud et active le logging verbeux.
+
+### Tester les notifications push (3ᵉ terminal)
+
+Le push end-to-end (navigateur → PocketBase → notify-service → appareil) nécessite
+le **notify-service** (dépôt séparé) et deux variables d'environnement côté PocketBase :
+
+```bash
+# Terminal 3 — notify-service (http://localhost:3001)
+cd <notify-service> && bun run dev
+
+# Terminal 2 (relancé ainsi) — envoi vers le service local, liens vers le dev
+cd pocketbase
+NOTIFY_SERVICE_URL=http://127.0.0.1:3001/notify \
+PUBLIC_BASE_URL=http://localhost:5173 \
+./pocketbase serve --dev
+```
+
+| Variable              | Rôle                                        | Défaut                                          |
+| --------------------- | ------------------------------------------- | ----------------------------------------------- |
+| `NOTIFY_SERVICE_URL`  | URL d'envoi des push                       | Service Docker interne (prod)                   |
+| `PUBLIC_BASE_URL`     | Base des liens de clic des notifications   | `https://planning.oupla.net`                    |
+
+Côté front, `.env.local` (gitignoré) doit définir la clé publique VAPID —
+la **même paire** que le notify-service visé :
+
+```bash
+VITE_VAPID_PUBLIC_KEY=<clé publique de la paire du notify-service>
+```
+
+Déclencheur de test : activer les push dans un planning (modal Notifications),
+puis modifier l'horaire d'une occurrence future → push immédiat.
+
+### Vérifications
+
+```bash
+bun run check             # typecheck (svelte-check)
+bun run test:unit         # tests unitaires
+bun run test:integration  # tests d'intégration (PocketBase requis sur 127.0.0.1:8090)
+bun run lint              # biome
+```
+
 ---
 
 ## Licence
