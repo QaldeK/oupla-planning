@@ -5,17 +5,16 @@
  *   - Règles API : l'endpoint push est une capability URL — aucune lecture
  *     croisée possible (list/view filtrés par `user = @request.auth.id`),
  *     create/update/delete réservés au owner.
- *   - Migration de données : transfert `users.push_subscription` (JSON) vers
- *     une row par appareil, JSON invalide skippé sans échouer la migration.
  *   - Cascade : suppression du user → rows supprimées (onDelete: cascade).
  *   - Unicité : index unique sur `endpoint` — un appareil = un owner actif.
  *   - Endpoints POST/DELETE /api/push-subscription : upsert idempotent par
  *     endpoint avec transfert d'ownership, retrait owner-only (404 sinon).
  *
- * La migration est validée sur une instance PocketBase jetable (data dir
- * temporaire, `migrate up` / `migrate down`) : le vrai fichier de migration
- * est exécuté tel quel, comme au déploiement. Sur le serveur de test principal
- * la migration est déjà appliquée et ne peut pas être rejouée.
+ * NB : le backfill de la migration `1787565923_push_subscriptions.js`
+ * (users.push_subscription JSON → rows) a été validé pendant le développement
+ * puis son test retiré : une migration de données est à usage unique et ne
+ * se modifie plus après application — un test de rejeu câblé sur la position
+ * dans la pile (`migrate down N`) casse à chaque nouvelle migration.
  */
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -23,10 +22,9 @@ import http from "node:http";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { promisify } from "node:util";
 import PocketBase from "pocketbase";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
 	authenticateAdmin,
 	authenticateUser,
@@ -71,74 +69,6 @@ async function seedSubscription(userId: string, overrides?: Record<string, unkno
 async function adminListSubscriptions(filter: string) {
 	const adminPb = await authenticateAdmin();
 	return await adminPb.collection("push_subscriptions").getFullList({ filter });
-}
-
-/**
- * Comme execFile mais écrit sur stdin puis ferme (EOF). `migrate down` demande
- * une confirmation interactive : un simple `input:` d'execFile laisse le prompt
- * en attente, l'EOF après le "y" le débloque.
- */
-function migrateWithConfirm(args: string[], stdinData = "") {
-	return new Promise<{ stdout: string }>((resolve, reject) => {
-		const child = spawn(PB_BIN, args, { stdio: ["pipe", "pipe", "pipe"] });
-		let stdout = "";
-		let stderr = "";
-		child.stdout.on("data", (d) => (stdout += d));
-		child.stderr.on("data", (d) => (stderr += d));
-		child.on("error", reject);
-		child.on("close", (code) => {
-			if (code === 0) resolve({ stdout });
-			else reject(new Error(`exit ${code}: ${stderr || stdout}`));
-		});
-		child.stdin.write(stdinData);
-		child.stdin.end();
-	});
-}
-
-/**
- * Exécute le cycle migrate up → down 1 → seed SQL → up sur un data dir
- * temporaire. `down 1` ne revert que la dernière migration (push_subscriptions),
- * ce qui permet de rejouer sa partie backfill sur des données fraîchement
- * insérées, sans toucher au serveur principal.
- *
- * --migrationsDir explicite : sans lui, PocketBase résout pb_migrations relativement
- * au parent du --dir fourni et ne trouve aucune migration utilisateur.
- */
-async function runMigrationCycle(seedSql: (db: DatabaseSync) => void) {
-	const dataDir = mkdtempSync(path.join(tmpdir(), "oupla-pb-mig-"));
-	const migrateArgs = (sub: string[]) => [
-		"migrate",
-		...sub,
-		"--dir",
-		dataDir,
-		"--migrationsDir",
-		MIGRATIONS_DIR
-	];
-	try {
-		await execFileAsync(PB_BIN, migrateArgs(["up"]));
-		await migrateWithConfirm(migrateArgs(["down", "1"]), "y\n");
-		const db = new DatabaseSync(path.join(dataDir, "data.db"));
-		// tokenKey explicite : sa valeur par défaut '' est soumise à un index unique —
-		// deux INSERTs sans tokenKey violeraient la contrainte.
-		seedSql(db);
-		db.close();
-		const up2 = await execFileAsync(PB_BIN, migrateArgs(["up"]));
-		// Échec explicite si le rejou n'a pas eu lieu (sinon le SELECT final
-		// échoue avec un « no such table » peu exploitable).
-		if (!up2.stdout.includes("Applied")) {
-			throw new Error(`la migration n'a pas été rejouée — stdout: ${up2.stdout.trim()}`);
-		}
-		const verify = new DatabaseSync(path.join(dataDir, "data.db"));
-		const rows = verify
-			.prepare(
-				"SELECT user, endpoint, p256dh, auth, user_agent, refreshed_at FROM push_subscriptions"
-			)
-			.all();
-		verify.close();
-		return rows as Array<Record<string, string>>;
-	} finally {
-		rmSync(dataDir, { recursive: true, force: true });
-	}
 }
 
 describe("push_subscriptions — règles API (capability URL)", () => {
@@ -248,50 +178,6 @@ describe("push_subscriptions — cascade et unicité", () => {
 		const rows = await adminListSubscriptions(`endpoint = "${endpoint}"`);
 		expect(rows).toHaveLength(1);
 		expect(rows[0].user).toBe(userA.id);
-	});
-});
-
-describe("push_subscriptions — migration des données existantes", () => {
-	it("users.push_subscription JSON valide → une row avec endpoint/clés corrects", async () => {
-		const rows = await runMigrationCycle((db) => {
-			db.prepare("INSERT INTO users (email, tokenKey, push_subscription) VALUES (?, ?, ?)").run(
-				"legacy@test.com",
-				"tk-legacy",
-				JSON.stringify(VALID_SUBSCRIPTION)
-			);
-		});
-
-		expect(rows).toHaveLength(1);
-		expect(rows[0].endpoint).toBe(VALID_SUBSCRIPTION.endpoint);
-		expect(rows[0].p256dh).toBe(VALID_SUBSCRIPTION.keys.p256dh);
-		expect(rows[0].auth).toBe(VALID_SUBSCRIPTION.keys.auth);
-		expect(rows[0].user_agent).toBe("migré");
-		expect(rows[0].refreshed_at).toBeTruthy();
-	});
-
-	it("JSON invalide → log + skip, la migration réussit", async () => {
-		const rows = await runMigrationCycle((db) => {
-			db.prepare("INSERT INTO users (email, tokenKey, push_subscription) VALUES (?, ?, ?)").run(
-				"broken@test.com",
-				"tk-broken",
-				"{not-valid-json"
-			);
-			db.prepare("INSERT INTO users (email, tokenKey, push_subscription) VALUES (?, ?, ?)").run(
-				"nulled@test.com",
-				"tk-nulled",
-				JSON.stringify({ endpoint: "https://x", keys: {} })
-			);
-		});
-
-		expect(rows).toHaveLength(0);
-	});
-
-	it("users sans push_subscription → aucune row créée", async () => {
-		const rows = await runMigrationCycle((db) => {
-			db.prepare("INSERT INTO users (email, tokenKey) VALUES ('nosub@test.com', 'tk-nosub')").run();
-		});
-
-		expect(rows).toHaveLength(0);
 	});
 });
 
