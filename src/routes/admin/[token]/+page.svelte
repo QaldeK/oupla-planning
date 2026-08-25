@@ -7,6 +7,8 @@ import { fade } from "svelte/transition";
 import { toast } from "svelte-sonner";
 import { goto } from "$app/navigation";
 import { page } from "$app/stores";
+import { ClientResponseError } from "pocketbase";
+import ConfirmModal from "$lib/components/ui/ConfirmModal.svelte";
 import LockOverlay from "$lib/components/admin/LockOverlay.svelte";
 import NetworkAlert from "$lib/components/NetworkAlert.svelte";
 import PlanningForm, { type PlanningFormData } from "$lib/components/PlanningForm.svelte";
@@ -22,7 +24,10 @@ import {
 	type LockInfo,
 	releaseLock
 } from "$lib/services/lockService";
-import { updatePlanningWithOccurrences } from "$lib/services/planningActions";
+import {
+	deletePlanning,
+	updatePlanningWithOccurrences
+} from "$lib/services/planningActions";
 import { authTransition } from "$lib/stores/authTransition.svelte";
 import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 import { networkStore } from "$lib/stores/networkStore.svelte";
@@ -327,6 +332,33 @@ const datesWithSpecificTasks = $derived(
 		})
 		.map((o) => o.date.split(" ")[0].split("T")[0])
 );
+
+// === Suppression du planning (soft-delete, fenêtre de grâce ADR 0015) ===
+let showDeleteModal = $state(false);
+let isDeleting = $state(false);
+
+async function handleDeletePlanning() {
+	if (!master) return;
+	try {
+		isDeleting = true;
+		await deletePlanning(master.id, token, master.updated);
+		toast.success(m.admin_delete_success());
+		showDeleteModal = false;
+		// La vue participant affiche l'alerte lecture seule + le bouton Restaurer.
+		await goto(`/p/${master.participantToken}`);
+	} catch (error) {
+		console.error("Delete error:", error);
+		showDeleteModal = false;
+		if (error instanceof ClientResponseError && error.status === 409) {
+			toast.warning(m.admin_update_conflict());
+			window.location.reload();
+		} else {
+			toast.error(m.admin_delete_error());
+		}
+	} finally {
+		isDeleting = false;
+	}
+}
 </script>
 
 <svelte:head>
@@ -388,6 +420,22 @@ const datesWithSpecificTasks = $derived(
       {datesWithSpecificTasks}
       occurrences={planningStore.futureOccurrences}
     />
+
+    <!-- Danger zone : soft-delete (réversible 15 jours, ADR 0015) -->
+    <div class="border-error/30 mt-8 rounded-2xl border border-dashed p-4 sm:p-6">
+      <h3 class="text-error font-semibold">{m.admin_danger_zone_title()}</h3>
+      <p class="text-base-content/60 mt-1 mb-4 text-sm">
+        {m.admin_danger_zone_description()}
+      </p>
+      <button
+        type="button"
+        class="btn btn-error btn-outline btn-sm"
+        onclick={() => (showDeleteModal = true)}
+      >
+        <Trash2 size={16} />
+        {m.admin_delete_button()}
+      </button>
+    </div>
   </div>
 
   {#if lockState === "locked-by-other"}
@@ -484,5 +532,19 @@ const datesWithSpecificTasks = $derived(
     {token}
     quitParticipantId={quitParticipantId!}
     onRejoined={() => (showQuitReturnModal = false)}
+  />
+{/if}
+
+{#if master}
+  <ConfirmModal
+    bind:open={showDeleteModal}
+    onClose={() => (showDeleteModal = false)}
+    onConfirm={handleDeletePlanning}
+    title={m.admin_delete_confirm_title()}
+    message={m.admin_delete_confirm_message({ title: master.title })}
+    description={m.admin_delete_confirm_description()}
+    confirmLabel={m.admin_delete_button()}
+    variant="danger"
+    {isDeleting}
   />
 {/if}
