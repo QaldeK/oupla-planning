@@ -132,3 +132,14 @@ export function startOfWeek(date: Date): Date {
 export function endOfWeek(date: Date): Date {
 	return dateFnsEndOfWeek(date, { locale: activeDateFnsLocale() });
 }
+
+/** Fenêtre de grâce d'un planning soft-deleté, en jours (miroir du GRACE_PERIOD_DAYS serveur). */
+const GRACE_PERIOD_DAYS = 15;
+
+/**
+ * Date de suppression définitive d'un planning soft-deleté (= deletedAt + fenêtre
+ * de grâce). Source serveur : `GRACE_PERIOD_DAYS` dans pb_hooks/planning-deletion-utils.cjs.
+ */
+export function purgeDate(deletedAt: string): Date {
+	return new Date(new Date(deletedAt).getTime() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+}

@@ -112,6 +112,11 @@ class PlanningStore {
 		return this.#error;
 	}
 
+	/** Le master actif est soft-deleté (consultation lecture seule pendant la grâce) */
+	get isDeleted(): boolean {
+		return this.#master?.deleted === true;
+	}
+
 	/**
 	 * Retourne le lastFetchAt réactif pour un master donné.
 	 * Le getter est réactif : il se met à jour quand markFetched/restoreLastFetchAt est appelé.
@@ -381,16 +386,17 @@ class PlanningStore {
 		}
 
 		// === ÉTAPE 2 : Vérifier suppression (locale puis serveur) ===
-		if (master.deleted) {
-			this.#error = { type: "deleted", message: "Ce planning a été supprimé" };
-			return;
-		}
-		// Vérification serveur seulement si master était déjà en Dexie : un master
-		// fraîchement fetched prouve son existence par la réponse API elle-même.
-		if (wasInDexie) {
+		// Soft-delete connu localement → consultation en lecture seule : on poursuit
+		// l'activation mais sans les étapes 5/6 (claim/auto-add et subscribe guest
+		// écriraient au chargement et prendraient des 403 contre les gardes serveur).
+		const readOnly = master.deleted === true;
+		if (!readOnly && wasInDexie) {
+			// Vérification serveur seulement si master était déjà en Dexie : un master
+			// fraîchement fetched prouve son existence par la réponse API elle-même.
+			// Un 404 ici = purge définitive (fenêtre de grâce expirée) → introuvable.
 			const status = await this.#verifyMasterExistsOnServer(master.id, token);
 			if (status === "deleted") {
-				this.#error = { type: "deleted", message: "Ce planning a été supprimé" };
+				this.#error = { type: "not_found", message: "Planning introuvable" };
 				return;
 			}
 		}
@@ -407,7 +413,8 @@ class PlanningStore {
 
 		this.#subscribeDexieQueries(master.id);
 
-		// === ÉTAPE 5/6 : Branche auth / guest ===
+		// === ÉTAPE 5/6 : Branche auth / guest (skippée en lecture seule) ===
+		if (readOnly) return;
 		if (userStore.isLoggedIn) {
 			await this.#attachMasterToUser(master);
 			// Backfill seulement pour les premières visites auth (master fraîchement

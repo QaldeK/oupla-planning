@@ -128,7 +128,10 @@ const jsonLdScript =
 			<h2 class="mb-4 font-semibold">{m.home_deleted_plannings()}</h2>
 			<div class="space-y-1">
 				{#each planningStore.deletedMasters as master (master.id)}
-					<div class="card card-sm bg-base-200 w-full border border-dashed">
+					<button
+						class="card card-sm bg-base-200 w-full border border-dashed transition hover:cursor-pointer hover:shadow-md"
+						onclick={() => navigateToPlanning(master.participantToken!)}
+					>
 						<div class="card-body">
 							<div class="flex items-center justify-between">
 								<div class="flex-1 text-left">
@@ -137,7 +140,7 @@ const jsonLdScript =
 								<span class="badge badge-error badge-sm">{m.home_deleted_badge()}</span>
 							</div>
 						</div>
-					</div>
+					</button>
 				{/each}
 			</div>
 			<button

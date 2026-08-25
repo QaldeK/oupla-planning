@@ -451,8 +451,37 @@ export async function updatePlanningWithOccurrences(
 	});
 }
 
-export async function deletePlanning(masterId: string, token: string): Promise<void> {
-	await mastersCollection.remove(masterId, { query: { _token: token } });
+/**
+ * Soft-delete d'un planning (début de la fenêtre de grâce de 15 jours).
+ * Transition admin-only : le hook serveur forge `deletedAt` et notifie les
+ * participants authentifiés par email (best-effort). Passe par l'update SDK
+ * avec `_version` (OCC) — jamais par un hard-delete.
+ * @param expectedVersion - timestamp `updated` du master pour optimistic locking
+ */
+export async function deletePlanning(
+	masterId: string,
+	token: string,
+	expectedVersion: string
+): Promise<void> {
+	await mastersCollection.update(masterId, { deleted: true } as Partial<PlanningMaster>, {
+		query: { _token: token, _version: expectedVersion }
+	});
+}
+
+/**
+ * Restaure un planning soft-deleté (fin anticipée de la fenêtre de grâce).
+ * Transition admin-only : le hook serveur vide `deletedAt` et notifie les
+ * participants authentifiés par email (best-effort).
+ * @param expectedVersion - timestamp `updated` du master pour optimistic locking
+ */
+export async function restorePlanning(
+	masterId: string,
+	token: string,
+	expectedVersion: string
+): Promise<void> {
+	await mastersCollection.update(masterId, { deleted: false } as Partial<PlanningMaster>, {
+		query: { _token: token, _version: expectedVersion }
+	});
 }
 
 // ============================================

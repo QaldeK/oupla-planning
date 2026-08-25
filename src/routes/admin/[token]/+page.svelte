@@ -143,6 +143,7 @@ $effect(() => {
 	const masterId = master?.id;
 	const ready = userStore.isReady;
 	if (!masterId || !ready) return;
+	if (master?.deleted) return; // planning supprimé : pas d'acquisition de lock d'édition
 
 	const adminToken = token;
 	// Identité lue ponctuellement : on ne veut pas redémarrer le cycle lock
@@ -336,6 +337,19 @@ const datesWithSpecificTasks = $derived(
 
 {#if isLoading}
   <AdminSkeleton />
+{:else if master && master.deleted === true}
+  <div class="flex min-h-[50vh] items-center justify-center p-4">
+    <div class="max-w-sm text-center">
+      <div
+        class="bg-warning/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full p-4"
+      >
+        <Trash2 size={40} class="text-warning" />
+      </div>
+      <h2 class="mb-3 text-3xl font-semibold">{m.admin_deleted_heading()}</h2>
+      <p class="text-base-content/60 mb-8">{m.admin_deleted_message()}</p>
+      <a href="/" class="btn btn-primary btn-wide">{m.common_back_to_home()}</a>
+    </div>
+  </div>
 {:else if master}
   <NetworkAlert />
   <div

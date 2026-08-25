@@ -304,7 +304,10 @@ function toggleTheme() {
             {#each planningStore.deletedMasters as master (master.id)}
               <button
                 class="btn btn-sm btn-ghost w-full justify-start"
-                disabled
+                onclick={() => {
+                  modalStore.closeNavDrawer();
+                  goto(`/p/${master.participantToken}`);
+                }}
               >
                 <span class="text-base-content/70 truncate line-through"
                   >{master.title}</span

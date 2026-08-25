@@ -308,4 +308,72 @@ describe("PlanningStore — Guest Flow", () => {
 			);
 		});
 	});
+
+	describe("planning supprimé", () => {
+		it("active en lecture seule un master soft-deleté (pas d'erreur, isDeleted true)", async () => {
+			// === SEED ===
+			const { master, participantToken } = await seedPlanning({
+				title: "Planning Soft Deleted",
+				occurrenceCount: 2
+			});
+			const adminPb = await authenticateAdmin();
+			await adminPb.collection("planning_masters").update(master.id, { deleted: true });
+
+			// === ACTION ===
+			await planningStore.setActiveToken(participantToken);
+
+			await vi.waitFor(
+				() => {
+					expect(planningStore.master).not.toBeNull();
+				},
+				{ timeout: 2000 }
+			);
+
+			// === VÉRIFICATION STORE ===
+			expect(planningStore.error).toBeNull();
+			expect(planningStore.isDeleted).toBe(true);
+			expect(planningStore.master?.id).toBe(master.id);
+			expect(planningStore.activeMasterId).toBe(master.id);
+
+			// Occurrences encore lisibles
+			await vi.waitFor(
+				() => {
+					expect(planningStore.occurrences.length).toBe(2);
+				},
+				{ timeout: 2000 }
+			);
+		});
+
+		it("renvoie not_found quand le master n'existe plus côté serveur (purge)", async () => {
+			// === SEED : master en Dexie uniquement, inexistant côté serveur ===
+			const fakeId = "fake00000000000000000000000000";
+			await db.masters.put({
+				id: fakeId,
+				title: "Planning Purged",
+				participantToken: "p".repeat(32),
+				adminToken: "a".repeat(64),
+				participants: [],
+				tasks: [],
+				recurrence: { type: "CUSTOM" },
+				defaultStartTime: "09:00",
+				defaultEndTime: "17:00",
+				minPresentRequired: 1,
+				allowResponses: true,
+				deleted: false,
+				created: new Date().toISOString(),
+				updated: new Date().toISOString()
+			});
+
+			// === ACTION ===
+			await planningStore.setActiveToken("p".repeat(32));
+
+			// === VÉRIFICATION ===
+			expect(planningStore.error).not.toBeNull();
+			expect(planningStore.error!.type).toBe("not_found");
+
+			// Le store a marqué deleted localement
+			const dexieMaster = await db.masters.get(fakeId);
+			expect(dexieMaster?.deleted).toBe(true);
+		});
+	});
 });

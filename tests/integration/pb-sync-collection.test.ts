@@ -245,7 +245,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			expect(pbMaster.deleted).toBe(true);
 		});
 
-		it("hard-delete avec softDelete=false : supprime reellement de Dexie et PB", async () => {
+		it("hard-delete avec softDelete=false : bloqué côté serveur (403), le record reste en Dexie et PB", async () => {
 			const { master, adminToken } = await seedPlanning({ title: "A Supprimer Pour De Vrai" });
 
 			const collection = createSyncCollection<PlanningMaster>(pb, db.masters, "planning_masters", {
@@ -255,20 +255,20 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			// Charger dans Dexie via initialFetch
 			await collection.initialFetch({ query: { _token: adminToken } });
 
-			await collection.remove(master.id, { query: { _token: adminToken } });
+			// Le serveur bloque le DELETE API (deleteRule superusers only, fenêtre de grâce) : l'erreur remonte,
+			// le rollback pb-sync restaure le snapshot local.
+			await expect(collection.remove(master.id, { query: { _token: adminToken } })).rejects.toMatchObject(
+				{ status: 403 }
+			);
 
-			// Verification Dexie : record supprime
+			// Verification Dexie : record toujours présent (rollback)
 			const dexieMaster = await db.masters.get(master.id);
-			expect(dexieMaster).toBeUndefined();
+			expect(dexieMaster).toBeDefined();
 
-			// Verification PocketBase : 404
+			// Verification PocketBase : toujours là
 			const adminPb = await authenticateAdmin();
-			try {
-				await adminPb.collection("planning_masters").getOne(master.id);
-				expect.unreachable("Le master devrait avoir ete supprime de PB");
-			} catch (err: any) {
-				expect(err.status).toBe(404);
-			}
+			const pbMaster = await adminPb.collection("planning_masters").getOne(master.id);
+			expect(pbMaster.id).toBe(master.id);
 		});
 	});
 

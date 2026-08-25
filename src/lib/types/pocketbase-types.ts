@@ -154,6 +154,7 @@ export type PlanningMastersRecord<TavailableResponseTypes = unknown, Tparticipan
 	defaultEndTime: string
 	defaultStartTime: string
 	deleted?: boolean
+	deletedAt?: IsoDateString
 	description?: HTMLString
 	id: string
 	lastModifiedBy?: string

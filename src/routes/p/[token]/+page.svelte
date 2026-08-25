@@ -10,11 +10,13 @@ import {
 	MapPin,
 	Settings,
 	Share2,
+	Undo2,
 	User,
 	UserCheck,
 	UserCog,
 	Users
 } from "@lucide/svelte";
+import { ClientResponseError } from "pocketbase";
 import { onMount } from "svelte";
 import { SvelteSet } from "svelte/reactivity";
 import { fade } from "svelte/transition";
@@ -36,7 +38,12 @@ import ConfirmModal from "$lib/components/ui/ConfirmModal.svelte";
 import DescriptionCard from "$lib/components/ui/DescriptionCard.svelte";
 import { PlanningSkeleton } from "$lib/components/ui/skeletons";
 import * as m from "$lib/paraglide/messages.js";
-import { addParticipant, quitPlanning, updateParticipant } from "$lib/services/planningActions";
+import {
+	addParticipant,
+	quitPlanning,
+	restorePlanning,
+	updateParticipant
+} from "$lib/services/planningActions";
 import { ensurePlanningParticipant } from "$lib/services/planningParticipants";
 import { authTransition } from "$lib/stores/authTransition.svelte";
 import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
@@ -45,7 +52,7 @@ import { networkStore } from "$lib/stores/networkStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { Participant, PlanningIdentity } from "$lib/types/planning.types";
-import { formatDate, formatDateShort } from "$lib/utils/date";
+import { formatDate, formatDateShort, purgeDate } from "$lib/utils/date";
 import { resolveCurrentIdentity } from "$lib/utils/identityResolution";
 import { resolveIdentityStrategy } from "$lib/utils/identityStrategy";
 import { hasNameConflict } from "$lib/utils/participantConflict";
@@ -126,6 +133,7 @@ onMount(() => {
 
 $effect(() => {
 	if (!master) return;
+	if (master?.deleted) return; // planning supprimé : aucune écriture d'identité (403 serveur)
 
 	// Décision (pure) : quel CAS A/B/C déclencher en fonction du contexte.
 	// La stratégie ne fait aucun effet de bord — la réaction se fait dans le switch.
@@ -313,6 +321,31 @@ async function shareLink(url: string, label: string) {
 const isAdmin = $derived(master ? !!master.adminToken : false);
 const adminToken = $derived(master?.adminToken ?? null);
 
+const isDeleted = $derived(planningStore.isDeleted);
+const deletedAtDate = $derived(master?.deletedAt ? formatDate(purgeDate(master.deletedAt)) : "");
+let showRestoreModal = $state(false);
+let isRestoring = $state(false);
+
+async function handleRestore() {
+	if (!master) return;
+	try {
+		isRestoring = true;
+		await restorePlanning(master.id, token, master.updated);
+		toast.success(m.deleted_restore_success());
+		showRestoreModal = false;
+	} catch (err) {
+		if (err instanceof ClientResponseError && err.status === 409) {
+			toast.warning(m.admin_update_error());
+			setTimeout(() => window.location.reload(), 1500);
+		} else {
+			console.error("Restore failed:", err);
+			toast.error(m.deleted_restore_error());
+		}
+	} finally {
+		isRestoring = false;
+	}
+}
+
 async function handleQuit() {
 	if (!master || !currentIdentity) return;
 	try {
@@ -351,7 +384,25 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 {:else if master}
   <!-- Bannière réseau : affichée automatiquement quand !networkStore.isNetworkOk (fraîcheur + reload si serveur indispo) -->
   <NetworkAlert />
-  <div class="mx-auto max-w-6xl md:px-4" in:fade>
+  	{#if isDeleted}
+  		<div class="alert alert-warning alert-soft mx-auto max-w-6xl md:px-4" role="alert">
+  			<Trash2 size={24} class="shrink-0" />
+  			<div class="flex-1">
+  				<h3 class="font-bold">{m.deleted_alert_title()}</h3>
+  				<div class="text-sm">
+  					<p>{m.deleted_alert_message({ date: deletedAtDate })}</p>
+  					<p class="mt-1 opacity-80">{m.deleted_alert_admins_only()}</p>
+  				</div>
+  			</div>
+  			{#if isAdmin}
+  				<button class="btn btn-warning btn-sm" onclick={() => (showRestoreModal = true)} disabled={isRestoring}>
+  					<Undo2 size={16} />
+  					{m.deleted_restore_button()}
+  				</button>
+  			{/if}
+  		</div>
+  	{/if}
+  	<div class="mx-auto max-w-6xl md:px-4" in:fade inert={isDeleted}>
     <!-- En-tête -->
     <div class="mb-4 sm:mb-12">
       <div
@@ -676,8 +727,8 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
     </div>
   </div>
 
-  <!-- FAB Speed Dial - mobile only -->
-  {#if mediaQuery.isMobile}
+  	<!-- FAB Speed Dial - mobile only -->
+  	{#if mediaQuery.isMobile && !isDeleted}
     <ParticipantFAB
       {isAdmin}
       {adminToken}
@@ -723,15 +774,28 @@ const hasMoreOthers = $derived(!showAllParticipants && otherParticipants.length 
 />
 
 <ConfirmModal
-  bind:open={showQuitModal}
-  onClose={() => (showQuitModal = false)}
-  onConfirm={handleQuit}
-  title={m.participant_quit_modal_title()}
-  message={m.participant_quit_modal_message()}
-  description={m.participant_quit_modal_description()}
-  confirmLabel={m.participant_quit_confirm()}
-  variant="warning"
+	bind:open={showQuitModal}
+	onClose={() => (showQuitModal = false)}
+	onConfirm={handleQuit}
+	title={m.participant_quit_modal_title()}
+	message={m.participant_quit_modal_message()}
+	description={m.participant_quit_modal_description()}
+	confirmLabel={m.participant_quit_confirm()}
+	variant="warning"
 />
+
+{#if isDeleted && isAdmin}
+	<ConfirmModal
+		bind:open={showRestoreModal}
+		onClose={() => (showRestoreModal = false)}
+		onConfirm={handleRestore}
+		title={m.deleted_restore_confirm_title()}
+		message={m.deleted_restore_confirm_message()}
+		confirmLabel={m.deleted_restore_button()}
+		variant="warning"
+		isSubmitting={isRestoring}
+	/>
+{/if}
 
 {#if master && userStore.pbUser}
   <IdentityClaimModal

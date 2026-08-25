@@ -8,6 +8,7 @@ import * as m from "$lib/paraglide/messages.js";
 import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
+import { formatDate, purgeDate } from "$lib/utils/date";
 import { resolveActorIdentity } from "$lib/utils/identityResolution";
 
 const token = page.params.token;
@@ -15,6 +16,9 @@ const token = page.params.token;
 let master = $derived(planningStore.master);
 let allOccurrences = $derived(planningStore.occurrences);
 let isLoading = $derived(planningStore.isLoading);
+
+const isDeleted = $derived(master?.deleted === true);
+const deletedAtDate = $derived(master?.deletedAt ? formatDate(purgeDate(master.deletedAt)) : "");
 
 const today = $derived(new Date().toISOString().split("T")[0]);
 const occurrences = $derived(allOccurrences.filter((o) => o.date < today));
@@ -43,6 +47,18 @@ const currentParticipantName = $derived.by(() => {
 
 <div class="bg-base-200 min-h-screen px-4 py-8 sm:px-6 lg:px-8">
   <div class="mx-auto max-w-4xl">
+    {#if isDeleted && master}
+      <div class="alert alert-warning alert-soft mb-6" role="alert">
+        <Trash2 size={24} class="shrink-0" />
+        <div class="flex-1">
+          <h3 class="font-bold">{m.deleted_alert_title()}</h3>
+          <div class="text-sm">
+            <p>{m.deleted_alert_message({ date: deletedAtDate })}</p>
+            <p class="mt-1 opacity-80">{m.deleted_alert_admins_only()}</p>
+          </div>
+        </div>
+      </div>
+    {/if}
     {#if planningStore.error?.type === "deleted"}
       <div class="flex min-h-[50vh] items-center justify-center">
         <div class="max-w-md text-center">
@@ -60,7 +76,7 @@ const currentParticipantName = $derived.by(() => {
       </div>
     {:else}
       <!-- Header -->
-      <div class="mb-8">
+      <div class="mb-8" inert={isDeleted}>
         <a href="/p/{token}" class="btn btn-ghost sm:btn-sm mb-4 gap-2">
           <ArrowLeft size={18} />
           {m.archive_back_to_planning()}
@@ -95,7 +111,7 @@ const currentParticipantName = $derived.by(() => {
       {#if isLoading}
         <ArchiveSkeleton />
       {:else}
-        <div in:fade={{ duration: 300 }}>
+        <div in:fade={{ duration: 300 }} inert={isDeleted}>
           {#if occurrences.length === 0}
             <div class="card bg-base-100 border-base-200 border shadow-xl">
               <div class="card-body items-center py-16 text-center">

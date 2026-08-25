@@ -190,6 +190,12 @@ export interface PlanningMaster {
 	created: string;
 	updated: string;
 	deleted?: boolean; // Flag local Dexie (planning supprimé côté serveur)
+	/**
+	 * Date de soft-delete serveur (format PB "YYYY-MM-DD HH:MM:SS.mmmZ").
+	 * Posée par le hook serveur à la transition deleted false→true, vidée à la
+	 * restauration. Sert de base au calcul de la fenêtre de grâce (purge à J+15).
+	 */
+	deletedAt?: string;
 }
 
 export type ViewType = "card" | "compact" | "minimal";

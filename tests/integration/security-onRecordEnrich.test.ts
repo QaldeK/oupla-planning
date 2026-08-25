@@ -264,7 +264,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			).rejects.toMatchObject({ status: 401 });
 		});
 
-		it("deleteRule requiere adminToken (pas masterId)", async () => {
+		it("deleteRule superusers only — aucun delete HTTP possible (403), master intact", async () => {
 			const { master, participantToken, adminToken } = await seedPlanning({
 				title: "Delete Rule"
 			});
@@ -272,23 +272,29 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 
 			await userPbA.collection("users").authRefresh();
 
+			// deleteRule = null : seul un superuser peut hard-deleter. User auth,
+			// guest participant et adminToken reçoivent tous 403.
 			await expect(userPbA.collection("planning_masters").delete(master.id)).rejects.toMatchObject({
-				status: 404
+				status: 403
 			});
 
 			await expect(
 				guestPb.collection("planning_masters").delete(master.id, {
 					query: { _token: participantToken }
 				})
-			).rejects.toMatchObject({ status: 404 });
+			).rejects.toMatchObject({ status: 403 });
 
-			await guestPb.collection("planning_masters").delete(master.id, {
-				query: { _token: adminToken }
-			});
+			// Même l'adminToken ne peut plus hard-deleter via l'API : deleteRule = null
+			// (superusers only) protège la fenêtre de grâce et la notification des participants.
+			await expect(
+				guestPb.collection("planning_masters").delete(master.id, {
+					query: { _token: adminToken }
+				})
+			).rejects.toMatchObject({ status: 403 });
 
-			await expect(adminPb.collection("planning_masters").getOne(master.id)).rejects.toMatchObject({
-				status: 404
-			});
+			// Le master existe toujours — la fin de vie passe par le soft-delete + cron de purge.
+			const stillThere = await adminPb.collection("planning_masters").getOne(master.id);
+			expect(stillThere.id).toBe(master.id);
 		});
 
 		it("auth user avec masterId mais SANS _token ne peut PAS update occurrence (401 from hook)", async () => {
