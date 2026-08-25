@@ -331,7 +331,9 @@ async function handleRestore() {
 	if (!master) return;
 	try {
 		isRestoring = true;
-		await restorePlanning(master.id, token, master.updated);
+		// Le token d'URL peut être le participantToken (sidebar, redirection post-delete) ;
+		// la restauration exige l'adminToken, disponible dans le master local (isAdmin l'atteste).
+		await restorePlanning(master.id, adminToken ?? token, master.updated);
 		toast.success(m.deleted_restore_success());
 		showRestoreModal = false;
 	} catch (err) {
