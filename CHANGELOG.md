@@ -5,6 +5,40 @@ Toutes les modifications notables de ce projet sont documentées ici.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.6.0] — 2026-08-25
+
+### Fonctionnalités
+
+- **Suppression de planning** — un admin peut supprimer un planning depuis la page
+  de configuration : lecture seule pendant 15 jours, restauration par tout admin,
+  purge définitive automatique ensuite. Les participants authentifiés sont prévenus
+  par email à la suppression et à la restauration.
+- **Suppression de compte** — depuis la page paramètres, avec page unifiée.
+- **Mentions légales** — page dédiée et acceptation des conditions d'utilisation.
+- **Formulaire de contact public.**
+- **Push multi-appareils** — les notifications push parviennent sur tous les
+  appareils enregistrés d'un utilisateur.
+- **URL publique dynamique** — l'URL de base utilisée dans les notifications est
+  configurable.
+- **Protection serveur des champs sensibles** — restrictions et audit côté
+  PocketBase.
+
+### Corrections
+
+- **Restauration d'un planning supprimé** — le bouton « Restaurer » utilise
+  désormais l'adminToken : la restauration échouait (403) depuis un lien
+  participant.
+- **Préférences de notification** — persistance garantie avant la synchro push.
+- **Sécurité occurrences** — création d'occurrences restreinte à l'adminToken.
+
+### Maintenance
+
+- **Hooks PocketBase** — `notify-utils.js` renommé en `.cjs` (convention modules).
+- **Tests** — alignement sur les textes i18n post-migration, suppression du test
+  de rejeu de migration PocketBase.
+
 ## [0.5.0] — 2026-07-30
 
 ### Fonctionnalités
