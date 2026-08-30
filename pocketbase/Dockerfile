@@ -23,7 +23,9 @@ RUN unzip -j /tmp/pb.zip pocketbase -d /usr/local/bin/ \
 	&& rm /tmp/pb.zip \
 	&& mkdir -p /pb_data /pb_public
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+# --chmod=755 : l'exécutabilité ne dépend pas du mode du fichier dans le
+# contexte de build (un bit +x perdu en route = crashloop ENTRYPOINT au deploy).
+COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY pb_hooks/ /pb_hooks/
 COPY pb_migrations/ /pb_migrations/
 
