@@ -32,7 +32,7 @@ COPY pb_migrations/ /pb_migrations/
 # 1785452446). hooksWatch=false : les hooks sont immuables dans l'image, le
 # hot-reload est un confort de dev.
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["serve", "--http=0.0.0.0:8090", "--dir=/pb_data", "--publicDir=/pb_public", "--hooksDir=/pb_hooks", "--migrationsDir=/pb_migrations", "--automigrate=false", "--hooksWatch=false"]
+CMD ["pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/pb_data", "--publicDir=/pb_public", "--hooksDir=/pb_hooks", "--migrationsDir=/pb_migrations", "--automigrate=false", "--hooksWatch=false"]
 
 EXPOSE 8090
 
