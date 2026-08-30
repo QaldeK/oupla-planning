@@ -69,7 +69,9 @@ async function cleanupLocks() {
 // Node (pool: 'forks' = Node child processes), pas sous le runtime Bun. Le
 // runner `bun run test:integration` ne fait qu'invoquer vitest via Node.
 function ageLockInDb(masterId: string, ageMs: number): void {
-	const db = new DatabaseSync("./pocketbase/pb_data/data.db");
+	// Chemin surchargé via IT_PB_DATA pour pointer l'instance sous test
+	// (tests d'intégration sur PB jetable) — défaut : la base de dev locale.
+	const db = new DatabaseSync(process.env.IT_PB_DATA ?? "./pocketbase/pb_data/data.db");
 	const expired = new Date(Date.now() - ageMs)
 		.toISOString()
 		.replace("T", " ")
