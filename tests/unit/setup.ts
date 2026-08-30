@@ -40,3 +40,12 @@ Object.defineProperty(globalThis.navigator, "languages", {
 	configurable: true,
 	writable: true
 });
+
+// La détection serveur du runtime paraglide compilé (dossier gitignoré, régénéré
+// par dev/build ou CLI) varie selon le mode de génération : en test DOM, le chemin
+// client peut s'activer et résoudre "fr" via preferredLanguage, alors que les
+// assertions de composants sont écrites contre la baseLocale ("en"). Pin explicite
+// et déterministe ; les tests voulant du français le pinne localement (recurrence.test.ts).
+import { overwriteGetLocale } from "$lib/paraglide/runtime";
+
+overwriteGetLocale(() => "en");
