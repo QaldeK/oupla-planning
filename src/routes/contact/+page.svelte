@@ -11,6 +11,8 @@ let message = $state("");
 // Honeypot anti-bot : doit rester vide. Tout remplissage → silence serveur.
 let website = $state("");
 let isSending = $state(false);
+// Le toast seul passait inaperçu : la confirmation occupe la place du formulaire.
+let showSuccess = $state(false);
 
 function resetForm() {
 	name = "";
@@ -18,6 +20,10 @@ function resetForm() {
 	subject = "";
 	message = "";
 	website = "";
+}
+
+function startNewMessage() {
+	showSuccess = false;
 }
 
 async function handleContactSubmit() {
@@ -28,8 +34,8 @@ async function handleContactSubmit() {
 			method: "POST",
 			body: { name, email, subject, message, website }
 		});
-		toast.success(m.contact_success());
 		resetForm();
+		showSuccess = true;
 	} catch (error) {
 		console.error("Contact form send failed:", error);
 		toast.error(m.contact_error());
@@ -47,6 +53,34 @@ async function handleContactSubmit() {
   <h1 class="mb-2 text-3xl font-bold">{m.contact_page_heading()}</h1>
   <p class="text-base-content/70 mb-8 text-sm">{m.contact_intro()}</p>
 
+  {#if showSuccess}
+    <div role="status" aria-live="polite" class="alert alert-success flex flex-col items-stretch gap-4">
+      <div class="flex items-center gap-3">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="size-6 shrink-0"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <p class="font-medium">{m.contact_success()}</p>
+      </div>
+      <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <a href="/" class="btn btn-primary">{m.contact_success_back_home()}</a>
+        <button type="button" class="btn btn-ghost" onclick={startNewMessage}>
+          {m.contact_success_again()}
+        </button>
+      </div>
+    </div>
+  {:else}
   <div class="card card-compact bg-base-200 shadow-xl">
     <div class="card-body">
       <form
@@ -145,4 +179,5 @@ async function handleContactSubmit() {
       </p>
     </div>
   </div>
+  {/if}
 </div>

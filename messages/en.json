@@ -211,6 +211,8 @@
   "contact_sending": "Sending…",
   "contact_success": "Your message has been sent. We will reply by email.",
   "contact_error": "An error occurred while sending. Please try again.",
+  "contact_success_back_home": "Back to home",
+  "contact_success_again": "Send another message",
   "contact_privacy_note_pre": "Your data (name, email, message) is used solely to process your request. See the",
   "contact_privacy_note_link": "privacy policy",
   "contact_privacy_note_post": ".",

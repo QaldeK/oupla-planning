@@ -211,6 +211,8 @@
   "contact_sending": "Envoi en cours…",
   "contact_success": "Votre message a bien été envoyé. Nous vous répondrons par email.",
   "contact_error": "Une erreur est survenue lors de l'envoi. Merci de réessayer.",
+  "contact_success_back_home": "Retour à l'accueil",
+  "contact_success_again": "Envoyer un autre message",
   "contact_privacy_note_pre": "Vos données (nom, email, message) servent uniquement à traiter votre demande. Voir la",
   "contact_privacy_note_link": "politique de confidentialité",
   "contact_privacy_note_post": ".",
