@@ -1,0 +1,6 @@
+# Contexte de build = ce dossier. Ne rien envoyer au daemon hors code déployé.
+pb_data
+pocketbase
+*.db
+*.db-shm
+*.db-wal
