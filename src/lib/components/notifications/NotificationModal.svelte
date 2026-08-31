@@ -179,7 +179,7 @@ async function handleSave() {
         </legend>
 
         <label
-          class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
+          class="label whitespace-normal bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
         >
           <input
             type="checkbox"
@@ -196,7 +196,7 @@ async function handleSave() {
 
         {#if pushSupported}
           <label
-            class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
+            class="label whitespace-normal bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
           >
             <input
               type="checkbox"
@@ -222,18 +222,23 @@ async function handleSave() {
       >
         <legend class="fieldset-legend">{m.notif_what_notify()}</legend>
 
-        <!-- Modifs d'occurrence (toggle unique : heure / lieu / détails / annulation) -->
+        <!-- Modifs d'occurrence (toggle unique : date / horaires / lieu / annulation / suppression / confirmation) -->
         <label
-          class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
+          class="label whitespace-normal bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
         >
           <input
             type="checkbox"
             bind:checked={prefs.onOccurrenceChange}
             class="checkbox checkbox-sm"
           />
-          <span class="label-text text-sm font-medium">
-            {m.notif_occurrence_changes()}
-          </span>
+          <div class="min-w-0 space-y-0.5">
+            <p class="label-text text-sm font-medium">
+              {m.notif_occurrence_changes()}
+            </p>
+            <p class="text-xs break-words opacity-60">
+              {m.notif_occurrence_changes_hint()}
+            </p>
+          </div>
         </label>
 
         <!-- Rappels (multi-select via checkboxes bind:group) -->
@@ -244,7 +249,7 @@ async function handleSave() {
           <p class="text-xs opacity-60">{m.notif_reminders_hint()}</p>
           <div class="flex flex-wrap gap-x-4 gap-y-2 pt-1 pl-1">
             {#each reminderOptions as opt (opt.value)}
-              <label class="label cursor-pointer justify-start gap-2 p-0">
+              <label class="label whitespace-normal cursor-pointer justify-start gap-2 p-0">
                 <input
                   type="checkbox"
                   bind:group={prefs.reminderDays}
@@ -267,7 +272,7 @@ async function handleSave() {
           <p class="text-xs opacity-60">{m.notif_missing_hint()}</p>
           <div class="flex flex-wrap gap-x-4 gap-y-2 pt-1 pl-1">
             {#each missingOptions as opt (opt.value)}
-              <label class="label cursor-pointer justify-start gap-2 p-0">
+              <label class="label whitespace-normal cursor-pointer justify-start gap-2 p-0">
                 <input
                   type="checkbox"
                   bind:group={prefs.missingDays}
@@ -293,7 +298,7 @@ async function handleSave() {
           <div class="space-y-2 pt-1">
             {#each newCommentScopeOptions as opt (opt.value)}
               <label
-                class="label cursor-pointer justify-start gap-3 rounded-md p-1"
+                class="label whitespace-normal cursor-pointer justify-start gap-3 rounded-md p-1"
               >
                 <input
                   type="radio"
@@ -301,10 +306,9 @@ async function handleSave() {
                   value={opt.value}
                   class="radio radio-sm radio-primary"
                 />
-                <span class="flex flex-col">
-                  <span class="label-text text-sm font-medium">{opt.label}</span
-                  >
-                  <span class="text-xs opacity-60">{opt.hint}</span>
+                <span class="flex min-w-0 flex-col">
+                  <span class="label-text text-sm font-medium">{opt.label}</span>
+                  <span class="text-xs break-words opacity-60">{opt.hint}</span>
                 </span>
               </label>
             {/each}
@@ -326,18 +330,18 @@ async function handleSave() {
           </legend>
 
           <label
-            class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
+            class="label whitespace-normal bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
           >
             <input
               type="checkbox"
               bind:checked={prefs.onConfirmationNeeded}
               class="checkbox checkbox-warning checkbox-sm"
             />
-            <div class="space-y-0.5">
+            <div class="min-w-0 space-y-0.5">
               <p class="label-text text-sm font-medium">
                 {m.notif_unconfirmed_events()}
               </p>
-              <p class="text-xs opacity-60">
+              <p class="text-xs break-words opacity-60">
                 {m.notif_unconfirmed_hint()}
               </p>
             </div>

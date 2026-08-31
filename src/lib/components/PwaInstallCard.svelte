@@ -98,7 +98,7 @@ async function handleInstall() {
 				{/if} -->
 			</div>
 		{:else}
-			<div class="alert alert-success alert-soft shadow-md">
+			<div class="alert alert-success alert-soft shadow-md alert-vertical">
 				<div class="flex items-start gap-4">
 					<div class="bg-success/20 shrink-0 rounded-full p-3">
 						<Download size={mediaQuery.isMobile ? 20 : 24} class="text-success" />
