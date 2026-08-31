@@ -7,6 +7,19 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Corrections
+
+- **Modal de préférences de notification** — libellés et descriptions clarifiés
+  pour refléter le comportement réel : rappels réservés aux événements où l'on
+  est présent ou inscrit sur une tâche, « Participants sans réponse » renommé
+  « Quorum et volontaires manquants », « Événements non confirmés » décrit comme
+  un rappel admin quand un événement proche reste non confirmé, portée des
+  notifications de messages explicitée. Ajout d'une description sous
+  « Modifications d'occurrences ».
+- **Modal de notifications sur mobile** — suppression du débordement horizontal :
+  le `white-space: nowrap` imposé par les labels DaisyUI empêchait tout retour
+  à la ligne des textes.
+
 ## [0.6.0] — 2026-08-25
 
 ### Fonctionnalités
