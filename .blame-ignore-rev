@@ -1,0 +1,5 @@
+# Commits de reformat massif à ignorer dans git blame.
+# Activer via : git config blame.ignoreRevsFile .blame-ignore-rev
+
+# Reformat one-shot des .svelte avec prettier-plugin-svelte
+1887408dc37169893af8c38af16980ed4b857ef4
