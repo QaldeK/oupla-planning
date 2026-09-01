@@ -149,7 +149,7 @@ ls_additional_workspace_folders: []
 # The first language server is the default language and the respective language server will be used as a fallback.
 # Note that when using the JetBrains backend, language servers are not used and this list is correspondingly ignored.
 language_servers:
-- typescript
+- svelte
 
 # list of workspace folder paths (LSP backend only).
 # These folders will be used to build up Serena's symbol index.
