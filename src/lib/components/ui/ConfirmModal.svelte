@@ -1,62 +1,62 @@
 <script lang="ts">
-import { AlertCircle, AlertTriangle, CheckCircle2, Info } from "@lucide/svelte";
-import * as m from "$lib/paraglide/messages.js";
-import Modal from "./Modal.svelte";
+	import { AlertCircle, AlertTriangle, CheckCircle2, Info } from "@lucide/svelte";
+	import * as m from "$lib/paraglide/messages.js";
+	import Modal from "./Modal.svelte";
 
-interface Props {
-	open: boolean;
-	onClose: () => void;
-	onConfirm: () => void;
-	title: string;
-	message: string;
-	confirmLabel?: string;
-	cancelLabel?: string;
-	variant?: "danger" | "warning" | "info" | "success";
-	isSubmitting?: boolean;
-	description?: string;
-}
-
-let {
-	open = $bindable(false),
-	onClose,
-	onConfirm,
-	title,
-	message,
-	confirmLabel = m.common_confirm(),
-	cancelLabel = m.common_cancel(),
-	variant = "info",
-	isSubmitting = false,
-	description
-}: Props = $props();
-
-const variantConfig = {
-	danger: {
-		icon: AlertCircle,
-		btnClass: "btn-error",
-		bgClass: "bg-error/10",
-		iconClass: "text-error"
-	},
-	warning: {
-		icon: AlertTriangle,
-		btnClass: "btn-warning",
-		bgClass: "bg-warning/10",
-		iconClass: "text-warning"
-	},
-	success: {
-		icon: CheckCircle2,
-		btnClass: "btn-success",
-		bgClass: "bg-success/10",
-		iconClass: "text-success"
-	},
-	info: {
-		icon: Info,
-		btnClass: "btn-primary",
-		bgClass: "bg-primary/10",
-		iconClass: "text-primary"
+	interface Props {
+		open: boolean;
+		onClose: () => void;
+		onConfirm: () => void;
+		title: string;
+		message: string;
+		confirmLabel?: string;
+		cancelLabel?: string;
+		variant?: "danger" | "warning" | "info" | "success";
+		isSubmitting?: boolean;
+		description?: string;
 	}
-};
 
-const config = $derived(variantConfig[variant]);
+	let {
+		open = $bindable(false),
+		onClose,
+		onConfirm,
+		title,
+		message,
+		confirmLabel = m.common_confirm(),
+		cancelLabel = m.common_cancel(),
+		variant = "info",
+		isSubmitting = false,
+		description,
+	}: Props = $props();
+
+	const variantConfig = {
+		danger: {
+			icon: AlertCircle,
+			btnClass: "btn-error",
+			bgClass: "bg-error/10",
+			iconClass: "text-error",
+		},
+		warning: {
+			icon: AlertTriangle,
+			btnClass: "btn-warning",
+			bgClass: "bg-warning/10",
+			iconClass: "text-warning",
+		},
+		success: {
+			icon: CheckCircle2,
+			btnClass: "btn-success",
+			bgClass: "bg-success/10",
+			iconClass: "text-success",
+		},
+		info: {
+			icon: Info,
+			btnClass: "btn-primary",
+			bgClass: "bg-primary/10",
+			iconClass: "text-primary",
+		},
+	};
+
+	const config = $derived(variantConfig[variant]);
 </script>
 
 <Modal {open} {onClose} {title} size="sm">

@@ -1,39 +1,39 @@
 <!-- src/lib/components/PwaInstallCard.svelte -->
 <script lang="ts">
-import { Bell, CalendarX, Download, EllipsisVerticalIcon, Share, Users } from "@lucide/svelte";
-import Modal from "$lib/components/ui/Modal.svelte";
-import * as m from "$lib/paraglide/messages.js";
-import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
-import { pwaStore } from "$lib/stores/pwaStore.svelte";
+	import { Bell, CalendarX, Download, EllipsisVerticalIcon, Share, Users } from "@lucide/svelte";
+	import Modal from "$lib/components/ui/Modal.svelte";
+	import * as m from "$lib/paraglide/messages.js";
+	import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
+	import { pwaStore } from "$lib/stores/pwaStore.svelte";
 
-interface Props {
-	isDismissible?: boolean;
-	/** Mode compact : banner une ligne, pour les pages de planning */
-	compact?: boolean;
-}
+	interface Props {
+		isDismissible?: boolean;
+		/** Mode compact : banner une ligne, pour les pages de planning */
+		compact?: boolean;
+	}
 
-let { isDismissible = true, compact = false }: Props = $props();
-let dismissed = $state(false);
-let showInstallModal = $state(false);
+	let { isDismissible = true, compact = false }: Props = $props();
+	let dismissed = $state(false);
+	let showInstallModal = $state(false);
 
-// Détection iOS pour les instructions spécifiques (Safari = Partage → Écran d'accueil)
-let isIos = $derived(
-	typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent)
-);
+	// Détection iOS pour les instructions spécifiques (Safari = Partage → Écran d'accueil)
+	let isIos = $derived(
+		typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent),
+	);
 
-// Afficher si :
-// - Chromium (canInstall) → bouton d'install natif
-// - Non-Chrome mobile (showNativeHint + isMobile) → instructions manuelles
-let showCard = $derived(
-	!pwaStore.isInstalled &&
-		!dismissed &&
-		(pwaStore.canInstall || (mediaQuery.isMobile && pwaStore.showNativeHint))
-);
+	// Afficher si :
+	// - Chromium (canInstall) → bouton d'install natif
+	// - Non-Chrome mobile (showNativeHint + isMobile) → instructions manuelles
+	let showCard = $derived(
+		!pwaStore.isInstalled &&
+			!dismissed &&
+			(pwaStore.canInstall || (mediaQuery.isMobile && pwaStore.showNativeHint)),
+	);
 
-const whyInstall = m.pwa_why_install();
-async function handleInstall() {
-	await pwaStore.install();
-}
+	const whyInstall = m.pwa_why_install();
+	async function handleInstall() {
+		await pwaStore.install();
+	}
 </script>
 
 {#snippet installBenefits()}
@@ -61,10 +61,9 @@ async function handleInstall() {
 		<ol class="space-y-1 text-sm">
 			<li class="flex items-center gap-2">
 				<span class="badge badge-info badge-sm">1</span>
-			{m.pwa_ios_press_button()} <Share
-				size={14}
-				class="text-info bg-base-300 mx-1 inline size-4 rounded-full"
-			/> {m.pwa_ios_share()}
+				{m.pwa_ios_press_button()}
+				<Share size={14} class="text-info bg-base-300 mx-1 inline size-4 rounded-full" />
+				{m.pwa_ios_share()}
 			</li>
 			<li class="flex items-center gap-2">
 				<span class="badge badge-info badge-sm">2</span>
@@ -73,10 +72,11 @@ async function handleInstall() {
 		</ol>
 	{:else}
 		<p class="text-sm opacity-80">
-			{m.pwa_ios_press_menu()} <EllipsisVerticalIcon
-				class="bg-base-300 mx-1 inline size-4 rounded-full"
-			/> {m.pwa_ios_browser_continue()}
-			<strong>{m.pwa_install_action()}</strong> {m.pwa_ios_or()}
+			{m.pwa_ios_press_menu()}
+			<EllipsisVerticalIcon class="bg-base-300 mx-1 inline size-4 rounded-full" />
+			{m.pwa_ios_browser_continue()}
+			<strong>{m.pwa_install_action()}</strong>
+			{m.pwa_ios_or()}
 			<strong>{m.pwa_add_home_action()}</strong>.
 		</p>
 	{/if}
@@ -90,7 +90,7 @@ async function handleInstall() {
 				<span class="text-sm">
 					<Download size={16} class="text-success me-2 inline shrink-0" />{whyInstall}</span
 				>
-						<button class="btn btn-success btn-sm" onclick={handleInstall}>{m.pwa_install()}</button>
+				<button class="btn btn-success btn-sm" onclick={handleInstall}>{m.pwa_install()}</button>
 				<!-- {#if isDismissible}
 					<button class="btn btn-ghost btn-xs" onclick={() => (dismissed = true)}>
 						<X size={14} />
@@ -135,14 +135,15 @@ async function handleInstall() {
 			<div class="alert alert-info alert-soft border-info/60 alert-vertical py-2">
 				{#if isIos}
 					<span class="text-sm">
-						<Download size={16} class="text-info me-2 inline shrink-0" /> {m.pwa_ios_press()} <Share
-							size={14}
-							class="inline"
-						/> {m.pwa_ios_step_guide()}</span
+						<Download size={16} class="text-info me-2 inline shrink-0" />
+						{m.pwa_ios_press()}
+						<Share size={14} class="inline" />
+						{m.pwa_ios_step_guide()}</span
 					>
 				{:else}
 					<span class="text-sm"
-						><Download size={16} class="text-info me-2 inline shrink-0" /> {m.pwa_ios_install_desktop()}
+						><Download size={16} class="text-info me-2 inline shrink-0" />
+						{m.pwa_ios_install_desktop()}
 						<br />
 						<button class="btn btn-link btn-xs" onclick={() => (showInstallModal = true)}>
 							{m.pwa_how()}

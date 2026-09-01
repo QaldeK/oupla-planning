@@ -1,59 +1,59 @@
- <script lang="ts">
-import { ArrowLeft, X } from "@lucide/svelte";
-import * as m from "$lib/paraglide/messages.js";
-import { mediaQuery } from "$lib/stores/mediaQuery.svelte.js";
+<script lang="ts">
+	import { ArrowLeft, X } from "@lucide/svelte";
+	import * as m from "$lib/paraglide/messages.js";
+	import { mediaQuery } from "$lib/stores/mediaQuery.svelte.js";
 
-interface Props {
-	open: boolean;
-	onClose: () => void;
-	title?: string;
-	children: import("svelte").Snippet;
-	actions?: import("svelte").Snippet;
-	size?: "sm" | "md" | "lg" | "xl";
-	zIndex?: number;
-	/**
-	 * Si false, masque le bouton de fermeture (X / ArrowLeft) et
-	 * désactive la fermeture par Escape et par clic sur le backdrop.
-	 * Utilisé pour les modals qui exigent un choix explicite de l'utilisateur.
-	 */
-	closable?: boolean;
-}
-
-let {
-	open = $bindable(false),
-	onClose,
-	title,
-	children,
-	actions,
-	size = "md",
-	zIndex,
-	closable = true
-}: Props = $props();
-
-const sizeClasses = {
-	sm: "max-w-sm",
-	md: "max-w-2xl",
-	lg: "max-w-4xl",
-	xl: "max-w-6xl"
-};
-
-const isMobileFullscreen = $derived(
-	mediaQuery.isMobile && (size === "xl" || size === "lg" || size === "md")
-);
-
-function handleBackdropClick(e: MouseEvent) {
-	if (!closable) return;
-	if (e.target === e.currentTarget) {
-		onClose();
+	interface Props {
+		open: boolean;
+		onClose: () => void;
+		title?: string;
+		children: import("svelte").Snippet;
+		actions?: import("svelte").Snippet;
+		size?: "sm" | "md" | "lg" | "xl";
+		zIndex?: number;
+		/**
+		 * Si false, masque le bouton de fermeture (X / ArrowLeft) et
+		 * désactive la fermeture par Escape et par clic sur le backdrop.
+		 * Utilisé pour les modals qui exigent un choix explicite de l'utilisateur.
+		 */
+		closable?: boolean;
 	}
-}
 
-function handleKeydown(e: KeyboardEvent) {
-	if (!closable) return;
-	if (e.key === "Escape") {
-		onClose();
+	let {
+		open = $bindable(false),
+		onClose,
+		title,
+		children,
+		actions,
+		size = "md",
+		zIndex,
+		closable = true,
+	}: Props = $props();
+
+	const sizeClasses = {
+		sm: "max-w-sm",
+		md: "max-w-2xl",
+		lg: "max-w-4xl",
+		xl: "max-w-6xl",
+	};
+
+	const isMobileFullscreen = $derived(
+		mediaQuery.isMobile && (size === "xl" || size === "lg" || size === "md"),
+	);
+
+	function handleBackdropClick(e: MouseEvent) {
+		if (!closable) return;
+		if (e.target === e.currentTarget) {
+			onClose();
+		}
 	}
-}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (!closable) return;
+		if (e.key === "Escape") {
+			onClose();
+		}
+	}
 </script>
 
 {#if open}
@@ -89,7 +89,11 @@ function handleKeydown(e: KeyboardEvent) {
 					<!-- <button class="btn btn-circle btn-primary btn-sm" onclick={}><Save class="p-1" /></button> -->
 				{:else if closable}
 					<h3 class="flex-1 text-lg font-semibold">{title}</h3>
-					<button class="btn btn-circle btn-ghost btn-sm" onclick={onClose} aria-label={m.common_close()}>
+					<button
+						class="btn btn-circle btn-ghost btn-sm"
+						onclick={onClose}
+						aria-label={m.common_close()}
+					>
 						<X size={20} />
 					</button>
 				{:else}

@@ -1,17 +1,17 @@
 <script lang="ts">
-import { Settings, Share2, Users } from "@lucide/svelte";
-import CopyLinksButtons from "$lib/components/CopyLinksButtons.svelte";
-import * as m from "$lib/paraglide/messages.js";
+	import { Settings, Share2, Users } from "@lucide/svelte";
+	import CopyLinksButtons from "$lib/components/CopyLinksButtons.svelte";
+	import * as m from "$lib/paraglide/messages.js";
 
-interface Props {
-	isAdmin: boolean;
-	adminToken: string | null;
-	participantToken?: string;
-	allowResponses: boolean | undefined;
-	tasksCount: number;
-}
+	interface Props {
+		isAdmin: boolean;
+		adminToken: string | null;
+		participantToken?: string;
+		allowResponses: boolean | undefined;
+		tasksCount: number;
+	}
 
-let { isAdmin, adminToken, participantToken, allowResponses, tasksCount }: Props = $props();
+	let { isAdmin, adminToken, participantToken, allowResponses, tasksCount }: Props = $props();
 </script>
 
 {#if !isAdmin}

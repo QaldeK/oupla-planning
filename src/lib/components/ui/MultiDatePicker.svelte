@@ -1,131 +1,133 @@
 <script lang="ts">
-import { ChevronLeft, ChevronRight } from "@lucide/svelte";
-import {
-	addMonths,
-	eachDayOfInterval,
-	endOfMonth,
-	format,
-	isAfter,
-	isBefore,
-	isSameDay,
-	isSameMonth,
-	isToday,
-	parse,
-	startOfMonth,
-	subMonths
-} from "date-fns";
-import type { ClassValue } from "svelte/elements";
-import * as m from "$lib/paraglide/messages.js";
-import { endOfWeek, formatDate, startOfWeek } from "$lib/utils/date";
+	import { ChevronLeft, ChevronRight } from "@lucide/svelte";
+	import {
+		addMonths,
+		eachDayOfInterval,
+		endOfMonth,
+		format,
+		isAfter,
+		isBefore,
+		isSameDay,
+		isSameMonth,
+		isToday,
+		parse,
+		startOfMonth,
+		subMonths,
+	} from "date-fns";
+	import type { ClassValue } from "svelte/elements";
+	import * as m from "$lib/paraglide/messages.js";
+	import { endOfWeek, formatDate, startOfWeek } from "$lib/utils/date";
 
-/**
- * MultiDatePicker - Composant de sélection multiple de dates
- * Utilise des strings en format "yyyy-MM-dd" pour la compatibilité avec l'app
- * @component
- */
+	/**
+	 * MultiDatePicker - Composant de sélection multiple de dates
+	 * Utilise des strings en format "yyyy-MM-dd" pour la compatibilité avec l'app
+	 * @component
+	 */
 
-interface Props {
-	selectedDates: string[]; // Dates sélectionnées en format "yyyy-MM-dd"
-	excludeDates?: string[]; // Dates à exclure (désactivées) en format "yyyy-MM-dd"
-	maxSelection?: number; // Nombre maximum de dates sélectionnables
-	onChange: (dates: string[]) => void; // Callback quand la sélection change
-	minDate?: string; // Date minimum autorisée (format "yyyy-MM-dd")
-	maxDate?: string; // Date maximum autorisée (format "yyyy-MM-dd")
-	class?: ClassValue;
-}
-
-let {
-	selectedDates,
-	excludeDates = [],
-	maxSelection = 100,
-	onChange,
-	minDate,
-	maxDate,
-	class: className = ""
-}: Props = $props();
-
-// État local
-let currentMonth = $state(new Date());
-
-// Conversion des strings vers Date pour la logique interne
-const selectedDatesAsDate = $derived(selectedDates.map((d) => parse(d, "yyyy-MM-dd", new Date())));
-const excludedDatesAsDate = $derived(excludeDates.map((d) => parse(d, "yyyy-MM-dd", new Date())));
-const minDateParsed = $derived(minDate ? parse(minDate, "yyyy-MM-dd", new Date()) : null);
-const maxDateParsed = $derived(maxDate ? parse(maxDate, "yyyy-MM-dd", new Date()) : null);
-
-// Jours de la semaine (lun-dim)
-const daysOfWeek = $derived(() => {
-	const start = startOfWeek(new Date());
-	return eachDayOfInterval({ start, end: addMonths(start, 0).setDate(start.getDate() + 6) }).map(
-		(day) => formatDate(day, "EEEEEE")
-	); // Format court (Lu, Ma, etc.)
-});
-
-// Titre du mois
-const monthYear = $derived(formatDate(currentMonth, "MMMM yyyy"));
-
-// Génération des jours du calendrier
-const calendarDays = $derived(() => {
-	const monthStart = startOfMonth(currentMonth);
-	const monthEnd = endOfMonth(currentMonth);
-	const calendarStart = startOfWeek(monthStart);
-	const calendarEnd = endOfWeek(monthEnd);
-
-	return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-});
-
-// Fonctions utilitaires
-function isSelected(date: Date): boolean {
-	return selectedDatesAsDate.some((d) => isSameDay(d, date));
-}
-
-function isDisabled(date: Date): boolean {
-	if (minDateParsed && isBefore(date, minDateParsed)) return true;
-	if (maxDateParsed && isAfter(date, maxDateParsed)) return true;
-	return excludedDatesAsDate.some((d) => isSameDay(d, date));
-}
-
-function isCurrentMonthDay(date: Date): boolean {
-	return isSameMonth(date, currentMonth);
-}
-
-// Actions
-function selectDate(date: Date) {
-	if (isDisabled(date)) return;
-
-	const dateString = format(date, "yyyy-MM-dd");
-	const index = selectedDates.findIndex((d) => d === dateString);
-
-	let newDates: string[];
-	if (index > -1) {
-		// Désélectionner
-		newDates = selectedDates.filter((_, i) => i !== index);
-	} else {
-		// Vérifier la limite maxSelection (seulement les dates futures)
-		const today = format(new Date(), "yyyy-MM-dd");
-		const futureDatesCount = selectedDates.filter((d) => d >= today).length;
-		if (futureDatesCount >= maxSelection && dateString >= today) {
-			return; // Ne pas ajouter si la limite de dates futures est atteinte
-		}
-		// Sélectionner
-		newDates = [...selectedDates, dateString].sort();
+	interface Props {
+		selectedDates: string[]; // Dates sélectionnées en format "yyyy-MM-dd"
+		excludeDates?: string[]; // Dates à exclure (désactivées) en format "yyyy-MM-dd"
+		maxSelection?: number; // Nombre maximum de dates sélectionnables
+		onChange: (dates: string[]) => void; // Callback quand la sélection change
+		minDate?: string; // Date minimum autorisée (format "yyyy-MM-dd")
+		maxDate?: string; // Date maximum autorisée (format "yyyy-MM-dd")
+		class?: ClassValue;
 	}
 
-	// Notifier le parent
-	onChange(newDates);
-}
+	let {
+		selectedDates,
+		excludeDates = [],
+		maxSelection = 100,
+		onChange,
+		minDate,
+		maxDate,
+		class: className = "",
+	}: Props = $props();
 
-function previousMonth() {
-	currentMonth = subMonths(currentMonth, 1);
-}
+	// État local
+	let currentMonth = $state(new Date());
 
-function nextMonth() {
-	currentMonth = addMonths(currentMonth, 1);
-}
+	// Conversion des strings vers Date pour la logique interne
+	const selectedDatesAsDate = $derived(
+		selectedDates.map((d) => parse(d, "yyyy-MM-dd", new Date())),
+	);
+	const excludedDatesAsDate = $derived(excludeDates.map((d) => parse(d, "yyyy-MM-dd", new Date())));
+	const minDateParsed = $derived(minDate ? parse(minDate, "yyyy-MM-dd", new Date()) : null);
+	const maxDateParsed = $derived(maxDate ? parse(maxDate, "yyyy-MM-dd", new Date()) : null);
 
-function goToToday() {
-	currentMonth = new Date();
-}
+	// Jours de la semaine (lun-dim)
+	const daysOfWeek = $derived(() => {
+		const start = startOfWeek(new Date());
+		return eachDayOfInterval({ start, end: addMonths(start, 0).setDate(start.getDate() + 6) }).map(
+			(day) => formatDate(day, "EEEEEE"),
+		); // Format court (Lu, Ma, etc.)
+	});
+
+	// Titre du mois
+	const monthYear = $derived(formatDate(currentMonth, "MMMM yyyy"));
+
+	// Génération des jours du calendrier
+	const calendarDays = $derived(() => {
+		const monthStart = startOfMonth(currentMonth);
+		const monthEnd = endOfMonth(currentMonth);
+		const calendarStart = startOfWeek(monthStart);
+		const calendarEnd = endOfWeek(monthEnd);
+
+		return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+	});
+
+	// Fonctions utilitaires
+	function isSelected(date: Date): boolean {
+		return selectedDatesAsDate.some((d) => isSameDay(d, date));
+	}
+
+	function isDisabled(date: Date): boolean {
+		if (minDateParsed && isBefore(date, minDateParsed)) return true;
+		if (maxDateParsed && isAfter(date, maxDateParsed)) return true;
+		return excludedDatesAsDate.some((d) => isSameDay(d, date));
+	}
+
+	function isCurrentMonthDay(date: Date): boolean {
+		return isSameMonth(date, currentMonth);
+	}
+
+	// Actions
+	function selectDate(date: Date) {
+		if (isDisabled(date)) return;
+
+		const dateString = format(date, "yyyy-MM-dd");
+		const index = selectedDates.findIndex((d) => d === dateString);
+
+		let newDates: string[];
+		if (index > -1) {
+			// Désélectionner
+			newDates = selectedDates.filter((_, i) => i !== index);
+		} else {
+			// Vérifier la limite maxSelection (seulement les dates futures)
+			const today = format(new Date(), "yyyy-MM-dd");
+			const futureDatesCount = selectedDates.filter((d) => d >= today).length;
+			if (futureDatesCount >= maxSelection && dateString >= today) {
+				return; // Ne pas ajouter si la limite de dates futures est atteinte
+			}
+			// Sélectionner
+			newDates = [...selectedDates, dateString].sort();
+		}
+
+		// Notifier le parent
+		onChange(newDates);
+	}
+
+	function previousMonth() {
+		currentMonth = subMonths(currentMonth, 1);
+	}
+
+	function nextMonth() {
+		currentMonth = addMonths(currentMonth, 1);
+	}
+
+	function goToToday() {
+		currentMonth = new Date();
+	}
 </script>
 
 <div class="card bg-base-100 mx-auto w-full max-w-md shadow-xl {className}">
@@ -190,10 +192,10 @@ function goToToday() {
 					"
 					onclick={() => selectDate(date)}
 					{disabled}
-					aria-label={formatDate(date, 'PPP')}
+					aria-label={formatDate(date, "PPP")}
 					aria-pressed={selected}
 				>
-					{format(date, 'd')}
+					{format(date, "d")}
 				</button>
 			{/each}
 		</div>

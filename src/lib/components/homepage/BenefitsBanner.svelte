@@ -1,24 +1,24 @@
 <script lang="ts">
-import { HatGlasses, Smartphone, UserX } from "@lucide/svelte";
-import * as m from "$lib/paraglide/messages.js";
+	import { HatGlasses, Smartphone, UserX } from "@lucide/svelte";
+	import * as m from "$lib/paraglide/messages.js";
 
-const benefits = [
-	{
-		icon: UserX,
-		title: m.home_benefits_no_registration_title(),
-		description: m.home_benefits_no_registration_desc()
-	},
-	{
-		icon: HatGlasses,
-		title: m.home_benefits_opensource_title(),
-		description: m.home_benefits_opensource_desc()
-	},
-	{
-		icon: Smartphone,
-		title: m.home_benefits_installable_title(),
-		description: m.home_benefits_installable_desc()
-	}
-];
+	const benefits = [
+		{
+			icon: UserX,
+			title: m.home_benefits_no_registration_title(),
+			description: m.home_benefits_no_registration_desc(),
+		},
+		{
+			icon: HatGlasses,
+			title: m.home_benefits_opensource_title(),
+			description: m.home_benefits_opensource_desc(),
+		},
+		{
+			icon: Smartphone,
+			title: m.home_benefits_installable_title(),
+			description: m.home_benefits_installable_desc(),
+		},
+	];
 </script>
 
 <section class="py-10">

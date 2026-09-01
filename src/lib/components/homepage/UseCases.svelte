@@ -1,29 +1,29 @@
 <script lang="ts">
-import { Building2, Music, Trophy, Users } from "@lucide/svelte";
-import * as m from "$lib/paraglide/messages.js";
+	import { Building2, Music, Trophy, Users } from "@lucide/svelte";
+	import * as m from "$lib/paraglide/messages.js";
 
-const useCases = [
-	{
-		icon: Users,
-		title: m.home_usecases_associations_title(),
-		description: m.home_usecases_associations_desc()
-	},
-	{
-		icon: Trophy,
-		title: m.home_usecases_sports_title(),
-		description: m.home_usecases_sports_desc()
-	},
-	{
-		icon: Music,
-		title: m.home_usecases_music_title(),
-		description: m.home_usecases_music_desc()
-	},
-	{
-		icon: Building2,
-		title: m.home_usecases_teams_title(),
-		description: m.home_usecases_teams_desc()
-	}
-];
+	const useCases = [
+		{
+			icon: Users,
+			title: m.home_usecases_associations_title(),
+			description: m.home_usecases_associations_desc(),
+		},
+		{
+			icon: Trophy,
+			title: m.home_usecases_sports_title(),
+			description: m.home_usecases_sports_desc(),
+		},
+		{
+			icon: Music,
+			title: m.home_usecases_music_title(),
+			description: m.home_usecases_music_desc(),
+		},
+		{
+			icon: Building2,
+			title: m.home_usecases_teams_title(),
+			description: m.home_usecases_teams_desc(),
+		},
+	];
 </script>
 
 <section class="py-10">

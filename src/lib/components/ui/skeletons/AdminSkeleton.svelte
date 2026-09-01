@@ -1,8 +1,8 @@
 <script lang="ts">
-/**
- * Skeleton loader pour la page admin
- * Reprend la structure du formulaire de configuration
- */
+	/**
+	 * Skeleton loader pour la page admin
+	 * Reprend la structure du formulaire de configuration
+	 */
 </script>
 
 <div class="mx-auto max-w-6xl py-2 md:px-4">

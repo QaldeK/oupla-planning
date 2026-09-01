@@ -1,61 +1,62 @@
 <script lang="ts">
-import { CalendarArrowDown, CalendarArrowUp, Clock, UserMinus, UserPlus } from "@lucide/svelte";
-import { slide } from "svelte/transition";
-import Modal from "$lib/components/ui/Modal.svelte";
-import * as m from "$lib/paraglide/messages.js";
-import type { ParticipantResponse, Task, TaskType } from "$lib/types/planning.types";
+	import { CalendarArrowDown, CalendarArrowUp, Clock, UserMinus, UserPlus } from "@lucide/svelte";
+	import { slide } from "svelte/transition";
+	import Modal from "$lib/components/ui/Modal.svelte";
+	import * as m from "$lib/paraglide/messages.js";
+	import type { ParticipantResponse, Task, TaskType } from "$lib/types/planning.types";
 
-interface Props {
-	open: boolean;
-	onClose: () => void;
-	task: Task;
-	inscribed: ParticipantResponse[];
-	currentUserId?: string;
-	isInTask: boolean;
-	isSubmitting: boolean;
-	readOnly: boolean;
-	isPastDate: boolean;
-	getParticipantName: (response: ParticipantResponse) => string;
-	onToggle: () => void;
-	quitParticipantIds?: Set<string>;
-}
-
-let {
-	open,
-	onClose,
-	task,
-	inscribed,
-	currentUserId,
-	isInTask,
-	isSubmitting,
-	readOnly,
-	isPastDate,
-	getParticipantName,
-	onToggle,
-	quitParticipantIds = new Set()
-}: Props = $props();
-
-function handleClose() {
-	onClose();
-}
-
-const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: typeof Clock }> = {
-	beforeEvent: { bgClass: "bg-accent/30", label: m.task_type_before(), icon: CalendarArrowUp },
-	onEvent: { bgClass: "bg-accent/60", label: m.task_type_during(), icon: Clock },
-	afterEvent: { bgClass: "bg-accent", label: m.task_type_after(), icon: CalendarArrowDown }
-};
-
-const config = $derived(TASK_TYPE_CONFIG[task.type]);
-const Icon = $derived(config.icon);
-const volunteers = $derived(inscribed.length);
-const isComplete = $derived(volunteers >= task.requiredVolunteers);
-
-function handleSubscribe() {
-	if (!readOnly && !isPastDate && !isSubmitting) {
-		onToggle();
+	interface Props {
+		open: boolean;
+		onClose: () => void;
+		task: Task;
+		inscribed: ParticipantResponse[];
+		currentUserId?: string;
+		isInTask: boolean;
+		isSubmitting: boolean;
+		readOnly: boolean;
+		isPastDate: boolean;
+		getParticipantName: (response: ParticipantResponse) => string;
+		onToggle: () => void;
+		quitParticipantIds?: Set<string>;
 	}
-	handleClose();
-}
+
+	let {
+		open,
+		onClose,
+		task,
+		inscribed,
+		currentUserId,
+		isInTask,
+		isSubmitting,
+		readOnly,
+		isPastDate,
+		getParticipantName,
+		onToggle,
+		quitParticipantIds = new Set(),
+	}: Props = $props();
+
+	function handleClose() {
+		onClose();
+	}
+
+	const TASK_TYPE_CONFIG: Record<TaskType, { bgClass: string; label: string; icon: typeof Clock }> =
+		{
+			beforeEvent: { bgClass: "bg-accent/30", label: m.task_type_before(), icon: CalendarArrowUp },
+			onEvent: { bgClass: "bg-accent/60", label: m.task_type_during(), icon: Clock },
+			afterEvent: { bgClass: "bg-accent", label: m.task_type_after(), icon: CalendarArrowDown },
+		};
+
+	const config = $derived(TASK_TYPE_CONFIG[task.type]);
+	const Icon = $derived(config.icon);
+	const volunteers = $derived(inscribed.length);
+	const isComplete = $derived(volunteers >= task.requiredVolunteers);
+
+	function handleSubscribe() {
+		if (!readOnly && !isPastDate && !isSubmitting) {
+			onToggle();
+		}
+		handleClose();
+	}
 </script>
 
 <Modal bind:open onClose={handleClose} title={task.name} size="sm">
@@ -69,7 +70,8 @@ function handleSubscribe() {
 
 			<!-- Badge requis -->
 			<div class="badge font-semibold {isComplete ? 'badge-success' : 'badge-warning'} px-3">
-				{volunteers}/{task.requiredVolunteers} {m.task_inscribed_count()}
+				{volunteers}/{task.requiredVolunteers}
+				{m.task_inscribed_count()}
 			</div>
 		</div>
 

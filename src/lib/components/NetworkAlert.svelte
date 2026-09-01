@@ -1,45 +1,45 @@
 <script lang="ts">
-import { AlertTriangle, RefreshCw } from "@lucide/svelte";
-import { slide } from "svelte/transition";
-import * as m from "$lib/paraglide/messages.js";
-import { networkStore } from "$lib/stores/networkStore.svelte";
-import { planningStore } from "$lib/stores/planningStore.svelte";
-import { userStore } from "$lib/stores/userStore.svelte";
-import { formatDateTime } from "$lib/utils/date";
+	import { AlertTriangle, RefreshCw } from "@lucide/svelte";
+	import { slide } from "svelte/transition";
+	import * as m from "$lib/paraglide/messages.js";
+	import { networkStore } from "$lib/stores/networkStore.svelte";
+	import { planningStore } from "$lib/stores/planningStore.svelte";
+	import { userStore } from "$lib/stores/userStore.svelte";
+	import { formatDateTime } from "$lib/utils/date";
 
-interface Props {
-	/**
-	 * Message personnalisé (optionnel)
-	 * @default "Le serveur est indisponible - Modifications impossibles"
-	 */
-	message?: string;
-}
+	interface Props {
+		/**
+		 * Message personnalisé (optionnel)
+		 * @default "Le serveur est indisponible - Modifications impossibles"
+		 */
+		message?: string;
+	}
 
-let { message = m.net_server_unavailable() }: Props = $props();
+	let { message = m.net_server_unavailable() }: Props = $props();
 
-const isDisabled = $derived(!networkStore.isNetworkOk);
+	const isDisabled = $derived(!networkStore.isNetworkOk);
 
-// Serveur indispo (vs hors-ligne pur) : un reload peut aider à retrouver la connexion.
-const showReload = $derived(
-	networkStore.online && networkStore.hasActiveSubscription && !networkStore.realtimeConnected
-);
+	// Serveur indispo (vs hors-ligne pur) : un reload peut aider à retrouver la connexion.
+	const showReload = $derived(
+		networkStore.online && networkStore.hasActiveSubscription && !networkStore.realtimeConnected,
+	);
 
-// Fraîcheur des données affichées : global auth (lastAuthSyncAt) ou per-master guest (lastFetchAt).
-const freshnessDate = $derived.by(() => {
-	if (userStore.isLoggedIn) return userStore.lastAuthSyncAt;
-	const masterId = planningStore.activeMasterId;
-	if (!masterId) return null;
-	const lastFetchAt = planningStore.lastFetchAtFor(masterId);
-	return lastFetchAt ? new Date(lastFetchAt) : null;
-});
+	// Fraîcheur des données affichées : global auth (lastAuthSyncAt) ou per-master guest (lastFetchAt).
+	const freshnessDate = $derived.by(() => {
+		if (userStore.isLoggedIn) return userStore.lastAuthSyncAt;
+		const masterId = planningStore.activeMasterId;
+		if (!masterId) return null;
+		const lastFetchAt = planningStore.lastFetchAtFor(masterId);
+		return lastFetchAt ? new Date(lastFetchAt) : null;
+	});
 
-const freshnessLabel = $derived(
-	freshnessDate ? `${m.net_last_sync()} ${formatDateTime(freshnessDate)}` : ""
-);
+	const freshnessLabel = $derived(
+		freshnessDate ? `${m.net_last_sync()} ${formatDateTime(freshnessDate)}` : "",
+	);
 
-function reload() {
-	window.location.reload();
-}
+	function reload() {
+		window.location.reload();
+	}
 </script>
 
 {#if isDisabled}

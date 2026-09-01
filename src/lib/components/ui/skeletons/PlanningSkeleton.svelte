@@ -1,8 +1,8 @@
 <script lang="ts">
-/**
- * Skeleton loader pour la page planning participant
- * Reprend la structure visuelle de la page en mode chargement
- */
+	/**
+	 * Skeleton loader pour la page planning participant
+	 * Reprend la structure visuelle de la page en mode chargement
+	 */
 </script>
 
 <div class="mx-auto max-w-6xl md:px-4">

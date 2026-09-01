@@ -1,15 +1,15 @@
 <script lang="ts">
-import { RefreshCw } from "@lucide/svelte";
-import * as m from "$lib/paraglide/messages.js";
-import { networkStore } from "$lib/stores/networkStore.svelte";
+	import { RefreshCw } from "@lucide/svelte";
+	import * as m from "$lib/paraglide/messages.js";
+	import { networkStore } from "$lib/stores/networkStore.svelte";
 
-const isServerUnavailable = $derived(
-	networkStore.online && networkStore.hasActiveSubscription && !networkStore.realtimeConnected
-);
+	const isServerUnavailable = $derived(
+		networkStore.online && networkStore.hasActiveSubscription && !networkStore.realtimeConnected,
+	);
 
-function reload() {
-	window.location.reload();
-}
+	function reload() {
+		window.location.reload();
+	}
 </script>
 
 {#if !networkStore.online}

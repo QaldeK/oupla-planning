@@ -1,8 +1,8 @@
 <script lang="ts">
-/**
- * Skeleton loader pour la page archives
- * Reprend la structure de l'historique des événements passés
- */
+	/**
+	 * Skeleton loader pour la page archives
+	 * Reprend la structure de l'historique des événements passés
+	 */
 </script>
 
 <div class="bg-base-200 min-h-screen px-4 py-8 sm:px-6 lg:px-8">

@@ -1,21 +1,21 @@
 <script lang="ts">
-import * as m from "$lib/paraglide/messages.js";
+	import * as m from "$lib/paraglide/messages.js";
 
-interface Task {
-	name: string;
-	description?: string;
-	type?: TaskType;
-}
+	interface Task {
+		name: string;
+		description?: string;
+		type?: TaskType;
+	}
 
-type TaskType = "beforeEvent" | "afterEvent" | "onEvent" | "default";
+	type TaskType = "beforeEvent" | "afterEvent" | "onEvent" | "default";
 
-interface Props {
-	/** Liste des tâches non attribuées */
-	className: "";
-	unassignedTasks: Task[];
-}
+	interface Props {
+		/** Liste des tâches non attribuées */
+		className: "";
+		unassignedTasks: Task[];
+	}
 
-let { unassignedTasks = [], className = "" }: Props = $props();
+	let { unassignedTasks = [], className = "" }: Props = $props();
 </script>
 
 {#if unassignedTasks.length > 0}

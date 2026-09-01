@@ -1,27 +1,27 @@
 <script lang="ts">
-import { CalendarPlus, Eye, Share2 } from "@lucide/svelte";
-import * as m from "$lib/paraglide/messages.js";
+	import { CalendarPlus, Eye, Share2 } from "@lucide/svelte";
+	import * as m from "$lib/paraglide/messages.js";
 
-const steps = [
-	{
-		num: "1",
-		icon: CalendarPlus,
-		title: m.home_howitworks_step1_title(),
-		description: m.home_howitworks_step1_desc()
-	},
-	{
-		num: "2",
-		icon: Share2,
-		title: m.home_howitworks_step2_title(),
-		description: m.home_howitworks_step2_desc()
-	},
-	{
-		num: "3",
-		icon: Eye,
-		title: m.home_howitworks_step3_title(),
-		description: m.home_howitworks_step3_desc()
-	}
-];
+	const steps = [
+		{
+			num: "1",
+			icon: CalendarPlus,
+			title: m.home_howitworks_step1_title(),
+			description: m.home_howitworks_step1_desc(),
+		},
+		{
+			num: "2",
+			icon: Share2,
+			title: m.home_howitworks_step2_title(),
+			description: m.home_howitworks_step2_desc(),
+		},
+		{
+			num: "3",
+			icon: Eye,
+			title: m.home_howitworks_step3_title(),
+			description: m.home_howitworks_step3_desc(),
+		},
+	];
 </script>
 
 <section class=" py-10">

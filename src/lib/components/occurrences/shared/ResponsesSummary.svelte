@@ -1,71 +1,71 @@
 <script lang="ts">
-import type { LucideIcon } from "@lucide/svelte";
-import { UserPlus } from "@lucide/svelte";
-import { slide } from "svelte/transition";
-import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from "$lib/constants";
-import * as m from "$lib/paraglide/messages.js";
-import type {
-	ParticipantResponse,
-	ResponseType,
-	ResponseTypeConfig,
-	ViewType
-} from "$lib/types/planning.types";
+	import type { LucideIcon } from "@lucide/svelte";
+	import { UserPlus } from "@lucide/svelte";
+	import { slide } from "svelte/transition";
+	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from "$lib/constants";
+	import * as m from "$lib/paraglide/messages.js";
+	import type {
+		ParticipantResponse,
+		ResponseType,
+		ResponseTypeConfig,
+		ViewType,
+	} from "$lib/types/planning.types";
 
-interface Props {
-	responses: ParticipantResponse[];
-	getParticipantName: (response: ParticipantResponse) => string;
-	availableTypes?: ResponseType[];
-	onResponseSelect: (type: ResponseType) => void;
-	displayMode: ViewType;
-	currentUserId?: string;
-	disabled?: boolean;
-	isPastDate?: boolean;
-	quitParticipantIds?: Set<string>;
-}
-
-let {
-	responses,
-	getParticipantName,
-	availableTypes,
-	onResponseSelect,
-	displayMode,
-	currentUserId,
-	disabled = false,
-	isPastDate = false,
-	quitParticipantIds = new Set()
-}: Props = $props();
-
-const types = $derived(availableTypes || AVAILABLE_RESPONSE_TYPES);
-const isCompactDisplay = $derived(displayMode === "compact");
-const isMinimalDisplay = $derived(displayMode === "minimal");
-const currentUserResponseType = $derived(
-	currentUserId ? responses.find((r) => r.participantId === currentUserId)?.response : null
-);
-
-const responsesByType = $derived.by(() => {
-	const grouped: Record<ResponseType, ParticipantResponse[]> = {
-		present: [],
-		if_needed: [],
-		maybe: [],
-		absent: []
-	};
-	for (const response of responses) {
-		const responseType = response.response;
-		if (responseType in grouped) grouped[responseType].push(response);
+	interface Props {
+		responses: ParticipantResponse[];
+		getParticipantName: (response: ParticipantResponse) => string;
+		availableTypes?: ResponseType[];
+		onResponseSelect: (type: ResponseType) => void;
+		displayMode: ViewType;
+		currentUserId?: string;
+		disabled?: boolean;
+		isPastDate?: boolean;
+		quitParticipantIds?: Set<string>;
 	}
-	return grouped;
-});
 
-const sizeResponse = $derived(
-	types.length === 2 ? "max-w-1/2" : types.length === 3 ? "max-w-1/3" : "max-w-1/4"
-);
+	let {
+		responses,
+		getParticipantName,
+		availableTypes,
+		onResponseSelect,
+		displayMode,
+		currentUserId,
+		disabled = false,
+		isPastDate = false,
+		quitParticipantIds = new Set(),
+	}: Props = $props();
+
+	const types = $derived(availableTypes || AVAILABLE_RESPONSE_TYPES);
+	const isCompactDisplay = $derived(displayMode === "compact");
+	const isMinimalDisplay = $derived(displayMode === "minimal");
+	const currentUserResponseType = $derived(
+		currentUserId ? responses.find((r) => r.participantId === currentUserId)?.response : null,
+	);
+
+	const responsesByType = $derived.by(() => {
+		const grouped: Record<ResponseType, ParticipantResponse[]> = {
+			present: [],
+			if_needed: [],
+			maybe: [],
+			absent: [],
+		};
+		for (const response of responses) {
+			const responseType = response.response;
+			if (responseType in grouped) grouped[responseType].push(response);
+		}
+		return grouped;
+	});
+
+	const sizeResponse = $derived(
+		types.length === 2 ? "max-w-1/2" : types.length === 3 ? "max-w-1/3" : "max-w-1/4",
+	);
 </script>
 
 {#snippet responseRegular(
 	type: ResponseType,
 	config: ResponseTypeConfig,
 	typeResponses: ParticipantResponse[],
-	Icon: LucideIcon
+	Icon: LucideIcon,
 )}
 	<button
 		class="bg-base-200/50 group flex {sizeResponse} grow flex-col overflow-hidden rounded-lg {!disabled &&
@@ -111,7 +111,7 @@ const sizeResponse = $derived(
 	type: ResponseType,
 	config: ResponseTypeConfig,
 	typeResponses: ParticipantResponse[],
-	Icon: LucideIcon
+	Icon: LucideIcon,
 )}
 	<button
 		class="bg-base-200/50 group flex flex-wrap overflow-hidden rounded-lg {!disabled &&
@@ -124,8 +124,8 @@ const sizeResponse = $derived(
 			>
 				<Icon size={16} />
 				<span
-					class={typeResponses.some((r) => r.participantId === currentUserId) ? 'font-bold' : ''}
->{config.label()}</span
+					class={typeResponses.some((r) => r.participantId === currentUserId) ? "font-bold" : ""}
+					>{config.label()}</span
 				>
 			</div>
 			{#if typeResponses.length > 0}
@@ -174,17 +174,17 @@ const sizeResponse = $derived(
 					{@const typeResponses = responsesByType[type]}
 					{@const Icon = config.icon}
 					{@const isCurrentUserResponse = typeResponses.some(
-						(r) => r.participantId === currentUserId
+						(r) => r.participantId === currentUserId,
 					)}
 					<button
 						class={[
-							'response-cell text-base-content flex items-center justify-center gap-1.5 px-1 py-1.5 text-sm  transition-all ',
+							"response-cell text-base-content flex items-center justify-center gap-1.5 px-1 py-1.5 text-sm  transition-all ",
 
 							!disabled && !isPastDate && `hover:cursor-pointer hover:brightness-120`,
 
 							isCurrentUserResponse
 								? ` rounded-lg ring-3 ring-inset ${config.ringClass} ${config.bgClass} font-bold`
-								: `font-medium ${config.bgClass10}`
+								: `font-medium ${config.bgClass10}`,
 						]}
 						onclick={() => !isPastDate && onResponseSelect(type)}
 						disabled={disabled || isPastDate}
@@ -210,11 +210,11 @@ const sizeResponse = $derived(
 						{@const isQuit = quitParticipantIds.has(response.participantId)}
 						<div
 							class={[
-								'badge gap-1',
+								"badge gap-1",
 								config.bgClass,
 								response.participantId === currentUserId &&
 									`border-3 ${config.borderClass} font-semibold`,
-								isQuit && 'line-through opacity-40'
+								isQuit && "line-through opacity-40",
 							]}
 							in:slide
 						>

@@ -1,6 +1,6 @@
 <script lang="ts">
-import { HatGlasses, InfoIcon, Mail, Smartphone } from "@lucide/svelte";
-import * as m from "$lib/paraglide/messages.js";
+	import { HatGlasses, InfoIcon, Mail, Smartphone } from "@lucide/svelte";
+	import * as m from "$lib/paraglide/messages.js";
 </script>
 
 <div class="space-y-1">

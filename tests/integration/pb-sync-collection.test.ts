@@ -257,9 +257,9 @@ describe("pb-sync — CRUD et merge strategies", () => {
 
 			// Le serveur bloque le DELETE API (deleteRule superusers only, fenêtre de grâce) : l'erreur remonte,
 			// le rollback pb-sync restaure le snapshot local.
-			await expect(collection.remove(master.id, { query: { _token: adminToken } })).rejects.toMatchObject(
-				{ status: 403 }
-			);
+			await expect(
+				collection.remove(master.id, { query: { _token: adminToken } })
+			).rejects.toMatchObject({ status: 403 });
 
 			// Verification Dexie : record toujours présent (rollback)
 			const dexieMaster = await db.masters.get(master.id);

@@ -1,46 +1,46 @@
 <script lang="ts">
-import {
-	Bell,
-	CalendarCheck,
-	ClipboardList,
-	MessageSquareText,
-	Repeat2,
-	ShieldCheck
-} from "@lucide/svelte";
-import * as m from "$lib/paraglide/messages.js";
+	import {
+		Bell,
+		CalendarCheck,
+		ClipboardList,
+		MessageSquareText,
+		Repeat2,
+		ShieldCheck,
+	} from "@lucide/svelte";
+	import * as m from "$lib/paraglide/messages.js";
 
-const features = [
-	{
-		icon: CalendarCheck,
-		title: m.home_features_attendance_title(),
-		description: m.home_features_attendance_desc()
-	},
-	{
-		icon: ClipboardList,
-		title: m.home_features_tasks_title(),
-		description: m.home_features_tasks_desc()
-	},
-	{
-		icon: Repeat2,
-		title: m.home_features_recurrence_title(),
-		description: m.home_features_recurrence_desc()
-	},
-	{
-		icon: MessageSquareText,
-		title: m.home_features_comments_title(),
-		description: m.home_features_comments_desc()
-	},
-	{
-		icon: Bell,
-		title: m.home_features_notifications_title(),
-		description: m.home_features_notifications_desc()
-	},
-	{
-		icon: ShieldCheck,
-		title: m.home_features_confirmation_title(),
-		description: m.home_features_confirmation_desc()
-	}
-];
+	const features = [
+		{
+			icon: CalendarCheck,
+			title: m.home_features_attendance_title(),
+			description: m.home_features_attendance_desc(),
+		},
+		{
+			icon: ClipboardList,
+			title: m.home_features_tasks_title(),
+			description: m.home_features_tasks_desc(),
+		},
+		{
+			icon: Repeat2,
+			title: m.home_features_recurrence_title(),
+			description: m.home_features_recurrence_desc(),
+		},
+		{
+			icon: MessageSquareText,
+			title: m.home_features_comments_title(),
+			description: m.home_features_comments_desc(),
+		},
+		{
+			icon: Bell,
+			title: m.home_features_notifications_title(),
+			description: m.home_features_notifications_desc(),
+		},
+		{
+			icon: ShieldCheck,
+			title: m.home_features_confirmation_title(),
+			description: m.home_features_confirmation_desc(),
+		},
+	];
 </script>
 
 <section class="py-10">

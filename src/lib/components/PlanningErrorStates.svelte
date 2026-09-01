@@ -1,19 +1,17 @@
 <script lang="ts">
-import { RefreshCw, Trash2, WifiOff } from "@lucide/svelte";
-import * as m from "$lib/paraglide/messages.js";
+	import { RefreshCw, Trash2, WifiOff } from "@lucide/svelte";
+	import * as m from "$lib/paraglide/messages.js";
 
-interface Props {
-	errorType: "network" | "deleted" | "not-found" | null;
-	isOffline: boolean;
-}
+	interface Props {
+		errorType: "network" | "deleted" | "not-found" | null;
+		isOffline: boolean;
+	}
 
-let { errorType, isOffline }: Props = $props();
+	let { errorType, isOffline }: Props = $props();
 </script>
 
-{#if errorType === 'network' || isOffline}
-	{@const errorMessage = !isOffline
-		? m.error_server_unavailable()
-		: m.error_offline()}
+{#if errorType === "network" || isOffline}
+	{@const errorMessage = !isOffline ? m.error_server_unavailable() : m.error_offline()}
 	<div class="flex min-h-[50vh] items-center justify-center">
 		<div class="max-w-md text-center">
 			<div class="alert alert-error alert-soft">
@@ -31,7 +29,7 @@ let { errorType, isOffline }: Props = $props();
 			</button>
 		</div>
 	</div>
-{:else if errorType === 'deleted'}
+{:else if errorType === "deleted"}
 	<div class="flex min-h-[50vh] items-center justify-center">
 		<div class="max-w-md text-center">
 			<div
@@ -46,7 +44,7 @@ let { errorType, isOffline }: Props = $props();
 			<a href="/" class="btn btn-primary">{m.common_back_home()}</a>
 		</div>
 	</div>
-{:else if errorType === 'not-found'}
+{:else if errorType === "not-found"}
 	<div class="flex min-h-[50vh] items-center justify-center">
 		<div class="max-w-md text-center">
 			<h2 class="mb-2 text-2xl font-bold">{m.error_not_found()}</h2>

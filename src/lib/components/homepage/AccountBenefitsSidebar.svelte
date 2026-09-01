@@ -1,6 +1,6 @@
 <script lang="ts">
-import { HatGlasses, Mail, Smartphone } from "@lucide/svelte";
-import * as m from "$lib/paraglide/messages.js";
+	import { HatGlasses, Mail, Smartphone } from "@lucide/svelte";
+	import * as m from "$lib/paraglide/messages.js";
 </script>
 
 <div class="flex flex-1 items-center justify-center py-8">

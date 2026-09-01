@@ -1,65 +1,56 @@
 <script lang="ts">
-import { MessageSquareWarning, Plus, Trash2 } from "@lucide/svelte";
-import { goto } from "$app/navigation";
-import AuthSection from "$lib/components/homepage/AuthSection.svelte";
-import BenefitsBanner from "$lib/components/homepage/BenefitsBanner.svelte";
-import FeaturesGrid from "$lib/components/homepage/FeaturesGrid.svelte";
-import HowItWorks from "$lib/components/homepage/HowItWorks.svelte";
-import PwaInstallCard from "$lib/components/PwaInstallCard.svelte";
-import * as m from "$lib/paraglide/messages.js";
-import { getLocale } from "$lib/paraglide/runtime.js";
-import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
-import { planningStore } from "$lib/stores/planningStore.svelte";
-import { pwaStore } from "$lib/stores/pwaStore.svelte";
-import { userStore } from "$lib/stores/userStore.svelte";
-import { version } from "../../package.json" with { type: "json" };
+	import { MessageSquareWarning, Plus, Trash2 } from "@lucide/svelte";
+	import { goto } from "$app/navigation";
+	import AuthSection from "$lib/components/homepage/AuthSection.svelte";
+	import BenefitsBanner from "$lib/components/homepage/BenefitsBanner.svelte";
+	import FeaturesGrid from "$lib/components/homepage/FeaturesGrid.svelte";
+	import HowItWorks from "$lib/components/homepage/HowItWorks.svelte";
+	import PwaInstallCard from "$lib/components/PwaInstallCard.svelte";
+	import * as m from "$lib/paraglide/messages.js";
+	import { getLocale } from "$lib/paraglide/runtime.js";
+	import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
+	import { planningStore } from "$lib/stores/planningStore.svelte";
+	import { pwaStore } from "$lib/stores/pwaStore.svelte";
+	import { userStore } from "$lib/stores/userStore.svelte";
+	import { version } from "../../package.json" with { type: "json" };
 
-function navigateToPlanning(participantToken: string) {
-	goto(`/p/${participantToken}`);
-}
+	function navigateToPlanning(participantToken: string) {
+		goto(`/p/${participantToken}`);
+	}
 
-// JSON-LD structured data — construit dans le script pour éviter les problèmes de parsing HTML
-const jsonLdScript =
-	`<script type="application/ld+json">${JSON.stringify({
-		"@context": "https://schema.org",
-		"@type": "WebApplication",
-		name: "Oupla Planning",
-		url: "https://planning.oupla.net/",
-		description: m.home_jsonld_description(),
-		applicationCategory: "LifestyleApplication",
-		operatingSystem: "Web",
-		inLanguage: getLocale(),
-		offers: {
-			"@type": "Offer",
-			price: "0",
-			priceCurrency: "EUR"
-		}
-	})}</` + "script>";
+	// JSON-LD structured data — construit dans le script pour éviter les problèmes de parsing HTML
+	const jsonLdScript =
+		`<script type="application/ld+json">${JSON.stringify({
+			"@context": "https://schema.org",
+			"@type": "WebApplication",
+			name: "Oupla Planning",
+			url: "https://planning.oupla.net/",
+			description: m.home_jsonld_description(),
+			applicationCategory: "LifestyleApplication",
+			operatingSystem: "Web",
+			inLanguage: getLocale(),
+			offers: {
+				"@type": "Offer",
+				price: "0",
+				priceCurrency: "EUR",
+			},
+		})}</` + "script>";
 </script>
 
 <svelte:head>
 	<title>{m.home_page_title()}</title>
-	<meta
-		name="description"
-		content={m.home_meta_description()}
-	/>
+	<meta name="description" content={m.home_meta_description()} />
 
 	<!-- Open Graph -->
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content={m.home_og_title()} />
-	<meta
-		property="og:description"
-		content={m.home_og_description()}
-	/>
+	<meta property="og:description" content={m.home_og_description()} />
 	<meta property="og:image" content="/icon-512.png" />
 
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary" />
 	<meta name="twitter:title" content={m.home_twitter_title()} />
-	<meta
-		name="twitter:description"
-		content={m.home_twitter_description()}
-	/>
+	<meta name="twitter:description" content={m.home_twitter_description()} />
 
 	<!-- Structured Data (JSON-LD) -->
 	{@html jsonLdScript}
@@ -67,9 +58,11 @@ const jsonLdScript =
 
 <div class="mx-auto max-w-4xl pb-10">
 	<!-- Branding (always visible) -->
-	<div class="mb-8 flex min-h-[30vh] flex-col items-center justify-center space-y-6 text-center  ">
+	<div class="mb-8 flex min-h-[30vh] flex-col items-center justify-center space-y-6 text-center">
 		<div class="space-y-4">
-			<div class="bg-white/80 rounded-full"><img src="/logo.svg" class="mx-auto size-48 sm:size-54" alt="Oupla planning" /></div>
+			<div class="bg-white/80 rounded-full">
+				<img src="/logo.svg" class="mx-auto size-48 sm:size-54" alt="Oupla planning" />
+			</div>
 			<h1 class="text-6xl font-black max-sm:hidden">Oupla planning</h1>
 			<p class="text-base-content/70 max-w-md text-lg">
 				{m.home_tagline()}
@@ -80,7 +73,7 @@ const jsonLdScript =
 
 	<!-- Actions rapides -->
 	<div class="mb-8 flex justify-center">
-		<button onclick={() => goto('/new')} class="btn btn-primary btn-lg gap-3 shadow-lg">
+		<button onclick={() => goto("/new")} class="btn btn-primary btn-lg gap-3 shadow-lg">
 			<Plus size={24} />
 			{m.home_create_planning()}
 		</button>
@@ -101,7 +94,8 @@ const jsonLdScript =
 								<div class="flex-1 text-left">
 									<h3 class="card-title">{master.title}</h3>
 									<p class="text-base-content/60 text-sm">
-										{m.home_last_modified()} {new Date(master.updated).toLocaleDateString(getLocale())}
+										{m.home_last_modified()}
+										{new Date(master.updated).toLocaleDateString(getLocale())}
 									</p>
 								</div>
 								<div class="flex items-center gap-2">
