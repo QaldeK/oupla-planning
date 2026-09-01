@@ -7,8 +7,15 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-09-01
+
+### Fonctionnalités
+
+- **Formulaire de contact** — confirmation de succès centralisée après envoi, en remplacement du formulaire.
+
 ### Corrections
 
+- **Réponses après revendication d'identité** — impossible de répondre à un planning après avoir revendiqué son identité guest depuis un compte : le modal « Changer d'identité » s'ouvrait en boucle. L'identité opérationnelle est désormais alignée sur le participant revendiqué (clé des réponses et commentaires) ; quitter le planning et l'état de lecture des commentaires (« participant à la conversation ») sont corrigés par la même occasion.
 - **Modal de préférences de notification** — libellés et descriptions clarifiés
   pour refléter le comportement réel : rappels réservés aux événements où l'on
   est présent ou inscrit sur une tâche, « Participants sans réponse » renommé
@@ -19,6 +26,14 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Modal de notifications sur mobile** — suppression du débordement horizontal :
   le `white-space: nowrap` imposé par les labels DaisyUI empêchait tout retour
   à la ligne des textes.
+- **Image Docker PocketBase** — script d'entrée rendu exécutable et binaire
+  correctement référencé dans la commande de démarrage.
+
+### Maintenance
+
+- **Docker PocketBase** — Dockerfile autonome avec binaire 0.39.11 épinglé.
+- **Tests** — locale des tests unitaires épinglée explicitement ; chemin de
+  données PocketBase configurable pour les tests d'intégration (`IT_PB_DATA`).
 
 ## [0.6.0] — 2026-08-25
 
