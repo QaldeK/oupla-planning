@@ -45,8 +45,7 @@ opencode.json
 
 # Config files
 .npmrc
-.prettierignore
-.prettierrc
+
 eslint.config.js
 
 # Tauri

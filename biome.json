@@ -4,6 +4,8 @@
 		"includes": [
 			"**",
 			"!.serena",
+			"!.scratch",
+			"!messages",
 			"!pocketbase/pb_hooks",
 			"!pocketbase/pb_migrations",
 			"!pocketbase/pb_data",
@@ -19,6 +21,24 @@
 	},
 	"formatter": {
 		"enabled": true,
+		"includes": [
+			"**",
+			"!**/*.svelte",
+			"!.serena",
+			"!.scratch",
+			"!messages",
+			"!pocketbase/pb_hooks",
+			"!pocketbase/pb_migrations",
+			"!pocketbase/pb_data",
+			"!src/lib/types/pocketbase-types.ts",
+			"!src/lib/paraglide",
+			"!static",
+			"!.svelte-kit",
+			"!build",
+			"!dist",
+			"!*.lock",
+			"!*.lockb"
+		],
 		"indentStyle": "tab",
 		"indentWidth": 2,
 		"lineEnding": "lf",
@@ -55,7 +75,9 @@
 			"includes": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
 			"linter": {
 				"rules": {
-					"complexity": { "noArguments": "error" },
+					"complexity": {
+						"noArguments": "error"
+					},
 					"correctness": {
 						"noConstAssign": "off",
 						"noGlobalObjectCalls": "off",
@@ -66,7 +88,9 @@
 						"noUnreachable": "off",
 						"noUnreachableSuper": "off"
 					},
-					"style": { "useConst": "error" },
+					"style": {
+						"useConst": "error"
+					},
 					"suspicious": {
 						"noClassAssign": "off",
 						"noDuplicateClassMembers": "off",
@@ -100,8 +124,12 @@
 			"includes": ["tests/**"],
 			"linter": {
 				"rules": {
-					"suspicious": { "noExplicitAny": "off" },
-					"style": { "noNonNullAssertion": "off" }
+					"suspicious": {
+						"noExplicitAny": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
+					}
 				}
 			}
 		}
