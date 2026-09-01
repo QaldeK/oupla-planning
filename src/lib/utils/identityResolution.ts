@@ -33,7 +33,12 @@ export interface IdentityResolution {
 	participant: Participant | null;
 	/**
 	 * L'identité résolue (pour l'affichage, les requêtes).
-	 * - Auth : `pbUser`
+	 * - Auth avec participant lié : identité **alignée sur le participant**
+	 *   (`id = participant.id`, `name = participant.name`) — les données d'un
+	 *   planning (réponses, commentaires, quit) sont keyées par `participant.id`,
+	 *   qui diffère de `pbUser.id` après un claim d'identité guest.
+	 * - Auth sans participant lié : `pbUser` (transitoire — la stratégie CAS B/C
+	 *   enchaîne modal ou auto-add).
 	 * - Guest : `guestIdentity`
 	 * - `null` si guest sans identité locale, ou si identité revendiquée
 	 */
@@ -66,7 +71,13 @@ export function resolveCurrentIdentity(input: IdentityInput): IdentityResolution
 		const participant = participants.find((p) => p.userId === pbUser.id) ?? null;
 		return {
 			participant,
-			identity: pbUser,
+			// Invariant : quand un participant est résolu, l'identité opérationnelle
+			// porte participant.id (la clé des données). Après un claim, l'id du
+			// participant reste l'uuid guest — utiliser pbUser.id casserait toute
+			// écriture (réponses, commentaires) et le guard de re-identification.
+			identity: participant
+				? { id: participant.id, name: participant.name, email: pbUser.email }
+				: pbUser,
 			claimedByAuth: false
 		};
 	}

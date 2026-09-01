@@ -8,10 +8,8 @@ import { db, ensureDbReady, upsertLocalMeta, upsertRecord } from "$lib/pb-sync/d
 import { pb } from "$lib/pocketbase/pb";
 import { commentStateService } from "$lib/services/commentStateService";
 import { getPlanningByToken } from "$lib/services/planningActions";
-import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { PlanningMaster, PlanningOccurrence, SavedPlanning } from "$lib/types/planning.types";
-import { resolveActorIdentity } from "$lib/utils/identityResolution";
 
 /**
  * Ordre total stable pour les occurrences : date puis startTime, avec
@@ -576,15 +574,11 @@ class PlanningStore {
 	 * courant (auth ou guest). L'init arbitraire considère les commentaires
 	 * déjà présents comme "lus" — d'où l'appel uniquement pour les premières
 	 * visites (auth master fraîchement récupéré) et toujours pour les guests.
+	 * La résolution de l'id de participant (claim-aware) vit dans commentStateService.
 	 */
 	async #backfillCommentState(masterId: string): Promise<void> {
-		const identityId = resolveActorIdentity({
-			pbUser: userStore.pbUser,
-			guestIdentity: guestStateStore.getGuestIdentity(masterId)
-		})?.id;
-		if (!identityId) return;
 		const occs = await db.occurrences.where("master").equals(masterId).toArray();
-		commentStateService.backfillCommentState(masterId, occs, identityId);
+		commentStateService.backfillCommentState(masterId, occs);
 	}
 
 	#deactivate(): void {

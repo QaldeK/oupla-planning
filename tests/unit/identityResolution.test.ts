@@ -38,6 +38,15 @@ const PARTICIPANT_CLAIMED: Participant = {
 	userId: "pb-remote"
 };
 
+/** Post-claim par le compte courant : le participant guest garde son id (clé des données), seul userId est posé. */
+const PARTICIPANT_GUEST_CLAIMED: Participant = {
+	id: "guest-1",
+	name: "Alice",
+	isAdmin: false,
+	createdAt: "2026-01-01T00:00:00Z",
+	userId: "pb-1"
+};
+
 function makeInput(overrides: Partial<IdentityInput> = {}): IdentityInput {
 	return {
 		isLoggedIn: false,
@@ -110,7 +119,10 @@ describe("resolveCurrentIdentity", () => {
 		});
 	});
 
-	it("CAS 4 — auth user avec participant lié via userId : pbUser + participant", () => {
+	it("CAS 4 — auth user avec participant lié via userId : identity alignée sur le participant", () => {
+		// Après un claim, participant.id ≠ pbUser.id (seul userId est posé).
+		// Les données du planning (réponses, commentaires, quit) étant keyées par
+		// participant.id, l'identité opérationnelle doit porter participant.id.
 		const result = resolveCurrentIdentity(
 			makeInput({
 				isLoggedIn: true,
@@ -121,9 +133,43 @@ describe("resolveCurrentIdentity", () => {
 
 		expect(result).toEqual<IdentityResolution>({
 			participant: PARTICIPANT_WITH_USER_ID,
-			identity: PB_USER,
+			identity: { id: "participant-1", name: "Alice", email: "alice@test.com" },
 			claimedByAuth: false
 		});
+	});
+
+	it("auth claimé : identity.id référence le participant claimé (clé des réponses migrées)", () => {
+		// Régression bug « boucle du modal d'identité » : currentUserId (= identity.id)
+		// devait retrouver le participant via participants.find(p => p.id === currentUserId),
+		// sinon occurrenceState déclenchait onNeedReidentify en boucle.
+		const result = resolveCurrentIdentity(
+			makeInput({
+				isLoggedIn: true,
+				pbUser: PB_USER,
+				participants: [PARTICIPANT_GUEST_CLAIMED]
+			})
+		);
+
+		const currentUserId = result.identity?.id;
+		const found = [PARTICIPANT_GUEST_CLAIMED].find((p) => p.id === currentUserId);
+
+		expect(found).toBe(PARTICIPANT_GUEST_CLAIMED);
+		expect(result.identity?.name).toBe("Alice"); // nom du planning, suit les renames
+	});
+
+	it("auth claimé : currentResponse retrouvé — les réponses restent keyées par participant.id", () => {
+		const result = resolveCurrentIdentity(
+			makeInput({
+				isLoggedIn: true,
+				pbUser: PB_USER,
+				participants: [PARTICIPANT_GUEST_CLAIMED]
+			})
+		);
+
+		const responses = [{ participantId: "guest-1", response: "present", tasks: [] }];
+		const currentResponse = responses.find((r) => r.participantId === result.identity?.id);
+
+		expect(currentResponse).toBeDefined();
 	});
 
 	it("CAS 5 — auth user sans participant lié : pbUser, pas de participant", () => {

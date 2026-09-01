@@ -595,8 +595,9 @@ export interface ClaimIdentityResult {
 	success: boolean;
 	stats: ClaimIdentityStats;
 	/**
-	 * ID du participant auth final. Peut être différent du guestParticipantId si
-	 * l'auth avait déjà son propre participant (dans ce cas, le guest est supprimé).
+	 * ID du participant auth final = l'identité guest revendiquée (son id ne
+	 * change jamais — c'est la clé des réponses/commentaires). Si l'auth avait
+	 * déjà son propre participant, c'est lui qui est supprimé après migration.
 	 */
 	authParticipantId: string;
 }

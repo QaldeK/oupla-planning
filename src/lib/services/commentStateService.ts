@@ -25,10 +25,16 @@
  *   - lastCommentAt <= lastReadAt OU 0 commentaires → lu
  *
  * ## Cycle de vie
- * 1. **syncCommentReadState** (auth) / **backfillCommentState** (guest) :
+ * 1. **syncCommentReadState** (auth) / **backfillCommentState** (guest + premières visites auth) :
  *    Initialise les entrées Dexie au chargement/activation d'un planning.
  *    - Auth : pull depuis PB vers Dexie (occurrences déjà en Dexie via initialFetch).
  *    - Guest : backfill local avec `lastReadAt = now()`.
+ *
+ * ## Identité opérationnelle
+ * Les commentaires sont keyés par `participant.id` du planning, qui diffère de
+ * `pbUser.id` après un claim d'identité guest (seul `participants[].userId` est
+ * posé — l'id du participant ne change jamais). Tout calcul « suis-je dans la
+ * conversation » passe donc par `#resolveMyParticipantId`.
  *
  * 2. **markConversationAsRead** : unifie markAsOpened/markAsRead.
  *    Met à jour Dexie + PB (write-through fire-and-forget si auth).
@@ -43,6 +49,7 @@
 import { db } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
 import { getParticipantPrefs } from "$lib/services/planningParticipants";
+import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 import type { CommentState, PlanningOccurrence } from "$lib/types/planning.types";
 
 class CommentStateService {
@@ -53,13 +60,13 @@ class CommentStateService {
 	 */
 	async syncCommentReadState(): Promise<void> {
 		if (!pb.authStore.isValid || !pb.authStore.record) return;
-		const userId = pb.authStore.record.id;
+		const authUserId = pb.authStore.record.id;
 
 		let participants!: { id: string; planning: string; commentReadState: unknown }[];
 		try {
 			participants = await pb
 				.collection("planning_participants")
-				.getFullList({ filter: pb.filter("user = {:userId}", { userId }) });
+				.getFullList({ filter: pb.filter("user = {:userId}", { userId: authUserId }) });
 		} catch (err) {
 			console.error("Failed to fetch comment read state from PB:", err);
 			return;
@@ -72,6 +79,7 @@ class CommentStateService {
 			if (!masterId || !participant.commentReadState) continue;
 
 			const readState = participant.commentReadState as Record<string, string>;
+			const myParticipantId = await this.#resolveMyParticipantId(masterId);
 
 			for (const [occId, readAt] of Object.entries(readState)) {
 				const occ = await db.occurrences.get(occId);
@@ -82,7 +90,7 @@ class CommentStateService {
 					// Ne pas écraser si la valeur locale est plus récente
 					if (new Date(readAt).getTime() > new Date(existing.lastReadAt).getTime()) {
 						const updates: Partial<CommentState> = { lastReadAt: readAt };
-						const isInConversation = occ.comments.some((c) => c.participantId === userId);
+						const isInConversation = occ.comments.some((c) => c.participantId === myParticipantId);
 						if (isInConversation && !existing.isUserInConversation) {
 							updates.isUserInConversation = true;
 						}
@@ -93,7 +101,7 @@ class CommentStateService {
 						db.commentState.put({
 							occurrenceId: occId,
 							masterId,
-							isUserInConversation: occ.comments.some((c) => c.participantId === userId),
+							isUserInConversation: occ.comments.some((c) => c.participantId === myParticipantId),
 							lastReadAt: readAt
 						})
 					);
@@ -179,16 +187,33 @@ class CommentStateService {
 	}
 
 	/**
-	 * Backfill local (guest uniquement).
+	 * Id de participant de l'utilisateur courant dans CE planning.
+	 *
+	 * Les commentaires sont keyés par `participant.id`, qui diffère de `pbUser.id`
+	 * après un claim d'identité guest (l'id du participant ne change jamais, seul
+	 * `userId` est posé). Résoudre via `participants[].userId` pour un auth ;
+	 * fallback `pbUser.id` pour les auto-add CAS C (id = pbUser.id par
+	 * construction). Guest : identité locale du planning.
+	 */
+	async #resolveMyParticipantId(masterId: string): Promise<string | null> {
+		const authUserId = pb.authStore.record?.id ?? null;
+		if (authUserId) {
+			const master = await db.masters.get(masterId);
+			return master?.participants.find((p) => p.userId === authUserId)?.id ?? authUserId;
+		}
+		return guestStateStore.getGuestIdentity(masterId)?.id ?? null;
+	}
+
+	/**
+	 * Backfill local (guest + premières visites auth).
 	 * Crée les entrées manquantes pour toutes les occurrences avec commentaires,
 	 * avec `lastReadAt = now()` → les commentaires existants sont considérés comme lus.
 	 * Met aussi à jour `isUserInConversation` si l'utilisateur a commenté.
 	 */
-	async backfillCommentState(
-		masterId: string,
-		occurrences: PlanningOccurrence[],
-		participantId: string
-	): Promise<void> {
+	async backfillCommentState(masterId: string, occurrences: PlanningOccurrence[]): Promise<void> {
+		const participantId = await this.#resolveMyParticipantId(masterId);
+		if (!participantId) return;
+
 		const ops: Promise<unknown>[] = [];
 
 		for (const occ of occurrences) {
