@@ -162,8 +162,12 @@
 
 		isSaving = true;
 		try {
+			const email = pb.authStore.record!.email;
+
+			// Pré-check UX : un mauvais mot de passe actuel donne ici une erreur
+			// claire, alors que côté update ce serait un 404 générique.
 			try {
-				await pb.collection("users").authWithPassword(pb.authStore.record!.email, currentPassword);
+				await pb.collection("users").authWithPassword(email, currentPassword);
 			} catch {
 				toast.error(m.settings_incorrect_password());
 				isSaving = false;
@@ -173,7 +177,13 @@
 			await pb.collection("users").update(pb.authStore.record!.id, {
 				password: newPassword,
 				passwordConfirm: confirmPassword,
+				// Exigé par PocketBase >= 0.39 pour un changement de mot de passe
+				oldPassword: currentPassword,
 			});
+
+			// Le changement de mot de passe invalide le token courant (rotation
+			// du tokenKey) : réauthentification immédiate pour garder une session valide
+			await pb.collection("users").authWithPassword(email, newPassword);
 
 			toast.success(m.settings_password_updated());
 
@@ -272,7 +282,13 @@
 				{m.settings_profile_description()}
 			</p>
 
-			<form onsubmit={(e) => e.preventDefault()} class="space-y-4">
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+				handleProfileUpdate();
+			}}
+				class="space-y-4"
+			>
 				<fieldset class="fieldset">
 					<label class="input w-full">
 						<span class="label">
@@ -311,8 +327,8 @@
 
 				<div class="card-actions mt-6 justify-end">
 					<button
+						type="submit"
 						class="btn btn-primary"
-						onclick={handleProfileUpdate}
 						disabled={isSaving || !name.trim()}
 					>
 						{#if isSaving}
@@ -432,7 +448,13 @@
 	<div class="space-y-4">
 		<p class="text-sm opacity-70">{m.settings_password_modal_description()}</p>
 
-		<form onsubmit={(e) => e.preventDefault()} class="space-y-4">
+		<form
+			onsubmit={(e) => {
+				e.preventDefault();
+				handlePasswordChange();
+			}}
+			class="space-y-4"
+		>
 			<fieldset class="fieldset">
 				<label class="input w-full">
 					<span class="label">
@@ -482,12 +504,12 @@
 			</fieldset>
 
 			<div class="modal-action">
-				<button class="btn btn-ghost" onclick={() => (showPasswordModal = false)}>
+				<button type="button" class="btn btn-ghost" onclick={() => (showPasswordModal = false)}>
 					{m.settings_cancel_button()}
 				</button>
 				<button
+					type="submit"
 					class="btn btn-primary"
-					onclick={handlePasswordChange}
 					disabled={isSaving || !currentPassword || !newPassword || !confirmPassword}
 				>
 					{#if isSaving}
@@ -525,7 +547,13 @@
 
 		<p class="text-sm opacity-70">{m.settings_delete_modal_confirm_hint()}</p>
 
-		<form onsubmit={(e) => e.preventDefault()} class="space-y-4">
+		<form
+			onsubmit={(e) => {
+				e.preventDefault();
+				handleDeleteAccount();
+			}}
+			class="space-y-4"
+		>
 			<fieldset class="fieldset">
 				<label class="input w-full">
 					<span class="label">
@@ -544,6 +572,7 @@
 
 			<div class="modal-action">
 				<button
+					type="button"
 					class="btn btn-ghost"
 					onclick={() => (showDeleteModal = false)}
 					disabled={isDeleting}
@@ -551,8 +580,8 @@
 					{m.settings_cancel_button()}
 				</button>
 				<button
+					type="submit"
 					class="btn btn-error"
-					onclick={handleDeleteAccount}
 					disabled={isDeleting || !deletePassword}
 				>
 					{#if isDeleting}
