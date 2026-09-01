@@ -391,7 +391,16 @@
 	welcomeMode
 />
 
-<Toaster position="bottom-right" />
+<Toaster
+	position="bottom-right"
+	toastOptions={{
+		classes: {
+			error: "border-l-4! border-error!",
+			warning: "border-l-4! border-warning!",
+			info: "border-l-4! border-info!"
+		}
+	}}
+/>
 
 <NetworkIndicator />
 
