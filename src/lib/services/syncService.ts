@@ -38,7 +38,13 @@ class SyncService {
 		});
 
 		// Étape 2 : Sync incrémental des masters (API Rules auto-filtrent)
-		await mastersCollection.initialFetch();
+		// Curseur conservatif : min(updated) local. Un curseur max(updated) sauterait
+		// définitivement les mises à jour manquées (trou SSE) sur tout planning plus
+		// ancien que le plus récent. Toute update manquée d'un record R est plus
+		// récente que la copie locale de R, donc plus récente que le min global.
+		const oldest = await db.masters.orderBy("updated").first();
+		const oldestUpdated = oldest?.updated ?? "2000-01-01 00:00:00";
+		await mastersCollection.initialFetch({ since: oldestUpdated });
 
 		// Étape 3 : Sync incrémental des occurrences (API Rules auto-filtrent)
 		await occurrencesCollection.initialFetch();

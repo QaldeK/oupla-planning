@@ -69,9 +69,6 @@ class PlanningStore {
 	#allMasters = $state<PlanningMaster[]>([]);
 	#allMastersSub: Subscription | null = null;
 
-	// Masters dont l'existence sur le serveur a été vérifiée ce session
-	#verifiedMasterIds = new Set<string>();
-
 	// === Getters page-scoped ===
 
 	get master(): PlanningMaster | null {
@@ -389,13 +386,17 @@ class PlanningStore {
 		// écriraient au chargement et prendraient des 403 contre les gardes serveur).
 		const readOnly = master.deleted === true;
 		if (!readOnly && wasInDexie) {
-			// Vérification serveur seulement si master était déjà en Dexie : un master
-			// fraîchement fetched prouve son existence par la réponse API elle-même.
-			// Un 404 ici = purge définitive (fenêtre de grâce expirée) → introuvable.
-			const status = await this.#verifyMasterExistsOnServer(master.id, token);
+			// Un master fraîchement fetched prouve son existence par la réponse API
+			// elle-même — le refresh ne sert qu'au cas déjà en Dexie. Un 404 ici =
+			// purge définitive (fenêtre de grâce expirée) → introuvable.
+			const status = await this.#refreshMasterFromServer(master.id, token);
 			if (status === "deleted") {
 				this.#error = { type: "not_found", message: "Planning introuvable" };
 				return;
+			}
+			// Reprendre la copie à jour pour les étapes 5/6 (claim, tokens, récurrence).
+			if (status === "ok") {
+				master = (await db.masters.get(master.id)) ?? master;
 			}
 		}
 
@@ -431,25 +432,38 @@ class PlanningStore {
 	}
 
 	/**
-	 * Atomic op : vérifie l'existence d'un master sur le serveur (une seule
-	 * fois par session via le cache `#verifiedMasterIds`).
+	 * Atomic op : re-fetch du master depuis le serveur et upsert si plus récent.
 	 *
-	 * @returns `'ok'` si vérifié, `'deleted'` si 404 côté serveur (le master est
-	 *   marqué deleted localement), `'unknown'` si erreur réseau (non bloquant —
-	 *   le caller décide de continuer avec les données locales).
+	 * Le master n'est couvert par aucun delta-sync (le curseur per-master
+	 * `lastFetchAt` ne porte que sur les occurrences) : sans ce re-fetch, les
+	 * mises à jour survenues pendant une coupure SSE — typiquement l'ajout de
+	 * participants — seraient manquées définitivement, faute de rejouabilité du
+	 * realtime. Répond aussi au rôle de l'ancien check d'existence (404 →
+	 * master marqué deleted localement).
+	 *
+	 * Le upsert est sauté si la copie locale est déjà à jour (évite du churn
+	 * Dexie → re-rendus liveQuery à chaque re-sync).
+	 *
+	 * @returns `'ok'` si le serveur a répondu (upsert fait ou inutile),
+	 *   `'deleted'` si 404 côté serveur (master marqué deleted localement),
+	 *   `'unknown'` si erreur réseau (non bloquant — le caller décide de
+	 *   continuer avec les données locales).
 	 */
-	async #verifyMasterExistsOnServer(
+	async #refreshMasterFromServer(
 		masterId: string,
 		token: string
 	): Promise<"ok" | "deleted" | "unknown"> {
-		if (this.#verifiedMasterIds.has(masterId)) return "ok";
 		try {
-			await pb.collection("planning_masters").getOne(masterId, {
-				fields: "id",
+			const fresh = await pb.collection("planning_masters").getOne<PlanningMaster>(masterId, {
 				query: { _token: token },
 				requestKey: null
 			});
-			this.#verifiedMasterIds.add(masterId);
+			const local = await db.masters.get(masterId);
+			// Comparaison lexicographique sûre : format datetime PB fixe, tri alpha = tri chrono.
+			if (!local || fresh.updated > local.updated) {
+				// upsertRecord préserve les champs locaux masqués côté API (adminToken pour un guest).
+				await upsertRecord(db.masters, fresh);
+			}
 			return "ok";
 		} catch (err: unknown) {
 			if (err instanceof ClientResponseError && err.status === 404) {
@@ -458,7 +472,7 @@ class PlanningStore {
 			}
 			// Erreur réseau → non-bloquant, on garde les données locales (potentiellement obsolètes)
 			console.warn(
-				"[PlanningStore] Could not verify master existence:",
+				"[PlanningStore] Could not refresh master from server:",
 				err instanceof ClientResponseError ? err.message : err
 			);
 			return "unknown";
@@ -673,6 +687,11 @@ class PlanningStore {
 		const token = master.adminToken ?? master.participantToken;
 		if (!token) return;
 
+		// Master d'abord : mêmes raisons que l'activation — aucune delta sync
+		// existante ne couvre planning_masters, et un guest sans realtime valide
+		// doit pouvoir rattraper les participants ajoutés pendant la coupure.
+		await this.#refreshMasterFromServer(this.#activeMasterId, token);
+
 		// Delta sync per-master via l'atomic op partagé.
 		// Non bloquant : appelé en fire-and-forget par networkStore (polling de reconnexion).
 		await this.#deltaSyncOccurrences(this.#activeMasterId, token);
@@ -685,7 +704,6 @@ class PlanningStore {
 		this.#deactivate();
 		this.#destroyGlobalSync();
 		this.invalidateAll();
-		this.#verifiedMasterIds.clear();
 	}
 }
 
