@@ -15,6 +15,7 @@ import type {
 	ThemeType,
 	ViewType
 } from "$lib/types/planning.types";
+import { refreshSessionSilently } from "$lib/utils/sessionRefresh";
 import { storage } from "$lib/utils/storage";
 
 const APP_PREFS_KEY = "app_preferences";
@@ -98,6 +99,14 @@ export class UserStore {
 
 		// Si déjà auth au chargement → données déjà en Dexie, delta fetch + subscribe
 		if (this.isLoggedIn) {
+			// Session glissante : renouvelle le token d'auth à chaque visite (sans
+			// ça, déconnexion après la durée du token malgré un usage régulier).
+			// Fire-and-forget — ne bloque jamais le boot (offline-first).
+			refreshSessionSilently({
+				authRefresh: () => pb.collection("users").authRefresh(),
+				clearAuth: () => pb.authStore.clear()
+			});
+
 			this.#subscribeAuth();
 
 			// Réactivation push silencieuse à la visite (upsert idempotent) —

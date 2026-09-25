@@ -1,5 +1,5 @@
 /**
- * Tests d'integration — userStore, guestStateStore, authTransition : identity, auth, logout
+ * Tests d'integration — userStore, guestStateStore, authTransition : identity, auth, logout, session refresh
  *
  * Objectif :
  *   Verifier le pipeline de gestion des identites guest et des transitions auth :
@@ -32,6 +32,7 @@ import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { PlanningIdentity } from "$lib/types/planning.types";
 import { resolveCurrentIdentity } from "$lib/utils/identityResolution";
+import { refreshSessionSilently } from "$lib/utils/sessionRefresh";
 import {
 	authenticateAdmin,
 	authenticateUser,
@@ -649,6 +650,50 @@ describe("userStore — identity, auth transitions, logout", () => {
 			await vi.waitFor(() => {
 				expect(guestStateStore.guestStates).toHaveLength(0);
 			});
+		});
+	});
+
+	// ============================================
+	// Session refresh (session glissante)
+	// ============================================
+
+	describe("Session refresh", () => {
+		it("renouvelle le token auth valide et conserve le record", async () => {
+			// === SEED ===
+			const user = await seedUser(USER_EMAIL, USER_PWD, "Refresh User");
+			trackIds("users", user.id);
+
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+
+			// === ACTION ===
+			await refreshSessionSilently({
+				authRefresh: () => pb.collection("users").authRefresh(),
+				clearAuth: () => pb.authStore.clear()
+			});
+
+			// === VERIFICATION ===
+			expect(pb.authStore.isValid).toBe(true);
+			expect(pb.authStore.record?.id).toBe(user.id);
+
+			// Cleanup
+			pb.authStore.clear();
+		});
+
+		it("clear l authStore quand le token est rejeté par le serveur (4xx)", async () => {
+			// Token que PB rejette systématiquement en 4xx (authRefresh avec un
+			// token invalide) → clearAuth, la session locale ne doit pas survivre.
+			pb.authStore.save("invalid.jwt.token", {});
+
+			// === ACTION ===
+			await refreshSessionSilently({
+				authRefresh: () => pb.collection("users").authRefresh(),
+				clearAuth: () => pb.authStore.clear()
+			});
+
+			// === VERIFICATION ===
+			expect(pb.authStore.isValid).toBe(false);
+			expect(pb.authStore.token).toBe("");
 		});
 	});
 
