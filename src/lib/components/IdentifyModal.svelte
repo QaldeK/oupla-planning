@@ -173,6 +173,7 @@
 		} catch (error) {
 			console.error("Error creating participant:", error);
 			toast.error(m.identify_error());
+		} finally {
 			isSubmitting = false;
 		}
 	}
