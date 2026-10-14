@@ -145,6 +145,20 @@ bun run test:integration  # tests d'intégration (PocketBase requis sur 127.0.0.
 bun run lint              # biome
 ```
 
+### Tests d'intégration — instance PocketBase dédiée
+
+Par défaut, `test:integration` vise l'instance de dev (`127.0.0.1:8090`), qui
+porte la config SMTP réelle — si ce SMTP est injoignable depuis la machine, le
+hook contact bloque les tests de soumission valide. Pour lancer les tests
+contre une instance jetable (données séparées, SMTP désactivé, port 8091) :
+
+```bash
+cd pocketbase && ./dev-test-server.sh start
+# depuis la racine :
+VITE_PLANNING_PB_URL=http://127.0.0.1:8091 bun run test:integration
+cd pocketbase && ./dev-test-server.sh stop
+```
+
 ---
 
 ## Licence
