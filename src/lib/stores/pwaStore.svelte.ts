@@ -108,8 +108,10 @@ class PwaStore {
 	 * (`visibilitychange`, BFCache restore) et un polling léger pour les sessions
 	 * longues.
 	 *
-	 * Skip si `reg.waiting` existe déjà : une MAJ en attente est déjà connue du
-	 * store (`hasUpdate` est censé être true), un check serait du gaspillage.
+	 * Le check continue même si `reg.waiting` existe déjà : un second déploiement
+	 * pendant qu'une MAJ attend doit remplacer le `waiting` courant (le dernier
+	 * découvert gagne), sinon le clic « Mettre à jour » activerait une version
+	 * intermédiaire et imposerait un second cycle toast → reload.
 	 * Échec silencieux (offline transient) : loggué en `debug`, non propagé.
 	 *
 	 * Note : le curseur `#lastUpdateCheckAt` est positionné AVANT l'appel (et non
@@ -118,7 +120,6 @@ class PwaStore {
 	 * pas ouvrir une fenêtre permettant de violer la spec via un tab-flicker.
 	 */
 	#triggerUpdateCheck(reg: ServiceWorkerRegistration) {
-		if (reg.waiting) return; // déjà notifié (ou sur le point de l'être)
 		if (Date.now() - this.#lastUpdateCheckAt < 60_000) return;
 		this.#lastUpdateCheckAt = Date.now();
 		reg.update().catch((e) => console.debug("SW update check failed:", e));
