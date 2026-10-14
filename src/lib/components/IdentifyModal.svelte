@@ -5,6 +5,7 @@
 	import * as m from "$lib/paraglide/messages.js";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import type { Participant, PlanningIdentity } from "$lib/types/planning.types";
+	import { hasNameConflict } from "$lib/utils/participantConflict";
 	import AuthForm from "./auth/AuthForm.svelte";
 	import NameConflictHandler from "./NameConflictHandler.svelte";
 	import Modal from "./ui/Modal.svelte";
@@ -42,7 +43,9 @@
 	// propose plus de saisie immédiate (source de confusion rename/switch) : il met
 	// en avant l'identité active, liste les participants reprenables et déplie la
 	// création d'un nouveau participant. Le rename vit dans RenameParticipantModal.
-	let isSwitch = $derived(!!currentIdentity);
+	// Garde auth : le flux des users connectés passe par IdentityClaimModal — la
+	// branche switch reste guest même si un futur appelant passe une currentIdentity.
+	let isSwitch = $derived(!!currentIdentity && !userStore.isLoggedIn);
 	let newParticipantName = $state("");
 	let showCreateForm = $state(false);
 
@@ -51,13 +54,9 @@
 	);
 
 	// Conflit pour la création : nom déjà porté par un autre participant actif.
-	let createConflict = $derived.by(() => {
-		const trimmed = newParticipantName.trim().toLowerCase();
-		if (!trimmed) return false;
-		return existingParticipants.some(
-			(p) => p.name.toLowerCase() === trimmed && p.id !== currentIdentity?.id,
-		);
-	});
+	let createConflict = $derived(
+		hasNameConflict(existingParticipants, newParticipantName, currentIdentity?.id ?? ""),
+	);
 
 	// Nom par défaut pour la création de compte (le compte reprend le nom de
 	// l'identité active en mode switch, la saisie en primo-identification).
@@ -68,17 +67,14 @@
 	// État pour la revendication d'identité protégée
 	let claimedIdentity = $state<Participant | null>(null);
 
-	// Conflit de nom : on ne peut pas créer de participant avec un nom déjà pris
-	// sur ce planning. L'utilisateur doit soit revendiquer l'identité existante
-	// (bouton "C'est moi" du NameConflictHandler), soit choisir un autre nom.
-	// On exclut l'identité courante pour autoriser l'édition sans faux positif.
-	let hasNameConflict = $derived.by(() => {
-		const trimmed = name.trim().toLowerCase();
-		if (!trimmed) return false;
-		return existingParticipants.some(
-			(p) => p.name.toLowerCase() === trimmed && p.id !== currentIdentity?.id,
-		);
-	});
+	// Conflit de nom (primo-identification) : on ne peut pas créer de participant
+	// avec un nom déjà pris sur ce planning. L'utilisateur doit soit revendiquer
+	// l'identité existante (bouton "C'est moi" du NameConflictHandler), soit
+	// choisir un autre nom. On exclut l'identité courante pour autoriser l'édition
+	// sans faux positif.
+	let hasConflict = $derived(
+		hasNameConflict(existingParticipants, name, currentIdentity?.id ?? ""),
+	);
 
 	function resetForm() {
 		name = "";
@@ -179,7 +175,7 @@
 	}
 
 	async function handleSubmit() {
-		if (!name.trim() || isSubmitting || hasNameConflict) return;
+		if (!name.trim() || isSubmitting || hasConflict) return;
 
 		// Cas avec masterId : identification sur un planning
 		if (masterId && onPlanningIdentify) {
@@ -219,6 +215,53 @@
 	closable={!claimedIdentity}
 >
 	<div class="space-y-6">
+		{#snippet linkAccount()}
+			{#if !userStore.isLoggedIn}
+				<div class="divider mt-8 text-sm font-medium tracking-widest uppercase opacity-50">
+					{m.identify_or_link_account()}
+				</div>
+				<div class="flex w-full flex-col gap-2 leading-tight">
+					<div class="flex items-center gap-2 text-sm opacity-70">
+						<InfoIcon size={20} class="inline shrink-0" />
+						{m.identify_link_account_desc()}
+					</div>
+
+					<div class="my-4 flex flex-wrap justify-evenly gap-2">
+						<button
+							class="btn {authMode === 'login' ? 'btn-primary' : 'btn-soft btn-primary'}"
+							onclick={() => {
+								authMode = "login";
+								showAccountForm = true;
+							}}
+						>
+							{m.identify_switch_to_login()}
+						</button>
+						<button
+							class="btn {authMode === 'register' ? 'btn-primary' : 'btn-soft btn-primary'}"
+							onclick={() => {
+								authMode = "register";
+								showAccountForm = true;
+							}}
+						>
+							{m.identify_create_account()}
+						</button>
+					</div>
+
+					{#if showAccountForm}
+						<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
+							<AuthForm
+								mode={authMode}
+								name={accountDefaultName}
+								showNameInput={false}
+								compact
+								onSuccess={handleAuthSuccess}
+							/>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		{/snippet}
+
 		<!-- Alerte pour identité protégée -->
 		{#if claimedIdentity}
 			<div
@@ -356,50 +399,7 @@
 			</div>
 
 			<!-- Inscription depuis le IdentifyModal -->
-			{#if !userStore.isLoggedIn}
-				<div class="divider mt-8 text-sm font-medium tracking-widest uppercase opacity-50">
-					{m.identify_or_link_account()}
-				</div>
-				<div class="flex w-full flex-col gap-2 leading-tight">
-					<div class="flex items-center gap-2 text-sm opacity-70">
-						<InfoIcon size={20} class="inline shrink-0" />
-						{m.identify_link_account_desc()}
-					</div>
-
-					<div class="my-4 flex flex-wrap justify-evenly gap-2">
-						<button
-							class="btn {authMode === 'login' ? 'btn-primary' : 'btn-soft btn-primary'}"
-							onclick={() => {
-								authMode = "login";
-								showAccountForm = true;
-							}}
-						>
-							{m.identify_switch_to_login()}
-						</button>
-						<button
-							class="btn {authMode === 'register' ? 'btn-primary' : 'btn-soft btn-primary'}"
-							onclick={() => {
-								authMode = "register";
-								showAccountForm = true;
-							}}
-						>
-							{m.identify_create_account()}
-						</button>
-					</div>
-
-					{#if showAccountForm}
-						<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
-							<AuthForm
-								mode={authMode}
-								name={accountDefaultName}
-								showNameInput={false}
-								compact
-								onSuccess={handleAuthSuccess}
-							/>
-						</div>
-					{/if}
-				</div>
-			{/if}
+			{@render linkAccount()}
 		{:else}
 			<!-- Formulaire normal -->
 			<form
@@ -448,7 +448,7 @@
 					<button
 						type="submit"
 						class="btn btn-primary btn-block gap-2"
-						disabled={isSubmitting || !name.trim() || hasNameConflict}
+						disabled={isSubmitting || !name.trim() || hasConflict}
 					>
 						{#if isSubmitting}
 							<span class="loading loading-spinner loading-xs"></span>
@@ -462,50 +462,7 @@
 			</form>
 
 			<!-- Inscription depuis le IdentifyModal -->
-			{#if !userStore.isLoggedIn}
-				<div class="divider mt-8 text-sm font-medium tracking-widest uppercase opacity-50">
-					{m.identify_or_link_account()}
-				</div>
-				<div class="flex w-full flex-col gap-2 leading-tight">
-					<div class="flex items-center gap-2 text-sm opacity-70">
-						<InfoIcon size={20} class="inline shrink-0" />
-						{m.identify_link_account_desc()}
-					</div>
-
-					<div class="my-4 flex flex-wrap justify-evenly gap-2">
-						<button
-							class="btn {authMode === 'login' ? 'btn-primary' : 'btn-soft btn-primary'}"
-							onclick={() => {
-								authMode = "login";
-								showAccountForm = true;
-							}}
-						>
-							{m.identify_switch_to_login()}
-						</button>
-						<button
-							class="btn {authMode === 'register' ? 'btn-primary' : 'btn-soft btn-primary'}"
-							onclick={() => {
-								authMode = "register";
-								showAccountForm = true;
-							}}
-						>
-							{m.identify_create_account()}
-						</button>
-					</div>
-
-					{#if showAccountForm}
-						<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
-							<AuthForm
-								mode={authMode}
-								name={accountDefaultName}
-								showNameInput={false}
-								compact
-								onSuccess={handleAuthSuccess}
-							/>
-						</div>
-					{/if}
-				</div>
-			{/if}
+			{@render linkAccount()}
 		{/if}
 	</div>
 </Modal>

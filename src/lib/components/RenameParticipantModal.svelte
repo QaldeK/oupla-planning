@@ -3,6 +3,7 @@
 	import { fade } from "svelte/transition";
 	import * as m from "$lib/paraglide/messages.js";
 	import type { Participant } from "$lib/types/planning.types";
+	import { hasNameConflict } from "$lib/utils/participantConflict";
 	import Modal from "./ui/Modal.svelte";
 
 	interface Props {
@@ -14,8 +15,11 @@
 		planningTitle: string;
 		existingParticipants?: Participant[];
 		currentIdentityId?: string;
-		/** Effectue le rename côté parent (serveur + identité locale). */
-		onRename: (newName: string) => Promise<void>;
+		/**
+		 * Effectue le rename côté parent (serveur + identité locale).
+		 * Retourne `false` en cas d'échec : le modal reste ouvert, la saisie conservée.
+		 */
+		onRename: (newName: string) => Promise<boolean>;
 	}
 
 	let {
@@ -34,13 +38,9 @@
 
 	// Conflit : nom déjà porté par un autre participant actif. Le rename ne
 	// revendique jamais — l'utilisateur doit passer par « Changer de participant ».
-	let hasNameConflict = $derived.by(() => {
-		const trimmed = newName.trim().toLowerCase();
-		if (!trimmed) return false;
-		return existingParticipants.some(
-			(p) => p.name.toLowerCase() === trimmed && p.id !== currentIdentityId,
-		);
-	});
+	let hasConflict = $derived(
+		hasNameConflict(existingParticipants, newName, currentIdentityId ?? ""),
+	);
 
 	// Inchangé ou vide → submit désactivé (évite un update serveur inutile).
 	let isUnchanged = $derived(!newName.trim() || newName.trim() === currentName.trim());
@@ -67,11 +67,11 @@
 	});
 
 	async function handleSubmit() {
-		if (isUnchanged || hasNameConflict || isSubmitting) return;
+		if (isUnchanged || hasConflict || isSubmitting) return;
 		isSubmitting = true;
 		try {
-			await onRename(newName.trim());
-			closeModal();
+			const ok = await onRename(newName.trim());
+			if (ok) closeModal();
 		} finally {
 			isSubmitting = false;
 		}
@@ -92,7 +92,7 @@
 		</p>
 
 		<fieldset>
-			<label class="input w-full" class:border-error={hasNameConflict}>
+			<label class="input w-full" class:border-error={hasConflict}>
 				<span class="label">
 					<User size={18} class="opacity-40" />
 					{m.identify_name_label()}
@@ -108,7 +108,7 @@
 					maxlength="36"
 				/>
 			</label>
-			{#if hasNameConflict}
+			{#if hasConflict}
 				<div class="alert alert-warning alert-soft mt-2 p-2 text-sm">
 					{m.rename_name_taken()}
 				</div>
@@ -119,7 +119,7 @@
 			<button
 				type="submit"
 				class="btn btn-primary btn-block gap-2"
-				disabled={isSubmitting || isUnchanged || hasNameConflict}
+				disabled={isSubmitting || isUnchanged || hasConflict}
 			>
 				{#if isSubmitting}
 					<span class="loading loading-spinner loading-xs"></span>

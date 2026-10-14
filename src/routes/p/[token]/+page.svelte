@@ -244,13 +244,13 @@
 	}
 
 	/** Rename du participant guest courant (bouton crayon → RenameParticipantModal). */
-	async function handleRename(newName: string) {
-		if (!master || !currentIdentity) return;
+	async function handleRename(newName: string): Promise<boolean> {
+		if (!master || !currentIdentity) return false;
 		const ok = await handlePlanningIdentify({ id: currentIdentity.id, name: newName }, false);
 		if (ok) {
 			toast.success(m.claim_name_updated());
-			showRenameModal = false;
 		}
+		return ok;
 	}
 
 	/** Callback invoqué par IdentityClaimModal après un changement d'identité réussi */
