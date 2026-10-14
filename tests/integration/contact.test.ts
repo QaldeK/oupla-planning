@@ -13,9 +13,11 @@
  *   - la collection `contact_messages` est inaccessible via l'API publique
  *     (rules `null` → lecture/création publiques rejetées)
  *
- * L'email SMTP n'est pas testé : aucun mailer configuré en env de test. Le
- * handler est best-effort (200 même si l'envoi échoue), la persistance du
- * record reste donc le signal de succès.
+ * L'envoi SMTP n'est pas asserté directement : il est précédé d'une sonde de
+ * joignabilité (skip si elle consomme son timeout) et reste best-effort (200
+ * même si l'envoi échoue) — la persistance du record reste le signal de
+ * succès. Sur une instance de dev dont le SMTP est injoignable, compter ~3 s
+ * de sonde par soumission valide.
  */
 
 import PocketBase from "pocketbase";

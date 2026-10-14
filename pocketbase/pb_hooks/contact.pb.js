@@ -12,9 +12,11 @@
 //   2. Validation stricte côté serveur — les rules de la collection sont à null
 //      (superuser uniquement), la route est le seul point d'écriture public.
 //   3. Persistance dans `contact_messages` avec l'IP source (forensique).
-//   4. Email best-effort à l'éditeur (Reply-To = email du visiteur). L'envoi
-//      échoue silencieusement en log : le record est déjà persisté, rien n'est
-//      perdu si SMTP tombe.
+//   4. Email best-effort à l'éditeur (Reply-To = email du visiteur), précédé
+//      d'une sonde de joignabilité bornée : send() est synchrone sans timeout,
+//      un SMTP qui droppe ferait pendre la requête ~2 min. Sonde qui consomme
+//      son timeout → skip (log error), le record est déjà persisté, rien n'est
+//      perdu.
 //
 // Tout est inliné dans le handler : les handlers JSVM sont isolés et ne voient
 // pas les fonctions top-level du fichier. Aucun helper partagé nécessaire.
@@ -57,11 +59,62 @@ routerAdd('POST', '/api/contact', (e) => {
 	record.set('ip', e.realIP());
 	e.app.save(record);
 
-	// 4. Email best-effort à l'éditeur. Try/catch large : un échec SMTP ne doit
-	//    ni casser la route, ni perdre la demande — le record est déjà persisté.
-	const recipient = $os.getenv('CONTACT_EMAIL') || 'admin@oupla.net';
+	// 4. Email best-effort à l'éditeur (Reply-To = email du visiteur), précédé
+	//    d'une sonde de joignabilité bornée : send() est un appel Go synchrone
+	//    SANS timeout configurable — un SMTP qui droppe silencieusement ferait
+	//    pendre la requête ~2 min (pool de runtimes JSVM saturable). Décision
+	//    par durée écoulée, pas par message d'erreur (le wording Go varie entre
+	//    versions) : un SMTP sain fait échouer la sonde en quelques ms (bannière
+	//    SMTP ≠ HTTP) et c'est justement le cas où l'envoi doit avoir lieu —
+	//    seules les sondes qui consomment leur timeout déclenchent le skip.
+	//    Le record est déjà persisté : rien n'est perdu si le mail est sauté.
+	const PROBE_TIMEOUT_S = 3;
+	const PROBE_SKIP_TTL_MS = 60000;
+
 	const settings = e.app.settings();
+	const smtp = settings.smtp || {};
+	const recipient = $os.getenv('CONTACT_EMAIL') || 'admin@oupla.net';
 	const displaySubject = subject || 'Nouveau message';
+
+	// Cache négatif : les handlers sont isolés du scope du fichier, mais
+	// globalThis persiste sur le runtime réutilisé du pool — pendant une panne,
+	// une seule sonde par runtime par fenêtre au lieu d'une par requête.
+	let mailSkipped = !smtp.enabled || !smtp.host;
+	if (!mailSkipped) {
+		const cached = globalThis.__smtpProbeSkip;
+		if (cached && cached.skip && Date.now() - cached.at < PROBE_SKIP_TTL_MS) {
+			mailSkipped = true;
+		} else {
+			const t0 = Date.now();
+			try {
+				$http.send({
+					method: 'GET',
+					url: 'http://' + smtp.host + ':' + (smtp.port || 587) + '/',
+					timeout: PROBE_TIMEOUT_S
+				});
+			} catch (_err) {
+				// toute issue de la sonde est acceptable : seule la durée décide
+			}
+			mailSkipped = Date.now() - t0 >= PROBE_TIMEOUT_S * 1000;
+			if (mailSkipped) {
+				globalThis.__smtpProbeSkip = { at: Date.now(), skip: true };
+			} else if (cached) {
+				cached.skip = false;
+			}
+		}
+	}
+
+	if (mailSkipped) {
+		e.app.logger().error(
+			'[Contact] SMTP unreachable, mail skipped',
+			'recordId',
+			record.get('id'),
+			'subject',
+			displaySubject
+		);
+		return e.json(200, { success: true });
+	}
+
 	const timestamp = new Date().toISOString();
 	const senderLabel = name ? `${name} <${email}>` : email;
 
