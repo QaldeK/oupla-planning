@@ -35,11 +35,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createSyncCollection, mergeByKey } from "$lib/pb-sync/collection";
 import { db } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
-import type { Participant, PlanningMaster } from "$lib/types/planning.types";
+import type { Participant, PlanningMaster, PlanningOccurrence } from "$lib/types/planning.types";
 import {
 	authenticateAdmin,
 	cleanupTrackedRecords,
 	clearTrackedIds,
+	dateInDays,
 	seedPlanning,
 	trackIds
 } from "./seed";
@@ -321,6 +322,64 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			expect(dexieMasters.length).toBe(1);
 			expect(dexieMasters[0].id).toBe(m1.id);
 			expect(dexieMasters[0].title).toBe("Filtre Master 1");
+		});
+	});
+
+	describe("initialFetch — tri et limite (fetch borné)", () => {
+		it("limit borne la réponse aux N premiers records selon sort", async () => {
+			const collection = createSyncCollection<PlanningOccurrence>(
+				pb,
+				db.occurrences,
+				"planning_occurrences"
+			);
+
+			// 5 occurrences passées à dates distinctes (J-5 … J-1)
+			const dates = [-5, -4, -3, -2, -1].map((d) => dateInDays(d));
+			const { participantToken } = await seedPlanning({
+				title: "P sort limit",
+				occurrenceDates: dates
+			});
+
+			await db.occurrences.clear();
+
+			await collection.initialFetch({
+				filter: ["date != ''", {}],
+				query: { _token: participantToken },
+				since: "2000-01-01 00:00:00",
+				sort: "-date",
+				limit: 3
+			});
+
+			const local = await db.occurrences.toArray();
+			expect(local.length).toBe(3);
+			// Les 3 plus récentes du passé : J-1, J-2, J-3 (dates normalisées PB)
+			expect(local.map((o) => o.date.slice(0, 10)).sort()).toEqual(
+				[dateInDays(-1), dateInDays(-2), dateInDays(-3)].sort()
+			);
+		});
+
+		it("sans limit : getFullList inchangé (tout le filtre)", async () => {
+			const collection = createSyncCollection<PlanningOccurrence>(
+				pb,
+				db.occurrences,
+				"planning_occurrences"
+			);
+
+			const dates = [-5, -4, -3, -2, -1].map((d) => dateInDays(d));
+			const { participantToken } = await seedPlanning({
+				title: "P full list",
+				occurrenceDates: dates
+			});
+
+			await db.occurrences.clear();
+
+			await collection.initialFetch({
+				filter: ["date != ''", {}],
+				query: { _token: participantToken },
+				since: "2000-01-01 00:00:00"
+			});
+
+			expect(await db.occurrences.count()).toBe(5);
 		});
 	});
 

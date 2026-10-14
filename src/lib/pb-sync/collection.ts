@@ -4,8 +4,9 @@
  * Provides `createSyncCollection()`, the core bridge between PocketBase and Dexie (IndexedDB).
  *
  * Responsibilities:
- * - **Initial fetch**: incremental sync from last known `updated` timestamp, with optional
- *   tombstone-based deletion reconciliation.
+ * - **Initial fetch**: bounded full sync — `updated > since` (explicit or local
+ *   max) combined with an optional user filter, plus optional `sort`/`limit`
+ *   for windowed fetches (e.g. archive).
  * - **Realtime subscriptions**: PocketBase realtime events are applied to IndexedDB, with
  *   optional soft-delete / local-trash behavior.
  * - **CRUD with conflict resolution**: create / update / remove operations write to PocketBase
@@ -163,13 +164,17 @@ export function createSyncCollection<T extends WithMeta>(
 			? `(${resolvedUserFilter}) && updated > {:since}`
 			: `updated > {:since}`;
 
-		const fresh = await pb.collection(collectionName).getFullList<T>({
+		const fetchOptions = {
 			filter: pb.filter(filter, combinedVars),
-			sort: "updated",
+			sort: params?.sort ?? "updated",
 			...(params?.fields ? { fields: params.fields } : {}),
 			...(params?.expand ? { expand: params.expand } : {}),
 			...(params?.query && { query: params.query })
-		});
+		};
+
+		const fresh = params?.limit
+			? (await pb.collection(collectionName).getList<T>(1, params.limit, fetchOptions)).items
+			: await pb.collection(collectionName).getFullList<T>(fetchOptions);
 
 		if (fresh.length > 0) {
 			// upsertRecord préserve les champs locaux non présents dans le fetch distant.

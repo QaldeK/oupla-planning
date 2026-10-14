@@ -1,4 +1,4 @@
-import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { fetchAllMasters, syncActiveOccurrences } from "$lib/data/planningSync";
 import { db } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
 import { userStore } from "$lib/stores/userStore.svelte";
@@ -37,17 +37,10 @@ class SyncService {
 			body: { tokens }
 		});
 
-		// Étape 2 : Sync incrémental des masters (API Rules auto-filtrent)
-		// Curseur conservatif : min(updated) local. Un curseur max(updated) sauterait
-		// définitivement les mises à jour manquées (trou SSE) sur tout planning plus
-		// ancien que le plus récent. Toute update manquée d'un record R est plus
-		// récente que la copie locale de R, donc plus récente que le min global.
-		const oldest = await db.masters.orderBy("updated").first();
-		const oldestUpdated = oldest?.updated ?? "2000-01-01 00:00:00";
-		await mastersCollection.initialFetch({ since: oldestUpdated });
-
-		// Étape 3 : Sync incrémental des occurrences (API Rules auto-filtrent)
-		await occurrencesCollection.initialFetch();
+		// Étapes 2-3 : Re-sync complète via les ops de data/planningSync
+		// (API Rules auto-filtrent par user) — ADR 0017.
+		await fetchAllMasters();
+		await syncActiveOccurrences();
 
 		// Étape 4 : Marquer la fraîcheur auth (UI NetworkAlert)
 		await userStore.markAuthSynced();

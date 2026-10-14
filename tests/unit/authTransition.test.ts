@@ -33,17 +33,21 @@ function createFakeDeps(callTracker?: { order: string[] }): AuthTransitionDeps {
 		},
 		mastersCollection: {
 			unsubscribeAll: vi.fn().mockImplementation(() => track("mastersCollection.unsubscribeAll")),
-			initialFetch: vi.fn().mockImplementation(async () => track("mastersCollection.initialFetch")),
 			subscribe: vi.fn().mockImplementation(() => track("mastersCollection.subscribe"))
 		},
 		occurrencesCollection: {
 			unsubscribeAll: vi
 				.fn()
 				.mockImplementation(() => track("occurrencesCollection.unsubscribeAll")),
-			initialFetch: vi
-				.fn()
-				.mockImplementation(async () => track("occurrencesCollection.initialFetch")),
 			subscribe: vi.fn().mockImplementation(() => track("occurrencesCollection.subscribe"))
+		},
+		planningSync: {
+			fetchAllMasters: vi
+				.fn()
+				.mockImplementation(async () => track("planningSync.fetchAllMasters")),
+			syncActiveOccurrences: vi
+				.fn()
+				.mockImplementation(async () => track("planningSync.syncActiveOccurrences"))
 		},
 		commentStateService: {
 			syncCommentReadState: vi.fn().mockImplementation(async () => track("syncCommentReadState"))
@@ -173,7 +177,7 @@ describe("runAuthTransition", () => {
 
 		// db clear avant fetch
 		const clearIndex = callTracker.order.indexOf("db.localMeta.clear");
-		const fetchIndex = callTracker.order.indexOf("mastersCollection.initialFetch");
+		const fetchIndex = callTracker.order.indexOf("planningSync.fetchAllMasters");
 
 		expect(clearIndex).toBeGreaterThan(-1);
 		expect(fetchIndex).toBeGreaterThan(-1);

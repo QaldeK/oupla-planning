@@ -23,7 +23,7 @@ export interface PbQueryOptions {
 /**
  * Options pour `initialFetch()`. Étend PbQueryOptions avec un `since` explicite.
  * Si fourni, `since` remplace le calcul par défaut (`table.orderBy('updated').last()`),
- * ce qui permet une delta sync cohérente quand un filtre par master est appliqué.
+ * ce qui permet une re-sync cohérente quand un filtre utilisateur est appliqué.
  */
 export interface InitialFetchOptions extends PbQueryOptions {
 	/**
@@ -31,6 +31,10 @@ export interface InitialFetchOptions extends PbQueryOptions {
 	 * Si absent, `initialFetch` calcule `since` depuis le dernier `updated` local.
 	 */
 	since?: string;
+	/** Tri PocketBase (ex: `'-date'`). Défaut : `'updated'`. */
+	sort?: string;
+	/** Nombre max de records ramenés (getList, page 1). Absent : getFullList. */
+	limit?: number;
 }
 
 /**

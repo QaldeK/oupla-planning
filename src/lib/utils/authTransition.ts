@@ -33,16 +33,15 @@ export interface AuthTransitionDeps {
 	};
 	mastersCollection: {
 		unsubscribeAll(): void;
-		initialFetch(): Promise<void>;
 		subscribe(): void;
 	};
 	occurrencesCollection: {
 		unsubscribeAll(): void;
-		initialFetch(config?: {
-			filter?: [string, Record<string, unknown>];
-			since?: string;
-		}): Promise<void>;
 		subscribe(): void;
+	};
+	planningSync: {
+		fetchAllMasters(): Promise<void>;
+		syncActiveOccurrences(): Promise<void>;
 	};
 	commentStateService: {
 		syncCommentReadState(): Promise<void>;
@@ -109,7 +108,7 @@ export async function runAuthTransition(
 	deps: AuthTransitionDeps
 ): Promise<AuthTransitionResult> {
 	const { currentToken, activeMasterId, savedPlannings } = ctx;
-	const { planningStore, mastersCollection, occurrencesCollection, commentStateService, pb, db } =
+	const { planningStore, mastersCollection, occurrencesCollection, planningSync, commentStateService, pb, db } =
 		deps;
 
 	// 1. Réactiver le liveQuery global alimentant #allMasters (sidebar + homepage)
@@ -167,10 +166,12 @@ export async function runAuthTransition(
 			}
 		: null;
 
-	// 6. Fetch depuis PB (API Rules filtrent automatiquement via user.masterId)
+	// 6. Re-sync complète via planningSync (ADR 0017) — le post-login doit
+	// converger vers le serveur même après un trou SSE. Les API Rules filtrent
+	// automatiquement via user.masterId.
 	try {
-		await mastersCollection.initialFetch();
-		await occurrencesCollection.initialFetch();
+		await planningSync.fetchAllMasters();
+		await planningSync.syncActiveOccurrences();
 	} catch (err) {
 		console.error("Post-login fetch failed:", err);
 	}

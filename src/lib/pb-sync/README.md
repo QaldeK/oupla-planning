@@ -23,9 +23,9 @@ Offline-first synchronization layer bridging **PocketBase** (remote) and **Dexie
 
 ## Flow Diagrams
 
-### 1. Initial Fetch — Delta Sync
+### 1. Initial Fetch — Bounded Sync
 
-`initialFetch()` retrieves only records changed since the last known `updated` timestamp.
+`initialFetch()` retrieves records matching `updated > since` (explicit `since`, or the last local `updated` by default), combined with an optional user filter. The fetch policy (which window, which filter) belongs to the caller — see oupla's `src/lib/utils/syncWindow.ts` for the app-level policy (date-bounded routine resync + on-demand archive fetch). Optional `sort`/`limit` turn the fetch into a bounded page (`getList`).
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'sequence': {'wrap':true,'width':180,'actorMargin':70,'messageMargin':36,'boxMargin':10,'noteMargin':10}}}%%
@@ -397,11 +397,8 @@ export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
 ```ts
 // 1. Resolve master (Dexie first, then network via getOrFetchMaster + upsertRecord)
 // 2. Verify server existence if Dexie hit (#verifyMasterExistsOnServer)
-// 3. Delta sync occurrences with _token (#deltaSyncOccurrences)
-await occurrencesCollection.initialFetch({
-	filter: ['master = {:masterId}', { masterId: master.id }],
-	query: { _token: token }
-});
+// 3. Sync active occurrences with _token (#syncOccurrences → data/planningSync)
+await syncActiveOccurrences({ masterId: master.id, token });
 
 // 4a. Auth branch: synchronous claim via /api/sync-plannings + authRefresh
 //     (#attachMasterToUser — global subscribe covers realtime)

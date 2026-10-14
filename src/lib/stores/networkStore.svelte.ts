@@ -35,11 +35,9 @@ const status = $state<NetworkStatus>({
  * pas redondants :
  *
  * - `lastFetchAt` (planningStore, per-master, persisté en Dexie `localMeta`) :
- *   curseur de DELTA SYNC (correctness). `since = lastFetchAt` → récupère tout depuis
- *   ce point. Géré par capture/restore dans planningStore (markFetched avant le fetch,
- *   restoreLastFetchAt en cas d'échec réseau pour ne pas perdre le delta).
- *   ⚠️ Non maintenu par `syncService.sync()` en mode auth (qui utilise `since` basé
- *   sur `max(updated)` local).
+ *   marqueur de fraîcheur UI (« Dernière sync »), écrit au succès via
+ *   markFetched. Les re-syncs ne s'appuient pas dessus : fetchs complets
+ *   bornés par `date` (ADR 0017).
  *
  * - `lastSyncAt` (ce champ, global, éphémère en mémoire) : curseur de THROTTLE (UX).
  *   "Quand a-t-on déclenché une sync réussie ?" Non persisté intentionnellement :

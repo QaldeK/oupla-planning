@@ -37,6 +37,14 @@
 		const p = master.participants.find((p) => p.id === currentUserId);
 		return p?.name || "";
 	});
+
+	// Re-sync du passé à l'entrée : la re-sync de routine ne couvre que
+	// date >= J-2. Non bloquant (l'affichage vient du cache local, le fetch met
+	// Dexie à jour) ; erreurs catchées en interne, relancé si le master change.
+	$effect(() => {
+		if (!planningStore.activeMasterId) return;
+		planningStore.refreshArchiveOccurrences();
+	});
 </script>
 
 <svelte:head>

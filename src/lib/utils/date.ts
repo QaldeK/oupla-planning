@@ -143,3 +143,14 @@ const GRACE_PERIOD_DAYS = 15;
 export function purgeDate(deletedAt: string): Date {
 	return new Date(new Date(deletedAt).getTime() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 }
+
+/**
+ * Date au format YYYY-MM-DD (UTC), décalée de `days` jours (négatif = futur).
+ * Même convention que le champ `date` des occurrences et les bornes du cron
+ * notifications (minuit UTC) — la comparaison est lexicographique.
+ */
+export function isoDateDaysAgo(days: number): string {
+	const d = new Date();
+	d.setUTCDate(d.getUTCDate() + days);
+	return d.toISOString().split("T")[0];
+}

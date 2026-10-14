@@ -9,7 +9,8 @@ import { pb } from "$lib/pocketbase/pb";
 import { commentStateService } from "$lib/services/commentStateService";
 import { getPlanningByToken } from "$lib/services/planningActions";
 import { userStore } from "$lib/stores/userStore.svelte";
-import type { PlanningMaster, PlanningOccurrence, SavedPlanning } from "$lib/types/planning.types";
+import type { PlanningMaster, PlanningOccurrence } from "$lib/types/planning.types";
+import { fetchRecentPastOccurrences, syncActiveOccurrences } from "$lib/data/planningSync";
 
 /**
  * Ordre total stable pour les occurrences : date puis startTime, avec
@@ -44,7 +45,9 @@ class PlanningStore {
 		message: string;
 	} | null>(null);
 
-	// Sync cursor per-master (lastFetchAt) — mirror réactif de Dexie localMeta.
+	// Marqueur de fraîcheur per-master (lastFetchAt) — mirror réactif de Dexie
+	// localMeta. Utilisé uniquement par l'UI (« Dernière sync ») ; la re-sync
+	// des occurrences ne s'appuie pas dessus (ADR 0017).
 	// SvelteMap plutôt qu'un liveQuery Dexie : ciblage des updates (un liveQuery sur
 	// localMeta se déclencherait aussi sur les écritures currentUser/hasQuit de
 	// guestStateStore). Les mutations .set()/.delete() déclenchent la réactivité
@@ -113,8 +116,8 @@ class PlanningStore {
 	}
 
 	/**
-	 * Retourne le lastFetchAt réactif pour un master donné.
-	 * Le getter est réactif : il se met à jour quand markFetched/restoreLastFetchAt est appelé.
+	 * Retourne le lastFetchAt réactif pour un master donné (marqueur de
+	 * fraîcheur UI). Se met à jour quand markFetched est appelé.
 	 */
 	lastFetchAtFor(masterId: string): string | undefined {
 		return this.#lastFetchAtMap.get(masterId);
@@ -283,13 +286,6 @@ class PlanningStore {
 		}
 	}
 
-	/** since pour la delta sync : dernier fetch du master (ou null si jamais fetché).
-	 *  Retourne la valeur brute pour permettre le restore en cas d'échec du fetch. */
-	async #resolveSince(masterId: string): Promise<string | null> {
-		const meta = await db.localMeta.get(masterId);
-		return meta?.lastFetchAt ?? null;
-	}
-
 	// === Résolution de token ===
 
 	/**
@@ -350,7 +346,7 @@ class PlanningStore {
 	 *   1. Résoudre master (Dexie → fallback réseau via getOrFetchMaster + upsertRecord)
 	 *   2. Vérifier suppression locale puis serveur
 	 *   3. Idempotence + set #activeMasterId
-	 *   4. Delta sync occurrences (toujours avec `_token`)
+	 *   4. Sync occurrences actives (toujours avec `_token`)
 	 *   5. Branche auth  : #attachMasterToUser (claim) + backfill si première visite
 	 *   6. Branche guest : subscribe realtime individuel + backfill
 	 *
@@ -404,11 +400,11 @@ class PlanningStore {
 		if (this.#activeMasterId === master.id) return;
 		this.#activeMasterId = master.id;
 
-		// === ÉTAPE 4 : Delta sync occurrences (toujours avec _token) ===
+		// === ÉTAPE 4 : Sync des occurrences actives (toujours avec _token) ===
 		// Le `_token` est nécessaire pour la branche auth "première visite" : à ce
 		// stade, user.masterId n'est pas encore peuplé côté serveur (le claim est
 		// fait à l'étape 5). Les API Rules refuseraient sans `_token`.
-		await this.#deltaSyncOccurrences(master.id, token);
+		await this.#syncOccurrences(master.id, token);
 
 		this.#subscribeDexieQueries(master.id);
 
@@ -434,12 +430,11 @@ class PlanningStore {
 	/**
 	 * Atomic op : re-fetch du master depuis le serveur et upsert si plus récent.
 	 *
-	 * Le master n'est couvert par aucun delta-sync (le curseur per-master
-	 * `lastFetchAt` ne porte que sur les occurrences) : sans ce re-fetch, les
-	 * mises à jour survenues pendant une coupure SSE — typiquement l'ajout de
-	 * participants — seraient manquées définitivement, faute de rejouabilité du
-	 * realtime. Répond aussi au rôle de l'ancien check d'existence (404 →
-	 * master marqué deleted localement).
+	 * Le master n'est couvert par aucune re-sync d'occurrences : sans ce
+	 * re-fetch, les mises à jour survenues pendant une coupure SSE —
+	 * typiquement l'ajout de participants — seraient manquées définitivement,
+	 * faute de rejouabilité du realtime. Répond aussi au rôle de l'ancien check
+	 * d'existence (404 → master marqué deleted localement).
 	 *
 	 * Le upsert est sauté si la copie locale est déjà à jour (évite du churn
 	 * Dexie → re-rendus liveQuery à chaque re-sync).
@@ -480,30 +475,19 @@ class PlanningStore {
 	}
 
 	/**
-	 * Atomic op : delta sync per-master des occurrences avec pattern
-	 * capture/restore sur `lastFetchAt`.
+	 * Atomic op : re-sync des occurrences actives du master (fenêtre
+	 * `date >= J-2`, cf. data/planningSync.ts). La re-sync converge vers le
+	 * serveur même si une tentative précédente a échoué silencieusement.
 	 *
 	 * Le `token` est requis : il couvre le cas "auth + première visite" où
 	 * `user.masterId` n'est pas encore peuplé côté serveur au moment de l'appel
 	 * (le claim est fait par `#attachMasterToUser` après ce fetch).
 	 */
-	async #deltaSyncOccurrences(masterId: string, token: string): Promise<void> {
-		const previousLastFetchAt = await this.#resolveSince(masterId);
-		const since = previousLastFetchAt ?? "2000-01-01 00:00:00";
-		await this.markFetched(masterId);
+	async #syncOccurrences(masterId: string, token: string): Promise<void> {
 		try {
-			await occurrencesCollection.initialFetch({
-				filter: ["master = {:masterId}", { masterId }],
-				query: { _token: token },
-				since
-			});
+			await syncActiveOccurrences({ masterId, token });
+			await this.markFetched(masterId);
 		} catch (err) {
-			// Restore lastFetchAt pour ne pas perdre le delta au prochain cycle.
-			try {
-				await this.restoreLastFetchAt(masterId, previousLastFetchAt);
-			} catch (restoreErr) {
-				console.error("[PlanningStore] Failed to restore lastFetchAt:", restoreErr);
-			}
 			console.warn("[PlanningStore] Could not fetch occurrences for master:", err);
 		}
 	}
@@ -647,34 +631,14 @@ class PlanningStore {
 	}
 
 	/**
-	 * Enregistre le succès d'un fetch pour un master.
-	 * Effet : écrit lastFetchAt dans Dexie (partial patch) et met à jour le mirror réactif.
-	 * Le pattern capture/restore (previousLastFetchAt avant fetch, restore en cas d'échec)
-	 * est géré par `#deltaSyncOccurrences` (et `refreshActive` qui délègue).
+	 * Enregistre le succès d'un fetch pour un master (marqueur de fraîcheur
+	 * UI). Écrit lastFetchAt dans Dexie (partial patch) et met à jour le
+	 * mirror réactif.
 	 */
 	async markFetched(masterId: string): Promise<void> {
 		const now = new Date().toISOString();
 		await upsertLocalMeta(masterId, { lastFetchAt: now });
 		this.#lastFetchAtMap.set(masterId, now);
-	}
-
-	/**
-	 * Restaure lastFetchAt à une valeur antérieure après l'échec d'un fetch.
-	 * Permet de ne pas perdre le delta [previous, now] au prochain cycle de sync.
-	 * Si previousValue est null, retire le champ lastFetchAt (clear).
-	 */
-	async restoreLastFetchAt(masterId: string, previousValue: string | null): Promise<void> {
-		const existing = await db.localMeta.get(masterId);
-		if (!existing) return;
-		if (previousValue) {
-			await db.localMeta.update(masterId, { lastFetchAt: previousValue });
-			this.#lastFetchAtMap.set(masterId, previousValue);
-		} else {
-			// previousValue null → clear : on réécrit l'enregistrement sans le champ lastFetchAt
-			const { lastFetchAt: _, ...rest } = existing;
-			await db.localMeta.put(rest as SavedPlanning);
-			this.#lastFetchAtMap.delete(masterId);
-		}
 	}
 
 	async refreshActive(): Promise<void> {
@@ -687,14 +651,38 @@ class PlanningStore {
 		const token = master.adminToken ?? master.participantToken;
 		if (!token) return;
 
-		// Master d'abord : mêmes raisons que l'activation — aucune delta sync
-		// existante ne couvre planning_masters, et un guest sans realtime valide
-		// doit pouvoir rattraper les participants ajoutés pendant la coupure.
+		// Master d'abord : aucune re-sync existante ne couvre planning_masters, et
+		// un guest sans realtime valide doit pouvoir rattraper les participants
+		// ajoutés pendant la coupure.
 		await this.#refreshMasterFromServer(this.#activeMasterId, token);
 
-		// Delta sync per-master via l'atomic op partagé.
+		// Occurrences actives via l'atomic op partagé.
 		// Non bloquant : appelé en fire-and-forget par networkStore (polling de reconnexion).
-		await this.#deltaSyncOccurrences(this.#activeMasterId, token);
+		await this.#syncOccurrences(this.#activeMasterId, token);
+	}
+
+	/**
+	 * Atomic op : fetch des occurrences passées les plus récentes (page
+	 * archive, cf. data/planningSync.ts). À la demande : le
+	 * passé n'est pas couvert par la re-sync de routine. Non bloquant :
+	 * l'affichage vient du cache local, le fetch met Dexie à jour (liveQuery
+	 * propage). Marque aussi la fraîcheur : c'est une sync réussie.
+	 */
+	async refreshArchiveOccurrences(): Promise<void> {
+		if (!this.#activeMasterId) return;
+		await ensureDbReady();
+		const master = await db.masters.get(this.#activeMasterId);
+		if (!master) return;
+
+		const token = master.adminToken ?? master.participantToken;
+		if (!token) return;
+
+		try {
+			await fetchRecentPastOccurrences(this.#activeMasterId, token);
+			await this.markFetched(this.#activeMasterId);
+		} catch (err) {
+			console.warn("[PlanningStore] Archive occurrences fetch failed:", err);
+		}
 	}
 
 	/**

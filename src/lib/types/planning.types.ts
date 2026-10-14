@@ -223,11 +223,11 @@ export interface SavedPlanning {
 	/** true si l'identité guest a quitté ce planning (localMeta uniquement) */
 	hasQuit?: boolean;
 	/**
-	 * Timestamp UTC ISO du dernier fetch réussi des occurrences pour ce master.
-	 * Utilisé par `planningStore` comme `since` de la delta sync `initialFetch`,
-	 * pour éviter le bug du `since` global calculé via `table.orderBy('updated').last()`
-	 * qui devient incohérent quand un filtre `master = X` est appliqué.
-	 * Nettoyé automatiquement avec `localMeta.clear()` (logout, transitions).
+	 * Timestamp UTC ISO du dernier fetch réussi (occurrences actives ou
+	 * archive) pour ce master. Marqueur de fraîcheur UI uniquement
+	 * (« Dernière sync ») — la re-sync est bornée par `date` et ne s'appuie
+	 * pas sur ce champ (ADR 0017). Nettoyé automatiquement avec
+	 * `localMeta.clear()` (logout, transitions).
 	 */
 	lastFetchAt?: string;
 }

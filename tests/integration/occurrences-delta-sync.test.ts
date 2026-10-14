@@ -311,75 +311,11 @@ describe("planningStore — markFetched coexistence with guestStateStore (AC 03)
 		expect(metaAfter!.hasQuit).toBe(true); // preserved
 	});
 
-	it("planningStore.restoreLastFetchAt preserves currentUser and hasQuit", async () => {
-		// === SEED ===
-		const { master, participantToken } = await seedPlanning({
-			title: "P restore coexist",
-			occurrenceCount: 2
-		});
-
-		// === ÉTAPE 1 : activate + identify + quit ===
-		await planningStore.setActiveToken(participantToken);
-		await vi.waitFor(() => expect(planningStore.occurrences.length).toBe(2));
-
-		await guestStateStore.setGuestIdentity(master.id, {
-			id: "guest-restore",
-			name: "Restore User"
-		});
-		await guestStateStore.markGuestQuit(master.id);
-
-		// === ÉTAPE 2 : markFetched writes lastFetchAt ===
-		await planningStore.markFetched(master.id);
-		const metaMid = await db.localMeta.get(master.id);
-		const tsFetched = metaMid!.lastFetchAt!;
-
-		// === ÉTAPE 3 : restoreLastFetchAt to a previous value ===
-		const previousValue = "2020-01-01T00:00:00.000Z";
-		await planningStore.restoreLastFetchAt(master.id, previousValue);
-
-		// === VÉRIFICATION : lastFetchAt restored, currentUser + hasQuit preserved ===
-		const metaAfter = await db.localMeta.get(master.id);
-		expect(metaAfter).toBeDefined();
-		expect(metaAfter!.lastFetchAt).toBe(previousValue);
-		expect(metaAfter!.lastFetchAt).not.toBe(tsFetched);
-		expect(metaAfter!.currentUser?.name).toBe("Restore User"); // preserved
-		expect(metaAfter!.hasQuit).toBe(true); // preserved
-	});
-
-	it("planningStore.restoreLastFetchAt(null) clears lastFetchAt, preserves other fields", async () => {
-		// === SEED ===
-		const { master, participantToken } = await seedPlanning({
-			title: "P restore null",
-			occurrenceCount: 2
-		});
-
-		// === ÉTAPE 1 : activate + identify ===
-		await planningStore.setActiveToken(participantToken);
-		await vi.waitFor(() => expect(planningStore.occurrences.length).toBe(2));
-
-		await guestStateStore.setGuestIdentity(master.id, {
-			id: "guest-null",
-			name: "Null User"
-		});
-
-		// === ÉTAPE 2 : markFetched ===
-		await planningStore.markFetched(master.id);
-
-		// === ÉTAPE 3 : restoreLastFetchAt with null (clear) ===
-		await planningStore.restoreLastFetchAt(master.id, null);
-
-		// === VÉRIFICATION : lastFetchAt cleared, currentUser preserved ===
-		const metaAfter = await db.localMeta.get(master.id);
-		expect(metaAfter).toBeDefined();
-		expect(metaAfter!.lastFetchAt).toBeUndefined();
-		expect(metaAfter!.currentUser?.name).toBe("Null User"); // preserved
-	});
-
-	it("lastFetchAtFor est réactif : reflète markFetched et restoreLastFetchAt", async () => {
+	it("lastFetchAtFor est réactif : reflète markFetched", async () => {
 		// Régression : un Map natif dans $state n'est PAS réactif (les mutations
 		// .set()/.delete() ne déclenchent pas de mise à jour). SvelteMap l'est.
 		// Ce test vérifie que le getter expose bien les valeurs écrites par
-		// markFetched/restoreLastFetchAt (la réactivité SvelteMap est testée
+		// markFetched (la réactivité SvelteMap est testée
 		// implicitement : si on revenait à un Map natif, le getter renverrait
 		// stale values après markFetched car le .set() ne déclencherait rien).
 		const { master, participantToken } = await seedPlanning({
@@ -404,15 +340,6 @@ describe("planningStore — markFetched coexistence with guestStateStore (AC 03)
 		const tsAfterMark = planningStore.lastFetchAtFor(master.id);
 		expect(tsAfterMark).toBeDefined();
 		expect(tsAfterMark).not.toBe(tsAfterActivate); // timestamp a avancé
-
-		// restoreLastFetchAt avec une valeur explicite → getter reflète la restore
-		const restored = "2019-06-15T12:00:00.000Z";
-		await planningStore.restoreLastFetchAt(master.id, restored);
-		expect(planningStore.lastFetchAtFor(master.id)).toBe(restored);
-
-		// restoreLastFetchAt(null) → getter renvoie undefined
-		await planningStore.restoreLastFetchAt(master.id, null);
-		expect(planningStore.lastFetchAtFor(master.id)).toBeUndefined();
 	});
 });
 

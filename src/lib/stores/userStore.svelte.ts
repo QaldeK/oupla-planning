@@ -16,6 +16,7 @@ import type {
 	ViewType
 } from "$lib/types/planning.types";
 import { refreshSessionSilently } from "$lib/utils/sessionRefresh";
+import { fetchAllMasters, syncActiveOccurrences } from "$lib/data/planningSync";
 import { storage } from "$lib/utils/storage";
 
 const APP_PREFS_KEY = "app_preferences";
@@ -129,11 +130,13 @@ export class UserStore {
 	}
 	async #subscribeAuth() {
 		try {
-			await mastersCollection.initialFetch();
-			await occurrencesCollection.initialFetch();
+			// Boot auth : re-sync complète — le client doit converger vers le
+			// serveur même après un trou SSE (ADR 0017).
+			await fetchAllMasters();
+			await syncActiveOccurrences();
 			await this.markAuthSynced();
 		} catch (err) {
-			console.error("Delta sync failed:", err);
+			console.error("Post-boot sync failed:", err);
 		}
 		mastersCollection.subscribe();
 		occurrencesCollection.subscribe();
