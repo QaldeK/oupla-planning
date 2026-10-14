@@ -150,6 +150,7 @@
 
 	// === Aperçu des réponses futures d'un participant ===
 	interface ResponsePreviewItem {
+		occurrenceId: string;
 		date: string;
 		startTime: string;
 		response: ResponseType;
@@ -172,6 +173,7 @@
 			const r = (occ.responses || []).find((x) => x.participantId === participantId);
 			if (r) {
 				withResponse.push({
+					occurrenceId: occ.id,
 					date: occ.date,
 					startTime: occ.startTime,
 					response: r.response,
@@ -488,7 +490,7 @@
 							})}
 						</p>
 						<div class="flex flex-wrap gap-x-4 gap-y-2">
-							{#each pendingClaimPreview.items as item (item.date)}
+							{#each pendingClaimPreview.items as item (item.occurrenceId)}
 								<div class="flex items-center justify-between gap-2">
 									<span class="badge {RESPONSE_TYPE_CONFIG[item.response].badgeClass} font-medium">
 										<span class="opacity-80">
@@ -499,12 +501,12 @@
 								</div>
 							{/each}
 							{#if pendingClaimPreview.remaining > 0}
-								<li class="pt-1 text-xs opacity-60">
+								<span class="pt-1 text-xs opacity-60">
 									+ {pendingClaimPreview.remaining}
 									{m.claim_more_response({
 										count: pendingClaimPreview.remaining,
 									})}
-								</li>
+								</span>
 							{/if}
 						</div>
 					</div>
@@ -575,7 +577,7 @@
 							})}
 						</p>
 						<div class="flex flex-wrap gap-x-4 gap-y-2">
-							{#each suggestionPreview.items as item (item.date)}
+							{#each suggestionPreview.items as item (item.occurrenceId)}
 								<span class="badge {RESPONSE_TYPE_CONFIG[item.response].badgeClass} font-medium">
 									<span class="opacity-80">
 										{formatDateShort(item.date)} · {item.startTime} |
@@ -678,7 +680,7 @@
 													name: trimmedName,
 												})}
 											</p>
-											{#each conflictPreview.items.slice(0, 3) as item (item.date)}
+											{#each conflictPreview.items.slice(0, 3) as item (item.occurrenceId)}
 												<span
 													class="badge {RESPONSE_TYPE_CONFIG[item.response].badgeClass} font-medium"
 												>
@@ -777,7 +779,7 @@
 
 										{#if preview.totalCount > 0}
 											<div class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-												{#each preview.items.slice(0, 3) as item (item.date)}
+												{#each preview.items.slice(0, 3) as item (item.occurrenceId)}
 													<div class="flex items-center justify-between gap-2">
 														<span
 															class="badge {RESPONSE_TYPE_CONFIG[item.response]
