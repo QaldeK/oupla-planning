@@ -98,20 +98,31 @@ routerAdd('POST', '/api/contact', (e) => {
 			mailSkipped = Date.now() - t0 >= PROBE_TIMEOUT_S * 1000;
 			if (mailSkipped) {
 				globalThis.__smtpProbeSkip = { at: Date.now(), skip: true };
-			} else if (cached) {
-				cached.skip = false;
 			}
 		}
 	}
 
 	if (mailSkipped) {
-		e.app.logger().error(
-			'[Contact] SMTP unreachable, mail skipped',
-			'recordId',
-			record.get('id'),
-			'subject',
-			displaySubject
-		);
+		// Un SMTP volontairement non configuré (dev local) est un état attendu :
+		// info. Une sonde qui consomme son timeout en prod est anormale : error.
+		const notConfigured = !smtp.enabled || !smtp.host;
+		if (notConfigured) {
+			e.app.logger().info(
+				'[Contact] SMTP not configured, mail skipped',
+				'recordId',
+				record.get('id'),
+				'subject',
+				displaySubject
+			);
+		} else {
+			e.app.logger().error(
+				'[Contact] SMTP unreachable, mail skipped',
+				'recordId',
+				record.get('id'),
+				'subject',
+				displaySubject
+			);
+		}
 		return e.json(200, { success: true });
 	}
 
