@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from "@lucide/svelte";
-	import { fade } from "svelte/transition";
+	import { fade, slide } from "svelte/transition";
 	import { toast } from "svelte-sonner";
 	import * as m from "$lib/paraglide/messages.js";
 	import { userStore } from "$lib/stores/userStore.svelte";
@@ -38,6 +38,33 @@
 	let authMode = $state<"login" | "register">("register");
 	let showAccountForm = $state(false);
 
+	// Mode switch : l'utilisateur a déjà une identité sur ce planning. Le modal ne
+	// propose plus de saisie immédiate (source de confusion rename/switch) : il met
+	// en avant l'identité active, liste les participants reprenables et déplie la
+	// création d'un nouveau participant. Le rename vit dans RenameParticipantModal.
+	let isSwitch = $derived(!!currentIdentity);
+	let newParticipantName = $state("");
+	let showCreateForm = $state(false);
+
+	let switchableParticipants = $derived(
+		existingParticipants.filter((p) => p.id !== currentIdentity?.id),
+	);
+
+	// Conflit pour la création : nom déjà porté par un autre participant actif.
+	let createConflict = $derived.by(() => {
+		const trimmed = newParticipantName.trim().toLowerCase();
+		if (!trimmed) return false;
+		return existingParticipants.some(
+			(p) => p.name.toLowerCase() === trimmed && p.id !== currentIdentity?.id,
+		);
+	});
+
+	// Nom par défaut pour la création de compte (le compte reprend le nom de
+	// l'identité active en mode switch, la saisie en primo-identification).
+	let accountDefaultName = $derived(
+		currentIdentity?.name?.trim() || name.trim(),
+	);
+
 	// État pour la revendication d'identité protégée
 	let claimedIdentity = $state<Participant | null>(null);
 
@@ -59,6 +86,8 @@
 		claimedIdentity = null;
 		authMode = "register";
 		showAccountForm = false;
+		newParticipantName = "";
+		showCreateForm = false;
 	}
 
 	function closeModal() {
@@ -66,9 +95,10 @@
 		onClose();
 	}
 
-	// Focus auto à l'ouverture et préremplissage du nom
+	// Focus auto à l'ouverture et préremplissage du nom (primo-identification
+	// uniquement : en mode switch il n'y a plus de saisie immédiate).
 	$effect(() => {
-		if (open && !claimedIdentity) {
+		if (open && !claimedIdentity && !isSwitch) {
 			// Préremplir le nom si fourni (pour les users auth)
 			if (initialName) {
 				name = initialName;
@@ -115,6 +145,38 @@
 		// Le focus sera géré par AuthForm via focusEmail
 	}
 
+	// Mode switch : reprendre un participant existant (redirige vers le login
+	// s'il est lié à un compte, comme en primo-identification).
+	async function attemptSwitch(participant: Participant) {
+		if (participant.userId) {
+			handleRequireLogin(participant);
+			return;
+		}
+		await handleIdentifyAs(participant);
+	}
+
+	// Mode switch : créer un nouveau participant vierge et basculer dessus.
+	// L'ancien participant reste dans la liste avec ses réponses.
+	async function handleCreateNew() {
+		const trimmed = newParticipantName.trim();
+		if (!trimmed || isSubmitting || createConflict) return;
+
+		if (!masterId || !onPlanningIdentify) {
+			console.warn("IdentifyModal: handleCreateNew called without masterId or onPlanningIdentify");
+			return;
+		}
+
+		isSubmitting = true;
+		try {
+			await onPlanningIdentify({ id: crypto.randomUUID(), name: trimmed }, true);
+			closeModal();
+		} catch (error) {
+			console.error("Error creating participant:", error);
+			toast.error(m.identify_error());
+			isSubmitting = false;
+		}
+	}
+
 	async function handleSubmit() {
 		if (!name.trim() || isSubmitting || hasNameConflict) return;
 
@@ -148,7 +210,13 @@
 	}
 </script>
 
-<Modal {open} onClose={closeModal} title={m.identify_title()} size="md" closable={!claimedIdentity}>
+<Modal
+	{open}
+	onClose={closeModal}
+	title={isSwitch && !claimedIdentity ? m.switch_title() : m.identify_title()}
+	size="md"
+	closable={!claimedIdentity}
+>
 	<div class="space-y-6">
 		<!-- Alerte pour identité protégée -->
 		{#if claimedIdentity}
@@ -188,6 +256,149 @@
 					onSuccess={handleAuthSuccess}
 				/>
 			</div>
+		{:else if isSwitch}
+			<!-- Mode switch : reprendre un participant existant ou en créer un nouveau.
+			     Pas de saisie immédiate : le rename vit dans RenameParticipantModal. -->
+			<div class="space-y-5" in:fade>
+				<!-- Identité active mise en avant -->
+				<div class="border-info/40 bg-info/10 rounded-xl border p-3 ring-1 ring-info/40">
+					<div class="flex flex-wrap items-center gap-2">
+						<span class="badge badge-info gap-1 font-bold">{currentIdentity?.name}</span>
+						<span class="badge badge-outline badge-info badge-sm">{m.switch_current()}</span>
+					</div>
+				</div>
+
+				<!-- Participants reprenables -->
+				{#if switchableParticipants.length > 0}
+					<div class="card card-xs bg-accent/20">
+						<div class="card-body">
+							<span class="text-accent-content/70 flex items-center gap-1 text-sm italic">
+								<InfoIcon class="inline size-4 shrink-0 opacity-80" />
+								{m.nameconflict_already_participated()}
+							</span>
+							<div class="flex max-h-40 flex-wrap gap-2 overflow-y-auto p-1">
+								{#each switchableParticipants as p (p.id)}
+									<button
+										type="button"
+										class="btn btn-accent btn-sm"
+										onclick={() => attemptSwitch(p)}
+										disabled={isSubmitting}
+									>
+										{p.name}
+									</button>
+								{/each}
+							</div>
+						</div>
+					</div>
+				{:else}
+					<p class="text-sm opacity-60">{m.switch_no_other()}</p>
+				{/if}
+
+				<!-- Création d'un nouveau participant (dépliable au clic) -->
+				<button
+					type="button"
+					class="btn btn-outline btn-block gap-2"
+					onclick={() => (showCreateForm = !showCreateForm)}
+					aria-expanded={showCreateForm}
+					disabled={isSubmitting}
+				>
+					{m.switch_new_title()}
+				</button>
+				{#if showCreateForm}
+					<div class="border-base-300 rounded-xl border p-3" transition:slide>
+						<p class="mb-3 text-sm opacity-80">{m.switch_new_desc()}</p>
+						<form
+							onsubmit={(e) => {
+								e.preventDefault();
+								handleCreateNew();
+							}}
+							class="space-y-3"
+						>
+							<fieldset>
+								<label class="input w-full" class:border-error={createConflict}>
+									<span class="label">
+										<User size={18} class="opacity-40" />
+										{m.identify_name_label()}
+									</span>
+									<input
+										type="text"
+										bind:value={newParticipantName}
+										class="grow"
+										placeholder={m.identify_name_placeholder()}
+										required
+										disabled={isSubmitting}
+										maxlength="36"
+									/>
+								</label>
+								{#if createConflict}
+									<div class="alert alert-warning alert-soft mt-2 p-2 text-sm">
+										{m.rename_name_taken()}
+									</div>
+								{/if}
+							</fieldset>
+							<button
+								type="submit"
+								class="btn btn-primary btn-block gap-2"
+								disabled={isSubmitting || !newParticipantName.trim() || createConflict}
+							>
+								{#if isSubmitting}
+									<span class="loading loading-spinner loading-xs"></span>
+									{m.identify_processing()}
+								{:else}
+									{m.switch_create_as({ name: newParticipantName.trim() || "..." })}
+									<ArrowRight size={18} />
+								{/if}
+							</button>
+						</form>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Inscription depuis le IdentifyModal -->
+			{#if !userStore.isLoggedIn}
+				<div class="divider mt-8 text-sm font-medium tracking-widest uppercase opacity-50">
+					{m.identify_or_link_account()}
+				</div>
+				<div class="flex w-full flex-col gap-2 leading-tight">
+					<div class="flex items-center gap-2 text-sm opacity-70">
+						<InfoIcon size={20} class="inline shrink-0" />
+						{m.identify_link_account_desc()}
+					</div>
+
+					<div class="my-4 flex flex-wrap justify-evenly gap-2">
+						<button
+							class="btn {authMode === 'login' ? 'btn-primary' : 'btn-soft btn-primary'}"
+							onclick={() => {
+								authMode = "login";
+								showAccountForm = true;
+							}}
+						>
+							{m.identify_switch_to_login()}
+						</button>
+						<button
+							class="btn {authMode === 'register' ? 'btn-primary' : 'btn-soft btn-primary'}"
+							onclick={() => {
+								authMode = "register";
+								showAccountForm = true;
+							}}
+						>
+							{m.identify_create_account()}
+						</button>
+					</div>
+
+					{#if showAccountForm}
+						<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
+							<AuthForm
+								mode={authMode}
+								name={accountDefaultName}
+								showNameInput={false}
+								compact
+								onSuccess={handleAuthSuccess}
+							/>
+						</div>
+					{/if}
+				</div>
+			{/if}
 		{:else}
 			<!-- Formulaire normal -->
 			<form
@@ -285,7 +496,7 @@
 						<div class="bg-base-200/50 border-base-300 rounded-xl border p-4">
 							<AuthForm
 								mode={authMode}
-								name={name.trim()}
+								name={accountDefaultName}
 								showNameInput={false}
 								compact
 								onSuccess={handleAuthSuccess}

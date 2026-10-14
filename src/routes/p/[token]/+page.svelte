@@ -8,6 +8,7 @@
 		Lock,
 		LogOut,
 		MapPin,
+		Pencil,
 		Settings,
 		Share2,
 		Trash2,
@@ -34,6 +35,7 @@
 	import PlanningErrorStates from "$lib/components/PlanningErrorStates.svelte";
 	import PwaInstallCard from "$lib/components/PwaInstallCard.svelte";
 	import QuitReturnModal from "$lib/components/QuitReturnModal.svelte";
+	import RenameParticipantModal from "$lib/components/RenameParticipantModal.svelte";
 	import ShareSection from "$lib/components/ShareSection.svelte";
 	import ConfirmModal from "$lib/components/ui/ConfirmModal.svelte";
 	import DescriptionCard from "$lib/components/ui/DescriptionCard.svelte";
@@ -71,6 +73,7 @@
 	let showAccountModal = $state(false);
 	let showQuitModal = $state(false);
 	let showClaimModal = $state(false);
+	let showRenameModal = $state(false);
 	// Participant proposé au claim direct à l'ouverture du modal (flux de transition
 	// guest → auth). Null sauf quand le modal s'ouvre via le trigger suggestion.
 	let suggestionParticipant = $state<Participant | null>(null);
@@ -195,8 +198,8 @@
 		identity: PlanningIdentity,
 		isNewParticipant: boolean,
 		additionalFields?: Partial<Participant>,
-	) {
-		if (!master) return;
+	): Promise<boolean> {
+		if (!master) return false;
 
 		try {
 			const existing = master.participants.find((p) => p.id === identity.id);
@@ -232,9 +235,21 @@
 			await guestStateStore.setGuestIdentity(master.id, identity);
 
 			userStore.authModal = { ...userStore.authModal, open: false };
+			return true;
 		} catch (error) {
 			console.error("Error identifying:", error);
 			toast.error(m.participant_identify_error());
+			return false;
+		}
+	}
+
+	/** Rename du participant guest courant (bouton crayon → RenameParticipantModal). */
+	async function handleRename(newName: string) {
+		if (!master || !currentIdentity) return;
+		const ok = await handlePlanningIdentify({ id: currentIdentity.id, name: newName }, false);
+		if (ok) {
+			toast.success(m.claim_name_updated());
+			showRenameModal = false;
 		}
 	}
 
@@ -479,6 +494,16 @@
 							<!-- Identifié -->
 							<div class="flex flex-wrap items-center gap-2">
 								<span class="badge badge-info gap-1 font-bold">{currentIdentity.name}</span>
+								{#if !userStore.isLoggedIn}
+									<button
+										class="btn btn-soft btn-info btn-sm gap-1"
+										type="button"
+										onclick={() => (showRenameModal = true)}
+									>
+										<Pencil size={14} />
+										{m.participant_rename()}
+									</button>
+								{/if}
 								<button
 									class="btn btn-soft btn-info btn-sm gap-1"
 									type="button"
@@ -486,7 +511,9 @@
 										userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
 								>
 									<UserCog size={14} />
-									{m.participant_change_identity()}
+									{userStore.isLoggedIn
+										? m.participant_change_identity()
+										: m.participant_switch_identity()}
 								</button>
 								{#if userStore.isLoggedIn && claimableParticipants.length > 0 && !myParticipant?.claimedAt}
 									<button
@@ -793,5 +820,17 @@
 		{token}
 		quitParticipantId={quitParticipantId!}
 		onRejoined={() => (showQuitReturnModal = false)}
+	/>
+{/if}
+
+{#if master && currentIdentity && !userStore.isLoggedIn}
+	<RenameParticipantModal
+		bind:open={showRenameModal}
+		onClose={() => (showRenameModal = false)}
+		currentName={currentIdentity.name}
+		planningTitle={master.title}
+		existingParticipants={master.participants.filter((p) => !p.hasQuit)}
+		currentIdentityId={currentIdentity.id}
+		onRename={handleRename}
 	/>
 {/if}
