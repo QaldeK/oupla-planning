@@ -7,6 +7,46 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-10-15
+
+### Fonctionnalités
+
+- **Identité** — le renommage d'un invité et le changement de participant ont
+  désormais chacun leur interface dédiée, en remplacement du modal unique.
+  Libellés clarifiés et messages de sécurité explicites lors de la
+  revendication d'une identité.
+- **Mot de passe** — logique de mise à jour revue et formulaire amélioré dans
+  les paramètres.
+- **Notifications toast** — bordures personnalisées pour un meilleur repérage
+  visuel.
+
+### Corrections
+
+- **Formulaire de contact** — l'envoi du mail est désormais précédé d'une sonde
+  de joignabilité SMTP (3 s max) : plus d'envoi qui reste bloqué quand le
+  serveur mail ne répond pas.
+- **Synchronisation hors-ligne** — le curseur delta est remplacé par des
+  resynchronisations complètes bornées par date, et le planning est rafraîchi
+  depuis le serveur à l'activation et à chaque resynchronisation. La synchro
+  gagne en fiabilité et en prévisibilité.
+- **Sessions** — le token d'authentification est renouvelé au démarrage de
+  l'app : les sessions restent actives au lieu d'expirer après inactivité.
+- **Mises à jour PWA** — la recherche de mises à jour continue même quand une
+  mise à jour attend déjà d'être appliquée.
+- **Création de participant** — l'état de soumission du formulaire est
+  correctement réinitialisé après un succès (bouton restait bloqué).
+- **Aperçus de réponses** — clé de rendu corrigée (avertissements Svelte
+  `each_key_duplicate`).
+
+### Maintenance
+
+- **PocketBase 0.40.5** — mise à jour du binaire backend (depuis 0.39.11).
+- **Dépendances** — mise à jour des dépendances npm.
+- **Tests d'intégration** — instance PocketBase jetable avec provision
+  automatique des données de test, pour des tests totalement isolés.
+- **Documentation** — ADR 0016 sur les conventions i18n ; doc de déploiement ;
+  fichiers de traduction mis à jour.
+
 ## [0.6.1] — 2026-09-01
 
 ### Fonctionnalités
