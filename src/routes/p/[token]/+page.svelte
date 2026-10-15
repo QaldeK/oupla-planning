@@ -24,7 +24,7 @@
 	import { fade } from "svelte/transition";
 	import { toast } from "svelte-sonner";
 	import { goto } from "$app/navigation";
-	import { page } from "$app/stores";
+	import { page } from "$app/state";
 	import AccountModal from "$lib/components/auth/AccountModal.svelte";
 	import IdentityClaimModal from "$lib/components/IdentityClaimModal.svelte";
 	import NetworkAlert from "$lib/components/NetworkAlert.svelte";
@@ -61,7 +61,7 @@
 	import { hasNameConflict } from "$lib/utils/participantConflict";
 	import { getRecurrenceLabel } from "$lib/utils/recurrence";
 
-	let token = $derived($page.params.token as string);
+	let token = $derived(page.params.token as string);
 	let master = $derived(planningStore.master);
 	let allOccurrences = $derived(planningStore.occurrences);
 	const today = $derived(new Date().toISOString().split("T")[0]);
@@ -131,7 +131,7 @@
 	// Lien profond depuis les emails de notification (footer) : /p/{token}?notif=1
 	// ouvre directement le modal des préférences de notification au mount.
 	onMount(() => {
-		if ($page.url.searchParams.get("notif") === "1") {
+		if (page.url.searchParams.get("notif") === "1") {
 			showNotifModal = true;
 		}
 	});

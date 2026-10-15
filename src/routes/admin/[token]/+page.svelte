@@ -6,7 +6,7 @@
 	import { fade } from "svelte/transition";
 	import { toast } from "svelte-sonner";
 	import { goto } from "$app/navigation";
-	import { page } from "$app/stores";
+	import { page } from "$app/state";
 	import { ClientResponseError } from "pocketbase";
 	import ConfirmModal from "$lib/components/ui/ConfirmModal.svelte";
 	import LockOverlay from "$lib/components/admin/LockOverlay.svelte";
@@ -32,7 +32,7 @@
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import { resolveActorIdentity } from "$lib/utils/identityResolution";
 
-	let token = $derived($page.params.token as string);
+	let token = $derived(page.params.token as string);
 	let master = $derived(planningStore.master);
 	let occurrences = $derived(planningStore.occurrences);
 	let isLoading = $derived(planningStore.isLoading);

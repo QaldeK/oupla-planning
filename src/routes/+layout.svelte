@@ -38,7 +38,7 @@
 
 	import { page } from "$app/state";
 
-	// Layout-driven : observer $page.params.token pour activer/désactiver le planning
+	// Layout-driven : observer page.params.token pour activer/désactiver le planning
 	$effect(() => {
 		const token = page.params.token as string | undefined;
 

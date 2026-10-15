@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Menu, PanelLeftClose, User } from "@lucide/svelte";
 	import { goto } from "$app/navigation";
-	import { page } from "$app/stores";
+	import { page } from "$app/state";
 	import * as m from "$lib/paraglide/messages.js";
 	import { modalStore } from "$lib/stores/modalStore.svelte";
 	import { planningStore } from "$lib/stores/planningStore.svelte";
@@ -15,7 +15,7 @@
 	let scrollTimeout: ReturnType<typeof setTimeout>;
 
 	// Titre dynamique basé sur la route et le planning actif
-	const pathname = $derived($page.url.pathname);
+	const pathname = $derived(page.url.pathname);
 	const master = $derived(planningStore.master as PlanningMaster | null);
 
 	const title = $derived(getTitle(pathname, master));

@@ -304,7 +304,7 @@ class PlanningStore {
 
 	/**
 	 * Active un planning à partir de son token (participant ou admin).
-	 * API publique appelée par le layout qui observe `$page.params.token`.
+	 * API publique appelée par le layout qui observe `page.params.token`.
 	 *
 	 * Guards (early return) + ouverture défensive de la DB + délégation à
 	 * `#activatePlanning` qui unify les flows auth/guest/claim.
