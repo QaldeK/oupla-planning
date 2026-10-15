@@ -42,6 +42,32 @@ wait_up() {
 	done
 }
 
+# Garde-fou anti-régression : une instance PocketBase neuve naît avec le
+# endpoint batch désactivé (défaut) alors que pb-sync écrit les plannings
+# via POST /api/batch → 403 "Batch requests are not allowed" sur ~30 tests.
+# Le réglage persiste dans le dir de données : le PATCH ne joue qu'une fois
+# par dir, le start reste idempotent.
+provision_batch() {
+	local token
+	token=$(curl -sf -m 5 -X POST "${URL}/api/collections/_superusers/auth-with-password" \
+		-H "Content-Type: application/json" \
+		-d "{\"identity\":\"${ADMIN_EMAIL}\",\"password\":\"${ADMIN_PASSWORD}\"}" \
+		| sed -E 's/.*"token":"([^"]+)".*/\1/')
+	if [[ -z "$token" || "$token" == *'"token"'* ]]; then
+		echo "Échec auth superuser pour provisionner le batch (voir ${LOG_FILE})" >&2
+		exit 1
+	fi
+	local res
+	res=$(curl -sf -m 5 -X PATCH "${URL}/api/settings" \
+		-H "Content-Type: application/json" -H "Authorization: ${token}" \
+		-d '{"batch":{"enabled":true,"maxRequests":250}}')
+	if [[ "$res" != *'"enabled":true'* ]]; then
+		echo "Échec activation batch : ${res}" >&2
+		exit 1
+	fi
+	echo "Batch activé (maxRequests 250)"
+}
+
 start() {
 	if is_up; then
 		echo "Déjà démarrée : ${URL}"
@@ -57,11 +83,13 @@ start() {
 		>"$LOG_FILE" 2>&1 &
 	echo $! >"$PID_FILE"
 	wait_up
+	provision_batch
 	echo "Instance prête : ${URL}"
 	echo "  données : ${DATA_DIR} (SMTP désactivé)"
 	echo "  logs    : ${LOG_FILE}"
 	echo "Lancer les tests depuis la racine du repo :"
-	echo "  VITE_PLANNING_PB_URL=${URL} bun run test:integration"
+	echo "  VITE_PLANNING_PB_URL=${URL} IT_PB_DATA=${DATA_DIR}/data.db bun run test:integration"
+	echo "(IT_PB_DATA est requis : le test du verrou TTL vieillit lockedAt en SQL direct)"
 }
 
 stop() {
