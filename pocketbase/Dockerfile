@@ -10,7 +10,7 @@
 #   2. aligner le binaire local puis `bun run test:integration`
 #   3. vérifier le changelog PB côté hooks/JSVM (discipline source-first)
 #   4. redéployer Dokploy
-ARG PB_VERSION=0.39.11
+ARG PB_VERSION=0.40.5
 FROM alpine:3.20
 ARG PB_VERSION
 ARG TARGETARCH
