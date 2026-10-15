@@ -1,9 +1,12 @@
 <script lang="ts">
 	import {
+		AlertTriangle,
 		ArrowRight,
 		Check,
+		CheckCircle2,
 		Info,
 		LoaderCircle,
+		LogIn,
 		LogOut,
 		User,
 		UserCheck,
@@ -19,7 +22,6 @@
 		addParticipant,
 		type ClaimIdentityStats,
 		claimParticipantIdentity,
-		updateParticipant,
 	} from "$lib/services/planningActions";
 	import { ensurePlanningParticipant } from "$lib/services/planningParticipants";
 	import { userStore } from "$lib/stores/userStore.svelte";
@@ -84,7 +86,8 @@
 	$effect(() => {
 		if (!open) return;
 		untrack(() => {
-			name = authParticipant?.name ?? pbUser.name ?? "";
+			// Préremplit l'input du mode "new" (seul mode avec saisie) avec le nom du compte.
+			name = pbUser.name ?? "";
 			pendingClaimParticipant = null;
 			pendingMergeStats = null;
 			suggestionDeclined = false;
@@ -227,57 +230,37 @@
 	// === Actions ===
 
 	/**
-	 * Enregistrer le nom : soit ajouter un nouveau participant (mode "new"),
-	 * soit mettre à jour le nom du participant auth existant (mode "manage").
+	 * Enregistrer le nom (mode "new") : ajouter un nouveau participant lié au
+	 * compte. Le rename d'un participant existant vit dans RenameParticipantModal
+	 * (bouton crayon) — ce modal ne gère plus que la création.
 	 */
 	async function handleSaveName() {
 		if (!canSubmitName) return;
 
 		isSubmitting = true;
 		try {
-			if (mode === "new") {
-				// Créer nouveau participant avec userId = pbUser.id
-				await addParticipant(
-					master.id,
-					{
-						id: pbUser.id,
-						name: trimmedName,
-						isAdmin: false,
-						userId: pbUser.id,
-					},
-					token,
-				);
-				try {
-					await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin);
-				} catch (err) {
-					console.error("ensurePlanningParticipant failed:", err);
-				}
-				onIdentityChanged?.({
+			// Créer nouveau participant avec userId = pbUser.id
+			await addParticipant(
+				master.id,
+				{
 					id: pbUser.id,
 					name: trimmedName,
-					email: pbUser.email,
-				});
-				toast.success(m.claim_welcome({ name: trimmedName }));
-			} else {
-				// Mettre à jour le nom du participant auth
-				if (!authParticipant) {
-					console.error("authParticipant introuvable en mode manage");
-					return;
-				}
-				await updateParticipant(
-					master.id,
-					authParticipant.id,
-					{ name: trimmedName },
-					token,
-					master,
-				);
-				onIdentityChanged?.({
-					id: authParticipant.id,
-					name: trimmedName,
-					email: pbUser.email,
-				});
-				toast.success(m.claim_name_updated());
+					isAdmin: false,
+					userId: pbUser.id,
+				},
+				token,
+			);
+			try {
+				await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin);
+			} catch (err) {
+				console.error("ensurePlanningParticipant failed:", err);
 			}
+			onIdentityChanged?.({
+				id: pbUser.id,
+				name: trimmedName,
+				email: pbUser.email,
+			});
+			toast.success(m.claim_welcome({ name: trimmedName }));
 			open = false;
 		} catch (err) {
 			console.error("Error saving name:", err);
@@ -396,7 +379,7 @@
 <Modal
 	{open}
 	{onClose}
-	title={mode === "new" ? m.claim_your_identity() : m.claim_change_identity()}
+	title={mode === "new" ? m.claim_your_identity() : m.claim_manage_title()}
 	size="md"
 	{closable}
 >
@@ -634,119 +617,171 @@
 			</div>
 		{:else}
 			<!-- ============ ÉTAPE PRINCIPALE ============ -->
-			<!-- Section : Mon nom -->
-			<div class="space-y-3">
-				<div class="flex items-center gap-2 text-sm font-medium">
-					<User size={16} />
-					{m.claim_your_identity_on_this_planning()}
+			{#if mode === "manage"}
+				<!-- En-tête : rattacher une identité à CE compte -->
+				<div class="space-y-1 text-sm">
+					<p class="font-medium">
+						{m.claim_manage_account({ name: pbUser.name, email: pbUser.email })}
+					</p>
+					<p class="opacity-80">
+						{m.claim_manage_current_identity({ name: authParticipant?.name ?? pbUser.name })}
+					</p>
 				</div>
 
-				<fieldset>
-					<label class="input w-full" class:border-error={nameConflictParticipant}>
-						<input
-							type="text"
-							bind:value={name}
-							class="grow"
-							placeholder={m.claim_name_placeholder()}
-							maxlength="36"
-							disabled={isSubmitting}
-						/>
-					</label>
-				</fieldset>
+				<p class="text-sm opacity-80">{m.claim_manage_intro()}</p>
 
-				{#if nameConflictParticipant}
-					{#if nameConflictIsClaimable}
-						{@const conflictPreview = getFutureResponsesPreview(nameConflictParticipant.id)}
-						<div
-							class="border-warning bg-base-200 space-y-2 rounded-l-none rounded-r-lg border-l-4 p-3"
-						>
-							<div class="flex items-start justify-between gap-3">
-								<div class="min-w-0 flex-1">
-									<div class="flex items-start gap-2">
-										<Info size={16} class="text-warning mt-0.5 shrink-0" />
-										<div>
-											<p class="font-medium">
-												{m.claim_name_conflict({ name: trimmedName })}
-											</p>
-											<p class="text-sm opacity-80">
-												{m.claim_is_this_you()}
-											</p>
-										</div>
-									</div>
-									{#if conflictPreview.totalCount > 0}
-										<div class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-											<p>
-												{m.claim_conflict_responses_intro({
-													name: trimmedName,
-												})}
-											</p>
-											{#each conflictPreview.items.slice(0, 3) as item (item.occurrenceId)}
-												<span
-													class="badge {RESPONSE_TYPE_CONFIG[item.response].badgeClass} font-medium"
-												>
-													<span class="opacity-80">
-														{formatDateShort(item.date)} · {item.startTime} |
-													</span>
-													{RESPONSE_TYPE_LABELS[item.response]()}
-												</span>
-											{/each}
-											{#if conflictPreview.totalCount > 3}
-												{@const remainingOthers = conflictPreview.totalCount - 3}
-												<span class="self-center text-xs opacity-60">
-													{remainingOthers === 1
-														? m.claim_more_others_one({
-																count: remainingOthers,
-															})
-														: m.claim_more_others_other({
-																count: remainingOthers,
-															})}
-												</span>
-											{/if}
-										</div>
-									{:else}
-										{m.claim_no_responses_pending()}
-									{/if}
-								</div>
-								<button
-									type="button"
-									class="btn btn-outline btn-primary shrink-0 gap-1"
-									onclick={() => handleStartClaim(nameConflictParticipant)}
-									disabled={isSubmitting}
-								>
-									{m.claim_this_is_me()}
-								</button>
-							</div>
-						</div>
-					{:else}
-						<div class="alert alert-warning alert-soft p-2 text-sm">
-							<Info size={16} class="shrink-0" />
-							<div class="flex-1">
-								{m.claim_no_participant()}
-								{m.claim_choose_another()}
-							</div>
-						</div>
-					{/if}
-				{/if}
+				<!-- Garde-fou : situations → actions → conséquences. Le claim n'est pas
+				     un changement de compte — l'appareil partagé est le cas protégé. -->
+				<div class="alert alert-warning" role="alert">
+					<AlertTriangle size={20} class="shrink-0" />
+					<div class="flex-1 space-y-3 text-sm">
+						<p class="font-medium">{m.claim_manage_warning_title()}</p>
+						<ul class="space-y-2">
+							<li class="flex items-start gap-2">
+								<CheckCircle2 size={18} class="text-warning shrink-0" />
+								<span>
+									{m.claim_manage_case_own_title()}
+									<span class="block font-medium">
+										→ {m.claim_manage_case_own_action()}
+									</span>
+								</span>
+							</li>
+							<li class="flex items-start gap-2">
+								<LogIn size={18} class="text-warning shrink-0" />
+								<span>
+									{m.claim_manage_case_other_title()}
+									<span class="block font-medium">
+										→ {m.claim_manage_case_other_action()}
+									</span>
+								</span>
+							</li>
+						</ul>
+						<p>{m.claim_manage_warning_final()}</p>
+					</div>
+				</div>
 
+				<!-- Sortie de compte : les explications ci-dessus suffisent → libellé court -->
 				<button
 					type="button"
-					class="btn btn-primary btn-block gap-2"
-					onclick={handleSaveName}
-					disabled={!canSubmitName}
+					class="btn btn-accent btn-block gap-2"
+					onclick={handleLogoutSwitch}
+					disabled={isSubmitting}
 				>
-					{#if isSubmitting}
-						<LoaderCircle class="animate-spin" size={18} />
-						{m.claim_processing()}
-					{:else}
-						{#if mode === "new"}
-							{m.claim_enrolling_as({ name: trimmedName || "..." })}
-						{:else}
-							{m.claim_save()}
-						{/if}
-						<ArrowRight size={18} />
-					{/if}
+					<LogOut size={18} />
+					{m.claim_logout_button()}
 				</button>
-			</div>
+			{:else}
+				<!-- Section : Mon nom -->
+				<div class="space-y-3">
+					<div class="flex items-center gap-2 text-sm font-medium">
+						<User size={16} />
+						{m.claim_your_identity_on_this_planning()}
+					</div>
+
+					<fieldset>
+						<label class="input w-full" class:border-error={nameConflictParticipant}>
+							<input
+								type="text"
+								bind:value={name}
+								class="grow"
+								placeholder={m.claim_name_placeholder()}
+								maxlength="36"
+								disabled={isSubmitting}
+							/>
+						</label>
+					</fieldset>
+
+					{#if nameConflictParticipant}
+						{#if nameConflictIsClaimable}
+							{@const conflictPreview = getFutureResponsesPreview(nameConflictParticipant.id)}
+							<div
+								class="border-warning bg-base-200 space-y-2 rounded-l-none rounded-r-lg border-l-4 p-3"
+							>
+								<div class="flex items-start justify-between gap-3">
+									<div class="min-w-0 flex-1">
+										<div class="flex items-start gap-2">
+											<Info size={16} class="text-warning mt-0.5 shrink-0" />
+											<div>
+												<p class="font-medium">
+													{m.claim_name_conflict({ name: trimmedName })}
+												</p>
+												<p class="text-sm opacity-80">
+													{m.claim_is_this_you()}
+												</p>
+											</div>
+										</div>
+										{#if conflictPreview.totalCount > 0}
+											<div class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+												<p>
+													{m.claim_conflict_responses_intro({
+														name: trimmedName,
+													})}
+												</p>
+												{#each conflictPreview.items.slice(0, 3) as item (item.occurrenceId)}
+													<span
+														class="badge {RESPONSE_TYPE_CONFIG[item.response]
+															.badgeClass} font-medium"
+													>
+														<span class="opacity-80">
+															{formatDateShort(item.date)} · {item.startTime} |
+														</span>
+														{RESPONSE_TYPE_LABELS[item.response]()}
+													</span>
+												{/each}
+												{#if conflictPreview.totalCount > 3}
+													{@const remainingOthers = conflictPreview.totalCount - 3}
+													<span class="self-center text-xs opacity-60">
+														{remainingOthers === 1
+															? m.claim_more_others_one({
+																	count: remainingOthers,
+																})
+															: m.claim_more_others_other({
+																	count: remainingOthers,
+																})}
+													</span>
+												{/if}
+											</div>
+										{:else}
+											{m.claim_no_responses_pending()}
+										{/if}
+									</div>
+									<button
+										type="button"
+										class="btn btn-warning shrink-0 gap-1"
+										onclick={() => handleStartClaim(nameConflictParticipant)}
+										disabled={isSubmitting}
+									>
+										{m.claim_this_is_me()}
+									</button>
+								</div>
+							</div>
+						{:else}
+							<div class="alert alert-warning alert-soft p-2 text-sm">
+								<Info size={16} class="shrink-0" />
+								<div class="flex-1">
+									{m.claim_no_participant()}
+									{m.claim_choose_another()}
+								</div>
+							</div>
+						{/if}
+					{/if}
+
+					<button
+						type="button"
+						class="btn btn-primary btn-block gap-2"
+						onclick={handleSaveName}
+						disabled={!canSubmitName}
+					>
+						{#if isSubmitting}
+							<LoaderCircle class="animate-spin" size={18} />
+							{m.claim_processing()}
+						{:else}
+							{m.claim_enrolling_as({ name: trimmedName || "..." })}
+							<ArrowRight size={18} />
+						{/if}
+					</button>
+				</div>
+			{/if}
 
 			<!-- Section : Rejoindre une identité existante -->
 			{#if claimableParticipants.length > 0 && !authParticipant?.claimedAt}
@@ -805,7 +840,7 @@
 
 									<button
 										type="button"
-										class="btn btn-sm btn-outline btn-primary shrink-0 gap-1"
+										class="btn btn-sm btn-warning shrink-0 gap-1"
 										onclick={() => handleStartClaim(p)}
 										disabled={isSubmitting}
 									>
@@ -818,18 +853,21 @@
 				</div>
 			{/if}
 
-			<!-- Échappatoire : changer de compte -->
-			<div class="pt-2">
-				<button
-					type="button"
-					class="btn btn-ghost btn-link btn-block gap-1 text-sm opacity-70"
-					onclick={handleLogoutSwitch}
-					disabled={isSubmitting}
-				>
-					<LogOut size={15} />
-					{m.claim_switch_account()}
-				</button>
-			</div>
+			<!-- Échappatoire : changer de compte (mode new — en manage elle est
+			     mise en avant en haut de l'étape principale) -->
+			{#if mode === "new"}
+				<div class="pt-2">
+					<button
+						type="button"
+						class="btn btn-ghost btn-link btn-block gap-1 text-sm opacity-70"
+						onclick={handleLogoutSwitch}
+						disabled={isSubmitting}
+					>
+						<LogOut size={15} />
+						{m.claim_switch_account()}
+					</button>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </Modal>

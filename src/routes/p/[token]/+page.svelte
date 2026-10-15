@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		ArrowLeftRight,
 		Bell,
 		Calendar,
 		CalendarX,
@@ -15,7 +16,6 @@
 		Undo2,
 		User,
 		UserCheck,
-		UserCog,
 		Users,
 	} from "@lucide/svelte";
 	import { ClientResponseError } from "pocketbase";
@@ -74,6 +74,7 @@
 	let showQuitModal = $state(false);
 	let showClaimModal = $state(false);
 	let showRenameModal = $state(false);
+	let showSwitchAccountModal = $state(false);
 	// Participant proposé au claim direct à l'ouverture du modal (flux de transition
 	// guest → auth). Null sauf quand le modal s'ouvre via le trigger suggestion.
 	let suggestionParticipant = $state<Participant | null>(null);
@@ -378,6 +379,17 @@
 		}
 	}
 
+	/** Déconnexion sur place (reste sur le planning, re-identification guest via IdentifyModal). */
+	async function handleSwitchAccount() {
+		showSwitchAccountModal = false;
+		try {
+			await userStore.logoutAndStayOnPlanning(token);
+		} catch (err) {
+			console.error("Error switching account:", err);
+			toast.error(m.claim_logout_error());
+		}
+	}
+
 	const displayedOccurrences = $derived(occurrences.slice(0, displayCount));
 	const hasMore = $derived(displayCount < occurrences.length);
 
@@ -485,48 +497,59 @@
 			<div class="card card-sm bg-base-300/20 border-base-content/5 mb-4 border shadow-sm">
 				<div class="card-body gap-4">
 					<!-- Groupe « Vous » : gestion de l'identité courante -->
-					<div>
-						<div class="text-content-primary mb-2 flex items-center gap-2 text-sm font-semibold">
+					<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+						<div class="text-content-primary flex items-center gap-2 text-sm font-semibold">
 							<User size={16} class="shrink-0" />
 							{m.participant_you()}
 						</div>
 						{#if currentIdentity}
 							<!-- Identifié -->
-							<div class="flex flex-wrap items-center gap-2">
-								<span class="badge badge-info gap-1 font-bold">{currentIdentity.name}</span>
-								{#if !userStore.isLoggedIn}
-									<button
-										class="btn btn-soft btn-info btn-sm gap-1"
-										type="button"
-										onclick={() => (showRenameModal = true)}
-									>
-										<Pencil size={14} />
-										{m.participant_rename()}
-									</button>
-								{/if}
+							<div class="flex flex-wrap gap-2">
+								<!-- Nom = bouton crayon : rename local au planning (guest et auth) -->
 								<button
-									class="btn btn-soft btn-info btn-sm gap-1"
+									class="btn btn-info  btn-sm gap-1 font-bold"
 									type="button"
-									onclick={() =>
-										userStore.isLoggedIn ? openIdentityClaimModal() : openIdentifyModal()}
+									onclick={() => (showRenameModal = true)}
+									aria-label={m.participant_rename_aria()}
+									title={m.participant_rename_aria()}
 								>
-									<UserCog size={14} />
-									{userStore.isLoggedIn
-										? m.participant_change_identity()
-										: m.participant_switch_identity()}
+									{currentIdentity.name}
+									<Pencil size={14} class="ms-2" />
 								</button>
-								{#if userStore.isLoggedIn && claimableParticipants.length > 0 && !myParticipant?.claimedAt}
+								{#if userStore.isLoggedIn}
+									<!-- Auth : revendication d'une identité existante, sinon sortie de compte -->
+									{#if claimableParticipants.length > 0 && !myParticipant?.claimedAt}
+										<button
+											class="btn btn-link btn-info  gap-1"
+											type="button"
+											onclick={openIdentityClaimModal}
+										>
+											<UserCheck size={16} />
+											{m.participant_claim_identity()}
+										</button>
+									{:else}
+										<button
+											class="btn btn-link btn-info gap-1"
+											type="button"
+											onclick={() => (showSwitchAccountModal = true)}
+										>
+											<LogOut size={16} />
+											{m.participant_switch_account_button()}
+										</button>
+									{/if}
+								{:else}
+									<!-- Guest : reprendre une autre identité ou en créer une -->
 									<button
-										class="btn btn-link btn-sm text-info gap-1"
+										class="btn btn-link btn-info gap-1"
 										type="button"
-										onclick={openIdentityClaimModal}
+										onclick={openIdentifyModal}
 									>
-										<UserCheck size={14} />
-										{m.participant_claim_identity()}
+										<ArrowLeftRight size={16} />
+										{m.participant_switch_identity()}
 									</button>
 								{/if}
 								<button
-									class="btn btn-ghost btn-error btn-sm ms-auto gap-1"
+									class="btn btn-link btn-error ms-auto gap-1"
 									onclick={() => (showQuitModal = true)}
 									title={m.participant_quit_title()}
 								>
@@ -823,7 +846,7 @@
 	/>
 {/if}
 
-{#if master && currentIdentity && !userStore.isLoggedIn}
+{#if master && currentIdentity}
 	<RenameParticipantModal
 		bind:open={showRenameModal}
 		onClose={() => (showRenameModal = false)}
@@ -834,3 +857,13 @@
 		onRename={handleRename}
 	/>
 {/if}
+
+<ConfirmModal
+	bind:open={showSwitchAccountModal}
+	onClose={() => (showSwitchAccountModal = false)}
+	onConfirm={handleSwitchAccount}
+	title={m.participant_switch_account_title()}
+	message={m.participant_switch_account_message()}
+	confirmLabel={m.participant_switch_account_confirm()}
+	variant="warning"
+/>

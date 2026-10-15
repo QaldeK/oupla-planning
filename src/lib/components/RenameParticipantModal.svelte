@@ -37,7 +37,8 @@
 	let inputRef = $state<HTMLInputElement | null>(null);
 
 	// Conflit : nom déjà porté par un autre participant actif. Le rename ne
-	// revendique jamais — l'utilisateur doit passer par « Changer de participant ».
+	// revendique jamais — reprendre l'identité existante passe par le bouton
+	// d'identité du groupe « Vous » (« Ce n'est pas moi » / « Revendiquer une identité »).
 	let hasConflict = $derived(
 		hasNameConflict(existingParticipants, newName, currentIdentityId ?? ""),
 	);

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ArrowLeftFromLine, ArrowRight, InfoIcon, Lock, User } from "@lucide/svelte";
-	import { fade, slide } from "svelte/transition";
+	import { fade } from "svelte/transition";
 	import { toast } from "svelte-sonner";
 	import * as m from "$lib/paraglide/messages.js";
 	import { userStore } from "$lib/stores/userStore.svelte";
@@ -60,9 +60,7 @@
 
 	// Nom par défaut pour la création de compte (le compte reprend le nom de
 	// l'identité active en mode switch, la saisie en primo-identification).
-	let accountDefaultName = $derived(
-		currentIdentity?.name?.trim() || name.trim(),
-	);
+	let accountDefaultName = $derived(currentIdentity?.name?.trim() || name.trim());
 
 	// État pour la revendication d'identité protégée
 	let claimedIdentity = $state<Participant | null>(null);
@@ -302,14 +300,19 @@
 			</div>
 		{:else if isSwitch}
 			<!-- Mode switch : reprendre un participant existant ou en créer un nouveau.
-			     Pas de saisie immédiate : le rename vit dans RenameParticipantModal. -->
+			     Le rename vit dans RenameParticipantModal (bouton crayon). -->
 			<div class="space-y-5" in:fade>
-				<!-- Identité active mise en avant -->
-				<div class="border-info/40 bg-info/10 rounded-xl border p-3 ring-1 ring-info/40">
-					<div class="flex flex-wrap items-center gap-2">
-						<span class="badge badge-info gap-1 font-bold">{currentIdentity?.name}</span>
-						<span class="badge badge-outline badge-info badge-sm">{m.switch_current()}</span>
-					</div>
+				<!-- En-tête rédigé : état courant + options possibles (liste auto-adaptée) -->
+				<div class="space-y-2 text-sm">
+					<p>{m.switch_intro({ name: currentIdentity?.name ?? "" })}</p>
+					<ul class="list-disc space-y-1 ps-5">
+						{#if switchableParticipants.length > 0}
+							<li>{m.switch_option_existing()}</li>
+						{/if}
+						<li>{m.switch_option_new()}</li>
+						<li>{m.switch_option_account()}</li>
+					</ul>
+					<p class="opacity-70">{m.switch_closing()}</p>
 				</div>
 
 				<!-- Participants reprenables -->
@@ -338,64 +341,53 @@
 					<p class="text-sm opacity-60">{m.switch_no_other()}</p>
 				{/if}
 
-				<!-- Création d'un nouveau participant (dépliable au clic) -->
-				<button
-					type="button"
-					class="btn btn-outline btn-block gap-2"
-					onclick={() => (showCreateForm = !showCreateForm)}
-					aria-expanded={showCreateForm}
-					disabled={isSubmitting}
-				>
-					{m.switch_new_title()}
-				</button>
-				{#if showCreateForm}
-					<div class="border-base-300 rounded-xl border p-3" transition:slide>
-						<p class="mb-3 text-sm opacity-80">{m.switch_new_desc()}</p>
-						<form
-							onsubmit={(e) => {
-								e.preventDefault();
-								handleCreateNew();
-							}}
-							class="space-y-3"
+				<!-- Création d'un nouveau participant -->
+				<div class="border-base-300 rounded-xl border p-3">
+					<p class="mb-3 text-sm opacity-80">{m.switch_new_desc()}</p>
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							handleCreateNew();
+						}}
+						class="space-y-3"
+					>
+						<fieldset>
+							<label class="input w-full" class:border-error={createConflict}>
+								<span class="label">
+									<User size={18} class="opacity-40" />
+									{m.identify_name_label()}
+								</span>
+								<input
+									type="text"
+									bind:value={newParticipantName}
+									class="grow"
+									placeholder={m.identify_name_placeholder()}
+									required
+									disabled={isSubmitting}
+									maxlength="36"
+								/>
+							</label>
+							{#if createConflict}
+								<div class="alert alert-warning alert-soft mt-2 p-2 text-sm">
+									{m.rename_name_taken()}
+								</div>
+							{/if}
+						</fieldset>
+						<button
+							type="submit"
+							class="btn btn-primary btn-block gap-2"
+							disabled={isSubmitting || !newParticipantName.trim() || createConflict}
 						>
-							<fieldset>
-								<label class="input w-full" class:border-error={createConflict}>
-									<span class="label">
-										<User size={18} class="opacity-40" />
-										{m.identify_name_label()}
-									</span>
-									<input
-										type="text"
-										bind:value={newParticipantName}
-										class="grow"
-										placeholder={m.identify_name_placeholder()}
-										required
-										disabled={isSubmitting}
-										maxlength="36"
-									/>
-								</label>
-								{#if createConflict}
-									<div class="alert alert-warning alert-soft mt-2 p-2 text-sm">
-										{m.rename_name_taken()}
-									</div>
-								{/if}
-							</fieldset>
-							<button
-								type="submit"
-								class="btn btn-primary btn-block gap-2"
-								disabled={isSubmitting || !newParticipantName.trim() || createConflict}
-							>
-								{#if isSubmitting}
-									<span class="loading loading-spinner loading-xs"></span>
-									{m.identify_processing()}
-								{:else}
-									{m.switch_create_as({ name: newParticipantName.trim() || "..." })}
-									<ArrowRight size={18} />
-								{/if}
-							</button>
-						</form>
-					</div>
-				{/if}
+							{#if isSubmitting}
+								<span class="loading loading-spinner loading-xs"></span>
+								{m.identify_processing()}
+							{:else}
+								{m.switch_create_as({ name: newParticipantName.trim() || "..." })}
+								<ArrowRight size={18} />
+							{/if}
+						</button>
+					</form>
+				</div>
 			</div>
 
 			<!-- Inscription depuis le IdentifyModal -->
