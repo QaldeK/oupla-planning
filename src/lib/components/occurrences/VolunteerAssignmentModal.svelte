@@ -12,6 +12,10 @@
 	} from "$lib/types/planning.types";
 	import { classifyError } from "$lib/utils/errorHandler";
 	import Modal from "../ui/Modal.svelte";
+	import {
+		buildParticipantResponse,
+		resolveTaskToggleOutcome,
+	} from "./shared/occurrenceResponseWorkflow.svelte";
 
 	interface Props {
 		open: boolean;
@@ -81,33 +85,47 @@
 		}
 	}
 
+	function participantName(participantId: string): string {
+		return participants.find((p) => p.id === participantId)?.name || m.common_unknown();
+	}
+
 	async function toggleVolunteer(participantId: string) {
 		if (disabled) return;
 
+		const existingResponse = responses.find((r) => r.participantId === participantId);
+		const existingTasks = existingResponse?.tasks || [];
+		const isAdding = !existingTasks.includes(task.id);
+
+		// Matrice partagée « onEvent ⟹ présent » : refus si l'ajout contredit une
+		// réponse explicite (l'admin le passe present dans la modal d'édition),
+		// retrait sans incidence sur la réponse.
+		const outcome = resolveTaskToggleOutcome({
+			task,
+			currentResponse: existingResponse?.response,
+			allowResponses,
+			isAdding,
+		});
+		if (outcome.kind === "refuse") {
+			toast.error(m.volunteer_must_be_present({ name: participantName(participantId) }));
+			return;
+		}
+
+		const updatedTasks = isAdding
+			? [...new Set([...existingTasks, task.id])]
+			: existingTasks.filter((t) => t !== task.id);
+
 		try {
-			const existingResponse = responses.find((r) => r.participantId === participantId);
-
-			// Auto-set "present" pour onEvent si allowResponses
-			let responseType: ParticipantResponse["response"] = existingResponse?.response || "present";
-			if (task.type === "onEvent" && allowResponses && responseType !== "present") {
-				responseType = "present";
-			}
-
-			const existingTasks = existingResponse?.tasks || [];
-			const isAssigned = existingTasks.includes(task.id);
-			const updatedTasks = isAssigned
-				? existingTasks.filter((t) => t !== task.id)
-				: [...new Set([...existingTasks, task.id])];
-
-			const newResponse: ParticipantResponse = {
+			const updated = await submitResponse(
+				occurrenceId,
 				participantId,
-				response: responseType,
-				tasks: updatedTasks,
-				comment: existingResponse?.comment,
-				respondedAt: new Date().toISOString(),
-			};
-
-			const updated = await submitResponse(occurrenceId, participantId, newResponse, token);
+				// present par défaut : première réponse d'un·e volontaire (autoPresent inclus)
+				buildParticipantResponse({
+					participantId,
+					response: existingResponse?.response || "present",
+					tasks: updatedTasks,
+				}),
+				token,
+			);
 			onUpdateOccurrence(updated);
 		} catch (error) {
 			const { message } = classifyError(error);

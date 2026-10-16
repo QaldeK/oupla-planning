@@ -23,10 +23,8 @@
 	import { networkStore } from "$lib/stores/networkStore.svelte";
 	import type {
 		Participant,
-		ParticipantResponse,
 		PlanningMaster,
 		PlanningOccurrence,
-		ResponseType,
 		Task,
 	} from "$lib/types/planning.types";
 	import { classifyError } from "$lib/utils/errorHandler";
@@ -35,6 +33,11 @@
 	import Modal from "../ui/Modal.svelte";
 	import RichTextEditor from "../ui/RichTextEditor.svelte";
 	import TaskManager from "./TaskManager.svelte";
+	import {
+		buildParticipantResponse,
+		createOccurrenceResponseWorkflow,
+		type ResponseChange,
+	} from "./shared/occurrenceResponseWorkflow.svelte";
 	import VolunteerAssignmentModal from "./VolunteerAssignmentModal.svelte";
 
 	interface Props {
@@ -48,16 +51,6 @@
 	let { open = $bindable(false), onClose, occurrence, master, token }: Props = $props();
 
 	let isSubmitting = $state(false);
-
-	// Changement de réponse en attente de confirmation quand le participant visé
-	// est inscrit à au moins une tâche onEvent et que l'admin vise une réponse ≠ present.
-	// Singleton : la ConfirmModal est bloquante et chaque changement soumet immédiatement.
-	let pendingResponseChange = $state<{
-		participantId: string;
-		participantName: string;
-		targetResponse: ResponseType;
-		onEventTaskIds: string[];
-	} | null>(null);
 
 	const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
 
@@ -139,33 +132,15 @@
 
 	// Handler pour supprimer un participant d'une tâche
 	async function handleRemoveVolunteerFromTask(taskId: string, participantId: string) {
-		try {
-			const existingResponse = occurrence.responses.find((r) => r.participantId === participantId);
-			if (!existingResponse) return;
+		const existingResponse = occurrence.responses.find((r) => r.participantId === participantId);
+		if (!existingResponse) return;
 
-			const updatedTasks = (existingResponse.tasks || []).filter((t) => t !== taskId);
-
-			const newResponse: ParticipantResponse = {
-				participantId,
-				response: existingResponse.response,
-				tasks: updatedTasks,
-				comment: existingResponse.comment,
-				respondedAt: new Date().toISOString(),
-			};
-
-			const updated = await submitResponse(
-				occurrence.id,
-				participantId,
-				newResponse,
-				token,
-				occurrence,
-			);
-			occurrence = updated;
-		} catch (error) {
-			const { message } = classifyError(error);
-			toast.error(message);
-			console.error(error);
-		}
+		const updatedTasks = (existingResponse.tasks || []).filter((t) => t !== taskId);
+		await applyResponseChange({
+			participantId,
+			response: existingResponse.response,
+			tasks: updatedTasks,
+		});
 	}
 
 	async function handleCreateParticipant(name: string): Promise<Participant> {
@@ -201,56 +176,18 @@
 		}
 	}
 
-	async function handleResponseChange(participantId: string, responseType: ResponseType) {
-		// Les tâches onEvent exigent "present". Un changement vers une autre réponse
-		// désinscrirait ces tâches — confirmation requise (symétrique au côté participant).
-		if (responseType !== "present") {
-			const existingResponse = occurrence.responses.find((r) => r.participantId === participantId);
-			const onEventInscribed = tasks
-				.filter((t) => t.type === "onEvent" && (existingResponse?.tasks || []).includes(t.id))
-				.map((t) => t.id);
-			if (onEventInscribed.length > 0) {
-				const participant = master.participants.find((p) => p.id === participantId);
-				pendingResponseChange = {
-					participantId,
-					participantName: participant?.name || m.common_unknown(),
-					targetResponse: responseType,
-					onEventTaskIds: onEventInscribed,
-				};
-				return;
-			}
-		}
-
-		await applyResponseChange(participantId, responseType);
-	}
-
-	// Applique un changement de réponse, en retirant optionnellement des tâches
-	// (IDs fournis via tasksToRemove). Centralise la soumission pour le chemin
-	// direct et le chemin post-confirmation.
-	async function applyResponseChange(
-		participantId: string,
-		responseType: ResponseType,
-		tasksToRemove?: string[],
-	) {
+	// Chemin unique de soumission admin : appelé directement quand la garde ne
+	// se déclenche pas, ou après confirmation de désinscription onEvent.
+	async function applyResponseChange(change: ResponseChange) {
 		try {
-			const existingResponse = occurrence.responses.find((r) => r.participantId === participantId);
-			const existingTasks = existingResponse?.tasks || [];
-			const newTasks = tasksToRemove
-				? existingTasks.filter((t) => !tasksToRemove.includes(t))
-				: existingTasks;
-
-			const newResponse: ParticipantResponse = {
-				participantId,
-				response: responseType,
-				tasks: newTasks,
-				comment: existingResponse?.comment,
-				respondedAt: new Date().toISOString(),
-			};
-
 			const updated = await submitResponse(
 				occurrence.id,
-				participantId,
-				newResponse,
+				change.participantId,
+				buildParticipantResponse({
+					participantId: change.participantId,
+					response: change.response,
+					tasks: change.tasks,
+				}),
 				token,
 				occurrence,
 			);
@@ -262,20 +199,19 @@
 		}
 	}
 
-	async function confirmResponseChange() {
-		const pending = pendingResponseChange;
-		if (!pending) return;
-		pendingResponseChange = null;
-		await applyResponseChange(
-			pending.participantId,
-			pending.targetResponse,
-			pending.onEventTaskIds,
-		);
-	}
-
-	function cancelResponseChange() {
-		pendingResponseChange = null;
-	}
+	// Le workflow de réponse (garde onEvent, pending, message) vit dans le module
+	// partagé occurrenceResponseWorkflow — la surface admin n'apporte que ses
+	// données : réponse stockée comme source des inscriptions, tâches éditées
+	// comme catalogue, nom du participant pour le message.
+	const workflow = createOccurrenceResponseWorkflow(() => ({
+		actor: "admin",
+		tasks: () => tasks,
+		getInscribedTaskIds: (participantId) =>
+			occurrence.responses.find((r) => r.participantId === participantId)?.tasks ?? [],
+		getDisplayName: (participantId) =>
+			master.participants.find((p) => p.id === participantId)?.name || m.common_unknown(),
+		submitChange: applyResponseChange,
+	}));
 
 	function openVolunteerModal(task: Task) {
 		selectedTaskForVolunteers = task;
@@ -327,28 +263,6 @@
 		}
 	}
 
-	// Message de la ConfirmModal de changement de réponse admin (désinscription onEvent).
-	const responseChangeModal = $derived.by(() => {
-		const pending = pendingResponseChange;
-		if (!pending) return null;
-		const taskNames = pending.onEventTaskIds
-			.map((id) => tasks.find((t) => t.id === id)?.name)
-			.filter((n): n is string => Boolean(n));
-		if (taskNames.length === 0) return null;
-		const isPlural = taskNames.length > 1;
-		return {
-			message: isPlural
-				? m.occurrence_change_task_subscribed_multi({
-						name: pending.participantName,
-						count: taskNames.length,
-						tasks: taskNames.join(", "),
-					})
-				: m.occurrence_change_task_subscribed_single({
-						name: pending.participantName,
-						task: taskNames[0],
-					}),
-		};
-	});
 </script>
 
 {#snippet actions()}
@@ -562,7 +476,8 @@
 														class="check check-sm"
 														name="response-{participant.id}"
 														checked={response?.response === type}
-														onchange={() => handleResponseChange(participant.id, type)}
+														onchange={() =>
+														workflow.requestResponseChange(participant.id, type)}
 													/>
 													{config.label()}
 												</label>
@@ -668,13 +583,13 @@
 	/>
 {/if}
 
-{#if responseChangeModal}
+{#if workflow.confirmationMessage}
 	<ConfirmModal
-		open={pendingResponseChange !== null}
-		onClose={cancelResponseChange}
-		onConfirm={confirmResponseChange}
-		title={m.occurrence_presence_required_title()}
-		message={responseChangeModal.message}
+		open={workflow.pendingResponseChange !== null}
+		onClose={workflow.cancelResponseChange}
+		onConfirm={workflow.confirmResponseChange}
+		title={m.occurrence_response_required_title()}
+		message={workflow.confirmationMessage}
 		description={m.occurrence_change_response_admin_warning()}
 		confirmLabel={m.occurrence_change_response_admin_confirm()}
 		variant="warning"

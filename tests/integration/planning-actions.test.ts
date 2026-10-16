@@ -308,7 +308,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 					participantId: "user001",
 					response: "present",
 					tasks: [],
-					comment: "",
 					respondedAt: new Date().toISOString()
 				},
 				adminToken
@@ -554,7 +553,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				participantId,
 				response: "present",
 				tasks: [],
-				comment: "",
 				respondedAt: new Date().toISOString()
 			};
 			const updated = await submitResponse(occId, participantId, response, adminToken);
@@ -591,7 +589,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 					participantId,
 					response: "present",
 					tasks: [],
-					comment: "Je viens",
 					respondedAt: new Date().toISOString()
 				} as ParticipantResponse,
 				adminToken
@@ -604,7 +601,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 					participantId,
 					response: "absent",
 					tasks: [],
-					comment: "Je ne viens plus",
 					respondedAt: new Date().toISOString()
 				} as ParticipantResponse,
 				adminToken
@@ -612,7 +608,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 
 			expect(updated.responses).toHaveLength(1);
 			expect(updated.responses[0].response).toBe("absent");
-			expect(updated.responses[0].comment).toBe("Je ne viens plus");
 
 			// Verification Dexie
 			const dexieOcc = await db.occurrences.get(occId);
@@ -631,7 +626,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 					participantId,
 					response: "present",
 					tasks: [],
-					comment: "",
 					respondedAt: new Date().toISOString()
 				} as ParticipantResponse,
 				adminToken
@@ -664,7 +658,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 					participantId: "u1",
 					response: "present",
 					tasks: [],
-					comment: "",
 					respondedAt: new Date().toISOString()
 				} as ParticipantResponse,
 				adminToken
@@ -676,7 +669,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 					participantId: "u2",
 					response: "absent",
 					tasks: [],
-					comment: "",
 					respondedAt: new Date().toISOString()
 				} as ParticipantResponse,
 				adminToken
@@ -688,7 +680,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 					participantId: "u3",
 					response: "if_needed",
 					tasks: [],
-					comment: "",
 					respondedAt: new Date().toISOString()
 				} as ParticipantResponse,
 				adminToken
@@ -951,7 +942,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				participantId: "user001",
 				response: "present",
 				tasks: [],
-				comment: "",
 				respondedAt: new Date().toISOString()
 			};
 

@@ -33,7 +33,6 @@ export interface ParticipantResponse {
 	participantId: string;
 	response: ResponseType;
 	tasks: string[];
-	comment?: string;
 	respondedAt: string;
 }
 

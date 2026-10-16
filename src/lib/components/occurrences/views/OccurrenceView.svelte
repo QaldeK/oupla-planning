@@ -535,13 +535,13 @@
 	/>
 {/if}
 
-{#if confirmLogic.responseChangeModal}
+{#if occState.pendingResponseChange}
 	<ConfirmModal
 		open={occState.pendingResponseChange !== null}
 		onClose={occState.cancelResponseChange}
 		onConfirm={occState.confirmResponseChange}
 		title={m.occurrence_response_required_title()}
-		message={confirmLogic.responseChangeModal.message}
+		message={occState.confirmationMessage}
 		description={m.occurrence_change_response_warning()}
 		confirmLabel={m.occurrence_change_response_confirm()}
 		variant="warning"

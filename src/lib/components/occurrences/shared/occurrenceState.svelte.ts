@@ -10,6 +10,12 @@ import type {
 	Task
 } from "$lib/types/planning.types";
 import { classifyError } from "$lib/utils/errorHandler";
+import {
+	buildParticipantResponse,
+	createOccurrenceResponseWorkflow,
+	resolveTaskToggleOutcome,
+	type PendingResponseChange
+} from "./occurrenceResponseWorkflow.svelte";
 
 interface OccurrenceStateOptions {
 	occurrence: PlanningOccurrence;
@@ -46,10 +52,9 @@ interface OccurrenceState {
 	 * inscrit à au moins une tâche onEvent et vise une réponse ≠ present.
 	 * Piloté par le composant parent via une ConfirmModal.
 	 */
-	pendingResponseChange: {
-		targetResponse: ResponseType;
-		onEventTaskIds: string[];
-	} | null;
+	pendingResponseChange: PendingResponseChange | null;
+	/** Message de la modal de confirmation, dérivé du pending (sujet = self). */
+	confirmationMessage: string | null;
 	setResponse: (response: ResponseType) => void;
 	confirmResponseChange: () => void;
 	cancelResponseChange: () => void;
@@ -63,10 +68,6 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 	let selectedResponse = $state<ResponseType | undefined>(undefined);
 	let selectedTasks = $state<string[]>([]);
 	let isSubmitting = $state(false);
-	let pendingResponseChange = $state<{
-		targetResponse: ResponseType;
-		onEventTaskIds: string[];
-	} | null>(null);
 
 	const currentResponse = $derived(
 		options.occurrence.responses.find((r) => r.participantId === options.currentUserId)
@@ -114,6 +115,21 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 
 	const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
 
+	// Le workflow de réponse (garde onEvent, pending, message) vit dans le module
+	// partagé occurrenceResponseWorkflow — la surface self ne fournit que ses
+	// données : copie de travail comme source des inscriptions, soumission qui
+	// répercute le changement validé sur l'état local avant persistance.
+	const workflow = createOccurrenceResponseWorkflow(() => ({
+		actor: "self",
+		tasks: () => inherited.tasks,
+		getInscribedTaskIds: () => selectedTasks,
+		submitChange: (change) => {
+			selectedResponse = change.response;
+			selectedTasks = [...change.tasks];
+			return handleSubmitResponse();
+		}
+	}));
+
 	$effect(() => {
 		if (currentResponse) {
 			selectedResponse = currentResponse.response;
@@ -124,7 +140,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		}
 		// Une sync externe (autre device, admin) rend tout changement en cours
 		// obsolète : on abandonne la confirmation en attente.
-		pendingResponseChange = null;
+		workflow.cancelResponseChange();
 	});
 
 	async function handleSubmitResponse() {
@@ -146,12 +162,11 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		const token = options.master.participantToken;
 		if (!token) return;
 
-		const response: ParticipantResponse = {
+		const response = buildParticipantResponse({
 			participantId: options.currentUserId,
 			response: selectedResponse || "present",
-			tasks: selectedTasks,
-			respondedAt: new Date().toISOString()
-		};
+			tasks: selectedTasks
+		});
 
 		isSubmitting = true;
 		try {
@@ -181,38 +196,15 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			return;
 		}
 
-		// Les tâches onEvent exigent la présence. Un changement vers une autre
-		// réponse doit être confirmé car il désinscrira ces tâches. Seules les
-		// onEvent sont concernées (beforeEvent/afterEvent ne sont jamais liées
-		// à la présence et ne sont jamais retirées ici).
-		if (response !== "present") {
-			const onEventInscribed = inherited.tasks
-				.filter((t) => t.type === "onEvent" && selectedTasks.includes(t.id))
-				.map((t) => t.id);
-			if (onEventInscribed.length > 0) {
-				pendingResponseChange = {
-					targetResponse: response,
-					onEventTaskIds: onEventInscribed
-				};
-				return;
-			}
-		}
-
-		selectedResponse = response;
-		handleSubmitResponse();
+		workflow.requestResponseChange(options.currentUserId, response);
 	}
 
 	function confirmResponseChange() {
-		const pending = pendingResponseChange;
-		if (!pending) return;
-		selectedTasks = selectedTasks.filter((id) => !pending.onEventTaskIds.includes(id));
-		selectedResponse = pending.targetResponse;
-		pendingResponseChange = null;
-		handleSubmitResponse();
+		workflow.confirmResponseChange();
 	}
 
 	function cancelResponseChange() {
-		pendingResponseChange = null;
+		workflow.cancelResponseChange();
 	}
 
 	function toggleTask(taskId: string) {
@@ -228,23 +220,27 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		const task = inherited.tasks.find((t) => t.id === taskId);
 		if (!task) return;
 
-		// Pour les tâches "pendant" (onEvent), l'utilisateur doit être présent
-		// Auto-inscription "présent" uniquement pour ces tâches
-		if (task.type === "onEvent" && masterConfig.allowResponses) {
-			if (selectedResponse && selectedResponse !== "present") {
-				toast.error(m.occurrence_must_be_present());
-				return;
-			}
-			if (!selectedResponse) selectedResponse = "present";
+		// Matrice partagée « onEvent ⟹ présent » : refus si ajout en conflit avec
+		// une réponse explicite, present posé d'office sans réponse existante,
+		// retrait sans incidence sur la réponse.
+		const isAdding = !selectedTasks.includes(taskId);
+		const outcome = resolveTaskToggleOutcome({
+			task,
+			currentResponse: selectedResponse,
+			allowResponses: masterConfig.allowResponses,
+			isAdding
+		});
+		if (outcome.kind === "refuse") {
+			toast.error(m.occurrence_must_be_present());
+			return;
 		}
-		// Pour les tâches "avant" (beforeEvent) et "après" (afterEvent):
-		// Pas d'auto-inscription - l'utilisateur peut s'inscrire quel que soit son response
+		if (outcome.kind === "autoPresent") {
+			selectedResponse = "present";
+		}
 
-		if (selectedTasks.includes(taskId)) {
-			selectedTasks = selectedTasks.filter((id) => id !== taskId);
-		} else {
-			selectedTasks = [...selectedTasks, taskId];
-		}
+		selectedTasks = isAdding
+			? [...selectedTasks, taskId]
+			: selectedTasks.filter((id) => id !== taskId);
 		handleSubmitResponse();
 	}
 
@@ -289,7 +285,10 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			return quitParticipantIds;
 		},
 		get pendingResponseChange() {
-			return pendingResponseChange;
+			return workflow.pendingResponseChange;
+		},
+		get confirmationMessage() {
+			return workflow.confirmationMessage;
 		},
 		setResponse,
 		confirmResponseChange,

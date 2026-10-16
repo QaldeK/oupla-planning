@@ -12,7 +12,6 @@ interface ConfirmLogicOptions {
 		masterConfig: { allowResponses: boolean; availableResponseTypes: ResponseType[] };
 		inherited: { tasks: Task[]; minPresentRequired: number | undefined };
 		stats: { present: number };
-		pendingResponseChange: { targetResponse: ResponseType; onEventTaskIds: string[] } | null;
 	};
 }
 
@@ -29,7 +28,6 @@ export interface ConfirmLogic {
 	readonly missingPresences: number;
 	readonly incompleteTasks: Task[];
 	readonly needsConfirmationWarning: boolean;
-	readonly responseChangeModal: { message: string } | null;
 	openRestoreModal: () => void;
 	toggleConfirm: () => void;
 }
@@ -65,24 +63,6 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 	});
 
 	const needsConfirmationWarning = $derived(missingPresences > 0 || incompleteTasks.length > 0);
-
-	const responseChangeModal = $derived.by(() => {
-		const pending = options.occState.pendingResponseChange;
-		if (!pending) return null;
-		const taskNames = pending.onEventTaskIds
-			.map((id) => options.occState.inherited.tasks.find((t) => t.id === id)?.name)
-			.filter((n): n is string => Boolean(n));
-		if (taskNames.length === 0) return null;
-		const isPlural = taskNames.length > 1;
-		return {
-			message: isPlural
-				? m.occurrence_response_change_subscribed_multi({
-						count: taskNames.length,
-						tasks: taskNames.join(", ")
-					})
-				: m.occurrence_response_change_subscribed_single({ task: taskNames[0] })
-		};
-	});
 
 	function openRestoreModal() {
 		if (!options.token) return;
@@ -178,9 +158,6 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 		},
 		get needsConfirmationWarning() {
 			return needsConfirmationWarning;
-		},
-		get responseChangeModal() {
-			return responseChangeModal;
 		},
 		openRestoreModal,
 		toggleConfirm
