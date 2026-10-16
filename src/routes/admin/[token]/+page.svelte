@@ -24,7 +24,7 @@
 		type LockInfo,
 		releaseLock,
 	} from "$lib/services/lockService";
-	import { deletePlanning, updatePlanningWithOccurrences } from "$lib/services/planningActions";
+	import { deletePlanning, updatePlanningWithOccurrences } from "$lib/services/planningMutations";
 	import { authTransition } from "$lib/stores/authTransition.svelte";
 	import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 	import { networkStore } from "$lib/stores/networkStore.svelte";
@@ -281,8 +281,6 @@
 			await updatePlanningWithOccurrences(
 				master.id,
 				data,
-				token,
-				master.participantToken as string,
 				master.updated, // Optimistic locking
 			);
 			toast.success(m.admin_update_success());
@@ -338,7 +336,7 @@
 		if (!master) return;
 		try {
 			isDeleting = true;
-			await deletePlanning(master.id, token, master.updated);
+			await deletePlanning(master.id, master.updated);
 			toast.success(m.admin_delete_success());
 			showDeleteModal = false;
 			// La vue participant affiche l'alerte lecture seule + le bouton Restaurer.
@@ -507,7 +505,6 @@
 		bind:open={showQuitReturnModal}
 		onClose={() => (showQuitReturnModal = false)}
 		{master}
-		{token}
 		quitParticipantId={quitParticipantId!}
 		onRejoined={() => (showQuitReturnModal = false)}
 	/>

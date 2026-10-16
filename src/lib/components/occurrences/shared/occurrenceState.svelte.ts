@@ -1,6 +1,6 @@
 import { toast } from "svelte-sonner";
 import * as m from "$lib/paraglide/messages.js";
-import { submitResponse } from "$lib/services/planningActions";
+import { submitResponse } from "$lib/services/planningMutations";
 import { networkStore } from "$lib/stores/networkStore.svelte";
 import type {
 	ParticipantResponse,
@@ -159,9 +159,6 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			return;
 		}
 
-		const token = options.master.participantToken;
-		if (!token) return;
-
 		const response = buildParticipantResponse({
 			participantId: options.currentUserId,
 			response: selectedResponse || "present",
@@ -170,13 +167,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 
 		isSubmitting = true;
 		try {
-			await submitResponse(
-				options.occurrence.id,
-				options.currentUserId,
-				response,
-				token,
-				options.occurrence
-			);
+			await submitResponse(options.occurrence.id, options.currentUserId, response);
 		} catch (error) {
 			const { message } = classifyError(error);
 			toast.error(message);

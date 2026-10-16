@@ -29,6 +29,7 @@
 	import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
 	import { modalStore } from "$lib/stores/modalStore.svelte";
 	import { planningStore } from "$lib/stores/planningStore.svelte";
+	import { setActivePlanningToken } from "$lib/services/activePlanningContext";
 	import { pwaStore } from "$lib/stores/pwaStore.svelte";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import { recoverAllData } from "$lib/utils/recover";
@@ -46,6 +47,7 @@
 		const isArchivePage = page.url.pathname.includes("/archive");
 		const dateFilter = isArchivePage ? "past" : "future";
 
+		setActivePlanningToken(token);
 		planningStore.setActiveToken(token, dateFilter);
 	});
 

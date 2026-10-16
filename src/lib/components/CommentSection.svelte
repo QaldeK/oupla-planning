@@ -3,7 +3,7 @@
 	import { toast } from "svelte-sonner";
 	import * as m from "$lib/paraglide/messages.js";
 	import { commentStateService } from "$lib/services/commentStateService";
-	import { addComment } from "$lib/services/planningActions";
+	import { addComment } from "$lib/services/planningMutations";
 	import { drawerStore } from "$lib/stores/drawerStore.svelte";
 	import { networkStore } from "$lib/stores/networkStore.svelte";
 	import { formatDate, formatDateTime } from "$lib/utils/date";
@@ -13,7 +13,6 @@
 	const occurrence = $derived(drawerStore.data?.occurrence);
 	const master = $derived(drawerStore.data?.master);
 	const currentUserId = $derived(drawerStore.data?.currentUserId);
-	const token = $derived(master?.participantToken || master?.adminToken);
 	const eventTitle = $derived(master?.title);
 
 	let newComment = $state("");
@@ -47,11 +46,11 @@
 	});
 
 	async function handleSubmit() {
-		if (!newComment.trim() || !occurrence || !master || !currentUserId || !token) return;
+		if (!newComment.trim() || !occurrence || !master || !currentUserId) return;
 
 		isSubmitting = true;
 		try {
-			await addComment(occurrence.id, currentUserId, newComment.trim(), token, occurrence);
+			await addComment(occurrence.id, currentUserId, newComment.trim());
 			commentStateService.markConversationAsRead(occurrence.id, occurrence.master, true);
 			newComment = "";
 		} catch (error) {

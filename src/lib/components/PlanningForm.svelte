@@ -18,7 +18,7 @@
 	import { toast } from "svelte-sonner";
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from "$lib/constants";
 	import * as msg from "$lib/paraglide/messages.js";
-	import { generateTimeSlotId } from "$lib/services/planningActions";
+	import { generateTimeSlotId } from "$lib/utils/slots";
 	import { networkStore } from "$lib/stores/networkStore.svelte";
 	import type {
 		DateSlot,

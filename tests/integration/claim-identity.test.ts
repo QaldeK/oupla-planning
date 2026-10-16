@@ -10,7 +10,8 @@
  *     - Realtime déclenché via txApp.save()
  *
  * Pipeline testé :
- *   claimParticipantIdentity(masterId, guestParticipantId, token)
+ *   claimAs(masterId, guestParticipantId, token) — pose le token actif puis
+ *   claimParticipantIdentity(masterId, guestParticipantId)
  *     -> endpoint PB /api/claim-participant-identity (runInTransaction)
  *     -> updates planning_occurrences + planning_masters
  *     -> retourne { success, stats, authParticipantId }
@@ -28,7 +29,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
-import { claimParticipantIdentity } from "$lib/services/planningActions";
+import { setActivePlanningToken } from "$lib/services/activePlanningContext";
+import { claimParticipantIdentity } from "$lib/services/planningMutations";
 import type { Participant, ParticipantResponse } from "$lib/types/planning.types";
 import {
 	authenticateAdmin,
@@ -66,6 +68,12 @@ async function adminGetMaster(masterId: string) {
 async function adminGetOccurrence(occId: string) {
 	const adminPb = await authenticateAdmin();
 	return await adminPb.collection("planning_occurrences").getOne(occId);
+}
+
+/** Pose le token actif du test puis réclame l'identité — les mutations le lisent dans le contexte. */
+function claimAs(masterId: string, guestParticipantId: string, token: string) {
+	setActivePlanningToken(token);
+	return claimParticipantIdentity(masterId, guestParticipantId);
 }
 
 describe("claimParticipantIdentity — migration guest → auth", () => {
@@ -122,7 +130,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION ===
-			const result = await claimParticipantIdentity(master.id, "guest-alice-1", participantToken);
+			const result = await claimAs(master.id, "guest-alice-1", participantToken);
 
 			// === VERIFICATION RETOUR ===
 			expect(result.success).toBe(true);
@@ -178,7 +186,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION ===
-			const result = await claimParticipantIdentity(master.id, "guest-bob", participantToken);
+			const result = await claimAs(master.id, "guest-bob", participantToken);
 
 			// === VERIFICATION ===
 			// En CAS B (auth n'existait pas), les comments du guest sont déjà à targetId (guest.id).
@@ -251,7 +259,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION ===
-			const result = await claimParticipantIdentity(master.id, "guest-alice", participantToken);
+			const result = await claimAs(master.id, "guest-alice", participantToken);
 
 			// === VERIFICATION RETOUR ===
 			expect(result.success).toBe(true);
@@ -325,7 +333,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION ===
-			const result = await claimParticipantIdentity(master.id, "guest-eve", participantToken);
+			const result = await claimAs(master.id, "guest-eve", participantToken);
 
 			// === VERIFICATION ===
 			expect(result.stats.identical).toBe(1);
@@ -381,7 +389,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION ===
-			const result = await claimParticipantIdentity(master.id, "guest-mallory", participantToken);
+			const result = await claimAs(master.id, "guest-mallory", participantToken);
 
 			// === VERIFICATION ===
 			expect(result.stats.migrated).toBe(1);
@@ -441,7 +449,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION ===
-			const result = await claimParticipantIdentity(master.id, "guest-carol", participantToken);
+			const result = await claimAs(master.id, "guest-carol", participantToken);
 
 			// === VERIFICATION ===
 			// 1 comment du source (pbuser-carol) re-attribué au target (guest-carol)
@@ -485,7 +493,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(
-				claimParticipantIdentity(master.id, "guest-quit", participantToken)
+				claimAs(master.id, "guest-quit", participantToken)
 			).rejects.toMatchObject({ status: 409 });
 		});
 
@@ -511,7 +519,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(
-				claimParticipantIdentity(master.id, "guest-claimed", participantToken)
+				claimAs(master.id, "guest-claimed", participantToken)
 			).rejects.toMatchObject({ status: 409 });
 		});
 
@@ -529,7 +537,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(
-				claimParticipantIdentity(master.id, "inexistant-id", participantToken)
+				claimAs(master.id, "inexistant-id", participantToken)
 			).rejects.toMatchObject({ status: 404 });
 		});
 
@@ -553,7 +561,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(
-				claimParticipantIdentity(master.id, "guest-token", "invalid-token-not-matching")
+				claimAs(master.id, "guest-token", "invalid-token-not-matching")
 			).rejects.toMatchObject({ status: 403 });
 		});
 
@@ -574,7 +582,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(
-				claimParticipantIdentity(master.id, "guest-noauth", participantToken)
+				claimAs(master.id, "guest-noauth", participantToken)
 			).rejects.toMatchObject({ status: 401 });
 		});
 
@@ -617,7 +625,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(
-				claimParticipantIdentity(master.id, "guest-target", participantToken)
+				claimAs(master.id, "guest-target", participantToken)
 			).rejects.toMatchObject({ status: 409 });
 		});
 
@@ -665,7 +673,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			// (avec claimedAt) ne serait jamais vérifié. Avec le filtre, on détecte
 			// bien l'actif et son claimedAt → 409.
 			await expect(
-				claimParticipantIdentity(master.id, "guest-new", participantToken)
+				claimAs(master.id, "guest-new", participantToken)
 			).rejects.toMatchObject({ status: 409 });
 		});
 	});
@@ -754,7 +762,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION ===
-			const result = await claimParticipantIdentity(master.id, "guest-multi", participantToken);
+			const result = await claimAs(master.id, "guest-multi", participantToken);
 
 			// === VERIFICATION STATS ===
 			expect(result.stats.conflict).toBe(1); // occ 0
@@ -815,11 +823,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
-			const result = await claimParticipantIdentity(
-				master.id,
-				"guest-alice-claimed",
-				participantToken
-			);
+			const result = await claimAs(master.id, "guest-alice-claimed", participantToken);
 			expect(result.success).toBe(true);
 
 			const pbMaster = await adminGetMaster(master.id);
@@ -848,13 +852,13 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === 1re revendication : Alice (succès) ===
-			const result1 = await claimParticipantIdentity(master.id, "guest-alice-2", participantToken);
+			const result1 = await claimAs(master.id, "guest-alice-2", participantToken);
 			expect(result1.success).toBe(true);
 
 			// Alice a maintenant userId + claimedAt ; Bob est toujours non-lié
 			// === 2e revendication : Bob (doit échouer — l'auth a déjà claimedAt) ===
 			await expect(
-				claimParticipantIdentity(master.id, "guest-bob-2", participantToken)
+				claimAs(master.id, "guest-bob-2", participantToken)
 			).rejects.toMatchObject({ status: 409 });
 
 			// Bob n'a pas été claimé (toujours pas de userId)
@@ -899,7 +903,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			});
 
 			// === Revendication de Alice : doit réussir (le guard ne bloque pas) ===
-			const result = await claimParticipantIdentity(master.id, "guest-alice-c", participantToken);
+			const result = await claimAs(master.id, "guest-alice-c", participantToken);
 			expect(result.success).toBe(true);
 			expect(result.authParticipantId).toBe("guest-alice-c");
 

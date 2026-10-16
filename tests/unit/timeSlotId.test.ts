@@ -8,7 +8,7 @@
  * son template, nécessaire pour 3.2 (pencil/apply) sans perdre responses/comments.
  */
 import { describe, expect, it } from "vitest";
-import { generateTimeSlotId } from "$lib/services/planningActions";
+import { generateTimeSlotId } from "$lib/utils/slots";
 
 describe("generateTimeSlotId", () => {
 	it("retourne s1 quand aucun slot existant", () => {

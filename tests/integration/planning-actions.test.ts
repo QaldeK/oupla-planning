@@ -1,23 +1,24 @@
 /**
- * Tests d'integration — planningActions : pipeline complet des operations CRUD
+ * Tests d'integration — planningMutations/planningReads : pipeline complet des operations CRUD
  *
  * Objectif :
- *   Verifier le service layer planningActions.ts, qui est l'interface entre
+ *   Verifier le service layer (mutations + lectures), qui est l'interface entre
  *   l'UI/composants et pb-sync. Chaque action represente une operation
  *   utilisateur reelle (admin ou participant).
  *
  * Pipeline teste (flux reel) :
- *   1. createPlanning : action → mastersCollection.create → PB + Dexie
- *   2. createPlanningWithOccurrences : action → master create + batch occurrences → PB + Dexie
- *   3. addParticipant / updateParticipant / removeParticipant : Dexie read → pb-sync update → PB + Dexie
- *   4. submitResponse / removeResponse : Dexie read → pb-sync update → PB + Dexie
- *   5. addComment / deleteComment : Dexie read → pb-sync update → PB + Dexie + commentState
- *   6. deletePlanning : Dexie read → mastersCollection.remove → PB soft-delete + Dexie
- *   7. getPlanningByToken : resolve token, detect admin vs participant
+ *   1. createPlanningWithOccurrences : master create + batch occurrences → PB + Dexie
+ *   2. addParticipant / updateParticipant : Dexie read → pb-sync update → PB + Dexie
+ *   3. submitResponse : Dexie read → pb-sync update → PB + Dexie
+ *   4. addComment / deleteComment : Dexie read → pb-sync update → PB + Dexie + commentState
+ *   5. deletePlanning : mastersCollection.update → PB soft-delete + Dexie
+ *   6. getPlanningByToken : resolve token, detect admin vs participant
  *
  * Important :
- *   - planningActions utilise les singletons mastersCollection/occurrencesCollection
- *   - createPlanning/WithOccurrences ecrivent dans PB + Dexie via pb-sync (pas besoin
+ *   - les mutations lisent le token actif via activePlanningContext — chaque test
+ *     le pose (setActivePlanningToken) apres creation du planning
+ *   - les mutations utilisent les singletons mastersCollection/occurrencesCollection
+ *   - createPlanningWithOccurrences ecrit dans PB + Dexie via pb-sync (pas besoin
  *     de seed separate)
  *   - Les operations CRUD (addParticipant, submitResponse, etc.) lisent Dexie en
  *     premier lieu — le master/occurrence DOIT etre en Dexie avant l'appel
@@ -25,7 +26,7 @@
  *
  * Conditions reelles :
  *   - Toutes les operations CRUD passent par des tokens via _token (sauf create)
- *   - createPlanning utilise la createRule vide (pas de token necessaire)
+ *   - la creation utilise la createRule vide (pas de token necessaire)
  *   - La verification PB utilise authenticateAdmin (superuser) pour voir les champs masques
  *
  * Prerequis :
@@ -35,26 +36,24 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
 import { db } from "$lib/pb-sync/db";
+import { setActivePlanningToken } from "$lib/services/activePlanningContext";
 import {
 	addComment,
 	addParticipant,
-	createPlanning,
 	createPlanningWithOccurrences,
 	deleteComment,
 	deletePlanning,
-	generateAdminToken,
-	generateParticipantId,
-	generateParticipantToken,
-	getPlanningByToken,
-	normalizeResponseTypes,
-	removeParticipant,
-	removeResponse,
-	sortTasks,
 	submitResponse,
 	updateParticipant,
-	updatePlanning,
 	updatePlanningWithOccurrences
-} from "$lib/services/planningActions";
+} from "$lib/services/planningMutations";
+import { getPlanningByToken } from "$lib/services/planningReads";
+import { sortTasks } from "$lib/utils/tasks";
+import {
+	generateAdminToken,
+	generateParticipantId,
+	generateParticipantToken
+} from "$lib/utils/tokens";
 import type {
 	Participant,
 	ParticipantResponse,
@@ -86,9 +85,9 @@ describe("planningActions — Pipeline CRUD complet", () => {
 		await cleanupTrackedRecords();
 	});
 
-	describe("createPlanning", () => {
+	describe("createPlanningWithOccurrences — master seul", () => {
 		it("cree un planning dans PB et Dexie avec des tokens generes", async () => {
-			const master = await createPlanning({
+			const master = await createPlanningWithOccurrences({
 				title: "Mon Planning",
 				defaultStartTime: "10:00",
 				defaultEndTime: "12:00",
@@ -123,7 +122,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 		});
 
 		it("trie les availableResponseTypes et les tasks", async () => {
-			const master = await createPlanning({
+			const master = await createPlanningWithOccurrences({
 				title: "Tri Test",
 				defaultStartTime: "09:00",
 				defaultEndTime: "17:00",
@@ -267,17 +266,16 @@ describe("planningActions — Pipeline CRUD complet", () => {
 		it("préserve un override au save master ultérieur (bug #1)", async () => {
 			const d1 = futureDate(7);
 			// Crée une occ dont les horaires (20:00-22:00) dévient du template s1 (19:00-21:00).
-			const { master, adminToken, participantToken } = await createForUpdate([
+			const { master, adminToken } = await createForUpdate([
 				{ date: d1, startTime: "20:00", endTime: "22:00", slotId: "s1" }
 			]);
+			setActivePlanningToken(adminToken);
 
 			// L'admin réouvre l'édition : PlanningForm seed l'override dans seededOccurrences,
 			// donc la target porte les horaires override (20:00-22:00). Save sans toucher.
 			await updatePlanningWithOccurrences(
 				master.id,
-				buildData([{ date: d1, startTime: "20:00", endTime: "22:00", slotId: "s1" }]),
-				adminToken,
-				participantToken
+				buildData([{ date: d1, startTime: "20:00", endTime: "22:00", slotId: "s1" }])
 			);
 
 			const occs = await getOccs(master.id);
@@ -291,12 +289,10 @@ describe("planningActions — Pipeline CRUD complet", () => {
 
 		it("un-soft-delete à la réactivation et préserve id/responses/comments (bug #2)", async () => {
 			const d1 = futureDate(7);
-			const {
-				master,
-				adminToken,
-				participantToken,
-				occs: initial
-			} = await createForUpdate([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }]);
+			const { master, adminToken, occs: initial } = await createForUpdate([
+				{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }
+			]);
+			setActivePlanningToken(adminToken);
 			const occId = initial[0].id;
 			const adminPb = await authenticateAdmin();
 
@@ -309,10 +305,9 @@ describe("planningActions — Pipeline CRUD complet", () => {
 					response: "present",
 					tasks: [],
 					respondedAt: new Date().toISOString()
-				},
-				adminToken
+				}
 			);
-			await addComment(occId, "user001", "Commentaire important", adminToken);
+			await addComment(occId, "user001", "Commentaire important");
 
 			// L'admin désactive la DateSlot (soft-delete côté PB).
 			await adminPb.collection("planning_occurrences").update(occId, { deleted: true });
@@ -321,9 +316,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			// ne seed pas les soft-deleted dans seededOccurrences) → match par clé `date|slotId`.
 			await updatePlanningWithOccurrences(
 				master.id,
-				buildData([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }]),
-				adminToken,
-				participantToken
+				buildData([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }])
 			);
 
 			const occs = await getOccs(master.id);
@@ -338,17 +331,16 @@ describe("planningActions — Pipeline CRUD complet", () => {
 		it("soft-delete les occurrences actives hors-target (bug #2)", async () => {
 			const d1 = futureDate(7);
 			const d2 = futureDate(14);
-			const { master, adminToken, participantToken } = await createForUpdate([
+			const { master, adminToken } = await createForUpdate([
 				{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" },
 				{ date: d2, startTime: "19:00", endTime: "21:00", slotId: "s1" }
 			]);
+			setActivePlanningToken(adminToken);
 
 			// L'admin retire d2 (DateSlot désactivée → absente des targets).
 			await updatePlanningWithOccurrences(
 				master.id,
-				buildData([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }]),
-				adminToken,
-				participantToken
+				buildData([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }])
 			);
 
 			const occs = await getOccs(master.id);
@@ -362,9 +354,10 @@ describe("planningActions — Pipeline CRUD complet", () => {
 		it("crée les nouvelles occurrences ciblées sans id", async () => {
 			const d1 = futureDate(7);
 			const d2 = futureDate(14);
-			const { master, adminToken, participantToken } = await createForUpdate([
+			const { master, adminToken } = await createForUpdate([
 				{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }
 			]);
+			setActivePlanningToken(adminToken);
 			const existingIds = new Set((await getOccs(master.id)).map((o) => o.id));
 
 			// L'admin ajoute d2 (nouvelle DateSlot sans id → création).
@@ -373,9 +366,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				buildData([
 					{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" },
 					{ date: d2, startTime: "19:00", endTime: "21:00", slotId: "s1" }
-				]),
-				adminToken,
-				participantToken
+				])
 			);
 
 			const after = await getOccs(master.id);
@@ -390,7 +381,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 
 	describe("getPlanningByToken", () => {
 		it("resout un planning via participantToken (isAdmin = false)", async () => {
-			const master = await createPlanning({
+			const master = await createPlanningWithOccurrences({
 				title: "Token Test",
 				defaultStartTime: "09:00",
 				defaultEndTime: "17:00",
@@ -410,7 +401,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 
 		it("resout un planning via adminToken (isAdmin = true)", async () => {
 			const adminToken = generateAdminToken();
-			const master = await createPlanning(
+			const master = await createPlanningWithOccurrences(
 				{
 					title: "Admin Token Test",
 					defaultStartTime: "09:00",
@@ -440,9 +431,10 @@ describe("planningActions — Pipeline CRUD complet", () => {
 	describe("Participants — CRUD", () => {
 		it("ajoute un participant au planning", async () => {
 			const { master, adminToken } = await createFullPlanning({ title: "Add Participant" });
+			setActivePlanningToken(adminToken);
 
 			const alice: Participant = { id: "aaa111", name: "Alice", isAdmin: false, createdAt: "" };
-			const updated = await addParticipant(master.id, alice, adminToken);
+			const updated = await addParticipant(master.id, alice);
 
 			expect(updated.participants).toHaveLength(1);
 			expect(updated.participants[0].name).toBe("Alice");
@@ -466,12 +458,12 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				title: "Update Participant",
 				participants: [alice]
 			});
+			setActivePlanningToken(adminToken);
 
 			const updated = await updateParticipant(
 				master.id,
 				"aaa111",
-				{ name: "Alice Updated", isAdmin: true },
-				adminToken
+				{ name: "Alice Updated", isAdmin: true }
 			);
 
 			expect(updated.participants[0].name).toBe("Alice Updated");
@@ -490,42 +482,17 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			expect(dexieMaster!.participants[0].isAdmin).toBe(true);
 		});
 
-		it("supprime un participant (mergeByKey re-ajoute si serveur a encore le participant)", async () => {
-			const alice: Participant = { id: "aaa111", name: "Alice", isAdmin: false, createdAt: "" };
-			const bob: Participant = { id: "bbb222", name: "Bob", isAdmin: false, createdAt: "" };
-			const { master, adminToken } = await createFullPlanning({
-				title: "Remove Participant",
-				participants: [alice, bob]
-			});
-
-			const updated = await removeParticipant(master.id, "aaa111", adminToken);
-
-			// NOTE: mergeByKey re-adds items present on server but absent locally — deletions are not persisted.
-			expect(updated.participants).toHaveLength(2);
-
-			// Verification PB : meme comportement (merge envoie la liste fusionnee)
-			const adminPb = await authenticateAdmin();
-			const pbMaster = await adminPb
-				.collection("planning_masters")
-				.getOne<PlanningMaster>(master.id);
-			expect(pbMaster.participants).toHaveLength(2);
-
-			// Verification Dexie
-			const dexieMaster = await db.masters.get(master.id);
-			expect(dexieMaster!.participants).toHaveLength(2);
-		});
-
 		it("ne cree pas de doublon si on ajoute un participant avec un id existant", async () => {
 			const alice: Participant = { id: "aaa111", name: "Alice", isAdmin: false, createdAt: "" };
 			const { master, adminToken } = await createFullPlanning({
 				title: "No Duplicate",
 				participants: [alice]
 			});
+			setActivePlanningToken(adminToken);
 
 			const updated = await addParticipant(
 				master.id,
-				{ id: "aaa111", name: "Alice Renamed", isAdmin: true },
-				adminToken
+				{ id: "aaa111", name: "Alice Renamed", isAdmin: true }
 			);
 
 			// L'ancien Alice est filtre, le nouveau est ajoute a la fin
@@ -547,6 +514,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				adminToken,
 				occId
 			} = await createFullPlanning({ occurrenceCount: 1 });
+			setActivePlanningToken(adminToken);
 			const participantId = "user001";
 
 			const response: ParticipantResponse = {
@@ -555,7 +523,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				tasks: [],
 				respondedAt: new Date().toISOString()
 			};
-			const updated = await submitResponse(occId, participantId, response, adminToken);
+			const updated = await submitResponse(occId, participantId, response);
 
 			expect(updated.responses).toHaveLength(1);
 			expect(updated.responses[0].participantId).toBe(participantId);
@@ -580,31 +548,22 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				adminToken,
 				occId
 			} = await createFullPlanning({ occurrenceCount: 1 });
+			setActivePlanningToken(adminToken);
 			const participantId = "user001";
 
-			await submitResponse(
-				occId,
-				participantId,
-				{
+			await submitResponse(occId, participantId, {
 					participantId,
 					response: "present",
 					tasks: [],
 					respondedAt: new Date().toISOString()
-				} as ParticipantResponse,
-				adminToken
-			);
+				} as ParticipantResponse);
 
-			const updated = await submitResponse(
-				occId,
-				participantId,
-				{
+			const updated = await submitResponse(occId, participantId, {
 					participantId,
 					response: "absent",
 					tasks: [],
 					respondedAt: new Date().toISOString()
-				} as ParticipantResponse,
-				adminToken
-			);
+				} as ParticipantResponse);
 
 			expect(updated.responses).toHaveLength(1);
 			expect(updated.responses[0].response).toBe("absent");
@@ -615,75 +574,28 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			expect(dexieOcc!.responses[0].response).toBe("absent");
 		});
 
-		it("supprime une reponse (mergeByKey re-ajoute si serveur a encore la reponse)", async () => {
-			const { adminToken, occId } = await createFullPlanning({ occurrenceCount: 1 });
-			const participantId = "user001";
-
-			await submitResponse(
-				occId,
-				participantId,
-				{
-					participantId,
-					response: "present",
-					tasks: [],
-					respondedAt: new Date().toISOString()
-				} as ParticipantResponse,
-				adminToken
-			);
-
-			const updated = await removeResponse(occId, participantId, adminToken);
-
-			// NOTE: mergeByKey re-adds items present on server but absent locally — deletions are not persisted.
-			expect(updated.responses).toHaveLength(1);
-
-			// Verification PB : meme comportement
-			const adminPb = await authenticateAdmin();
-			const pbOcc = await adminPb
-				.collection("planning_occurrences")
-				.getOne<PlanningOccurrence>(occId);
-			expect(pbOcc.responses).toHaveLength(1);
-
-			// Verification Dexie
-			const dexieOcc = await db.occurrences.get(occId);
-			expect(dexieOcc!.responses).toHaveLength(1);
-		});
-
 		it("gere plusieurs participants sur la meme occurrence", async () => {
 			const { adminToken, occId } = await createFullPlanning({ occurrenceCount: 1 });
+			setActivePlanningToken(adminToken);
 
-			await submitResponse(
-				occId,
-				"u1",
-				{
+			await submitResponse(occId, "u1", {
 					participantId: "u1",
 					response: "present",
 					tasks: [],
 					respondedAt: new Date().toISOString()
-				} as ParticipantResponse,
-				adminToken
-			);
-			await submitResponse(
-				occId,
-				"u2",
-				{
+				} as ParticipantResponse);
+			await submitResponse(occId, "u2", {
 					participantId: "u2",
 					response: "absent",
 					tasks: [],
 					respondedAt: new Date().toISOString()
-				} as ParticipantResponse,
-				adminToken
-			);
-			await submitResponse(
-				occId,
-				"u3",
-				{
+				} as ParticipantResponse);
+			await submitResponse(occId, "u3", {
 					participantId: "u3",
 					response: "if_needed",
 					tasks: [],
 					respondedAt: new Date().toISOString()
-				} as ParticipantResponse,
-				adminToken
-			);
+				} as ParticipantResponse);
 
 			const adminPb = await authenticateAdmin();
 			const pbOcc = await adminPb
@@ -703,8 +615,9 @@ describe("planningActions — Pipeline CRUD complet", () => {
 	describe("Commentaires — CRUD", () => {
 		it("ajoute un commentaire a une occurrence", async () => {
 			const { adminToken, occId } = await createFullPlanning({ occurrenceCount: 1 });
+			setActivePlanningToken(adminToken);
 
-			const updated = await addComment(occId, "user001", "Premier commentaire", adminToken);
+			const updated = await addComment(occId, "user001", "Premier commentaire");
 
 			expect(updated.comments).toHaveLength(1);
 			expect(updated.comments[0].content).toBe("Premier commentaire");
@@ -727,11 +640,12 @@ describe("planningActions — Pipeline CRUD complet", () => {
 
 		it("supprime un commentaire (mergeByKey re-ajoute si serveur a encore le commentaire)", async () => {
 			const { adminToken, occId } = await createFullPlanning({ occurrenceCount: 1 });
+			setActivePlanningToken(adminToken);
 
-			const withComment = await addComment(occId, "user001", "A supprimer", adminToken);
+			const withComment = await addComment(occId, "user001", "A supprimer");
 			const commentId = withComment.comments[0].id;
 
-			const updated = await deleteComment(occId, commentId, adminToken);
+			const updated = await deleteComment(occId, commentId);
 
 			// NOTE: mergeByKey re-adds items present on server but absent locally — deletions are not persisted.
 			expect(updated.comments).toHaveLength(1);
@@ -750,13 +664,14 @@ describe("planningActions — Pipeline CRUD complet", () => {
 
 		it("ajoute plusieurs commentaires et supprime le bon (mergeByKey re-ajoute le supprime)", async () => {
 			const { adminToken, occId } = await createFullPlanning({ occurrenceCount: 1 });
+			setActivePlanningToken(adminToken);
 
-			await addComment(occId, "u1", "Comment 1", adminToken);
-			const withC2 = await addComment(occId, "u2", "Comment 2", adminToken);
+			await addComment(occId, "u1", "Comment 1");
+			const withC2 = await addComment(occId, "u2", "Comment 2");
 			const comment1Id = withC2.comments[0].id;
 			const comment2Id = withC2.comments[1].id;
 
-			await deleteComment(occId, comment1Id, adminToken);
+			await deleteComment(occId, comment1Id);
 
 			// NOTE: mergeByKey re-adds the deleted comment since server still has it
 			const adminPb = await authenticateAdmin();
@@ -776,8 +691,9 @@ describe("planningActions — Pipeline CRUD complet", () => {
 	describe("deletePlanning", () => {
 		it("soft-delete le planning dans PB et Dexie", async () => {
 			const { master, adminToken } = await createFullPlanning({ title: "A Supprimer" });
+			setActivePlanningToken(adminToken);
 
-			await deletePlanning(master.id, adminToken);
+			await deletePlanning(master.id);
 
 			// Verification Dexie : soft-delete (par defaut dans pb-sync)
 			const dexieMaster = (await db.masters.get(master.id)) as Record<string, unknown> | undefined;
@@ -795,17 +711,6 @@ describe("planningActions — Pipeline CRUD complet", () => {
 	});
 
 	describe("Utilitaires — logique pure", () => {
-		it("normalizeResponseTypes trie par ordre de priorite", () => {
-			expect(normalizeResponseTypes(["maybe", "present", "absent", "if_needed"])).toEqual([
-				"present",
-				"if_needed",
-				"maybe",
-				"absent"
-			]);
-			expect(normalizeResponseTypes([])).toEqual([]);
-			expect(normalizeResponseTypes(undefined)).toEqual([]);
-		});
-
 		it("sortTasks trie par type (beforeEvent, onEvent, afterEvent)", () => {
 			const tasks: Task[] = [
 				{ id: "t3", name: "C", description: "", requiredVolunteers: 1, type: "afterEvent" },
@@ -848,8 +753,17 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			await mastersCollection.initialFetch({ query: { _token: participantToken } });
 
 			// === ACTION + VERIFICATION ===
+			setActivePlanningToken(participantToken);
 			await expect(
-				updatePlanning(master.id, { title: "Hacked Title" }, participantToken)
+				updatePlanningWithOccurrences(master.id, {
+					title: "Hacked Title",
+					defaultStartTime: "09:00",
+					defaultEndTime: "17:00",
+					recurrence: { type: "CUSTOM" },
+					minPresentRequired: 1,
+					allowResponses: true,
+					occurrenceTargets: []
+				})
 			).rejects.toThrow();
 
 			// Verifier que rien n'a change dans PB
@@ -868,7 +782,8 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			await mastersCollection.initialFetch({ query: { _token: participantToken } });
 
 			// === ACTION + VERIFICATION ===
-			await expect(deletePlanning(master.id, participantToken)).rejects.toThrow();
+			setActivePlanningToken(participantToken);
+			await expect(deletePlanning(master.id)).rejects.toThrow();
 
 			// Verifier que le planning existe toujours et n'est pas soft-deleted
 			const adminPb = await authenticateAdmin();
@@ -889,7 +804,8 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			await mastersCollection.initialFetch({ query: { _token: participantToken } });
 
 			// === ACTION + VERIFICATION ===
-			const result = await addParticipant(master.id, alice, participantToken);
+			setActivePlanningToken(participantToken);
+			const result = await addParticipant(master.id, alice);
 
 			// Verifier que Alice a bien été ajoutée
 			expect(result.participants.find((p) => p.id === alice.id)).toBeDefined();
@@ -908,7 +824,8 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			});
 			const alice: Participant = { id: "aaa111", name: "Alice", isAdmin: false, createdAt: "" };
 
-			await expect(addParticipant(master.id, alice, "invalid-token-00000000")).rejects.toThrow();
+			setActivePlanningToken("invalid-token-00000000");
+			await expect(addParticipant(master.id, alice)).rejects.toThrow();
 		});
 	});
 
@@ -921,7 +838,8 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const dexieMasters = await db.masters.toArray();
 			expect(dexieMasters.length).toBe(0);
 
-			await expect(addParticipant(master.id, alice, adminToken)).rejects.toThrow();
+			setActivePlanningToken(adminToken);
+			await expect(addParticipant(master.id, alice)).rejects.toThrow();
 		});
 
 		it("throw si l'occurrence n'est pas dans Dexie lors d'un submitResponse", async () => {
@@ -945,15 +863,16 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				respondedAt: new Date().toISOString()
 			};
 
+			setActivePlanningToken(adminToken);
 			await expect(
-				submitResponse(occurrences[0].id, "user001", response, adminToken)
+				submitResponse(occurrences[0].id, "user001", response)
 			).rejects.toThrow();
 		});
 	});
 });
 
 /**
- * Helper : cree un planning complet (master + occurrences) via planningActions,
+ * Helper : cree un planning complet (master + occurrences) via planningMutations,
  * ce qui assure que les donnees sont en Dexie comme dans le flux reel.
  * Retourne { master, adminToken, occId }.
  */

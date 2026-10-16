@@ -46,7 +46,7 @@
 		quitPlanning,
 		restorePlanning,
 		updateParticipant,
-	} from "$lib/services/planningActions";
+	} from "$lib/services/planningMutations";
 	import { ensurePlanningParticipant } from "$lib/services/planningParticipants";
 	import { authTransition } from "$lib/stores/authTransition.svelte";
 	import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
@@ -214,10 +214,9 @@
 						isAdmin: false,
 						...additionalFields,
 					},
-					token,
 				);
 			} else if (existing && existing.name !== identity.name) {
-				await updateParticipant(master.id, identity.id, { name: identity.name }, token);
+				await updateParticipant(master.id, identity.id, { name: identity.name });
 			}
 
 			if (userStore.isLoggedIn) {
@@ -368,7 +367,7 @@
 	async function handleQuit() {
 		if (!master || !currentIdentity) return;
 		try {
-			await quitPlanning(master.id, currentIdentity.id, token);
+			await quitPlanning(master.id, currentIdentity.id);
 			await guestStateStore.markGuestQuit(master.id);
 			toast.success(m.participant_quit_success());
 			showQuitModal = false;

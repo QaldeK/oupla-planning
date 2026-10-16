@@ -69,7 +69,7 @@ export interface TimeSlot {
 	 * à travers les changements d'horaires de son template (nécessaire pour ne pas
 	 * perdre responses/comments lors d'un pencil/apply en édition master).
 	 * Les masters legacy non nettoyés peuvent encore porter des UUID ; les nouveaux
-	 * slots utilisent `generateTimeSlotId()` (`planningActions.ts`).
+	 * slots utilisent `generateTimeSlotId()` (`$lib/utils/slots`).
 	 */
 	id: string;
 	startTime: string; // HH:MM
@@ -122,7 +122,7 @@ export interface PlanningOccurrence {
 	 * occurrences legacy non migrées (slotId implicite résolu en `s1` côté service
 	 * via `resolveTimeSlots`, mais non matché en réconciliation → soft-delete au save).
 	 * Sert aussi de base au modèle dérivé : une occurrence est override ssi ses
-	 * horaires divergent du slot référencé (cf. `isOverridden` dans planningActions).
+	 * horaires divergent du slot référencé (cf. `isOverridden` dans `$lib/utils/slots`).
 	 */
 	slotId?: string;
 	place?: string;

@@ -41,7 +41,6 @@
 	}: ViewProps = $props();
 
 	let showEditModal = $state(false);
-	const token = $derived(isAdmin ? master.adminToken : master.participantToken)!;
 	const viewMode = $derived(userStore.appPreferences.occurrenceView);
 
 	// Logique de confirmation/annulation basées sur le master pour toConfirm
@@ -62,7 +61,6 @@
 	// Logique de confirmation modale (confirm/restore)
 	const confirmLogic = createConfirmLogic(() => ({
 		occurrence,
-		token,
 		toConfirm,
 		occState,
 	}));
@@ -518,7 +516,6 @@
 		onClose={() => (showEditModal = false)}
 		{occurrence}
 		{master}
-		{token}
 	/>
 {/if}
 

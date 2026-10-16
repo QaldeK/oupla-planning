@@ -7,7 +7,7 @@ import { mastersCollection, occurrencesCollection } from "$lib/data/collections"
 import { db, ensureDbReady, upsertLocalMeta, upsertRecord } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
 import { commentStateService } from "$lib/services/commentStateService";
-import { getPlanningByToken } from "$lib/services/planningActions";
+import { getPlanningByToken } from "$lib/services/planningReads";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { PlanningMaster, PlanningOccurrence } from "$lib/types/planning.types";
 import { fetchRecentPastOccurrences, syncActiveOccurrences } from "$lib/data/planningSync";

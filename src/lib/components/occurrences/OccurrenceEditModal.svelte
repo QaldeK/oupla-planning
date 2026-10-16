@@ -14,12 +14,8 @@
 	import { toast } from "svelte-sonner";
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from "$lib/constants";
 	import * as m from "$lib/paraglide/messages.js";
-	import {
-		addParticipant,
-		sortTasks,
-		submitResponse,
-		updateOccurrence,
-	} from "$lib/services/planningActions";
+	import { addParticipant, submitResponse, updateOccurrence } from "$lib/services/planningMutations";
+	import { sortTasks } from "$lib/utils/tasks";
 	import { networkStore } from "$lib/stores/networkStore.svelte";
 	import type {
 		Participant,
@@ -45,10 +41,9 @@
 		onClose: () => void;
 		occurrence: PlanningOccurrence;
 		master: PlanningMaster;
-		token: string;
 	}
 
-	let { open = $bindable(false), onClose, occurrence, master, token }: Props = $props();
+	let { open = $bindable(false), onClose, occurrence, master }: Props = $props();
 
 	let isSubmitting = $state(false);
 
@@ -150,7 +145,6 @@
 				name,
 				isAdmin: false,
 			},
-			token,
 		);
 
 		// Mettre à jour master localement pour réactivité
@@ -188,8 +182,6 @@
 					response: change.response,
 					tasks: change.tasks,
 				}),
-				token,
-				occurrence,
 			);
 			occurrence = updated;
 		} catch (error) {
@@ -247,7 +239,7 @@
 				tasks: isTasksModified ? sortTasks(tasks) : null,
 			};
 
-			const updated = await updateOccurrence(occurrence.id, updates, token);
+			const updated = await updateOccurrence(occurrence.id, updates);
 
 			// Mise à jour manuelle du store pour garantir la réactivité immédiate
 			occurrence = updated;
@@ -573,7 +565,6 @@
 		participants={master.participants.filter((p) => !p.hasQuit)}
 		responses={occurrence.responses}
 		occurrenceId={occurrence.id}
-		{token}
 		masterId={master.id}
 		allowResponses={master.allowResponses}
 		disabled={isNetworkUnavailable}

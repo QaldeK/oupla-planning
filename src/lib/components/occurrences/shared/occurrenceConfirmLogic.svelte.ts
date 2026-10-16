@@ -1,12 +1,11 @@
 import { toast } from "svelte-sonner";
 import * as m from "$lib/paraglide/messages.js";
-import { updateOccurrence } from "$lib/services/planningActions";
+import { updateOccurrence } from "$lib/services/planningMutations";
 import type { PlanningOccurrence, ResponseType, Task } from "$lib/types/planning.types";
 import { formatDateShort } from "$lib/utils/date";
 
 interface ConfirmLogicOptions {
 	occurrence: PlanningOccurrence;
-	token: string | undefined;
 	toConfirm: boolean;
 	occState: {
 		masterConfig: { allowResponses: boolean; availableResponseTypes: ResponseType[] };
@@ -65,8 +64,6 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 	const needsConfirmationWarning = $derived(missingPresences > 0 || incompleteTasks.length > 0);
 
 	function openRestoreModal() {
-		if (!options.token) return;
-
 		confirmModalState = {
 			open: true,
 			title: "Rétablir l'événement ?",
@@ -81,14 +78,11 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 
 	async function executeRestore() {
 		confirmModalState.open = false;
-		const token = options.token;
-		if (!token) return;
 		try {
-			await updateOccurrence(
-				options.occurrence.id,
-				{ isCanceled: false, isConfirmed: !options.toConfirm },
-				token
-			);
+			await updateOccurrence(options.occurrence.id, {
+				isCanceled: false,
+				isConfirmed: !options.toConfirm
+			});
 			toast.success(m.occurrence_restored());
 		} catch (_error) {
 			toast.error(m.occurrence_restore_error());
@@ -97,8 +91,6 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 	}
 
 	function toggleConfirm() {
-		if (!options.token) return;
-
 		const isCurrentlyConfirmed = options.occurrence.isConfirmed;
 		const warnings: string[] = [];
 
@@ -131,14 +123,11 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 
 	async function executeConfirm() {
 		confirmModalState.open = false;
-		const token = options.token;
-		if (!token) return;
 		try {
-			const updated = await updateOccurrence(
-				options.occurrence.id,
-				{ isConfirmed: !options.occurrence.isConfirmed, isCanceled: false },
-				token
-			);
+			const updated = await updateOccurrence(options.occurrence.id, {
+				isConfirmed: !options.occurrence.isConfirmed,
+				isCanceled: false
+			});
 			toast.success(updated.isConfirmed ? m.occurrence_confirmed() : m.occurrence_cancelled());
 		} catch (_error) {
 			toast.error(m.occurrence_confirm_error());

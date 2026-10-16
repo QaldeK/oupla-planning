@@ -6,11 +6,8 @@
 	import PlanningForm, { type PlanningFormData } from "$lib/components/PlanningForm.svelte";
 	import * as m from "$lib/paraglide/messages.js";
 	import { pb } from "$lib/pocketbase/pb";
-	import {
-		createPlanningWithOccurrences,
-		generateAdminToken,
-		generateParticipantToken,
-	} from "$lib/services/planningActions";
+	import { createPlanningWithOccurrences } from "$lib/services/planningMutations";
+	import { generateAdminToken, generateParticipantToken } from "$lib/utils/tokens";
 	import { syncService } from "$lib/services/syncService";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import type { Participant } from "$lib/types/planning.types";

@@ -22,7 +22,7 @@
 		addParticipant,
 		type ClaimIdentityStats,
 		claimParticipantIdentity,
-	} from "$lib/services/planningActions";
+	} from "$lib/services/planningMutations";
 	import { ensurePlanningParticipant } from "$lib/services/planningParticipants";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import type {
@@ -248,7 +248,6 @@
 					isAdmin: false,
 					userId: pbUser.id,
 				},
-				token,
 			);
 			try {
 				await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin);
@@ -308,7 +307,7 @@
 
 		isSubmitting = true;
 		try {
-			const result = await claimParticipantIdentity(master.id, participant.id, token);
+			const result = await claimParticipantIdentity(master.id, participant.id);
 
 			// Construire la nouvelle identité
 			const newIdentity: PlanningIdentity = {

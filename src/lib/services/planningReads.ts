@@ -1,0 +1,57 @@
+import { ClientResponseError } from "pocketbase";
+import { pb } from "$lib/pocketbase/pb";
+import type { PlanningMaster } from "$lib/types/planning.types";
+
+// Type de retour pour getPlanningByToken avec gestion d'erreur typée
+export type GetPlanningByTokenResult =
+	| { master: PlanningMaster; isAdmin: boolean }
+	| { error: "network" | "not_found" };
+
+export async function getPlanningByToken(token: string): Promise<GetPlanningByTokenResult> {
+	try {
+		const master = await pb
+			.collection("planning_masters")
+			.getFirstListItem<PlanningMaster>(
+				`participantToken = "${token}" || adminToken = "${token}"`,
+				{ query: { _token: token } }
+			);
+
+		// fire-and-forget claim pour les liens admin
+		if (pb.authStore.isValid && token.length === 64) {
+			const record = pb.authStore.record;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- champ adminOf ajouté par hook serveur, absent des types RecordModel
+			const adminOf = (record as any)?.adminOf || {};
+			const masterId = master.id;
+
+			if (!adminOf[masterId]) {
+				pb.send("/api/claim-admin", {
+					method: "POST",
+					body: { token }
+				})
+					.then(() => {
+						// Rafraîchir le record pour mettre adminOf et masterId à jour en mémoire
+						return pb.collection("users").authRefresh();
+					})
+					.catch((err) => {
+						console.warn("claim-admin failed:", err);
+					});
+			}
+		}
+		// NOTE: adminToken est masqué par onRecordEnrich, donc on se base sur la longueur du token
+		// AdminToken = 64 chars, ParticipantToken = 32 chars
+		return { master, isAdmin: token.length === 64 };
+	} catch (error: unknown) {
+		if (error instanceof ClientResponseError && error.status === 404) {
+			return { error: "not_found" };
+		}
+
+		// Annulation (auto-cancellation) → traiter comme réseau
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- isAbort est une propriété non-standard d'annulation
+		if (error instanceof Error && "isAbort" in error && (error as any).isAbort) {
+			return { error: "network" };
+		}
+
+		// Toutes les autres erreurs (réseau, timeout, 500, etc.) → erreur réseau
+		return { error: "network" };
+	}
+}

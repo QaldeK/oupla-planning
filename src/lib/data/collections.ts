@@ -2,7 +2,7 @@
  * Singletons des collections pb-sync.
  *
  * Couche de composition data — casse la dépendance circulaire
- * `planningStore ↔ planningActions` en plaçant les singletons en amont
+ * `planningStore ↔ planningActions/services` en plaçant les singletons en amont
  * de la chaîne d'imports : `pb-sync → data → stores → services`.
  *
  * `networkStore.setHasActiveSubscription` reste référencé ici pour signaler

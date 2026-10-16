@@ -4,7 +4,7 @@
 	import { goto } from "$app/navigation";
 	import Modal from "$lib/components/ui/Modal.svelte";
 	import * as m from "$lib/paraglide/messages.js";
-	import { updateParticipant } from "$lib/services/planningActions";
+	import { updateParticipant } from "$lib/services/planningMutations";
 	import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import type { PlanningMaster } from "$lib/types/planning.types";
@@ -13,7 +13,6 @@
 		open: boolean;
 		onClose: () => void;
 		master: PlanningMaster;
-		token: string;
 		/** ID du participant quit à restaurer */
 		quitParticipantId: string;
 		/** Callback après rejoindre réussi */
@@ -24,7 +23,6 @@
 		open = $bindable(false),
 		onClose,
 		master,
-		token,
 		quitParticipantId,
 		onRejoined,
 	}: Props = $props();
@@ -40,7 +38,7 @@
 	async function handleRejoin() {
 		isSubmitting = true;
 		try {
-			await updateParticipant(master.id, quitParticipantId, { hasQuit: false }, token);
+			await updateParticipant(master.id, quitParticipantId, { hasQuit: false });
 
 			// Guest : réinitialiser l'identité locale
 			const participant = master.participants.find((p) => p.id === quitParticipantId);

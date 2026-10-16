@@ -2,7 +2,7 @@
 	import { Info, Plus } from "@lucide/svelte";
 	import { toast } from "svelte-sonner";
 	import * as m from "$lib/paraglide/messages.js";
-	import { addParticipant, submitResponse } from "$lib/services/planningActions";
+	import { addParticipant, submitResponse } from "$lib/services/planningMutations";
 	import type {
 		Participant,
 		ParticipantResponse,
@@ -24,7 +24,6 @@
 		participants: Participant[];
 		responses: ParticipantResponse[];
 		occurrenceId: string;
-		token: string;
 		masterId: string;
 		/** Contrôle si les tâches onEvent forcent le statut "present" */
 		allowResponses: boolean;
@@ -43,7 +42,6 @@
 		participants,
 		responses,
 		occurrenceId,
-		token,
 		masterId,
 		allowResponses,
 		disabled = false,
@@ -65,7 +63,6 @@
 					name: newVolunteerName.trim(),
 					isAdmin: false,
 				},
-				token,
 			);
 			onUpdateMaster(updatedMaster);
 
@@ -124,7 +121,6 @@
 					response: existingResponse?.response || "present",
 					tasks: updatedTasks,
 				}),
-				token,
 			);
 			onUpdateOccurrence(updated);
 		} catch (error) {
