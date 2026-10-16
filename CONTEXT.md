@@ -60,6 +60,10 @@ _Avoid_: vol d'identité, takeover, compte lié, lock
 Un planning sauvegardé localement (`localStorage` + Dexie `localMeta`) avec ses tokens. Permet l'accès à un planning sans repasser par l'URL.
 _Avoid_: favori, bookmark, planning enregistré
 
+**Planning actif** :
+Le planning sur lequel l'utilisateur agit dans la session courante, désigné par le token actif de la page visitée. Toute action sans planning explicite vise le planning actif. La création (`/new`) est l'exception : il n'y a pas encore de planning actif.
+_Avoid_: planning courant, planning ouvert, planning sélectionné
+
 ### Sync
 
 **pb-sync** :
