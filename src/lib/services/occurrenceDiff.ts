@@ -1,5 +1,5 @@
-import { formatSlotKey } from "$lib/utils/slots";
 import type { OccurrenceTarget, PlanningOccurrence } from "$lib/types/planning.types";
+import { formatSlotKey } from "$lib/utils/slots";
 
 /**
  * Normalise une date PocketBase (`yyyy-MM-dd HH:mm:ss…` ou ISO `T`) vers

@@ -19,7 +19,7 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 		// fire-and-forget claim pour les liens admin
 		if (pb.authStore.isValid && token.length === 64) {
 			const record = pb.authStore.record;
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- champ adminOf ajouté par hook serveur, absent des types RecordModel
+			// biome-ignore lint/suspicious/noExplicitAny: champ adminOf ajouté par hook serveur, absent des types RecordModel
 			const adminOf = (record as any)?.adminOf || {};
 			const masterId = master.id;
 
@@ -46,7 +46,7 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 		}
 
 		// Annulation (auto-cancellation) → traiter comme réseau
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- isAbort est une propriété non-standard d'annulation
+		// biome-ignore lint/suspicious/noExplicitAny: isAbort est une propriété non-standard d'annulation
 		if (error instanceof Error && "isAbort" in error && (error as any).isAbort) {
 			return { error: "network" };
 		}

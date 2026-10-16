@@ -72,7 +72,9 @@ describe("diffPlanningOccurrences", () => {
 
 	it("porte les horaires d'override de la cible tels quels", () => {
 		const existing = [mkOcc({ id: "o1", startTime: "18:00", endTime: "20:00" })];
-		const targets = [mkTarget({ id: "o1", date: "2030-03-05", startTime: "08:30", endTime: "10:00" })];
+		const targets = [
+			mkTarget({ id: "o1", date: "2030-03-05", startTime: "08:30", endTime: "10:00" })
+		];
 
 		const ops = diffPlanningOccurrences(targets, existing);
 
@@ -93,10 +95,7 @@ describe("diffPlanningOccurrences", () => {
 	});
 
 	it("soft-delete les existantes actives non ciblées", () => {
-		const existing = [
-			mkOcc({ id: "o1" }),
-			mkOcc({ id: "o2", date: "2030-03-06", slotId: "s2" })
-		];
+		const existing = [mkOcc({ id: "o1" }), mkOcc({ id: "o2", date: "2030-03-06", slotId: "s2" })];
 		const targets = [mkTarget({ id: "o1", date: "2030-03-05" })];
 
 		const ops = diffPlanningOccurrences(targets, existing);

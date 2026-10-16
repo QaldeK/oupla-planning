@@ -2,10 +2,10 @@ import { format } from "date-fns";
 import { ClientResponseError } from "pocketbase";
 import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
 import { withRetry } from "$lib/pb-sync/retry.utils";
+import { pb } from "$lib/pocketbase/pb";
 import { getActivePlanningToken } from "$lib/services/activePlanningContext";
 import { commentStateService } from "$lib/services/commentStateService";
 import { diffPlanningOccurrences, normalizeOccurrenceDate } from "$lib/services/occurrenceDiff";
-import { pb } from "$lib/pocketbase/pb";
 import type {
 	OccurrenceComment,
 	OccurrenceTarget,
@@ -19,7 +19,11 @@ import type {
 	TimeSlot
 } from "$lib/types/planning.types";
 import { sortTasks } from "$lib/utils/tasks";
-import { generateAdminToken, generateParticipantId, generateParticipantToken } from "$lib/utils/tokens";
+import {
+	generateAdminToken,
+	generateParticipantId,
+	generateParticipantToken
+} from "$lib/utils/tokens";
 
 // ============================================
 // Normalisations internes
@@ -189,7 +193,8 @@ export async function updatePlanningWithOccurrences(
 	// tel quel). `deleted: false` couvre le un-soft-delete (réactivation d'une DateSlot).
 	// responses/comments/isConfirmed/isCanceled sont préservés sur l'existante.
 	for (const { existing, target } of ops.updates) {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- payload construit dynamiquement pour batch, type partiel non adapté
+		// Payload construit dynamiquement pour batch — type partiel non adapté aux signatures du SDK.
+		// biome-ignore lint/suspicious/noExplicitAny: payload batch partiel, typé par les API rules serveur
 		const updateData: any = withAudit({
 			date: normalizeOccurrenceDate(target.date),
 			startTime: target.startTime,
@@ -252,9 +257,13 @@ export async function updatePlanningWithOccurrences(
  * @param expectedVersion - timestamp `updated` du master pour optimistic locking
  */
 export async function deletePlanning(masterId: string, expectedVersion: string): Promise<void> {
-	await mastersCollection.update(masterId, withAudit({ deleted: true }) as Partial<PlanningMaster>, {
-		query: { _token: getActivePlanningToken(), _version: expectedVersion }
-	});
+	await mastersCollection.update(
+		masterId,
+		withAudit({ deleted: true }) as Partial<PlanningMaster>,
+		{
+			query: { _token: getActivePlanningToken(), _version: expectedVersion }
+		}
+	);
 }
 
 /**
@@ -274,9 +283,13 @@ export async function restorePlanning(
 	token: string,
 	expectedVersion: string
 ): Promise<void> {
-	await mastersCollection.update(masterId, withAudit({ deleted: false }) as Partial<PlanningMaster>, {
-		query: { _token: token, _version: expectedVersion }
-	});
+	await mastersCollection.update(
+		masterId,
+		withAudit({ deleted: false }) as Partial<PlanningMaster>,
+		{
+			query: { _token: token, _version: expectedVersion }
+		}
+	);
 }
 
 // ============================================
@@ -328,7 +341,10 @@ export async function updateParticipant(
 	);
 }
 
-export async function quitPlanning(masterId: string, participantId: string): Promise<PlanningMaster> {
+export async function quitPlanning(
+	masterId: string,
+	participantId: string
+): Promise<PlanningMaster> {
 	const current = await mastersCollection.getTable().get(masterId);
 	if (!current) throw new Error(`Master ${masterId} not found in local DB`);
 
@@ -434,7 +450,7 @@ export async function submitResponse(
 
 	let updatedResponses: ParticipantResponse[];
 	if (existingIdx >= 0) {
-		updatedResponses = [...current.responses!];
+		updatedResponses = [...current.responses];
 		updatedResponses[existingIdx] = { ...response, participantId };
 	} else {
 		updatedResponses = [...(current.responses || []), { ...response, participantId }];

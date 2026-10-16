@@ -2,7 +2,7 @@
  * Setup des tests unitaires — exécuté AVANT chaque fichier de test.
  *
  * Polyfill IndexedDB via fake-indexeddb. Nécessaire parce que l'import (en
- * cascade) de modules comme `$lib/services/planningActions` ou
+ * cascade) de modules comme `$lib/services/planningMutations` ou
  * `$lib/stores/planningStore.svelte` instancie `db = new AppDB()` au module
  * load, et déclenche la création de Tables Dexie qui nécessitent les APIs
  * IndexedDB (`indexedDB`, `IDBKeyRange`). Sans ce polyfill, ces imports
