@@ -159,6 +159,8 @@ onRecordAfterUpdateSuccess((e) => {
 		nowPbDate
 	} = require(`${__hooks}/planning-deletion-utils.cjs`);
 	const { sendIndividualEmail, formatDateFR } = require(`${__hooks}/notify-utils.cjs`);
+	const { resolveUserName } = require(`${__hooks}/notification-events.cjs`);
+	const { UNKNOWN_AUTHOR } = require(`${__hooks}/notification-core.cjs`);
 
 	const recipients = extractDeletionRecipients(e.record);
 	if (recipients.length === 0) {
@@ -166,16 +168,7 @@ onRecordAfterUpdateSuccess((e) => {
 		return;
 	}
 
-	const authorId = e.record.getString('lastModifiedBy');
-	let authorName = 'un·e administrateur·ice';
-	if (authorId) {
-		try {
-			const author = e.app.findRecordById('users', authorId);
-			authorName = author.getString('name') || author.email() || authorName;
-		} catch {
-			/* auteur introuvable — fallback générique */
-		}
-	}
+	const authorName = resolveUserName(e.app, e.record.getString('lastModifiedBy'), UNKNOWN_AUTHOR);
 
 	let email;
 	if (!was && is) {

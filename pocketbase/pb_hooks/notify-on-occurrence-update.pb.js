@@ -10,6 +10,9 @@
  *   2) envoyée immédiatement en push aux participants avec push:true
  *      et onOccurrenceChange:true (best-effort, non bloquant)
  *
+ * Un master soft-deleté (ou introuvable) ne produit ni event ni push — gate
+ * unique sur le contexte master, seul garde du chemin programmatique.
+ *
  * Le cron quotidien agrège les rows non traitées pour produire les emails,
  * et sert de fallback si le push échoue.
  *
@@ -32,6 +35,9 @@ onRecordAfterUpdateSuccess((e) => {
 	const { buildPushTitle, buildPushBody } = require(`${__hooks}/notification-cron-utils.js`);
 	const { sendPushNotification } = require(`${__hooks}/notify-utils.cjs`);
 	const { dispatchPushForEvent } = require(`${__hooks}/push-dispatch.js`);
+	const { insertEvent, createMasterContextResolver, resolveUserName } = require(
+		`${__hooks}/notification-events.cjs`
+	);
 
 	// Filtre temporel : les occurrences passées ne génèrent plus d'events.
 	// S'applique aux deux chemins (change events ET new_comment). Comparaison en
@@ -63,36 +69,6 @@ onRecordAfterUpdateSuccess((e) => {
 		return;
 	}
 
-	// master + planning_participants : nécessaires uniquement pour le push
-	// (pas pour l'insert). Résolution paresseuse et mutualisée entre les deux
-	// chemins pour éviter un double fetch quand un même update porte à la fois
-	// un change event et un nouveau commentaire.
-	let masterCtx = null;
-	const getMasterCtx = () => {
-		if (masterCtx) return masterCtx;
-		try {
-			const masterId = record.getString('master');
-			const master = e.app.findRecordById('planning_masters', masterId);
-			const planningParticipants = e.app.findRecordsByFilter(
-				'planning_participants',
-				'planning = {:masterId}',
-				'',
-				0,
-				0,
-				{ masterId }
-			);
-			masterCtx = { master, planningParticipants };
-		} catch (err) {
-			e.app.logger().error(
-				'[Notification] master/participants lookup failed',
-				'err', err?.message || String(err),
-				'occurrenceId', occId
-			);
-			masterCtx = null;
-		}
-		return masterCtx;
-	};
-
 	const resolveUser = (uid) => {
 		try {
 			return e.app.findRecordById('users', uid);
@@ -101,79 +77,17 @@ onRecordAfterUpdateSuccess((e) => {
 		}
 	};
 
-	// ========================================================================
-	// Path 1 — change events (schedule_change, status_*, …)
-	// ========================================================================
+	// Détection d'abord : pas de fetch master si rien n'est produit.
 	const descriptor = detectOccurrenceChange(record, original);
-	if (descriptor) {
-		// Insertion dans notification_events : l'échec est loggué sans remonter
-		// pour ne pas casser la réponse API à un update qui a pourtant réussi.
-		try {
-			const collection = e.app.findCollectionByNameOrId('notification_events');
-			const event = new Record(collection);
-			event.set('type', descriptor.type);
-			event.set('master', record.getString('master'));
-			event.set('occurrence', occId);
-			event.set('reminderValue', 0);
-			event.set('changedBy', record.getString('lastModifiedBy'));
-			event.set('payload', descriptor.payload || null);
-			e.app.save(event);
-		} catch (err) {
-			e.app
-				.logger()
-				.error(
-					'[Notification] Failed to insert notification_events row',
-					'err',
-					err?.message || String(err),
-					'occurrenceId',
-					occId,
-					'type',
-					descriptor.type
-				);
-		}
-
-		// Push immédiat pour les change events (best-effort). Si l'envoi échoue,
-		// l'event est déjà dans notification_events → l'email partira au prochain cron.
-		try {
-			const ctx = getMasterCtx();
-			if (ctx) {
-				const eventPlain = { type: descriptor.type, reminderValue: 0 };
-				const recipients = computeRecipients(eventPlain, ctx.master, ctx.planningParticipants, record);
-				dispatchPushForEvent(e.app, {
-					event: eventPlain,
-					master: ctx.master,
-					occ: record,
-					recipients,
-					resolveUser,
-					buildPushTitle,
-					buildPushBody,
-					sendPushNotification
-				});
-			}
-		} catch (err) {
-			e.app
-				.logger()
-				.error(
-					'[Notification] Push immédiat failed',
-					'err',
-					err?.message || String(err),
-					'occurrenceId',
-					occId,
-					'type',
-					descriptor.type
-				);
-		}
-	}
-
-	// ========================================================================
-	// Path 2 — new_comment events (ajouts) + cleanup (suppressions)
-	// ========================================================================
 	const commentChanges = detectCommentChanges(record, original);
 
-	// 2a. Cleanup : marquer processedAt sur les events new_comment non-consommés
+	// ========================================================================
+	// Cleanup — marquer processedAt sur les events new_comment non-consommés
 	// liés aux commentaires supprimés, pour qu'aucun email ne parte sur un
 	// message qui n'existe plus. Filtrage en JS (volume faible par occ, et le
-	// support de json_extract en JSVM est incertain).
+	// support de json_extract en JSVM est incertain). Hors gate : hygiène de
+	// rows existantes, ne produit aucun event.
+	// ========================================================================
 	if (commentChanges.removed.length > 0) {
 		try {
 			const removedSet = new Set(commentChanges.removed);
@@ -214,70 +128,142 @@ onRecordAfterUpdateSuccess((e) => {
 		}
 	}
 
-	// 2b. Pour chaque commentaire ajouté : INSERT event new_comment + push
-	// immédiat (auteur exclu). 1 commentaire = 1 event = 1 push.
+	// ========================================================================
+	// Gate contexte — un master supprimé (ou introuvable) ne produit ni event
+	// ni push. Seul garde du chemin programmatique : les gardes request ne
+	// voient pas les saves programmatiques (routes custom, batch, superuser).
+	// ========================================================================
+	const getCtx = createMasterContextResolver(e.app);
+	let masterCtx = null;
+	if (descriptor || commentChanges.added.length > 0) {
+		masterCtx = getCtx(record.getString('master'));
+		if (!masterCtx) {
+			e.next();
+			return;
+		}
+	}
+
+	// Push seulement si les destinataires sont connus : `participants: null`
+	// (lecture échouée, déjà loggée par le resolver) saute le push sans priver
+	// l'event de son écriture — le cron rattrapera l'email.
+	const pushCtx = masterCtx && masterCtx.participants ? masterCtx : null;
+
+	// ========================================================================
+	// Path 1 — change events (schedule_change, status_*, …)
+	// ========================================================================
+	if (descriptor) {
+		// Insertion dans notification_events : l'échec est loggué sans remonter
+		// pour ne pas casser la réponse API à un update qui a pourtant réussi.
+		try {
+			insertEvent(e.app, {
+				type: descriptor.type,
+				master: record.getString('master'),
+				occurrence: occId,
+				reminderValue: 0,
+				changedBy: record.getString('lastModifiedBy'),
+				payload: descriptor.payload || null
+			});
+		} catch (err) {
+			e.app
+				.logger()
+				.error(
+					'[Notification] Failed to insert notification_events row',
+					'err',
+					err?.message || String(err),
+					'occurrenceId',
+					occId,
+					'type',
+					descriptor.type
+				);
+		}
+
+		// Push immédiat pour les change events (best-effort). Si l'envoi échoue,
+		// l'event est déjà dans notification_events → l'email partira au prochain cron.
+		try {
+			if (pushCtx) {
+				const eventPlain = { type: descriptor.type, reminderValue: 0 };
+				const recipients = computeRecipients(eventPlain, pushCtx.master, pushCtx.participants, record);
+				dispatchPushForEvent(e.app, {
+					event: eventPlain,
+					master: pushCtx.master,
+					occ: record,
+					recipients,
+					resolveUser,
+					buildPushTitle,
+					buildPushBody,
+					sendPushNotification
+				});
+			}
+		} catch (err) {
+			e.app
+				.logger()
+				.error(
+					'[Notification] Push immédiat failed',
+					'err',
+					err?.message || String(err),
+					'occurrenceId',
+					occId,
+					'type',
+					descriptor.type
+				);
+		}
+	}
+
+	// ========================================================================
+	// Path 2 — new_comment events (ajouts) ; le cleanup des suppressions a
+	// tourné plus haut, hors gate. 1 commentaire = 1 event = 1 push.
+	// ========================================================================
 	if (commentChanges.added.length > 0) {
-		const ctx = getMasterCtx();
-		if (ctx) {
-			const authorUserId = record.getString('lastModifiedBy');
-			// Le détecteur dépose lastModifiedBy (userId) comme authorName faute
-			// d'accès aux noms ; on résout le nom affichable ici via le user.
-			const resolveAuthorName = (uid) => {
-				if (!uid) return '';
-				try {
-					const u = e.app.findRecordById('users', uid);
-					return u.getString('name') || u.getString('email') || uid;
-				} catch {
-					return uid;
-				}
+		const authorUserId = record.getString('lastModifiedBy');
+		// Le détecteur dépose lastModifiedBy (userId) comme authorName faute
+		// d'accès aux noms ; on résout le nom affichable ici via le user.
+		const resolvedAuthorName = resolveUserName(e.app, authorUserId, authorUserId);
+
+		for (const added of commentChanges.added) {
+			const payload = {
+				commentId: added.commentId,
+				commentCreatedAt: added.commentCreatedAt,
+				authorName: resolvedAuthorName,
+				contentPreview: added.contentPreview
 			};
-			const resolvedAuthorName = resolveAuthorName(authorUserId);
 
-			for (const added of commentChanges.added) {
-				const payload = {
-					commentId: added.commentId,
-					commentCreatedAt: added.commentCreatedAt,
-					authorName: resolvedAuthorName,
-					contentPreview: added.contentPreview
-				};
+			try {
+				insertEvent(e.app, {
+					type: 'new_comment',
+					master: record.getString('master'),
+					occurrence: occId,
+					reminderValue: 0,
+					changedBy: authorUserId,
+					payload
+				});
+			} catch (err) {
+				e.app
+					.logger()
+					.error(
+						'[Notification] Failed to insert new_comment event',
+						'err',
+						err?.message || String(err),
+						'occurrenceId',
+						occId,
+						'commentId',
+						added.commentId
+					);
+			}
 
-				try {
-					const collection = e.app.findCollectionByNameOrId('notification_events');
-					const event = new Record(collection);
-					event.set('type', 'new_comment');
-					event.set('master', record.getString('master'));
-					event.set('occurrence', occId);
-					event.set('reminderValue', 0);
-					event.set('changedBy', authorUserId);
-					event.set('payload', payload);
-					e.app.save(event);
-				} catch (err) {
-					e.app
-						.logger()
-						.error(
-							'[Notification] Failed to insert new_comment event',
-							'err',
-							err?.message || String(err),
-							'occurrenceId',
-							occId,
-							'commentId',
-							added.commentId
-						);
-				}
-
-				// Push immédiat best-effort — l'auteur est exclu via excludeUserId.
-				try {
+			// Push immédiat best-effort — l'auteur est exclu via excludeUserId.
+			try {
+				if (pushCtx) {
 					const eventPlain = { type: 'new_comment', reminderValue: 0, payload };
 					const recipients = computeRecipients(
 						eventPlain,
-						ctx.master,
-						ctx.planningParticipants,
+						pushCtx.master,
+						pushCtx.participants,
 						record,
 						authorUserId
 					);
 					dispatchPushForEvent(e.app, {
 						event: eventPlain,
-						master: ctx.master,
+						master: pushCtx.master,
 						occ: record,
 						recipients,
 						resolveUser,
@@ -285,19 +271,19 @@ onRecordAfterUpdateSuccess((e) => {
 						buildPushBody,
 						sendPushNotification
 					});
-				} catch (err) {
-					e.app
-						.logger()
-						.error(
-							'[Notification] new_comment push failed',
-							'err',
-							err?.message || String(err),
-							'occurrenceId',
-							occId,
-							'commentId',
-							added.commentId
-						);
 				}
+			} catch (err) {
+				e.app
+					.logger()
+					.error(
+						'[Notification] new_comment push failed',
+						'err',
+						err?.message || String(err),
+						'occurrenceId',
+						occId,
+						'commentId',
+						added.commentId
+					);
 			}
 		}
 	}

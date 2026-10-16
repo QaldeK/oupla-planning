@@ -517,4 +517,27 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		expect(events).toHaveLength(1);
 		expect((events[0].payload as Record<string, unknown>).commentId).toBe("c2");
 	});
+
+	describe("Gate — master soft-deleté (chemin programmatique)", () => {
+		it("update superuser d'une occ d'un master supprimé → ni event ni push", async () => {
+			// Le superuser bypass les gardes request de planning-deletion : ce
+			// save programmatique atteint le hook model. Seule la gate `deleted`
+			// du résolveur de contexte empêche la production d'event.
+			await adminPb.collection("planning_masters").update<PlanningMaster>(master.id, {
+				deleted: true
+			});
+
+			const updated = await adminPb
+				.collection("planning_occurrences")
+				.update<PlanningOccurrence>(occurrences[0].id, {
+					startTime: "11:45",
+					lastModifiedBy: AUTHOR_ID
+				});
+			// Sanity check : l'update programmatique passe bien (bypass gardes).
+			expect(updated.startTime).toBe("11:45");
+
+			const events = await listEventsForOcc(adminPb, occurrences[0].id);
+			expect(events).toHaveLength(0);
+		});
+	});
 });

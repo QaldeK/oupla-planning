@@ -35,6 +35,10 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 		`${__hooks}/notify-templates.js`
 	);
 	const { dispatchPushForEvent } = require(`${__hooks}/push-dispatch.js`);
+	const { insertEvent, createMasterContextResolver, resolveUserName } = require(
+		`${__hooks}/notification-events.cjs`
+	);
+	const { UNKNOWN_AUTHOR } = require(`${__hooks}/notification-core.cjs`);
 
 	const {
 		MAX_SMTP_FAILURES,
@@ -73,37 +77,15 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 		{ start: startDate, end: endDate }
 	);
 
-	const masterCtxCache = new Map();
-	const getMasterContext = (masterId) => {
-		let ctx = masterCtxCache.get(masterId);
-		if (ctx !== undefined) return ctx;
-		let master;
-		try {
-			master = $app.findRecordById('planning_masters', masterId);
-		} catch {
-			master = null;
-		}
-		if (!master || master.getBool('deleted')) {
-			ctx = null;
-		} else {
-			const participants = $app.findRecordsByFilter(
-				'planning_participants',
-				'planning = {:masterId}',
-				'',
-				0,
-				0,
-				{ masterId }
-			);
-			ctx = { master, participants };
-		}
-		masterCtxCache.set(masterId, ctx);
-		return ctx;
-	};
+	// Résolveur mémoïsé (cache sur l'instance, partagé entre les phases 1 et 2
+	// du run) — un master supprimé ou introuvable → null, dans les deux phases.
+	const getMasterContext = createMasterContextResolver($app);
 
 	let scanned = 0;
 	let inserted = 0;
 	let skippedDuplicate = 0;
 	let skippedNoMaster = 0;
+	let skippedUnreadableCtx = 0;
 	const now = new Date();
 
 	for (const occ of occs) {
@@ -112,6 +94,12 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 		const ctx = getMasterContext(masterId);
 		if (!ctx) {
 			skippedNoMaster++;
+			continue;
+		}
+		if (ctx.participants === null) {
+			// Opt-in inconnus : détecter un J-X sur une liste indéterminée
+			// produirait un faux « rien à faire » (cf. atLeastOneParticipantWithDay).
+			skippedUnreadableCtx++;
 			continue;
 		}
 
@@ -137,15 +125,14 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			}
 
 			try {
-				const collection = $app.findCollectionByNameOrId('notification_events');
-				const event = new Record(collection);
-				event.set('type', d.type);
-				event.set('master', masterId);
-				event.set('occurrence', occId);
-				event.set('reminderValue', d.reminderValue);
-				event.set('changedBy', '');
-				event.set('payload', null);
-				$app.save(event);
+				insertEvent($app, {
+					type: d.type,
+					master: masterId,
+					occurrence: occId,
+					reminderValue: d.reminderValue,
+					changedBy: '',
+					payload: null
+				});
 				inserted++;
 			} catch (err) {
 				$app
@@ -205,6 +192,9 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 
 		const masterCtx = getMasterContext(masterId);
 		if (!masterCtx) continue;
+		// Destinataires indéterminés (lecture participants échouée, loggée par le
+		// resolver) : pas d'email plutôt qu'un email sans ses destinataires.
+		if (masterCtx.participants === null) continue;
 
 		const occ = getOcc(occId);
 		if (!occ || occ.getBool('deleted') || occ.getBool('isCanceled')) continue;
@@ -347,19 +337,15 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			continue;
 		}
 
-		// Résolution des noms pour `changedBy` (lookup users).
+		// Résolution des noms pour `changedBy` — fallback UNKNOWN_AUTHOR : un
+		// user supprimé produit le même label que le template.
 		const userNamesById = new Map();
 		const changedBySet = new Set();
 		for (const it of bucket.items) {
 			if (it.event.changedBy) changedBySet.add(it.event.changedBy);
 		}
 		for (const uid of changedBySet) {
-			try {
-				const u = $app.findRecordById('users', uid);
-				userNamesById.set(uid, u.getString('name') || u.getString('email') || 'admin');
-			} catch {
-				/* changedBy introuvable — le template fallback sur UNKNOWN_AUTHOR */
-			}
+			userNamesById.set(uid, resolveUserName($app, uid, UNKNOWN_AUTHOR));
 		}
 
 		// occCache local au bucket : les events ne sont pas tous sur la même occ.
@@ -513,6 +499,8 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			skippedDuplicate,
 			'phase1_skippedNoMaster',
 			skippedNoMaster,
+			'phase1_skippedUnreadableCtx',
+			skippedUnreadableCtx,
 			'phase2_eventsProcessed',
 			eventItems.length,
 			'phase2_emailsSent',

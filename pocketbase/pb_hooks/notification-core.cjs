@@ -25,6 +25,9 @@ const JX_EVENT_TYPES = new Set([
 	'confirmation_needed'
 ]);
 
+/** Fallback générique d'auteur dans les notifications (email agrégé + terminal). */
+const UNKNOWN_AUTHOR = 'un·e administrateur·ice';
+
 const MISSING_EVENT_TYPES = new Set(['quorum_missing', 'task_unassigned']);
 
 /**
@@ -43,5 +46,6 @@ module.exports = {
 	TASK_TYPE_LABEL,
 	JX_EVENT_TYPES,
 	MISSING_EVENT_TYPES,
+	UNKNOWN_AUTHOR,
 	buildContentPreview
 };

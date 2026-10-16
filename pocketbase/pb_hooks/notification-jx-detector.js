@@ -174,18 +174,5 @@ function detectJxEvents(occurrence, master, participants, now) {
 }
 
 module.exports = {
-	detectJxEvents,
-	// Exportés pour tests / introspection
-	JX_VALUES,
-	REMINDER_JX_VALUES,
-	CONFIRMATION_NEEDED_JX,
-	_computeDaysUntil: computeDaysUntil,
-	_readRecurrenceType: readRecurrenceType,
-	_hasEngagedResponse: hasEngagedResponse,
-	_countPresent: countPresent,
-	_hasUnassignedTask: hasUnassignedTask,
-	_resolveMinPresentRequired: resolveMinPresentRequired,
-	_atLeastOneParticipantWithDay: atLeastOneParticipantWithDay,
-	_atLeastOneAdminInterested: atLeastOneAdminInterested,
-	_parseJsonArray: parseJsonArray
+	detectJxEvents
 };

@@ -24,7 +24,11 @@
  */
 
 const { formatDateFR } = require(`${__hooks}/notify-utils.cjs`);
-const { buildContentPreview, TASK_TYPE_LABEL } = require(`${__hooks}/notification-core.cjs`);
+const {
+	buildContentPreview,
+	TASK_TYPE_LABEL,
+	UNKNOWN_AUTHOR
+} = require(`${__hooks}/notification-core.cjs`);
 
 /**
  * Fallback de base publique quand ctx.baseUrl est absent (les liens emails).
@@ -114,9 +118,6 @@ const DETAILED_BLOCKS = 3;
 
 /** Troncature des descriptions longues. */
 const MAX_DESC_LENGTH = 300;
-
-/** Fallback générique si `changedBy` vide ou user introuvable. */
-const UNKNOWN_AUTHOR = 'un·e administrateur·ice';
 
 /** Note ℹ affichée en fin de bloc reminder si l'occ n'est pas confirmée. */
 const NON_CONFIRME_NOTE = "ℹ L'événement n'est pas encore confirmé.";
