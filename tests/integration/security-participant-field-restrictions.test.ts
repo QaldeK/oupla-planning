@@ -1,7 +1,7 @@
 /**
  * Tests d'intégration — Restrictions de sécurité côté hooks update.
  *
- * Couvre deux correctifs de l'audit de sécurité (.scratch/security-audit) :
+ * Couvre deux correctifs de l'audit de sécurité :
  *
  *  F2 — Un participant (token participantToken) ne peut pas écrire les champs
  *       scalaire admin-only d'une occurrence (isCanceled, isConfirmed, date,

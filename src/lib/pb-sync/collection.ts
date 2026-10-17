@@ -4,9 +4,11 @@
  * Provides `createSyncCollection()`, the core bridge between PocketBase and Dexie (IndexedDB).
  *
  * Responsibilities:
- * - **Initial fetch**: bounded full sync — `updated > since` (explicit or local
- *   max) combined with an optional user filter, plus optional `sort`/`limit`
- *   for windowed fetches (e.g. archive).
+ * - **Initial fetch**: full sync bounded by `updated > since`, combined with an
+ *   optional user filter, plus optional `sort`/`limit` for windowed fetches
+ *   (e.g. archive). Absent an explicit `since`, the collection falls back to the
+ *   table's local max `updated`; oupla never relies on that fallback — it always
+ *   passes an explicit bound (ADR-0017).
  * - **Realtime subscriptions**: PocketBase realtime events are applied to IndexedDB, with
  *   optional soft-delete / local-trash behavior.
  * - **CRUD with conflict resolution**: create / update / remove operations write to PocketBase
@@ -85,7 +87,7 @@ export class RecordDeletedError extends Error {
  * lib pb-sync. oupla ne l'active plus : le merge des champs additifs est
  * désormais effectué côté serveur par `pocketbase/pb_hooks/merge-utils.js`
  * (atomique via transaction SQLite), ce qui élimine la fenêtre de course du
- * pre-merge client. Cf. `agent/doc/this-app/network-and-realtime.md`.
+ * pre-merge client.
  */
 export function mergeByKey<T>(key: keyof T & string): (local: T[], remote: T[]) => T[] {
 	return (local: T[], remote: T[]): T[] => {

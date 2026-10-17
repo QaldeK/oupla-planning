@@ -10,8 +10,8 @@
  *
  * Le helper est PUR : pas d'accès DB, pas de logging, pas de temps courant —
  * testable hors PocketBase. Le champ JSON `comments` est lu via `getString()` +
- * `JSON.parse()` (en JSVM, `record.get()` renvoie les octets Go bruts — voir
- * `network-and-realtime.md` § champs JSON).
+ * `JSON.parse()` (en JSVM, `record.get()` renvoie les octets Go bruts —
+ * pattern encapsulé par `jsonArrayField()` dans `merge-utils.js`).
  *
  * `authorName` : le détecteur n'a accès qu'à des identifiants (pas aux noms
  * d'affichage, portés par `users` / `master.participants`). Il y dépose

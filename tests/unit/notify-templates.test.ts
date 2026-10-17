@@ -65,7 +65,7 @@ type CaseExpectations = {
 	expectedBodyContains: string[];
 };
 
-// Aligné sur spec v2 (.scratch/notify-templates-rework-spec.md §3).
+// Aligné sur la baseline de notify-templates.snapshot.ts.
 const EXPECTATIONS: Record<number, CaseExpectations> = {
 	1: {
 		expectedSubjectContains: ["Rappel", "Repas hebdo"],

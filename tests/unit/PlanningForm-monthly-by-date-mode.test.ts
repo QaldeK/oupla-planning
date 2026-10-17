@@ -3,8 +3,7 @@
  * PlanningForm — toggle du mode MONTHLY_BY_DATE (fixed-day / last-day).
  *
  * Le toggle n'apparaît que si firstDate est dernier jour de son mois, et offre
- * deux récurrences sémantiquement distinctes. Spéc :
- * `.scratch/26-07-26_monthly-by-date-mode/spec.md`.
+ * deux récurrences sémantiquement distinctes.
  */
 import { screen } from "@testing-library/svelte";
 import type userEvent from "@testing-library/user-event";

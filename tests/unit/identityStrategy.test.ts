@@ -3,8 +3,8 @@
  * composant, pas de DOM, pas de store. Objectif : ~5ms par test, un concept
  * par test, couvrir tous les chemins de l'arbre CAS A/B/C.
  *
- * Couvre les 9 chemins listés dans `.scratch/identity-auth-split/spec.md` §5
- * (PR 2 — gate obligatoire avant branchement dans `/p/[token]/+page.svelte`).
+ * Couvre les 9 chemins de l'arbre CAS A/B/C — gate obligatoire avant
+ * branchement dans `/p/[token]/+page.svelte`.
  */
 import { describe, expect, it } from "vitest";
 import type { Participant, PlanningMaster } from "$lib/types/planning.types";

@@ -1,8 +1,6 @@
 /**
  * Tests unitaires de `generateRecurrenceDates`, `isLastDayOfMonth`, `getRecurrenceLabel`.
  * Fonctions pures — pas de DOM, pas de montage composant.
- *
- * Spécification de référence : `.scratch/26-07-26_monthly-by-date-mode/spec.md`.
  */
 
 import { parse } from "date-fns";
