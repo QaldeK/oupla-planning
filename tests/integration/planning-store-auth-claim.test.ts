@@ -12,7 +12,8 @@
  *      après setActiveToken.
  *   2. User auth + planning déjà dans user.masterId → skip du claim.
  *   3. User auth + planning admin tiers → pas de double claim (/api/claim-admin
- *      fire-and-forget dans getPlanningByToken + /api/sync-plannings dans attachMasterToUser).
+ *      dans #claimAdminAccess + /api/sync-plannings dans attachMasterToUser, tous deux
+ *      déclenchés par l'activation — hooks idempotents).
  *   4. Réseau en panne pendant le claim → statut dégradé (warn + continue),
  *      pas d'#error fatal, master quand même chargé en Dexie.
  *   5. Realtime (global, mode auth) activé dès la fin de setActiveToken.
@@ -194,7 +195,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 		userStore.isLoggedIn = true;
 
 		// === SPIE : compte les appels /api/sync-plannings (claim principal)
-		// et /api/claim-admin (fire-and-forget dans getPlanningByToken pour les liens admin)
+		// et /api/claim-admin (#claimAdminAccess, branche auth de l'activation)
 		const sendSpy = vi.spyOn(pb, "send");
 
 		// === ACTION : activation via adminToken (lien admin tiers) ===
@@ -207,9 +208,6 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 			},
 			{ timeout: 3000 }
 		);
-
-		// Laisse un cycle pour que le fire-and-forget claim-admin se termine
-		await new Promise((r) => setTimeout(r, 200));
 
 		// === VÉRIFICATION STORE ===
 		expect(planningStore.activeMasterId).toBe(master.id);

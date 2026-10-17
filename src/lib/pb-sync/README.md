@@ -395,7 +395,7 @@ export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
 `setActiveToken` delegates to a single unified flow that adapts to the caller context (auth / guest / first-visit):
 
 ```ts
-// 1. Resolve master (Dexie first, then network via getOrFetchMaster + upsertRecord)
+// 1. Resolve master (Dexie first, then network via getPlanningByToken + upsertRecord)
 // 2. Verify server existence if Dexie hit (#verifyMasterExistsOnServer)
 // 3. Sync active occurrences with _token (#syncOccurrences → data/planningSync)
 await syncActiveOccurrences({ masterId: master.id, token });

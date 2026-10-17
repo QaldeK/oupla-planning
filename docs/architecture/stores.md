@@ -87,7 +87,8 @@ La subscription n'est jamais démontée : même cycle de vie que le liveQuery gl
 ## `planningStore`
 
 État du **planning actif** — celui désigné par le token de l'URL. Pont entre Dexie et
-PocketBase, avec cache réseau et liveQuery.
+PocketBase : Dexie est le seul cache des masters (indexé par token), le liveQuery en est
+le miroir réactif.
 
 ### État et getters
 
@@ -113,11 +114,11 @@ guards et `ensureDbReady()`, il délègue à `#activatePlanning` :
 
 | Étape | Contenu |
 | --- | --- |
-| 1 | Résoudre le master : Dexie d'abord, sinon réseau via `getOrFetchMaster` + `upsertRecord` |
+| 1 | Résoudre le master : Dexie d'abord, sinon réseau via `getPlanningByToken` + `upsertRecord` |
 | 2 | Vérifier la suppression : locale, puis serveur si déjà en Dexie (`#refreshMasterFromServer`) |
 | 3 | Idempotence, puis `#activeMasterId` |
 | 4 | Sync des occurrences actives **toujours avec `_token`**, puis brancher les liveQuery page-scoped |
-| 5 | Branche Compte : `#attachMasterToUser` (claim), backfill des commentaires si première visite |
+| 5 | Branche Compte : `#attachMasterToUser` (claim), `#claimAdminAccess` si lien admin, backfill des commentaires si première visite |
 | 6 | Branche Guest : souscription realtime individuelle scopée token, backfill des commentaires |
 
 Le `_token` de l'étape 4 est requis même pour un utilisateur connecté : à ce stade,
@@ -141,16 +142,19 @@ ne le peut qu'une fois `user.masterId` peuplé côté serveur. D'où le claim sy
 | `refreshActive()` | master puis occurrences actives — appelé à la reconnexion réseau |
 | `refreshArchiveOccurrences()` | fetch des occurrences passées, à la demande de la page archive |
 | `invalidateActiveToken()` | force le prochain `setActiveToken` à repasser un cycle complet |
-| `invalidateAll()` | vide le cache token (logout) |
-| `destroy()` | `#deactivate()` + liveQuery global + cache |
+| `destroy()` | `#deactivate()` + liveQuery global |
 | `cleanDeletedPlannings()` | purge définitive des masters soft-deleted et de leurs `localMeta` |
 
-### Cache et suppression
+### Résolution et suppression
 
-Le cache token → master (`#tokenCache`, plus un index inverse `#masterTokens`) évite les
-fetchs redondants et sert à l'invalidation par token. Un 404 sur le master le marque
-`deleted: true` localement, lui et ses occurrences : c'est le seul chemin qui découvre une
-suppression serveur, le master n'étant couvert par aucune re-sync d'occurrences.
+Dexie est le seul cache des masters : la résolution token → master passe par les index
+`participantToken`/`adminToken`, et le fallback réseau (`getPlanningByToken`) upserte sa
+réponse dans Dexie — un cache mémoire par-dessus ne servirait qu'à masquer un échec
+d'upsert. Le claim des droits admin (lien 64 hex) se fait à l'activation, branche Compte
+(`#claimAdminAccess`) : non bloquant, retenté à chaque activation tant que `adminOf` ne
+porte pas le master. Un 404 sur le master le marque `deleted: true` localement, lui et ses
+occurrences : c'est le seul chemin qui découvre une suppression serveur, le master n'étant
+couvert par aucune re-sync d'occurrences.
 
 ## Autres stores
 
@@ -185,7 +189,7 @@ suppression serveur, le master n'étant couvert par aucune re-sync d'occurrences
 
 - `src/lib/stores/userStore.svelte.ts` — compte, préférences, boot
 - `src/lib/stores/guestStateStore.svelte.ts` — état guest par planning
-- `src/lib/stores/planningStore.svelte.ts` — planning actif, cache, liveQuery
+- `src/lib/stores/planningStore.svelte.ts` — planning actif, résolution token, liveQuery
 - `src/lib/stores/authTransition.svelte.ts` — wrapper de transition
 - `src/lib/pb-sync/db.ts` — schéma Dexie, `ensureDbReady`, `upsertLocalMeta`, `upsertRecord`
 - `src/lib/data/collections.ts` — collections pb-sync (voir `offline-sync.md`)

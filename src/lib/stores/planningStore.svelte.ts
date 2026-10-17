@@ -26,15 +26,7 @@ function compareOccurrences(a: PlanningOccurrence, b: PlanningOccurrence): numbe
 	);
 }
 
-// Type de retour pour getOrFetchMaster
-type GetOrFetchMasterResult = PlanningMaster | { error: "network" | "not_found" };
-
 class PlanningStore {
-	// Cache interne : token → master (pour éviter les fetchs)
-	#tokenCache = new Map<string, PlanningMaster>();
-	// Mapping pour l'invalidation : masterId → Set<tokens>
-	#masterTokens = new Map<string, Set<string>>();
-
 	// État page-scoped (planning actif, guest ou connecté)
 	#activeMasterId = $state<string | null>(null);
 	#currentToken = $state<string | null>(null);
@@ -255,12 +247,6 @@ class PlanningStore {
 				occs.map((o) => ({ ...o, deleted: true }) as PlanningOccurrence)
 			);
 		}
-
-		const tokens = this.#masterTokens.get(masterId);
-		if (tokens) {
-			for (const t of tokens) this.#tokenCache.delete(t);
-			this.#masterTokens.delete(masterId);
-		}
 	}
 
 	/**
@@ -343,11 +329,11 @@ class PlanningStore {
 	 * Flow unifié d'activation. Pipeline quasi linéaire avec deux branches
 	 * terminales (auth / guest) :
 	 *
-	 *   1. Résoudre master (Dexie → fallback réseau via getOrFetchMaster + upsertRecord)
+	 *   1. Résoudre master (Dexie → fallback réseau via getPlanningByToken + upsertRecord)
 	 *   2. Vérifier suppression locale puis serveur
 	 *   3. Idempotence + set #activeMasterId
 	 *   4. Sync occurrences actives (toujours avec `_token`)
-	 *   5. Branche auth  : #attachMasterToUser (claim) + backfill si première visite
+	 *   5. Branche auth  : #attachMasterToUser (claim) + #claimAdminAccess (lien admin) + backfill si première visite
 	 *   6. Branche guest : subscribe realtime individuel + backfill
 	 *
 	 * La branche auth déclenche le claim synchrone via /api/sync-plannings, ce
@@ -360,7 +346,7 @@ class PlanningStore {
 
 		if (!master) {
 			// Pas en Dexie (jamais visité) : chemin réseau complet.
-			const result = await this.getOrFetchMaster(token);
+			const result = await getPlanningByToken(token);
 			if ("error" in result) {
 				if (result.error === "not_found") {
 					this.#error = { type: "not_found", message: "Planning introuvable" };
@@ -371,7 +357,7 @@ class PlanningStore {
 				this.#unsubscribeDexieQueries();
 				return;
 			}
-			master = result;
+			master = result.master;
 			// upsertRecord préserve les champs locaux non présents dans le fetch distant.
 			await upsertRecord(db.masters, master);
 		}
@@ -412,6 +398,7 @@ class PlanningStore {
 		if (readOnly) return;
 		if (userStore.isLoggedIn) {
 			await this.#attachMasterToUser(master);
+			await this.#claimAdminAccess(master.id, token);
 			// Backfill seulement pour les premières visites auth (master fraîchement
 			// récupéré du réseau) — sinon les commentaires déjà-lus sont considérés
 			// comme "déjà vus" par le guest précédent, et on préserve cette sémantique.
@@ -568,6 +555,34 @@ class PlanningStore {
 	}
 
 	/**
+	 * Atomic op : claim des droits admin d'un master vers le user authentifié
+	 * (uniquement pour un lien admin — l'adminToken fait 64 hex, le participant
+	 * 32 ; l'adminToken étant masqué par onRecordEnrich, la longueur du token
+	 * reçu est le seul discriminant côté client). Le hook serveur, idempotent,
+	 * peuple `adminOf` et `masterId` ; authRefresh propage côté client.
+	 *
+	 * Tout échec est non bloquant : l'activation se poursuit, la prochaine
+	 * activation retentera tant que `adminOf` ne porte pas le master.
+	 */
+	async #claimAdminAccess(masterId: string, token: string): Promise<void> {
+		if (token.length !== 64) return;
+		const record = pb.authStore.record;
+		if (!record) return;
+		// biome-ignore lint/suspicious/noExplicitAny: champ adminOf ajouté par hook serveur, absent des types RecordModel
+		const adminOf = (record as any)?.adminOf || {};
+		if (adminOf[masterId]) return;
+		try {
+			await pb.send("/api/claim-admin", {
+				method: "POST",
+				body: { token }
+			});
+			await pb.collection("users").authRefresh();
+		} catch (err) {
+			console.warn("[PlanningStore] claim-admin failed (non-blocking):", err);
+		}
+	}
+
+	/**
 	 * Atomic op : backfill de l'état de lecture des commentaires pour l'acteur
 	 * courant (auth ou guest). L'init arbitraire considère les commentaires
 	 * déjà présents comme "lus" — d'où l'appel uniquement pour les premières
@@ -586,32 +601,6 @@ class PlanningStore {
 		this.#activeMasterId = null;
 		this.#selectedOccurrenceId = null;
 		this.#currentToken = null;
-		this.#tokenCache.clear();
-	}
-
-	// --- Cache ---
-
-	async getOrFetchMaster(token: string): Promise<GetOrFetchMasterResult> {
-		if (this.#tokenCache.has(token)) return this.#tokenCache.get(token)!;
-
-		const result = await getPlanningByToken(token);
-
-		if ("error" in result) {
-			return { error: result.error };
-		}
-
-		const master = result.master;
-		this.#tokenCache.set(token, master);
-
-		if (!this.#masterTokens.has(master.id)) this.#masterTokens.set(master.id, new Set());
-		this.#masterTokens.get(master.id)!.add(token);
-
-		return master;
-	}
-
-	invalidateAll(): void {
-		this.#tokenCache.clear();
-		this.#masterTokens.clear();
 	}
 
 	/**
@@ -691,7 +680,6 @@ class PlanningStore {
 	destroy() {
 		this.#deactivate();
 		this.#destroyGlobalSync();
-		this.invalidateAll();
 	}
 }
 

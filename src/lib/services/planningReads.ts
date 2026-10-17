@@ -16,27 +16,6 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 				{ query: { _token: token } }
 			);
 
-		// fire-and-forget claim pour les liens admin
-		if (pb.authStore.isValid && token.length === 64) {
-			const record = pb.authStore.record;
-			// biome-ignore lint/suspicious/noExplicitAny: champ adminOf ajouté par hook serveur, absent des types RecordModel
-			const adminOf = (record as any)?.adminOf || {};
-			const masterId = master.id;
-
-			if (!adminOf[masterId]) {
-				pb.send("/api/claim-admin", {
-					method: "POST",
-					body: { token }
-				})
-					.then(() => {
-						// Rafraîchir le record pour mettre adminOf et masterId à jour en mémoire
-						return pb.collection("users").authRefresh();
-					})
-					.catch((err) => {
-						console.warn("claim-admin failed:", err);
-					});
-			}
-		}
 		// NOTE: adminToken est masqué par onRecordEnrich, donc on se base sur la longueur du token
 		// AdminToken = 64 chars, ParticipantToken = 32 chars
 		return { master, isAdmin: token.length === 64 };
