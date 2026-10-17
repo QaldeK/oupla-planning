@@ -28,8 +28,8 @@ Offline-first synchronization layer bridging **PocketBase** (remote) and **Dexie
 `initialFetch()` retrieves records matching `updated > since` (explicit `since`, or the last local `updated` by default), combined with an optional user filter. The fetch policy (which window, which filter) belongs to the caller — see oupla's `src/lib/utils/syncWindow.ts` for the app-level policy (date-bounded routine resync + on-demand archive fetch). Optional `sort`/`limit` turn the fetch into a bounded page (`getList`).
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'sequence': {'wrap':true,'width':180,'actorMargin':70,'messageMargin':36,'boxMargin':10,'noteMargin':10}}}%%
 sequenceDiagram
+%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'sequence': {'wrap':true,'width':180,'actorMargin':70,'messageMargin':36,'boxMargin':10,'noteMargin':10}}}%%
     participant UI as App
     participant SC as Sync
     participant DX as Dexie
@@ -58,8 +58,8 @@ sequenceDiagram
 PocketBase pushes events via SSE. pb-sync mirrors them to Dexie, triggering reactive UI updates.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'sequence': {'wrap':true,'width':180,'actorMargin':70,'messageMargin':36,'boxMargin':10,'noteMargin':10}}}%%
 sequenceDiagram
+%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'sequence': {'wrap':true,'width':180,'actorMargin':70,'messageMargin':36,'boxMargin':10,'noteMargin':10}}}%%
     participant UI as Component
     participant LQ as liveQuery
     participant DX as Dexie
@@ -88,8 +88,8 @@ sequenceDiagram
 Writes are optimistic: Dexie updates immediately, then PocketBase. On failure, Dexie rolls back.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'sequence': {'wrap':true,'width':180,'actorMargin':70,'messageMargin':36,'boxMargin':10,'noteMargin':10}}}%%
 sequenceDiagram
+%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'sequence': {'wrap':true,'width':180,'actorMargin':70,'messageMargin':36,'boxMargin':10,'noteMargin':10}}}%%
     participant UI as Service
     participant SC as Sync
     participant DX as Dexie
@@ -123,8 +123,8 @@ sequenceDiagram
 `createBatch()` chains operations into a single PocketBase batch request with full rollback.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'sequence': {'wrap':true,'width':180,'actorMargin':70,'messageMargin':36,'boxMargin':10,'noteMargin':10}}}%%
 sequenceDiagram
+%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'sequence': {'wrap':true,'width':180,'actorMargin':70,'messageMargin':36,'boxMargin':10,'noteMargin':10}}}%%
     participant UI as Service
     participant B as Batch
     participant DX as Dexie
@@ -155,8 +155,8 @@ sequenceDiagram
 Two different paths depending on whether the user is authenticated.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'flowchart': {'nodeSpacing':50,'rankSpacing':50,'padding':15}}}%%
 flowchart TD
+%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'flowchart': {'nodeSpacing':50,'rankSpacing':50,'padding':15}}}%%
     A["setActiveToken()"] --> B{"logged in?"}
 
     B -->|"Yes"| C["Dexie lookup"]
@@ -181,8 +181,8 @@ flowchart TD
 Components read from Dexie via `liveQuery` or `useLiveQuery`, never directly from PocketBase.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'flowchart': {'nodeSpacing':60,'rankSpacing':60,'padding':20}}}%%
 flowchart LR
+%%{init: {'theme': 'base', 'themeVariables': {'background':'#f8f9fa','primaryColor':'#e8f0fe','secondaryColor':'#fef3e2','tertiaryColor':'#e8f5e9','lineColor':'#555','fontSize':'13px'}, 'flowchart': {'nodeSpacing':60,'rankSpacing':60,'padding':20}}}%%
     subgraph Dexie
         T1[masters]
         T2[occurrences]
