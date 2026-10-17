@@ -107,5 +107,4 @@ et `restoreLastFetchAt` y sont déplacés depuis `userStore`.
 ## Références
 
 - ADR-0002 : Identité par planning pour les guests — renforcée, non contredite
-- `.scratch/identity-auth-split/spec.md` — spec complète du refactor
 - Conformité mob : 2026-07-21 architecture review, candidat #2

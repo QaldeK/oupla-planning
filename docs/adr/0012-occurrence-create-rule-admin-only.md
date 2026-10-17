@@ -4,7 +4,7 @@ La création d'occurrence (`planning_occurrences.createRule`) exige l'`adminToke
 
 ## Contexte
 
-L'audit de sécurité (`.scratch/security-audit/`, finding F4) a révélé que `createRule` était `""` (règle toujours vraie = publique). N'importe qui connaissant un `masterId` pouvait `POST /api/collections/planning_occurrences/records` et injecter de fausses occurrences visibles par tous les participants via le realtime.
+L'audit de sécurité (finding F4) a révélé que `createRule` était `""` (règle toujours vraie = publique). N'importe qui connaissant un `masterId` pouvait `POST /api/collections/planning_occurrences/records` et injecter de fausses occurrences visibles par tous les participants via le realtime.
 
 ## Décision
 

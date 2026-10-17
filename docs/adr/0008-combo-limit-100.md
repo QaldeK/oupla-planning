@@ -60,7 +60,6 @@ De plus, la limite de 100 était ambiguë : s'appliquait-elle au nombre de slots
 
 ## Implementation
 
-- Ticket : `.scratch/planning-form-cleanup/issues/01-uniform-combo-limit.md`
 - Fonction pure : Extraction de la génération du cycle de récurrence (testable unitairement)
 - Alert-warning : Mise à jour du message live avec le compte de DateSlots futurs actifs
 - Validation submit : Check `futureActiveDateSlotCount > 100` + toast
@@ -68,9 +67,8 @@ De plus, la limite de 100 était ambiguë : s'appliquait-elle au nombre de slots
 
 ## References
 
-- Spec : `.scratch/planning-form-cleanup-spec.md` (Decision 8)
 - Implémentation : `src/lib/components/PlanningForm.svelte` (fonctions `allGeneratedDates`, `allDateSlots`, `occurrenceTargets`)
-- Tests : `tests/unit/` + `tests/integration/` (à étendre avec les tickets 07, 09)
+- Tests : `tests/unit/` + `tests/integration/`
 
 ## Migration note
 
