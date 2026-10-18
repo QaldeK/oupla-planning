@@ -180,6 +180,19 @@ porte pas le master. Un 404 sur le master le marque `deleted: true` localement, 
 occurrences : c'est le seul chemin qui découvre une suppression serveur, le master n'étant
 couvert par aucune re-sync d'occurrences.
 
+### Token des écritures
+
+La résolution ci-dessus est aussi celle des écritures (`services/planningMutations.ts`) : le
+token de la page atteste la navigation, pas la capacité d'écriture. Un appareil qui détient
+l'`adminToken` le garde en Dexie (`onRecordEnrich` le masque côté API, `upsertRecord` préserve
+la valeur locale) et affiche donc les affordances admin même derrière un lien participant
+(`/p/…`) : `resolveWriteToken()` retient l'`adminToken` du planning visité dès que
+l'appareil le détient, à défaut le token de la page. Écrire avec ce dernier ferait refuser par
+le hook les champs admin-only d'une occurrence (403 « Participants can only update responses,
+comments, and tasks »). La
+restauration d'un planning supprimé, ouverte depuis une page `/p` sous participantToken
+(redirection post-suppression), repose sur la même règle.
+
 ## Autres stores
 
 | Store | Rôle | Doc |

@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { ClientResponseError } from "pocketbase";
 import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { db, ensureDbReady } from "$lib/pb-sync/db";
 import { withRetry } from "$lib/pb-sync/retry.utils";
 import { pb } from "$lib/pocketbase/pb";
 import { getActivePlanningToken } from "$lib/services/activePlanningContext";
@@ -42,6 +43,33 @@ function normalizeResponseTypes(types?: ResponseType[]): ResponseType[] {
  */
 function withAudit<T extends object>(data: T): T & { lastModifiedBy: string | undefined } {
 	return { ...data, lastModifiedBy: pb.authStore.record?.id };
+}
+
+// ============================================
+// Token des écritures
+// ============================================
+
+/**
+ * Token que les écritures du planning actif doivent porter.
+ *
+ * Le token de la page atteste la navigation, pas la capacité d'écriture : le
+ * rôle de l'acteur se lit dans le cache local. Un appareil qui détient
+ * l'`adminToken` d'un planning le garde en Dexie (`onRecordEnrich` le masque
+ * côté API, `upsertRecord` préserve la valeur locale) et affiche donc les
+ * affordances admin même derrière un lien participant (`/p/…`). Écrire avec le
+ * token de la page ferait refuser par le hook les champs admin-only d'une
+ * occurrence (403 « Participants can only update responses, comments, and
+ * tasks. »). Les écritures suivent donc la règle des lectures
+ * (`planningStore.refreshActive`) : l'`adminToken` du planning visité dès que
+ * l'appareil le détient, à défaut le token de la page.
+ */
+async function resolveWriteToken(): Promise<string> {
+	const pageToken = getActivePlanningToken();
+	await ensureDbReady();
+	const master =
+		(await db.masters.where("participantToken").equals(pageToken).first()) ??
+		(await db.masters.where("adminToken").equals(pageToken).first());
+	return master?.adminToken || pageToken;
 }
 
 interface CreatePlanningData {
@@ -144,7 +172,7 @@ export async function updatePlanningWithOccurrences(
 	data: CreatePlanningData,
 	expectedVersion?: string
 ): Promise<PlanningMaster> {
-	const token = getActivePlanningToken();
+	const token = await resolveWriteToken();
 	const today = format(new Date(), "yyyy-MM-dd");
 
 	// Charger les occurrences futures, **soft-deleted incluses**. La réactivation d'une
@@ -261,7 +289,7 @@ export async function deletePlanning(masterId: string, expectedVersion: string):
 		masterId,
 		withAudit({ deleted: true }) as Partial<PlanningMaster>,
 		{
-			query: { _token: getActivePlanningToken(), _version: expectedVersion }
+			query: { _token: await resolveWriteToken(), _version: expectedVersion }
 		}
 	);
 }
@@ -272,22 +300,17 @@ export async function deletePlanning(masterId: string, expectedVersion: string):
  * participants authentifiés par email (best-effort). Passe par l'update SDK
  * avec `_version` (OCC) — jamais par un hard-delete.
  *
- * Exception au planning actif : la restauration exige l'adminToken du master
- * sauvegardé — la page participant peut être ouverte sous participantToken
- * (redirection post-suppression), le token de navigation ne suffit pas.
- * @param token adminToken du planning (disponible dans le master local)
+ * Le lien visité peut être le participantToken (sidebar, redirection
+ * post-suppression) : `resolveWriteToken()` retient l'adminToken du master dès
+ * que l'appareil le détient, ce dont dépend l'autorisation serveur.
  * @param expectedVersion - timestamp `updated` du master pour optimistic locking
  */
-export async function restorePlanning(
-	masterId: string,
-	token: string,
-	expectedVersion: string
-): Promise<void> {
+export async function restorePlanning(masterId: string, expectedVersion: string): Promise<void> {
 	await mastersCollection.update(
 		masterId,
 		withAudit({ deleted: false }) as Partial<PlanningMaster>,
 		{
-			query: { _token: token, _version: expectedVersion }
+			query: { _token: await resolveWriteToken(), _version: expectedVersion }
 		}
 	);
 }
@@ -318,7 +341,7 @@ export async function addParticipant(
 				newParticipant
 			]
 		}),
-		{ query: { _token: getActivePlanningToken() } }
+		{ query: { _token: await resolveWriteToken() } }
 	);
 }
 
@@ -337,7 +360,7 @@ export async function updateParticipant(
 	return await mastersCollection.update(
 		masterId,
 		withAudit({ participants: updatedParticipants }),
-		{ query: { _token: getActivePlanningToken() } }
+		{ query: { _token: await resolveWriteToken() } }
 	);
 }
 
@@ -355,7 +378,7 @@ export async function quitPlanning(
 	return await mastersCollection.update(
 		masterId,
 		withAudit({ participants: updatedParticipants }),
-		{ query: { _token: getActivePlanningToken() } }
+		{ query: { _token: await resolveWriteToken() } }
 	);
 }
 
@@ -415,7 +438,7 @@ export async function claimParticipantIdentity(
 	return await pb.send("/api/claim-participant-identity", {
 		method: "POST",
 		body: { masterId, guestParticipantId },
-		query: { _token: getActivePlanningToken() }
+		query: { _token: await resolveWriteToken() }
 	});
 }
 
@@ -430,7 +453,7 @@ export async function updateOccurrence(
 	const updateData = withAudit(updates);
 	if (updateData.tasks !== undefined) updateData.tasks = sortTasks(updateData.tasks);
 	return await occurrencesCollection.update(occurrenceId, updateData, {
-		query: { _token: getActivePlanningToken() }
+		query: { _token: await resolveWriteToken() }
 	});
 }
 
@@ -459,7 +482,7 @@ export async function submitResponse(
 	return await occurrencesCollection.update(
 		occurrenceId,
 		withAudit({ responses: updatedResponses }),
-		{ query: { _token: getActivePlanningToken() } }
+		{ query: { _token: await resolveWriteToken() } }
 	);
 }
 
@@ -485,7 +508,7 @@ export async function addComment(
 	const confirmed = await occurrencesCollection.update(
 		occurrenceId,
 		withAudit({ comments: [...(current.comments || []), newComment] }),
-		{ query: { _token: getActivePlanningToken() } }
+		{ query: { _token: await resolveWriteToken() } }
 	);
 
 	commentStateService.markConversationAsRead(occurrenceId, current.master, true);
@@ -502,6 +525,6 @@ export async function deleteComment(
 	return await occurrencesCollection.update(
 		occurrenceId,
 		withAudit({ comments: (current.comments || []).filter((c) => c.id !== commentId) }),
-		{ query: { _token: getActivePlanningToken() } }
+		{ query: { _token: await resolveWriteToken() } }
 	);
 }

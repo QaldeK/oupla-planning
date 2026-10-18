@@ -347,9 +347,9 @@
 		if (!master) return;
 		try {
 			isRestoring = true;
-			// Le token d'URL peut être le participantToken (sidebar, redirection post-delete) ;
-			// la restauration exige l'adminToken, disponible dans le master local (isAdmin l'atteste).
-			await restorePlanning(master.id, adminToken ?? token, master.updated);
+			// Le lien visité peut être le participantToken (sidebar, redirection post-delete) :
+			// la mutation retient l'adminToken du master dès que l'appareil le détient.
+			await restorePlanning(master.id, master.updated);
 			toast.success(m.deleted_restore_success());
 			showRestoreModal = false;
 		} catch (err) {
