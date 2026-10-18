@@ -38,6 +38,8 @@
 		"eventsource": "^4.1.1",
 		"fake-indexeddb": "^6.2.5",
 		"happy-dom": "^20.14.6",
+		"prettier": "^3.9.6",
+		"prettier-plugin-svelte": "^4.1.1",
 		"svelte": "^5.57.2",
 		"svelte-check": "^4.7.6",
 		"svelte-check-native": "^0.7.2",
