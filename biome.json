@@ -50,6 +50,13 @@
 		"enabled": true,
 		"rules": {
 			"preset": "recommended",
+			"nursery": {
+				"noFloatingPromises": "warn",
+				"noMisusedPromises": "warn"
+			},
+			"suspicious": {
+				"noUnnecessaryConditions": "warn"
+			},
 			"style": {
 				"useNodejsImportProtocol": "off",
 				"useTemplate": "off"
