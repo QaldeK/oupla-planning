@@ -1,5 +1,3 @@
-import type { Table } from "dexie";
-
 export type WithMeta = { id: string; updated: string };
 
 /**
@@ -62,15 +60,6 @@ export interface SubscriptionRef {
 	readonly id: string;
 	readonly collection: string;
 	readonly filter?: string;
-}
-
-export interface BatchOp<T extends WithMeta = WithMeta> {
-	type: "create" | "update" | "delete" | "tombstone";
-	table: Table<T>;
-	collection: string;
-	id?: string;
-	data?: Partial<T>;
-	params?: PbQueryOptions;
 }
 
 export interface SyncCollectionOptions<T extends WithMeta = WithMeta> {
