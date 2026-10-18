@@ -219,10 +219,9 @@
 
 	const quitParticipantId = $derived.by(() => {
 		if (!master) return null;
-		if (userStore.isLoggedIn && userStore.pbUser) {
-			return (
-				master.participants.find((p) => p.userId === userStore.pbUser!.id && p.hasQuit)?.id ?? null
-			);
+		const pbUser = userStore.pbUser;
+		if (userStore.isLoggedIn && pbUser) {
+			return master.participants.find((p) => p.userId === pbUser.id && p.hasQuit)?.id ?? null;
 		}
 		const guestIdentity = guestStateStore.getGuestIdentity(master.id);
 		if (guestStateStore.getGuestQuitState(master.id) && guestIdentity) {

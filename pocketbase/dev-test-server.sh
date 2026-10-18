@@ -75,11 +75,16 @@ start() {
 	fi
 	mkdir -p "$DATA_DIR"
 	./pocketbase superuser upsert "$ADMIN_EMAIL" "$ADMIN_PASSWORD" --dir="$DATA_DIR"
+	# --automigrate=false : un changement de schéma fait par les tests via l'API
+	# (ex. la collection jetable des tombstones) génère sinon un fichier de
+	# migration dans le dépôt, à chaque run. Le drapeau ne coupe que cette
+	# génération ; les migrations du dépôt restent appliquées au démarrage.
 	nohup ./pocketbase serve \
 		--http="127.0.0.1:${PORT}" \
 		--dir="$DATA_DIR" \
 		--hooksDir=./pb_hooks \
 		--migrationsDir=./pb_migrations \
+		--automigrate=false \
 		>"$LOG_FILE" 2>&1 &
 	echo $! >"$PID_FILE"
 	wait_up

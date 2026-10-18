@@ -50,8 +50,7 @@ class PwaStore {
 		// 1. Détection client (display-mode, navigator.standalone)
 		this.isInstalled =
 			window.matchMedia("(display-mode: standalone)").matches ||
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- standalone est une propriété Safari non-standard
-			(window.navigator as any).standalone === true;
+			window.navigator.standalone === true;
 
 		// 2. appinstalled (analytics one-shot)
 		on(window, "appinstalled", () => {
@@ -90,9 +89,10 @@ class PwaStore {
 	}
 
 	async #recordInstallationToPB() {
-		if (!pb.authStore.isValid) return;
+		const record = pb.authStore.record;
+		if (!record) return;
 		try {
-			await pb.collection("users").update(pb.authStore.record!.id, {
+			await pb.collection("users").update(record.id, {
 				pwa_installed: true
 			});
 		} catch (e) {

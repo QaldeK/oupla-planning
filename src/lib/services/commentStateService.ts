@@ -156,7 +156,9 @@ class CommentStateService {
 	 */
 	async #syncReadStateToPB(masterId: string, occId: string, readAt: string): Promise<void> {
 		try {
-			const userId = pb.authStore.record!.id;
+			const authRecord = pb.authStore.record;
+			if (!authRecord) return;
+			const userId = authRecord.id;
 			const record = await getParticipantPrefs(masterId, userId);
 			if (!record) return;
 

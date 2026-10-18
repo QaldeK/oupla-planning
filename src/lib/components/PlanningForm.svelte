@@ -86,8 +86,10 @@
 		occurrences = [],
 	}: Props = $props();
 
-	// Formulaire (initialisé avec le master si présent)
-	const m = (() => master)() || {};
+	// Formulaire (initialisé avec le master si présent). L'IIFE capture la valeur
+	// initiale délibérément : le formulaire ne doit pas se réinitialiser si la
+	// prop `master` change ensuite.
+	const m: Partial<PlanningMaster> = (() => master)() || {};
 	const {
 		title: initTitle = "",
 		description: initDesc = "",
@@ -100,8 +102,7 @@
 		toConfirm: initToConfirm = false,
 		recurrence = {},
 		tasks: initTasks = [],
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- la prop m est très polymorphe (PlanningMaster avec champs optionnels)
-	} = m as any;
+	} = m;
 
 	const {
 		type: initRecType = "WEEKLY",

@@ -123,6 +123,9 @@
 	});
 
 	async function handleProfileUpdate() {
+		const record = pb.authStore.record;
+		if (!record) return;
+
 		if (!name.trim()) {
 			toast.error(m.settings_name_required());
 			return;
@@ -130,7 +133,7 @@
 
 		isSaving = true;
 		try {
-			await pb.collection("users").update(pb.authStore.record!.id, {
+			await pb.collection("users").update(record.id, {
 				name: name.trim(),
 				email: email.trim() || undefined,
 			});
@@ -147,6 +150,9 @@
 	}
 
 	async function handlePasswordChange() {
+		const record = pb.authStore.record;
+		if (!record) return;
+
 		if (!currentPassword || !newPassword || !confirmPassword) {
 			toast.error(m.settings_all_fields_required());
 			return;
@@ -164,7 +170,7 @@
 
 		isSaving = true;
 		try {
-			const email = pb.authStore.record!.email;
+			const email = record.email;
 
 			// Pré-check UX : un mauvais mot de passe actuel donne ici une erreur
 			// claire, alors que côté update ce serait un 404 générique.
@@ -176,7 +182,7 @@
 				return;
 			}
 
-			await pb.collection("users").update(pb.authStore.record!.id, {
+			await pb.collection("users").update(record.id, {
 				password: newPassword,
 				passwordConfirm: confirmPassword,
 				// Exigé par PocketBase >= 0.39 pour un changement de mot de passe
@@ -212,11 +218,14 @@
 	 * En cas de succès, deleteAccount() nettoie l'état local et redirige vers "/".
 	 */
 	async function handleDeleteAccount() {
+		const record = pb.authStore.record;
+		if (!record) return;
+
 		if (!deletePassword) return;
 
 		isDeleting = true;
 		try {
-			await pb.collection("users").authWithPassword(pb.authStore.record!.email, deletePassword);
+			await pb.collection("users").authWithPassword(record.email, deletePassword);
 		} catch {
 			toast.error(m.settings_incorrect_password());
 			isDeleting = false;

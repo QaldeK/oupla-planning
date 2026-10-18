@@ -105,10 +105,9 @@
 	// Pour le guest : localMeta.hasQuit + currentUser.id match
 	const quitParticipantId = $derived.by(() => {
 		if (!master) return null;
-		if (userStore.isLoggedIn && userStore.pbUser) {
-			return (
-				master.participants.find((p) => p.userId === userStore.pbUser!.id && p.hasQuit)?.id ?? null
-			);
+		const pbUser = userStore.pbUser;
+		if (userStore.isLoggedIn && pbUser) {
+			return master.participants.find((p) => p.userId === pbUser.id && p.hasQuit)?.id ?? null;
 		}
 		const guestIdentity = guestStateStore.getGuestIdentity(master.id);
 		if (guestStateStore.getGuestQuitState(master.id) && guestIdentity) {
@@ -167,7 +166,8 @@
 				break;
 			case "silent_sync": {
 				// CAS A : déjà lié via userId → sync silencieuse (sans renommer)
-				const pbUser = userStore.pbUser!;
+				const pbUser = userStore.pbUser;
+				if (!pbUser) break;
 				ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin).catch(
 					(err) => console.error("ensurePlanningParticipant failed:", err),
 				);
@@ -217,15 +217,18 @@
 			}
 
 			if (userStore.isLoggedIn) {
-				try {
-					await ensurePlanningParticipant(
-						master.id,
-						userStore.pbUser!.id,
-						master.recurrence.type,
-						isAdmin,
-					);
-				} catch (err) {
-					console.error("Erreur création planning_participant:", err);
+				const pbUser = userStore.pbUser;
+				if (pbUser) {
+					try {
+						await ensurePlanningParticipant(
+							master.id,
+							pbUser.id,
+							master.recurrence.type,
+							isAdmin,
+						);
+					} catch (err) {
+						console.error("Erreur création planning_participant:", err);
+					}
 				}
 			}
 
@@ -252,10 +255,11 @@
 
 	/** Callback invoqué par IdentityClaimModal après un changement d'identité réussi */
 	function handleIdentityChanged(identity: PlanningIdentity) {
+		if (!master) return;
 		// Persiste l'identité guest. Pour un user auth, l'écriture est inerte :
 		// resolveCurrentIdentity priorise pbUser sur cette identité locale.
 		guestStateStore
-			.setGuestIdentity(master!.id, identity)
+			.setGuestIdentity(master.id, identity)
 			.catch((err) => console.error("setGuestIdentity failed:", err));
 		// Le snapshot de transition est consommé (claim ou ajout effectué).
 		authTransition.clearPendingGuestClaim();

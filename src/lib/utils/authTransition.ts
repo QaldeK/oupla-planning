@@ -154,7 +154,7 @@ export async function runAuthTransition(
 	// consommable par la page /p/[token] pour ouvrir le modal de suggestion.
 	const guestClaim = guestIdentity
 		? {
-				masterId: activeMasterId!,
+				masterId: activeMasterId,
 				participantId: guestIdentity.id,
 				name: guestIdentity.name
 			}

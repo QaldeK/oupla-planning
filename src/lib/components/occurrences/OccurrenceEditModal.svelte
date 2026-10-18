@@ -151,7 +151,9 @@
 		// Mettre à jour master localement pour réactivité
 		master = updatedMaster;
 
-		return updatedMaster.participants.find((p) => p.name === name)!;
+		const created = updatedMaster.participants.find((p) => p.name === name);
+		if (!created) throw new Error(`Participant "${name}" introuvable après ajout`);
+		return created;
 	}
 
 	async function handleAddParticipant() {

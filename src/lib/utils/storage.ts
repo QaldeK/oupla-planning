@@ -1,3 +1,5 @@
+import type { LazyStore } from "@tauri-apps/plugin-store";
+
 /**
  * Abstraction du stockage pour gérer le Web (LocalStorage/SessionStorage)
  * et utiliser le plugin Store de Tauri v2.
@@ -12,12 +14,10 @@ export interface StorageOptions {
 }
 
 export const isBrowser = typeof window !== "undefined";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- __TAURI__ est injecté par Tauri, absent de Window
-export const isTauri = isBrowser && !!(window as any).__TAURI__;
+export const isTauri = isBrowser && window.__TAURI__ !== undefined;
 
 // Pour Tauri v2, on utilise LazyStore
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- LazyStore importé dynamiquement, pas de type statique
-let tauriStore: any = null;
+let tauriStore: LazyStore | null = null;
 
 async function getTauriStore() {
 	if (tauriStore) return tauriStore;
