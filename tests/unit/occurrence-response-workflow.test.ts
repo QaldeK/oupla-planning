@@ -27,7 +27,12 @@ const secondOnEventTask: Task = {
 	type: "onEvent",
 	requiredVolunteers: 1
 };
-const beforeTask: Task = { id: "t2", name: "Installation", type: "beforeEvent", requiredVolunteers: 1 };
+const beforeTask: Task = {
+	id: "t2",
+	name: "Installation",
+	type: "beforeEvent",
+	requiredVolunteers: 1
+};
 const afterTask: Task = { id: "t3", name: "Rangement", type: "afterEvent", requiredVolunteers: 1 };
 
 describe("onEventInscribedIds", () => {
@@ -60,7 +65,11 @@ describe("buildParticipantResponse", () => {
 	});
 
 	it("horodate respondedAt en ISO", () => {
-		const response = buildParticipantResponse({ participantId: "p1", response: "present", tasks: [] });
+		const response = buildParticipantResponse({
+			participantId: "p1",
+			response: "present",
+			tasks: []
+		});
 		expect(Number.isNaN(Date.parse(response.respondedAt))).toBe(false);
 	});
 });
@@ -75,21 +84,91 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 		expected: string;
 	}> = [
 		// Ajout sans réponse : present posé d'office (self ET admin).
-		{ name: "ajout onEvent sans réponse", task: onEventTask, currentResponse: undefined, allowResponses: true, isAdding: true, expected: "autoPresent" },
+		{
+			name: "ajout onEvent sans réponse",
+			task: onEventTask,
+			currentResponse: undefined,
+			allowResponses: true,
+			isAdding: true,
+			expected: "autoPresent"
+		},
 		// Ajout en conflit : refus, quelle que soit la réponse ≠ present.
-		{ name: "ajout onEvent avec maybe", task: onEventTask, currentResponse: "maybe", allowResponses: true, isAdding: true, expected: "refuse" },
-		{ name: "ajout onEvent avec absent", task: onEventTask, currentResponse: "absent", allowResponses: true, isAdding: true, expected: "refuse" },
-		{ name: "ajout onEvent avec if_needed", task: onEventTask, currentResponse: "if_needed", allowResponses: true, isAdding: true, expected: "refuse" },
+		{
+			name: "ajout onEvent avec maybe",
+			task: onEventTask,
+			currentResponse: "maybe",
+			allowResponses: true,
+			isAdding: true,
+			expected: "refuse"
+		},
+		{
+			name: "ajout onEvent avec absent",
+			task: onEventTask,
+			currentResponse: "absent",
+			allowResponses: true,
+			isAdding: true,
+			expected: "refuse"
+		},
+		{
+			name: "ajout onEvent avec if_needed",
+			task: onEventTask,
+			currentResponse: "if_needed",
+			allowResponses: true,
+			isAdding: true,
+			expected: "refuse"
+		},
 		// Déjà present : rien à faire.
-		{ name: "ajout onEvent déjà present", task: onEventTask, currentResponse: "present", allowResponses: true, isAdding: true, expected: "none" },
+		{
+			name: "ajout onEvent déjà present",
+			task: onEventTask,
+			currentResponse: "present",
+			allowResponses: true,
+			isAdding: true,
+			expected: "none"
+		},
 		// Retrait : la réponse n'est jamais touchée, même ≠ present.
-		{ name: "retrait onEvent avec maybe", task: onEventTask, currentResponse: "maybe", allowResponses: true, isAdding: false, expected: "none" },
-		{ name: "retrait onEvent sans réponse", task: onEventTask, currentResponse: undefined, allowResponses: true, isAdding: false, expected: "none" },
+		{
+			name: "retrait onEvent avec maybe",
+			task: onEventTask,
+			currentResponse: "maybe",
+			allowResponses: true,
+			isAdding: false,
+			expected: "none"
+		},
+		{
+			name: "retrait onEvent sans réponse",
+			task: onEventTask,
+			currentResponse: undefined,
+			allowResponses: true,
+			isAdding: false,
+			expected: "none"
+		},
 		// beforeEvent/afterEvent : aucune incidence sur la réponse.
-		{ name: "ajout beforeEvent avec maybe", task: beforeTask, currentResponse: "maybe", allowResponses: true, isAdding: true, expected: "none" },
-		{ name: "ajout afterEvent sans réponse", task: afterTask, currentResponse: undefined, allowResponses: true, isAdding: true, expected: "none" },
+		{
+			name: "ajout beforeEvent avec maybe",
+			task: beforeTask,
+			currentResponse: "maybe",
+			allowResponses: true,
+			isAdding: true,
+			expected: "none"
+		},
+		{
+			name: "ajout afterEvent sans réponse",
+			task: afterTask,
+			currentResponse: undefined,
+			allowResponses: true,
+			isAdding: true,
+			expected: "none"
+		},
 		// Réponses désactivées sur le planning : pas de règle de présence.
-		{ name: "onEvent sans allowResponses", task: onEventTask, currentResponse: "maybe", allowResponses: false, isAdding: true, expected: "none" }
+		{
+			name: "onEvent sans allowResponses",
+			task: onEventTask,
+			currentResponse: "maybe",
+			allowResponses: false,
+			isAdding: true,
+			expected: "none"
+		}
 	];
 
 	for (const c of cases) {
@@ -134,11 +213,13 @@ describe("deriveConfirmationMessage", () => {
 	});
 });
 
-function makeWorkflow(overrides: {
-	actor?: "self" | "admin";
-	tasks?: Task[];
-	getDisplayName?: (participantId: string) => string;
-} = {}) {
+function makeWorkflow(
+	overrides: {
+		actor?: "self" | "admin";
+		tasks?: Task[];
+		getDisplayName?: (participantId: string) => string;
+	} = {}
+) {
 	const submitChange = vi.fn().mockResolvedValue(undefined);
 	let catalog: Task[] = overrides.tasks ?? [onEventTask, beforeTask, secondOnEventTask];
 	let inscribed: string[] = ["t1"];
@@ -184,7 +265,11 @@ describe("createOccurrenceResponseWorkflow — la garde onEvent", () => {
 		workflow.requestResponseChange("p1", "present");
 
 		expect(workflow.pendingResponseChange).toBeNull();
-		expect(submitChange).toHaveBeenCalledWith({ participantId: "p1", response: "present", tasks: ["t1"] });
+		expect(submitChange).toHaveBeenCalledWith({
+			participantId: "p1",
+			response: "present",
+			tasks: ["t1"]
+		});
 	});
 
 	it("soumet directement sans inscription onEvent", () => {
@@ -194,7 +279,11 @@ describe("createOccurrenceResponseWorkflow — la garde onEvent", () => {
 		workflow.requestResponseChange("p1", "absent");
 
 		expect(workflow.pendingResponseChange).toBeNull();
-		expect(submitChange).toHaveBeenCalledWith({ participantId: "p1", response: "absent", tasks: ["t2"] });
+		expect(submitChange).toHaveBeenCalledWith({
+			participantId: "p1",
+			response: "absent",
+			tasks: ["t2"]
+		});
 	});
 
 	it("n'ignore pas une 2e tâche onEvent inscrite (pending multi)", () => {

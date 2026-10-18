@@ -43,8 +43,5 @@ export function recentOccurrencesFilter(
 export function archiveOccurrencesFilter(
 	masterId: string
 ): [template: string, vars: Record<string, unknown>] {
-	return [
-		"master = {:masterId} && date < {:maxDate}",
-		{ masterId, maxDate: isoDateDaysAgo(-1) }
-	];
+	return ["master = {:masterId} && date < {:maxDate}", { masterId, maxDate: isoDateDaysAgo(-1) }];
 }

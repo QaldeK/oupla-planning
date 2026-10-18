@@ -15,7 +15,6 @@
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from "$lib/constants";
 	import * as m from "$lib/paraglide/messages.js";
 	import { addParticipant, submitResponse, updateOccurrence } from "$lib/services/planningMutations";
-	import { sortTasks } from "$lib/utils/tasks";
 	import { networkStore } from "$lib/stores/networkStore.svelte";
 	import type {
 		Participant,
@@ -24,16 +23,17 @@
 		Task,
 	} from "$lib/types/planning.types";
 	import { classifyError } from "$lib/utils/errorHandler";
+	import { sortTasks } from "$lib/utils/tasks";
 	import NetworkAlert from "../NetworkAlert.svelte";
 	import ConfirmModal from "../ui/ConfirmModal.svelte";
 	import Modal from "../ui/Modal.svelte";
 	import RichTextEditor from "../ui/RichTextEditor.svelte";
-	import TaskManager from "./TaskManager.svelte";
 	import {
 		buildParticipantResponse,
 		createOccurrenceResponseWorkflow,
 		type ResponseChange,
 	} from "./shared/occurrenceResponseWorkflow.svelte";
+	import TaskManager from "./TaskManager.svelte";
 	import VolunteerAssignmentModal from "./VolunteerAssignmentModal.svelte";
 
 	interface Props {

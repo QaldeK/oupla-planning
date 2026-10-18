@@ -23,13 +23,13 @@
 	import { m } from "$lib/paraglide/messages.js";
 	import { getLocale } from "$lib/paraglide/runtime.js";
 	import { pb } from "$lib/pocketbase/pb";
+	import { setActivePlanningToken } from "$lib/services/activePlanningContext";
 	import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
 	import { drawerStore } from "$lib/stores/drawerStore.svelte";
 	import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 	import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
 	import { modalStore } from "$lib/stores/modalStore.svelte";
 	import { planningStore } from "$lib/stores/planningStore.svelte";
-	import { setActivePlanningToken } from "$lib/services/activePlanningContext";
 	import { pwaStore } from "$lib/stores/pwaStore.svelte";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import { recoverAllData } from "$lib/utils/recover";

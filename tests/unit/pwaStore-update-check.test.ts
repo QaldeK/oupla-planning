@@ -13,7 +13,7 @@
  * singleton, `init()` n'est appelé qu'une fois et chaque test démarre à une
  * heure distincte (> 60 s du check précédent) pour neutraliser l'état partagé.
  */
-import { beforeAll, beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { pwaStore } from "$lib/stores/pwaStore.svelte";
 
 function makeEventTarget() {

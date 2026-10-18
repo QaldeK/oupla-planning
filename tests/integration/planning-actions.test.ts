@@ -48,12 +48,6 @@ import {
 	updatePlanningWithOccurrences
 } from "$lib/services/planningMutations";
 import { getPlanningByToken } from "$lib/services/planningReads";
-import { sortTasks } from "$lib/utils/tasks";
-import {
-	generateAdminToken,
-	generateParticipantId,
-	generateParticipantToken
-} from "$lib/utils/tokens";
 import type {
 	Participant,
 	ParticipantResponse,
@@ -62,6 +56,12 @@ import type {
 	ResponseType,
 	Task
 } from "$lib/types/planning.types";
+import { sortTasks } from "$lib/utils/tasks";
+import {
+	generateAdminToken,
+	generateParticipantId,
+	generateParticipantToken
+} from "$lib/utils/tokens";
 import {
 	authenticateAdmin,
 	cleanupTrackedRecords,
@@ -289,24 +289,22 @@ describe("planningActions — Pipeline CRUD complet", () => {
 
 		it("un-soft-delete à la réactivation et préserve id/responses/comments (bug #2)", async () => {
 			const d1 = futureDate(7);
-			const { master, adminToken, occs: initial } = await createForUpdate([
-				{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }
-			]);
+			const {
+				master,
+				adminToken,
+				occs: initial
+			} = await createForUpdate([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }]);
 			setActivePlanningToken(adminToken);
 			const occId = initial[0].id;
 			const adminPb = await authenticateAdmin();
 
 			// Pose des données participant (response + commentaire) via le service (format valide).
-			await submitResponse(
-				occId,
-				"user001",
-				{
-					participantId: "user001",
-					response: "present",
-					tasks: [],
-					respondedAt: new Date().toISOString()
-				}
-			);
+			await submitResponse(occId, "user001", {
+				participantId: "user001",
+				response: "present",
+				tasks: [],
+				respondedAt: new Date().toISOString()
+			});
 			await addComment(occId, "user001", "Commentaire important");
 
 			// L'admin désactive la DateSlot (soft-delete côté PB).
@@ -460,11 +458,10 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			});
 			setActivePlanningToken(adminToken);
 
-			const updated = await updateParticipant(
-				master.id,
-				"aaa111",
-				{ name: "Alice Updated", isAdmin: true }
-			);
+			const updated = await updateParticipant(master.id, "aaa111", {
+				name: "Alice Updated",
+				isAdmin: true
+			});
 
 			expect(updated.participants[0].name).toBe("Alice Updated");
 			expect(updated.participants[0].isAdmin).toBe(true);
@@ -490,10 +487,11 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			});
 			setActivePlanningToken(adminToken);
 
-			const updated = await addParticipant(
-				master.id,
-				{ id: "aaa111", name: "Alice Renamed", isAdmin: true }
-			);
+			const updated = await addParticipant(master.id, {
+				id: "aaa111",
+				name: "Alice Renamed",
+				isAdmin: true
+			});
 
 			// L'ancien Alice est filtre, le nouveau est ajoute a la fin
 			expect(updated.participants).toHaveLength(1);
@@ -552,18 +550,18 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const participantId = "user001";
 
 			await submitResponse(occId, participantId, {
-					participantId,
-					response: "present",
-					tasks: [],
-					respondedAt: new Date().toISOString()
-				} as ParticipantResponse);
+				participantId,
+				response: "present",
+				tasks: [],
+				respondedAt: new Date().toISOString()
+			} as ParticipantResponse);
 
 			const updated = await submitResponse(occId, participantId, {
-					participantId,
-					response: "absent",
-					tasks: [],
-					respondedAt: new Date().toISOString()
-				} as ParticipantResponse);
+				participantId,
+				response: "absent",
+				tasks: [],
+				respondedAt: new Date().toISOString()
+			} as ParticipantResponse);
 
 			expect(updated.responses).toHaveLength(1);
 			expect(updated.responses[0].response).toBe("absent");
@@ -579,23 +577,23 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			setActivePlanningToken(adminToken);
 
 			await submitResponse(occId, "u1", {
-					participantId: "u1",
-					response: "present",
-					tasks: [],
-					respondedAt: new Date().toISOString()
-				} as ParticipantResponse);
+				participantId: "u1",
+				response: "present",
+				tasks: [],
+				respondedAt: new Date().toISOString()
+			} as ParticipantResponse);
 			await submitResponse(occId, "u2", {
-					participantId: "u2",
-					response: "absent",
-					tasks: [],
-					respondedAt: new Date().toISOString()
-				} as ParticipantResponse);
+				participantId: "u2",
+				response: "absent",
+				tasks: [],
+				respondedAt: new Date().toISOString()
+			} as ParticipantResponse);
 			await submitResponse(occId, "u3", {
-					participantId: "u3",
-					response: "if_needed",
-					tasks: [],
-					respondedAt: new Date().toISOString()
-				} as ParticipantResponse);
+				participantId: "u3",
+				response: "if_needed",
+				tasks: [],
+				respondedAt: new Date().toISOString()
+			} as ParticipantResponse);
 
 			const adminPb = await authenticateAdmin();
 			const pbOcc = await adminPb
@@ -864,9 +862,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			};
 
 			setActivePlanningToken(adminToken);
-			await expect(
-				submitResponse(occurrences[0].id, "user001", response)
-			).rejects.toThrow();
+			await expect(submitResponse(occurrences[0].id, "user001", response)).rejects.toThrow();
 		});
 	});
 });

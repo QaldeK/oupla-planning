@@ -31,9 +31,7 @@ export interface SyncActiveOccurrencesOptions {
  * `date >= J-2`. Converge vers le serveur même si une tentative précédente a
  * échoué silencieusement — pas de curseur à réparer.
  */
-export async function syncActiveOccurrences(
-	options?: SyncActiveOccurrencesOptions
-): Promise<void> {
+export async function syncActiveOccurrences(options?: SyncActiveOccurrencesOptions): Promise<void> {
 	await occurrencesCollection.initialFetch({
 		filter: recentOccurrencesFilter(options?.masterId),
 		...(options?.token ? { query: { _token: options.token } } : {}),
@@ -45,10 +43,7 @@ export async function syncActiveOccurrences(
  * Fetch du passé récent pour la page archive : occurrences antérieures à
  * demain, les plus récentes d'abord, borné à `ARCHIVE_FETCH_LIMIT`.
  */
-export async function fetchRecentPastOccurrences(
-	masterId: string,
-	token: string
-): Promise<void> {
+export async function fetchRecentPastOccurrences(masterId: string, token: string): Promise<void> {
 	await occurrencesCollection.initialFetch({
 		filter: archiveOccurrencesFilter(masterId),
 		query: { _token: token },

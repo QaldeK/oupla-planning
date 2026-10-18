@@ -4,6 +4,7 @@ import { liveQuery } from "dexie";
 import { ClientResponseError } from "pocketbase";
 import { SvelteMap } from "svelte/reactivity";
 import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import { fetchRecentPastOccurrences, syncActiveOccurrences } from "$lib/data/planningSync";
 import { db, ensureDbReady, upsertLocalMeta, upsertRecord } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
 import { claimPlannings } from "$lib/services/claimPlannings";
@@ -11,7 +12,6 @@ import { commentStateService } from "$lib/services/commentStateService";
 import { getPlanningByToken } from "$lib/services/planningReads";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { PlanningMaster, PlanningOccurrence } from "$lib/types/planning.types";
-import { fetchRecentPastOccurrences, syncActiveOccurrences } from "$lib/data/planningSync";
 
 /**
  * Ordre total stable pour les occurrences : date puis startTime, avec

@@ -13,8 +13,8 @@ import { classifyError } from "$lib/utils/errorHandler";
 import {
 	buildParticipantResponse,
 	createOccurrenceResponseWorkflow,
-	resolveTaskToggleOutcome,
-	type PendingResponseChange
+	type PendingResponseChange,
+	resolveTaskToggleOutcome
 } from "./occurrenceResponseWorkflow.svelte";
 
 interface OccurrenceStateOptions {

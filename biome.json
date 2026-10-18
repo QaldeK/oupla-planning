@@ -1,11 +1,12 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
 	"files": {
 		"includes": [
 			"**",
 			"!.serena",
 			"!.scratch",
 			"!messages",
+			"!project.inlang",
 			"!pocketbase/pb_hooks",
 			"!pocketbase/pb_migrations",
 			"!pocketbase/pb_data",
@@ -27,6 +28,7 @@
 			"!.serena",
 			"!.scratch",
 			"!messages",
+			"!project.inlang",
 			"!pocketbase/pb_hooks",
 			"!pocketbase/pb_migrations",
 			"!pocketbase/pb_data",

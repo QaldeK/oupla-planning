@@ -31,7 +31,6 @@ import { mastersCollection, occurrencesCollection } from "$lib/data/collections"
 import { db } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
 import { createPlanningWithOccurrences } from "$lib/services/planningMutations";
-import { generateAdminToken, generateParticipantToken } from "$lib/utils/tokens";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type {
@@ -41,6 +40,7 @@ import type {
 	RecurrenceConfig
 } from "$lib/types/planning.types";
 import { generateRecurrenceDates } from "$lib/utils/recurrence";
+import { generateAdminToken, generateParticipantToken } from "$lib/utils/tokens";
 import {
 	authenticateAdmin,
 	authenticateUser,

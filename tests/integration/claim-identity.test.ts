@@ -492,9 +492,9 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION + VERIFICATION ===
-			await expect(
-				claimAs(master.id, "guest-quit", participantToken)
-			).rejects.toMatchObject({ status: 409 });
+			await expect(claimAs(master.id, "guest-quit", participantToken)).rejects.toMatchObject({
+				status: 409
+			});
 		});
 
 		it("rejette guest déjà claimé (userId non-null) avec 409", async () => {
@@ -518,9 +518,9 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION + VERIFICATION ===
-			await expect(
-				claimAs(master.id, "guest-claimed", participantToken)
-			).rejects.toMatchObject({ status: 409 });
+			await expect(claimAs(master.id, "guest-claimed", participantToken)).rejects.toMatchObject({
+				status: 409
+			});
 		});
 
 		it("rejette guest introuvable avec 404", async () => {
@@ -536,9 +536,9 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION + VERIFICATION ===
-			await expect(
-				claimAs(master.id, "inexistant-id", participantToken)
-			).rejects.toMatchObject({ status: 404 });
+			await expect(claimAs(master.id, "inexistant-id", participantToken)).rejects.toMatchObject({
+				status: 404
+			});
 		});
 
 		it("rejette token invalide avec 403", async () => {
@@ -581,9 +581,9 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			// Pas d'auth dans le singleton pb
 
 			// === ACTION + VERIFICATION ===
-			await expect(
-				claimAs(master.id, "guest-noauth", participantToken)
-			).rejects.toMatchObject({ status: 401 });
+			await expect(claimAs(master.id, "guest-noauth", participantToken)).rejects.toMatchObject({
+				status: 401
+			});
 		});
 
 		it("rejette les données incohérentes : 2 participants actifs même userId (409)", async () => {
@@ -624,9 +624,9 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 
 			// === ACTION + VERIFICATION ===
-			await expect(
-				claimAs(master.id, "guest-target", participantToken)
-			).rejects.toMatchObject({ status: 409 });
+			await expect(claimAs(master.id, "guest-target", participantToken)).rejects.toMatchObject({
+				status: 409
+			});
 		});
 
 		it("ignore un participant hasQuit lors de la détection auth (filtre !hasQuit)", async () => {
@@ -672,9 +672,9 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			// hasQuit (sans claimedAt) et passer le guard, puis le participant actif
 			// (avec claimedAt) ne serait jamais vérifié. Avec le filtre, on détecte
 			// bien l'actif et son claimedAt → 409.
-			await expect(
-				claimAs(master.id, "guest-new", participantToken)
-			).rejects.toMatchObject({ status: 409 });
+			await expect(claimAs(master.id, "guest-new", participantToken)).rejects.toMatchObject({
+				status: 409
+			});
 		});
 	});
 
@@ -857,9 +857,9 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// Alice a maintenant userId + claimedAt ; Bob est toujours non-lié
 			// === 2e revendication : Bob (doit échouer — l'auth a déjà claimedAt) ===
-			await expect(
-				claimAs(master.id, "guest-bob-2", participantToken)
-			).rejects.toMatchObject({ status: 409 });
+			await expect(claimAs(master.id, "guest-bob-2", participantToken)).rejects.toMatchObject({
+				status: 409
+			});
 
 			// Bob n'a pas été claimé (toujours pas de userId)
 			const pbMaster = await adminGetMaster(master.id);

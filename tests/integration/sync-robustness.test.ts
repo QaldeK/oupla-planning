@@ -17,20 +17,24 @@ import { cleanupTrackedRecords, clearTrackedIds, dateInDays, seedPlanning } from
 /** Client distant (l'autre participant) : write direct via l'API, hors Dexie local. */
 async function remoteWriteResponses(occId: string, token: string) {
 	const { pb } = await import("$lib/pocketbase/pb");
-	return pb.collection("planning_occurrences").update<PlanningOccurrence>(
-		occId,
-		{ responses: [{ participantId: "participant-A", response: "present" }] },
-		{ query: { _token: token } }
-	);
+	return pb
+		.collection("planning_occurrences")
+		.update<PlanningOccurrence>(
+			occId,
+			{ responses: [{ participantId: "participant-A", response: "present" }] },
+			{ query: { _token: token } }
+		);
 }
 
 async function remoteAddComment(occId: string, token: string) {
 	const { pb } = await import("$lib/pocketbase/pb");
-	return pb.collection("planning_occurrences").update<PlanningOccurrence>(
-		occId,
-		{ comments: [{ id: "c-remote", participantId: "participant-A", text: "vu sur place" }] },
-		{ query: { _token: token } }
-	);
+	return pb
+		.collection("planning_occurrences")
+		.update<PlanningOccurrence>(
+			occId,
+			{ comments: [{ id: "c-remote", participantId: "participant-A", text: "vu sur place" }] },
+			{ query: { _token: token } }
+		);
 }
 
 describe("resync de routine — fenêtre date, sans curseur", () => {

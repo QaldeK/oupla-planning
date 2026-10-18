@@ -18,7 +18,6 @@
 	import { toast } from "svelte-sonner";
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_LABELS } from "$lib/constants";
 	import * as msg from "$lib/paraglide/messages.js";
-	import { generateTimeSlotId } from "$lib/utils/slots";
 	import { networkStore } from "$lib/stores/networkStore.svelte";
 	import type {
 		DateSlot,
@@ -40,7 +39,7 @@
 		getRecurrenceLabel,
 		isLastDayOfMonth,
 	} from "$lib/utils/recurrence";
-	import { formatSlotKey } from "$lib/utils/slots";
+	import { formatSlotKey, generateTimeSlotId } from "$lib/utils/slots";
 	import MultiSelect from "./MultiSelect.svelte";
 	import NetworkAlert from "./NetworkAlert.svelte";
 	import ConfirmModal from "./ui/ConfirmModal.svelte";

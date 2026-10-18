@@ -25,12 +25,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
 import { db } from "$lib/pb-sync/db";
 import { planningStore } from "$lib/stores/planningStore.svelte";
-import {
-	authenticateAdmin,
-	cleanupTrackedRecords,
-	clearTrackedIds,
-	seedPlanning
-} from "./seed";
+import { authenticateAdmin, cleanupTrackedRecords, clearTrackedIds, seedPlanning } from "./seed";
 
 async function getLocalMaster(masterId: string) {
 	return db.masters.get(masterId);

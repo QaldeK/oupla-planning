@@ -116,9 +116,11 @@ describe("insertEvent", () => {
 	it("jette si la sauvegarde échoue (le caller loggue)", () => {
 		const { MockRecord } = createRecordMock();
 		(globalThis as any).Record = MockRecord;
-		const app = mockApp({ save: vi.fn(() => {
-			throw new Error("db locked");
-		}) });
+		const app = mockApp({
+			save: vi.fn(() => {
+				throw new Error("db locked");
+			})
+		});
 
 		expect(() =>
 			insertEvent(app, {
@@ -270,7 +272,9 @@ describe("createMasterContextResolver", () => {
 
 describe("resolveUserName", () => {
 	it("retourne le name quand présent", () => {
-		const app = mockApp({ findRecordById: vi.fn(() => mockUser({ name: "Alice", email: "a@x.co" })) });
+		const app = mockApp({
+			findRecordById: vi.fn(() => mockUser({ name: "Alice", email: "a@x.co" }))
+		});
 		expect(resolveUserName(app, "u1", "fallback")).toBe("Alice");
 	});
 

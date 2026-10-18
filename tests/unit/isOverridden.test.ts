@@ -12,8 +12,8 @@
  * après save). On teste ici via un subset structural minimal.
  */
 import { describe, expect, it } from "vitest";
-import { isOverridden } from "$lib/utils/slots";
 import type { PlanningOccurrence, TimeSlot } from "$lib/types/planning.types";
+import { isOverridden } from "$lib/utils/slots";
 
 type MasterLike = Parameters<typeof isOverridden>[1];
 
