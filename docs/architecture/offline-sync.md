@@ -134,8 +134,8 @@ Le jitter répartit les retries sur la fenêtre exponentielle, ce qui évite que
 clients retombent ensemble quand le serveur revient. Défauts : 2 retries (3 tentatives),
 base 500 ms, plafond 8 s.
 
-Seuls les appels réseau de pb-sync sont wrappés (create, update, remove, batch), plus le
-batch multi-collections de `updatePlanningWithOccurrences`. Les lectures et les
+Seuls les appels réseau de pb-sync sont wrappés (create, update, remove, batch — y compris
+le batch multi-collections `executeMultiCollectionBatch`). Les lectures et les
 souscriptions ne le sont pas : la re-sync converge vers le serveur de toute façon, et la
 reconnexion SSE est gérée par le SDK et le polling de `networkStore`.
 
@@ -168,6 +168,11 @@ le marqueur de fraîcheur via `syncAuthData`.
 - **Un 409 n'est pas un aléa réseau.** Le retenter est un no-op qui masque un vrai conflit.
 - **`upsertRecord` n'écrase pas les champs absents du record distant** : c'est volontaire,
   et c'est ce qui préserve `adminToken` chez un Guest, masqué côté API par `onRecordEnrich`.
+- **Le batch multi-collections n'est pas optimiste** (`executeMultiCollectionBatch`,
+  ADR-0018) : le batch PB part seul ; en succès Dexie est reconcilié depuis les réponses
+  confirmées avant le retour, en échec rien n'est écrit localement. Ne pas y ajouter
+  d'écriture optimiste pré-envoi : elle exigerait ids clients et rollback pour un gain
+  d'UI d'une seconde sur un flux qui navigue aussitôt.
 - **`upsertLocalMeta` est un patch partiel.** Réécrire le record entier depuis un store
   écraserait les champs d'un autre écrivain (voir la table de propriété dans `stores.md`).
 

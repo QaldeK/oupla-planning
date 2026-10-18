@@ -215,7 +215,7 @@ flowchart LR
 | `collection.ts`            | `createSyncCollection()` — main bridge API                  |
 | `types.ts`                 | Shared TypeScript types                                     |
 | `db.ts`                    | Dexie database schema (`appDB`)                             |
-| `batch.ts`                 | Standalone `executeBatch()` for multi-collection operations |
+| `batch.ts`                 | Standalone `executeMultiCollectionBatch()` for multi-collection operations: atomic PB batch, Dexie reconcile from confirmed responses (non-optimistic, ADR-0018) |
 | `use-live-query.svelte.ts` | Svelte 5 reactive wrapper around Dexie `liveQuery`          |
 
 ---
@@ -380,14 +380,21 @@ interface PbListOptions extends PbQueryOptions {
 
 ---
 
-### `executeBatch(pb, operations)`
+### `executeMultiCollectionBatch(pb, operations)`
 
-Standalone batch executor for operations spanning **multiple collections**. Takes snapshots before applying, rolls back on failure.
+Standalone batch executor for operations spanning **multiple collections**. Atomic on the
+server (single PB transaction, wrapped in `withRetry`); on success, every confirmed
+response body is written into its mapped Dexie table via `upsertRecord` (merge — preserves
+locally-known fields masked by API enrich, e.g. `adminToken`), and deletes remove the
+local rows. **Non-optimistic by design** (ADR-0018): nothing is written locally before the
+server succeeds — on failure, nothing changed anywhere; on success, Dexie converges before
+the function returns, without depending on SSE.
 
 ```ts
-await executeBatch(pb, [
-  { type: 'create', table: db.masters, collection: 'planning_masters', data: {...} },
-  { type: 'update', table: db.occurrences, collection: 'planning_occurrences', id: '...', data: {...} },
+await executeMultiCollectionBatch(pb, [
+  { type: 'update', table: db.masters, collection: 'planning_masters', id: '...', data: {...}, params: { query: { _token, _version } } },
+  { type: 'create', table: db.occurrences, collection: 'planning_occurrences', data: {...} },
+  { type: 'delete', table: db.occurrences, collection: 'planning_occurrences', id: '...' },
 ]);
 ```
 
