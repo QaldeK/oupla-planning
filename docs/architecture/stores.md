@@ -40,7 +40,7 @@ Compte authentifié, préférences et orchestration du boot.
 | `isReady` | true après `init()` |
 | `lastAuthSyncAt` | date de la dernière sync globale auth, persistée sous `auth_sync_at`, pour la fraîcheur affichée par `NetworkAlert` |
 | `init()` | séquence de boot (ci-dessous) |
-| `markAuthSynced()` | seul écrivain de `lastAuthSyncAt` ; sa référence est passée à `syncAuthData`, qui décide du moment |
+| `markAuthSynced()` | écrivain du marqueur de fraîcheur (`logout()`/`clearAllLocalData()` le remettent à `null`) ; sa référence est passée à `syncAuthData`, qui décide du moment |
 | `setTheme` / `setOccurrenceView` / `setAppLocale` | préférences ; la locale s'écrit aussi sur le record `users` si connecté (ADR-0010) |
 | `logout()` / `clearUser()` | redirection `/`, clear authStore, clear Dexie, `planningStore.destroy()` |
 | `logoutAndStayOnPlanning(token)` | déconnexion sans quitter le planning (voir `auth-identity.md`) |

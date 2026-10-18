@@ -120,7 +120,8 @@ export class UserStore {
 
 	/**
 	 * Marque le succès d'une sync globale auth (UI NetworkAlert).
-	 * À appeler après tout fetch auth réussi (syncService, #subscribeAuth, authTransition.transitionToAuth).
+	 * Écrit le marqueur de fraîcheur ; sa référence est passée à `syncAuthData`,
+	 * qui décide du moment — un appel direct contournerait la séquence post-auth.
 	 */
 	async markAuthSynced(): Promise<void> {
 		this.lastAuthSyncAt = new Date();
