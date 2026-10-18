@@ -50,8 +50,8 @@
         "prettier": "^3.9.6",
         "prettier-plugin-svelte": "^4.1.1",
         "svelte": "^5.57.2",
-        "svelte-check": "^4.7.6",
-        "svelte-check-native": "^0.7.2",
+        "svelte-check": "^4.7.7",
+        "svelte-check-native": "^1.9.1",
         "tailwindcss": "^4.3.3",
         "typescript": "^5.9.3",
         "vite": "^8.3.4",
@@ -749,19 +749,19 @@
 
     "svelte": ["svelte@5.57.2", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "@jridgewell/sourcemap-codec": "^1.6.0", "@sveltejs/acorn-typescript": "^1.0.13", "@types/estree": "^1.0.9", "acorn": "^8.18.0", "aria-query": "5.3.1", "axobject-query": "^4.1.0", "clsx": "^2.1.1", "devalue": "^5.9.2", "esm-env": "^1.2.1", "esrap": "^2.3.6", "is-reference": "^3.0.3", "locate-character": "^3.0.0", "magic-string": "^0.30.11", "zimmerframe": "^1.1.2" } }, "sha512-1YiPCAXT0Ct6g1vOMmSLa0Nsc3QRMvtDF32ihgglGVrugIuIK38RyDiFNXVDhtQ81TJjSO57NdMw6DyYLqSGDQ=="],
 
-    "svelte-check": ["svelte-check@4.7.6", "", { "dependencies": { "@jridgewell/trace-mapping": "^0.3.25", "@sveltejs/load-config": "^0.2.3", "chokidar": "^4.0.1", "fdir": "^6.2.0", "picocolors": "^1.0.0", "sade": "^1.7.4" }, "peerDependencies": { "svelte": "^4.0.0 || ^5.0.0-next.0", "typescript": "^5.0.0 || ^6.0.0" }, "bin": { "svelte-check": "bin/svelte-check" } }, "sha512-t2scM//ZuVbSY/T2w6FSBw1v9s2NEmh/g+sy1lqtosW5ylBV5AF4wFb1Ts9Kf3MbfPDUDJDZ9L436YT0SPTdvw=="],
+    "svelte-check": ["svelte-check@4.7.7", "", { "dependencies": { "@jridgewell/trace-mapping": "^0.3.25", "@sveltejs/load-config": "^0.2.3", "chokidar": "^4.0.1", "fdir": "^6.2.0", "picocolors": "^1.0.0", "sade": "^1.7.4" }, "peerDependencies": { "svelte": "^4.0.0 || ^5.0.0-next.0", "typescript": "^5.0.0 || ^6.0.0" }, "bin": { "svelte-check": "bin/svelte-check" } }, "sha512-Ge2IMdeTpbJuzNFGRiiMg0RWgbScysKQu7xwcyFJ22+DU9F5nPX51+Q3gHmGqRxYQMx2knreVWt5oCtfe0vf2g=="],
 
-    "svelte-check-native": ["svelte-check-native@0.7.2", "", { "optionalDependencies": { "svelte-check-native-darwin-arm64": "0.7.2", "svelte-check-native-darwin-x64": "0.7.2", "svelte-check-native-linux-arm64": "0.7.2", "svelte-check-native-linux-x64": "0.7.2", "svelte-check-native-win32-x64": "0.7.2" }, "peerDependencies": { "@typescript/native-preview": ">=7.0.0-dev.0" }, "bin": { "svelte-check-native": "bin/svelte-check-native.js" } }, "sha512-rLj0irLgaYRnQECuN4ViQHoD6OkYT9uhUY80/UeLhb3vunAFJ5p6yoBkcAEjwCci16DjJ77nkpBJBJmND5BZog=="],
+    "svelte-check-native": ["svelte-check-native@1.9.1", "", { "optionalDependencies": { "svelte-check-native-darwin-arm64": "1.9.1", "svelte-check-native-darwin-x64": "1.9.1", "svelte-check-native-linux-arm64": "1.9.1", "svelte-check-native-linux-x64": "1.9.1", "svelte-check-native-win32-x64": "1.9.1" }, "peerDependencies": { "@typescript/native-preview": ">=7.0.0-dev.0", "typescript": "*" }, "optionalPeers": ["@typescript/native-preview", "typescript"], "bin": { "svelte-check-native": "bin/svelte-check-native.js" } }, "sha512-JtMy+aWfehb6GfN6SKS5esejBq/ipb9HVmJZyL58WUflS5+YR7iU5SP10vFPs7qj3yqRwXyvABhmmzNjAL+aEA=="],
 
-    "svelte-check-native-darwin-arm64": ["svelte-check-native-darwin-arm64@0.7.2", "", { "os": "darwin", "cpu": "arm64" }, "sha512-soMwytXtrheq/huFp1bX/B5al4G3nePe/Aal/6EZEgDRxp+fGik5AGSJreq4vUl0AJYMBhAc4/qWOVAUPPzdwA=="],
+    "svelte-check-native-darwin-arm64": ["svelte-check-native-darwin-arm64@1.9.1", "", { "os": "darwin", "cpu": "arm64" }, "sha512-e+rL8guNDvXHGF2/oSHyibrV/3fUrOMsduYk6KTrO4wQP1JQvduqmcu+XJ1cvUtLA4WWAeUX1QoOrv40qCUFng=="],
 
-    "svelte-check-native-darwin-x64": ["svelte-check-native-darwin-x64@0.7.2", "", { "os": "darwin", "cpu": "x64" }, "sha512-cmPQB4MdsY8WzdXaJe+Mv3K+f+82W7DFbfgtwpi73FVAlnV+czVTrjKGE2cy2pSd2UjluOqVmiwQUsPv3Ymv/g=="],
+    "svelte-check-native-darwin-x64": ["svelte-check-native-darwin-x64@1.9.1", "", { "os": "darwin", "cpu": "x64" }, "sha512-9ymhArK0gWVLczR1zvj3PFyAhNmfgF6yHoiwacxVFOyUwzrGeh8TyhHCZXIOWGnQ55ECuHdVS2TlGAiqcqfY3A=="],
 
-    "svelte-check-native-linux-arm64": ["svelte-check-native-linux-arm64@0.7.2", "", { "os": "linux", "cpu": "arm64" }, "sha512-D+hTTt8NOm5wVGgxEw7k9lr0sW8jTk7VetD6dJjm1M+/C87Gj5ZufQlXhF6ukgN1tqu4pyGLMjmDw74pvWUbOQ=="],
+    "svelte-check-native-linux-arm64": ["svelte-check-native-linux-arm64@1.9.1", "", { "os": [ "linux", "android", ], "cpu": "arm64" }, "sha512-nVP6KBi8jF9ukt+ivKDFc/uMiWdjGVzZGIOYOEwQKtVoz/DNTjF5cDyx62OmG5ycpP6TpAlXLWkBfH2XhTqcVg=="],
 
-    "svelte-check-native-linux-x64": ["svelte-check-native-linux-x64@0.7.2", "", { "os": "linux", "cpu": "x64" }, "sha512-sevj1aDg0R6zq4apf5R6mAaTVydEe39L9V7nqOtggUupmPhjXksOHCHQSIDcA7ms1ShTrW4BSHFJDK9Sw14u9A=="],
+    "svelte-check-native-linux-x64": ["svelte-check-native-linux-x64@1.9.1", "", { "os": "linux", "cpu": "x64" }, "sha512-N4HI44yrNLi7+hujbO3WuZIOXa2o4XjHzUQ/RIKNHqID+zPRLkPXj0S+l3dJkzNhPPXuAuJgNMhhpVYLMh2zhQ=="],
 
-    "svelte-check-native-win32-x64": ["svelte-check-native-win32-x64@0.7.2", "", { "os": "win32", "cpu": "x64" }, "sha512-1xn+oPw9pECGAjYHpEiVpm27dJXHGq++3aOUrrCKWyO1JNIjgSa2Wo8PNmUbkjmpI8ugEmrnOEgFHsWU3akVhA=="],
+    "svelte-check-native-win32-x64": ["svelte-check-native-win32-x64@1.9.1", "", { "os": "win32", "cpu": "x64" }, "sha512-1b+uXjP5zHrL8/9ki55m8HDCoRauFsal1lKV1uB1rLxjTPt1e5wTo270IP6fe3ZnPax951owyr4kKtapFI9D7A=="],
 
     "svelte-sonner": ["svelte-sonner@1.2.1", "", { "dependencies": { "runed": "^0.28.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-N00LOWb60fjKXULbpngku+7E9Krb16KpNq4/Eax5Vu7o1Dpbca55QpaLPsB+yp82JIEdFhfJuv5cVXLoe0ZtVA=="],
 
