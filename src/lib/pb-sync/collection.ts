@@ -392,11 +392,11 @@ export function createSyncCollection<T extends WithMeta>(
 		}
 	}
 
-	interface PendingOp {
-		type: "create" | "update" | "upsert" | "delete";
-		id?: string;
-		data?: Partial<T>;
-	}
+	type PendingOp =
+		| { type: "create"; data: Partial<T> }
+		| { type: "update"; id: string; data: Partial<T> }
+		| { type: "upsert"; data: T }
+		| { type: "delete"; id: string };
 
 	interface BatchResult {
 		records: T[];
@@ -435,14 +435,17 @@ export function createSyncCollection<T extends WithMeta>(
 				if (ops.length === 0) return { records: [] };
 
 				const snapshotIds = ops
-					.filter((op) => op.type === "update" || op.type === "delete")
-					.map((op) => op.id!);
+					.filter(
+						(op): op is Extract<PendingOp, { type: "update" | "delete" }> =>
+							op.type === "update" || op.type === "delete"
+					)
+					.map((op) => op.id);
 				const snapshots = snapshotIds.length > 0 ? await table.bulkGet(snapshotIds) : [];
 
 				for (const op of ops) {
 					switch (op.type) {
 						case "update": {
-							const current = await table.get(op.id!);
+							const current = await table.get(op.id);
 							if (current) await table.put({ ...current, ...op.data });
 							break;
 						}
@@ -450,7 +453,7 @@ export function createSyncCollection<T extends WithMeta>(
 							await table.put(op.data as T);
 							break;
 						case "delete":
-							await table.delete(op.id!);
+							await table.delete(op.id);
 							break;
 					}
 				}
@@ -465,7 +468,7 @@ export function createSyncCollection<T extends WithMeta>(
 								batch.collection(collectionName).create(op.data, pbOpts);
 								break;
 							case "update":
-								batch.collection(collectionName).update(op.id!, op.data, pbOpts);
+								batch.collection(collectionName).update(op.id, op.data, pbOpts);
 								break;
 							case "upsert":
 								batch.collection(collectionName).upsert(op.data, pbOpts);
@@ -474,9 +477,9 @@ export function createSyncCollection<T extends WithMeta>(
 								if (softDelete) {
 									batch
 										.collection(collectionName)
-										.update(op.id!, { deleted: true } as unknown as Partial<T>, pbOpts);
+										.update(op.id, { deleted: true } as unknown as Partial<T>, pbOpts);
 								} else {
-									batch.collection(collectionName).delete(op.id!, pbOpts);
+									batch.collection(collectionName).delete(op.id, pbOpts);
 								}
 								break;
 						}
@@ -495,10 +498,10 @@ export function createSyncCollection<T extends WithMeta>(
 					if (valid.length > 0) await table.bulkPut(valid);
 
 					for (const op of ops) {
-						if (op.type === "upsert" && op.data?.id) {
-							const wasExisting = snapshots.some((s) => s && (s as T).id === op.data!.id);
+						if (op.type === "upsert" && op.data.id) {
+							const wasExisting = snapshots.some((s) => s && (s as T).id === op.data.id);
 							if (!wasExisting) {
-								await table.delete(op.data.id as string);
+								await table.delete(op.data.id);
 							}
 						}
 					}

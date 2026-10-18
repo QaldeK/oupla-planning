@@ -1,15 +1,23 @@
 import type PocketBase from "pocketbase";
 
+/**
+ * Opération de batch multi-collections. Le discriminateur `type` rend `id`
+ * obligatoire sur update/delete/tombstone et `data` sur create/update.
+ */
+export type BatchOperation = {
+	table: import("dexie").Table<unknown>;
+	collection: string;
+	params?: { query?: Record<string, string> };
+} & (
+	| { type: "create"; id?: string; data: Record<string, unknown> }
+	| { type: "update"; id: string; data: Record<string, unknown> }
+	| { type: "delete"; id: string }
+	| { type: "tombstone"; id: string }
+);
+
 export async function executeBatch<T extends { id: string; updated: string }>(
 	pb: PocketBase,
-	operations: {
-		type: "create" | "update" | "delete" | "tombstone";
-		table: import("dexie").Table<unknown>;
-		collection: string;
-		id?: string;
-		data?: Record<string, unknown>;
-		params?: { query?: Record<string, string> };
-	}[]
+	operations: BatchOperation[]
 ): Promise<void> {
 	if (operations.length === 0) return;
 
@@ -27,15 +35,14 @@ export async function executeBatch<T extends { id: string; updated: string }>(
 			const op = operations[i];
 			switch (op.type) {
 				case "create":
-				case "update":
-					if (op.data) {
-						const merged = op.id ? { ...(snapshots[i] ?? {}), ...op.data } : op.data;
-						await op.table.put(merged as unknown as T);
-					}
+				case "update": {
+					const merged = op.id ? { ...(snapshots[i] ?? {}), ...op.data } : op.data;
+					await op.table.put(merged as unknown as T);
 					break;
+				}
 				case "delete":
 				case "tombstone":
-					if (op.id) await op.table.delete(op.id);
+					await op.table.delete(op.id);
 					break;
 			}
 		}
@@ -52,10 +59,10 @@ export async function executeBatch<T extends { id: string; updated: string }>(
 					batch.collection(op.collection).create(op.data, options);
 					break;
 				case "update":
-					batch.collection(op.collection).update(op.id!, op.data, options);
+					batch.collection(op.collection).update(op.id, op.data, options);
 					break;
 				case "delete":
-					batch.collection(op.collection).delete(op.id!, options);
+					batch.collection(op.collection).delete(op.id, options);
 					break;
 				case "tombstone":
 					break;
@@ -92,7 +99,7 @@ export async function executeBatch<T extends { id: string; updated: string }>(
 					case "update":
 					case "delete":
 					case "tombstone":
-						if (snapshots[i]) await op.table.put(snapshots[i]!);
+						if (snapshots[i]) await op.table.put(snapshots[i]);
 						break;
 				}
 			}
