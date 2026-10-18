@@ -142,7 +142,7 @@ if (browser) {
 		console.log("👁️ visibilitychange — re-sync foreground (R6)");
 		// Re-sync du flag local (peut être désynchronisé après un freeze iOS)
 		setRealtimeConnected(pb.realtime.isConnected);
-		triggerResync();
+		void triggerResync();
 	});
 
 	// R6 — Restauration depuis bfcache (iOS Safari navigation back/forward).
@@ -153,7 +153,7 @@ if (browser) {
 		if (!status.hasActiveSubscription) return;
 		console.log("📄 pageshow (bfcache) — re-sync (R6)");
 		setRealtimeConnected(pb.realtime.isConnected);
-		triggerResync();
+		void triggerResync();
 	});
 
 	// onDisconnect : hook officiel, appelé dès que l'EventSource se ferme
@@ -173,7 +173,7 @@ if (browser) {
 			console.log("🟢 Realtime reconnecté (polling)");
 			setRealtimeConnected(true);
 			status.lastError = null;
-			triggerResync();
+			void triggerResync();
 		}
 	}, 2000);
 }

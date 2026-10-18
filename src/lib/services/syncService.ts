@@ -10,7 +10,7 @@ class SyncService {
 		if (!userStore.isLoggedIn) return;
 
 		// Mutex pour éviter les syncs concurrents
-		if (this.#syncPromise) {
+		if (this.#syncPromise !== null) {
 			await this.#syncPromise;
 			return;
 		}

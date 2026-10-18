@@ -87,7 +87,7 @@
 		if (!open) return;
 		untrack(() => {
 			// Préremplit l'input du mode "new" (seul mode avec saisie) avec le nom du compte.
-			name = pbUser.name ?? "";
+			name = pbUser.name;
 			pendingClaimParticipant = null;
 			pendingMergeStats = null;
 			suggestionDeclined = false;
@@ -343,7 +343,7 @@
 			open = false;
 		} catch (err: unknown) {
 			console.error("Error claiming identity:", err);
-			const status = (err as { status?: number })?.status ?? 0;
+			const status = (err as { status?: number } | null | undefined)?.status ?? 0;
 			if (status === 409) {
 				toast.error(m.claim_already_claimed());
 			} else if (status === 403) {

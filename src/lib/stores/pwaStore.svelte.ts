@@ -43,6 +43,7 @@ class PwaStore {
 
 	async init() {
 		if (typeof window === "undefined") return;
+		// biome-ignore lint/suspicious/noUnnecessaryConditions: garde de réentrance — l'analyse ne voit pas les appels multiples d'init
 		if (this.#initialized) return;
 		this.#initialized = true;
 
@@ -57,7 +58,7 @@ class PwaStore {
 			this.isInstalled = true;
 			this.canInstall = false;
 			this.deferredPrompt = null;
-			this.#recordInstallationToPB();
+			void this.#recordInstallationToPB();
 		});
 
 		// 3. Changements display-mode
@@ -155,6 +156,7 @@ class PwaStore {
 				firstClaimDone = true;
 				return; // premier install : pas de reload
 			}
+			// biome-ignore lint/suspicious/noUnnecessaryConditions: garde de réentrance d'event — le reload remet le contexte à zéro, l'analyse ne voit que la même exécution
 			if (this.#refreshing) return;
 			this.#refreshing = true;
 			window.location.reload();

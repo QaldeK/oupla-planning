@@ -92,7 +92,9 @@ export class RecordDeletedError extends Error {
 export function mergeByKey<T>(key: keyof T & string): (local: T[], remote: T[]) => T[] {
 	return (local: T[], remote: T[]): T[] => {
 		const map = new Map<unknown, T>();
+		// biome-ignore lint/suspicious/noUnnecessaryConditions: bibliothèque destinée à l'extraction — garde défensive sur les appels runtime
 		for (const item of remote ?? []) map.set((item as Record<string, unknown>)[key], item);
+		// biome-ignore lint/suspicious/noUnnecessaryConditions: idem
 		for (const item of local ?? []) map.set((item as Record<string, unknown>)[key], item);
 		return Array.from(map.values());
 	};
@@ -232,6 +234,7 @@ export function createSyncCollection<T extends WithMeta>(
 		const subscribePromise = pb.collection(collectionName).subscribe<T>(
 			topic,
 
+			// biome-ignore lint/nursery/noMisusedPromises: le SDK type le callback en void ; async délibéré pour séquentialiser les écritures Dexie
 			async (event) => {
 				if (event.action === "delete") {
 					if (localTrash) {
@@ -256,10 +259,12 @@ export function createSyncCollection<T extends WithMeta>(
 		);
 
 		subscriptions.set(subId, { ref, unsub: null, promise: subscribePromise });
-		subscribePromise.then((unsub) => {
-			const entry = subscriptions.get(subId);
-			if (entry) entry.unsub = unsub;
-		});
+		subscribePromise
+			.then((unsub) => {
+				const entry = subscriptions.get(subId);
+				if (entry) entry.unsub = unsub;
+			})
+			.catch((err) => console.error("realtime subscribe failed", ref, err));
 
 		return ref;
 	}

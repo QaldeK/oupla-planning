@@ -146,7 +146,7 @@ class CommentStateService {
 
 		// PB write-through (auth uniquement, fire-and-forget)
 		if (pb.authStore.isValid) {
-			this.#syncReadStateToPB(masterId, occurrenceId, now);
+			void this.#syncReadStateToPB(masterId, occurrenceId, now);
 		}
 	}
 

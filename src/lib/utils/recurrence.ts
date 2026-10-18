@@ -274,7 +274,7 @@ export function generateRecurrenceDates(recurrence: RecurrenceConfig): string[] 
 		const useLastDay = recurrence.monthlyByDateMode === "last-day" && isLastDayOfMonth(firstDate);
 
 		let n = 0;
-		while (true) {
+		for (;;) {
 			const candidate = useLastDay ? endOfMonth(addMonths(firstDate, n)) : addMonths(firstDate, n);
 			// Comparaison sur la date calendaire : endOfMonth renvoie 23:59:59.999,
 			// ce qui serait > à tout lastDate parsé à minuit.

@@ -18,7 +18,6 @@ export const APP_DB_NAME = "appDB";
 export class AppDB extends Dexie {
 	masters!: Table<PlanningMaster>;
 	occurrences!: Table<PlanningOccurrence>;
-	deletions!: Table<{ id: string; collection: string; recordId: string; deletedAt: string }>;
 	localMeta!: Table<SavedPlanning, string>;
 	commentState!: Table<CommentState>;
 
@@ -26,18 +25,15 @@ export class AppDB extends Dexie {
 		super(APP_DB_NAME);
 		this.version(1).stores({
 			masters: "id, updated, participantToken, adminToken, deleted",
-			occurrences: "id, updated, master, deleted",
-			deletions: "id, collection, deletedAt, recordId"
+			occurrences: "id, updated, master, deleted"
 		});
 		this.version(2).stores({
 			masters: "id, updated, participantToken, adminToken, deleted",
-			occurrences: "id, updated, master, date, deleted",
-			deletions: "id, collection, deletedAt, recordId"
+			occurrences: "id, updated, master, date, deleted"
 		});
 		this.version(3).stores({
 			masters: "id, updated, participantToken, adminToken, deleted",
 			occurrences: "id, updated, master, date, deleted",
-			deletions: "id, collection, deletedAt, recordId",
 			localMeta: "masterId"
 		});
 		this.version(4).stores({
@@ -55,6 +51,11 @@ export class AppDB extends Dexie {
 					delete record.deletedAt;
 				});
 		});
+		// `deletions` (journal de tombstones) n'a jamais été écrite ni lue : les
+		// tombstones sont réconciliés à la volée depuis la collection PocketBase
+		// passée en option. Déclarer la table à `null` est la seule écriture qui la
+		// supprime réellement — l'omettre la laisserait en place.
+		this.version(6).stores({ deletions: null });
 	}
 }
 
@@ -110,7 +111,7 @@ let readyPromise: Promise<void> | null = null;
  * Voir ADR 0006 et la doc de {@link openAppDB} pour la stratégie détaillée.
  */
 export function ensureDbReady(): Promise<void> {
-	if (readyPromise) return readyPromise;
+	if (readyPromise !== null) return readyPromise;
 	readyPromise = openAppDB().then(() => undefined);
 	return readyPromise;
 }

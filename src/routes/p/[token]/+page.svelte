@@ -186,7 +186,7 @@
 				break;
 			case "auto_add": {
 				autoAddedMasterIds.add(master.id);
-				handlePlanningIdentify(result.action.identity, true, result.action.additionalFields);
+				void handlePlanningIdentify(result.action.identity, true, result.action.additionalFields);
 				break;
 			}
 			case "identify_as_guest":
@@ -300,7 +300,7 @@
 			// Pas de conflit → auto-add silencieux + fermer le modal
 			if (!autoAddedMasterIds.has(master.id)) {
 				autoAddedMasterIds.add(master.id);
-				handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true, {
+				void handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true, {
 					userId: pbUser.id,
 				});
 			}

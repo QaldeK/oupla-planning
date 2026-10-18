@@ -22,7 +22,6 @@ incohérente se règle par un drop, jamais par une réparation manuelle.
 | --- | --- |
 | `masters` | plannings, indexés par token participant et admin |
 | `occurrences` | occurrences, indexées par master et par date |
-| `deletions` | journal des suppressions (tombstones) |
 | `localMeta` | état guest par planning et marqueur de fraîcheur (voir `stores.md`) |
 | `commentState` | état de lecture des commentaires |
 

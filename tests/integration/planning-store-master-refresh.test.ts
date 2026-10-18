@@ -52,7 +52,7 @@ describe("PlanningStore — master refresh (anti-staleness participants)", () =>
 		const pb = await authenticateAdmin();
 		const master = await pb.collection("planning_masters").getOne(masterId);
 		const participants = [
-			...((master.participants as unknown[]) ?? []),
+			...(master.participants as unknown[]),
 			{
 				id: crypto.randomUUID(),
 				name,

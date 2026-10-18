@@ -31,6 +31,7 @@
  *   - PocketBase demarre sur http://127.0.0.1:8090
  *   - Admin de test cree (test@example.com / testpassword)
  */
+import type { CollectionModel } from "pocketbase";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createSyncCollection, mergeByKey } from "$lib/pb-sync/collection";
 import { db } from "$lib/pb-sync/db";
@@ -443,6 +444,99 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			trackIds("planning_masters", master.id);
 			expect(master.id).toBeDefined();
 			expect(master.title).toBe("Created Without Token");
+		});
+	});
+
+	describe("createSyncCollection — tombstoneCollection", () => {
+		// Collection de tombstones jetable : l'app n'en configure aucune, et la réconciliation
+		// des suppressions physiques (nettoyage admin) n'est observable qu'avec.
+		const TOMBSTONE_COLLECTION = "tmp_pb_sync_tombstones";
+
+		/** `deletedAt` dans le futur : la réconciliation ne retient que `deletedAt > since`. */
+		const futureTimestamp = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+		async function dropTombstoneCollection() {
+			const adminPb = await authenticateAdmin();
+			const leftovers = await adminPb.collections.getFullList({
+				filter: `name = "${TOMBSTONE_COLLECTION}"`
+			});
+			for (const collection of leftovers) await adminPb.collections.delete(collection.id);
+		}
+
+		async function createTombstoneCollection() {
+			const adminPb = await authenticateAdmin();
+			// Le SDK type `create()` sur le modèle complet ; l'API n'attend que le sous-ensemble
+			// de création (id/created/updated sont complétés par le serveur).
+			await adminPb.collections.create({
+				name: TOMBSTONE_COLLECTION,
+				type: "base",
+				fields: [
+					{ name: "collection", type: "text", required: true },
+					{ name: "recordId", type: "text", required: true },
+					{ name: "deletedAt", type: "date", required: true }
+				],
+				// L'app lit les tombstones sans token : la règle de liste reste publique.
+				listRule: ""
+			} as unknown as CollectionModel);
+		}
+
+		async function insertTombstone(recordId: string, deletedAt: string) {
+			const adminPb = await authenticateAdmin();
+			return adminPb
+				.collection(TOMBSTONE_COLLECTION)
+				.create<{ deletedAt: string }>({ collection: "planning_masters", recordId, deletedAt });
+		}
+
+		beforeEach(async () => {
+			await dropTombstoneCollection();
+			await createTombstoneCollection();
+		});
+
+		afterEach(async () => {
+			await dropTombstoneCollection();
+		});
+
+		it("supprime localement le record tombstone, sans localTrash", async () => {
+			const { master, participantToken } = await seedPlanning({ title: "Tombstone remove" });
+			const collection = createSyncCollection<PlanningMaster>(pb, db.masters, "planning_masters", {
+				tombstoneCollection: TOMBSTONE_COLLECTION
+			});
+
+			await collection.initialFetch({ query: { _token: participantToken } });
+			expect(await db.masters.get(master.id)).toBeDefined();
+
+			// Suppression physique côté serveur : seul le tombstone la révèle au client.
+			await insertTombstone(master.id, futureTimestamp());
+			const adminPb = await authenticateAdmin();
+			await adminPb.collection("planning_masters").delete(master.id);
+
+			await collection.initialFetch({ query: { _token: participantToken } });
+
+			expect(await db.masters.get(master.id)).toBeUndefined();
+		});
+
+		it("marque le record tombstone au lieu de le supprimer, avec localTrash", async () => {
+			const { master, participantToken } = await seedPlanning({ title: "Tombstone trash" });
+			const collection = createSyncCollection<PlanningMaster>(pb, db.masters, "planning_masters", {
+				tombstoneCollection: TOMBSTONE_COLLECTION,
+				localTrash: true
+			});
+
+			await collection.initialFetch({ query: { _token: participantToken } });
+			const initial = await db.masters.get(master.id);
+			expect(initial).toBeDefined();
+			expect(initial?.deleted).toBeFalsy();
+
+			const tombstone = await insertTombstone(master.id, futureTimestamp());
+			const adminPb = await authenticateAdmin();
+			await adminPb.collection("planning_masters").delete(master.id);
+
+			await collection.initialFetch({ query: { _token: participantToken } });
+
+			const trashed = await db.masters.get(master.id);
+			expect(trashed).toBeDefined();
+			expect(trashed?.deleted).toBe(true);
+			expect(trashed?.deletedAt).toBe(tombstone.deletedAt);
 		});
 	});
 

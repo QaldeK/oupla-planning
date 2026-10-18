@@ -246,8 +246,14 @@ interface SyncCollectionOptions<T> {
 	softDelete?: boolean; // default: true — mark deleted instead of removing
 	tombstoneCollection?: string; // PocketBase collection tracking server-side deletions
 	localTrash?: boolean; // keep soft-deleted records locally with {deleted: true}
+	onSubscriptionChange?: (active: boolean) => void; // fired by subscribe() (true) and unsubscribeAll() (false)
 }
 ```
+
+`mergeStrategies` belongs to the package contract — it is covered by tests (see `mergeByKey`
+below) — even where the calling app disables it: oupla merges its additive array fields
+server-side instead (`pb_hooks/merge-utils.js`), which removes the read-modify-write race a
+client-side strategy runs into.
 
 **Returns** an object with the following methods:
 
@@ -255,10 +261,29 @@ interface SyncCollectionOptions<T> {
 
 | Method           | Signature                                                  | Description                                                                                                                                      |
 | ---------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `initialFetch`   | `(params?: PbQueryOptions) => Promise<void>`               | Incremental sync: fetches records updated since last local `updated` timestamp. Also reconciles server-side deletions via `tombstoneCollection`. |
+| `initialFetch`   | `(params?: InitialFetchOptions) => Promise<void>`               | Incremental sync: fetches records updated since the last local `updated` watermark (or an explicit `since`), then reconciles server-side deletions via `tombstoneCollection`. |
 | `subscribe`      | `(params?: PbSubscribeOptions) => SubscriptionRef`         | Opens a PocketBase realtime subscription. Events are applied to Dexie. Returns a `SubscriptionRef` for later unsubscription.                     |
-| `unsubscribe`    | `(subRefOrId: SubscriptionRef \| string) => Promise<void>` | Closes a specific realtime subscription.                                                                                                         |
+| `unsubscribe`    | `(subRefOrId: SubscriptionRef \| string) => Promise<void>` | Closes one subscription (its own listener), leaving the collection's other subscriptions attached.                                                                                                         |
 | `unsubscribeAll` | `() => Promise<void>`                                      | Closes all active realtime subscriptions for this collection.                                                                                    |
+
+#### Realtime Semantics (PocketBase SDK)
+
+Three properties of the underlying SDK `RealtimeService` decide what a `subscribe()` call
+actually costs — all three are observable from the caller.
+
+- **The transport is deduplicated by `(topic + options)`.** The SDK keys its listeners on
+  `"<collection>/<record>"` (or `"<collection>/*"`), suffixed with the serialized
+  `{ query, headers }` options — any other option (`filter`, `expand`, …) being folded into
+  `query` first. Two `subscribe()` calls sharing that key share one SSE stream and one
+  server-side subscription.
+- **Local listeners are not deduplicated.** Each `subscribe()` call pushes its own listener
+  onto the key and returns its own `unsubscribe` function; `unsubscribeAll()` is what clears
+  the collection's entries as a group. Every `subscribe()` therefore needs a matching
+  `unsubscribe()` — or the whole set torn down — or the events keep being applied.
+- **Reconnection is automatic.** On a dropped stream the SDK retries on its own (200, 300,
+  500, 1000, 1200, 1500 then 2000 ms) and re-submits the active topics on the next
+  `PB_CONNECT`. Nothing is replayed, though: changes that happened while the stream was down
+  are only recovered by the next `initialFetch()`.
 
 #### CRUD
 
@@ -340,6 +365,12 @@ interface PbSubscribeOptions extends PbQueryOptions {
 	record?: string; // specific record ID, or omit for '*'
 }
 
+interface InitialFetchOptions extends PbQueryOptions {
+	since?: string; // explicit watermark, instead of the last local `updated`
+	sort?: string; // default: 'updated'
+	limit?: number; // bounded page (getList) instead of getFullList
+}
+
 interface PbListOptions extends PbQueryOptions {
 	sort?: string;
 	page?: number;
@@ -364,31 +395,33 @@ await executeBatch(pb, [
 
 ## Usage in the Project
 
-### 1. Store Setup (`planningStore.svelte.ts`)
+### 1. Collection Setup (`src/lib/data/collections.ts`)
 
-Two sync collections are created with merge strategies for concurrent array field resolution:
+The two sync collections live in the composition layer `src/lib/data/`, one level above the
+stores (`pb-sync → data → stores → services`). That is what keeps them importable from
+anywhere — stores and services both consume them, without a cycle.
 
 ```ts
 export const mastersCollection = createSyncCollection<PlanningMaster>(
 	pb,
 	db.masters,
 	'planning_masters',
-	{ mergeStrategies: { participants: mergeByKey('id'), tasks: mergeByKey('id') } }
+	{ onSubscriptionChange: notifySubscriptionChange }
 );
 
 export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
 	pb,
 	db.occurrences,
 	'planning_occurrences',
-	{
-		mergeStrategies: {
-			responses: mergeByKey('participantId'),
-			comments: mergeByKey('id'),
-			tasks: mergeByKey('id')
-		}
-	}
+	{ onSubscriptionChange: notifySubscriptionChange }
 );
 ```
+
+No `mergeStrategies` are configured here: oupla merges additive fields atomically server-side
+instead (`pb_hooks/merge-utils.js`), which removes the read-modify-write race the client-side
+strategy ran into. `notifySubscriptionChange` counts the open subscriptions and hands the
+aggregate to an observer injected at boot (`setSubscriptionObserver`, wired in
+`src/routes/+layout.svelte`): `data/` never imports a store.
 
 ### 2. Unified Activation Flow (`#activatePlanning`)
 
@@ -470,7 +503,6 @@ occurrencesCollection.unsubscribeAll();
 // Dexie tables (appDB)
 masters: 'id, updated, participantToken, adminToken, deleted';
 occurrences: 'id, updated, master, date, deleted';
-deletions: 'id, collection, deletedAt, recordId';
 localMeta: 'masterId';
 commentState: 'occurrenceId, masterId, isUserInConversation, lastReadAt';
 ```

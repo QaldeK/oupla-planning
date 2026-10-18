@@ -537,7 +537,7 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 			});
 		}
 		if (pbDataDir) rmSync(pbDataDir, { recursive: true, force: true });
-		await stub?.close();
+		await stub.close();
 	});
 
 	beforeEach(() => {

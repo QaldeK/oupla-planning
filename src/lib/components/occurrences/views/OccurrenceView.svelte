@@ -23,13 +23,13 @@
 	import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import { formatDateShort, formatDateWithDay, formatTimeRange, isPast } from "$lib/utils/date";
-	import type { ViewProps } from "../index";
 	import OccurrenceEditModal from "../OccurrenceEditModal.svelte";
 	import { createConfirmLogic } from "../shared/occurrenceConfirmLogic.svelte";
 	import { createOccurrenceState } from "../shared/occurrenceState.svelte";
 	import ResponseBadge from "../shared/ResponseBadge.svelte";
 	import ResponsesSummary from "../shared/ResponsesSummary.svelte";
 	import TaskCompactSummary from "../shared/TaskCompactSummary.svelte";
+	import type { ViewProps } from "../viewProps";
 
 	let {
 		occurrence,

@@ -232,7 +232,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		selectedTasks = isAdding
 			? [...selectedTasks, taskId]
 			: selectedTasks.filter((id) => id !== taskId);
-		handleSubmitResponse();
+		void handleSubmitResponse();
 	}
 
 	function getParticipantName(source: ParticipantResponse | string): string {

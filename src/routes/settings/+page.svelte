@@ -82,7 +82,9 @@
 		if (!userStore.isLoggedIn || !pb.authStore.record) return;
 		const userId = pb.authStore.record.id;
 
-		getCurrentPushEndpoint().then((sub) => (currentEndpoint = sub?.endpoint ?? null));
+		getCurrentPushEndpoint()
+			.then((sub) => (currentEndpoint = sub?.endpoint ?? null))
+			.catch((err) => console.error("push endpoint fetch failed:", err));
 
 		pb.collection("push_subscriptions")
 			.getFullList<PushSubscriptionsResponse>({ sort: "-updated" })

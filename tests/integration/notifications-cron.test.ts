@@ -95,7 +95,7 @@ async function startSmtpStub(capture: SmtpCapture): Promise<net.Server> {
 		let dataAccum = "";
 		socket.write("220 smtp.stub ESMTP\r\n");
 		const handleLines = () => {
-			while (true) {
+			for (;;) {
 				const idx = buf.indexOf("\r\n");
 				if (idx === -1) break;
 				const line = buf.slice(0, idx);

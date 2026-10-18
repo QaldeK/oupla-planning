@@ -103,12 +103,12 @@ export class UserStore {
 			// Session glissante : renouvelle le token d'auth à chaque visite (sans
 			// ça, déconnexion après la durée du token malgré un usage régulier).
 			// Fire-and-forget — ne bloque jamais le boot (offline-first).
-			refreshSessionSilently({
+			void refreshSessionSilently({
 				authRefresh: () => pb.collection("users").authRefresh(),
 				clearAuth: () => pb.authStore.clear()
 			});
 
-			this.#subscribeAuth();
+			void this.#subscribeAuth();
 
 			// Réactivation push silencieuse à la visite (upsert idempotent) —
 			// fire-and-forget, jamais bloquant pour le boot.
@@ -299,8 +299,8 @@ export class UserStore {
 		const record = pb.authStore.record;
 		return {
 			id: record.id,
-			name: (record["name"] as string) ?? "",
-			email: (record["email"] as string) ?? ""
+			name: (record["name"] as string | undefined) ?? "",
+			email: (record["email"] as string | undefined) ?? ""
 		};
 	}
 }

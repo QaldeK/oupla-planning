@@ -8,6 +8,30 @@ Ce document couvre le contrat d'état. La mécanique de synchronisation est dans
 `offline-sync.md`, le verrou d'édition admin dans `admin-lock.md`, le statut réseau dans
 `network-realtime.md`, le compte et les identités dans `auth-identity.md`.
 
+## Règle de couche et boucles acceptées
+
+Les flèches descendent : `pb-sync → data → stores → services → components` (et `routes`). Chaque
+module ne connaît que ce qui est en dessous de lui. `data/collections.ts` est importable par
+tout le monde, donc il n'importe aucun store : l'état « au moins une souscription realtime est
+ouverte », dont dépend le polling de reconnexion (`network-realtime.md`), lui remonte par un
+observer injecté au boot dans `+layout.svelte`.
+
+Une arête montante n'est pas illégale en soi — c'est la **boucle** qu'elle referme qui coûte :
+deux modules d'une même boucle ne se lisent, ne se testent ni ne se remplacent séparément, et
+leur ordre d'initialisation devient un contrat implicite.
+
+Une seule boucle est acceptée : le trio d'authentification `userStore` ↔ `planningStore` ↔
+`authTransition` (cinq arêtes). La transition guest → auth doit lire l'état des deux stores, et
+les deux stores doivent pouvoir la déclencher (ADR-0009) ; en sortir demande de déplacer
+l'orchestration de la transition, pas d'en retirer un appel.
+
+Ce gel est tenu par un test : `tests/unit/import-graph.test.ts` recalcule le graphe d'imports de
+`src/`, en extrait les composantes fortement connexes, et échoue dès qu'une arête **interne** à
+une composante > 1 n'est pas déclarée nommément dans sa liste d'arêtes acceptées. La granularité
+est l'arête, pas la composante : ajouter un appel à l'intérieur d'une boucle existante doit
+rester un acte conscient. Retirer une arête de la liste est toujours légitime ; en ajouter une
+est une décision.
+
 ## Propriété des tables Dexie
 
 L'invariant le plus utile à connaître avant de toucher un store : **plusieurs acteurs

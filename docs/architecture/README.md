@@ -47,7 +47,7 @@ Trois invariants structurent l'ensemble :
 | Document | Sujet |
 | --- | --- |
 | `auth-identity.md` | Deux natures d'utilisateur, résolution d'identité, transition guest → auth, revendication, fin de session |
-| `stores.md` | Propriété des tables Dexie, `userStore`, `guestStateStore`, `planningStore` (activation et cache) |
+| `stores.md` | Règle de couche et boucles acceptées, propriété des tables Dexie, `userStore`, `guestStateStore`, `planningStore` (activation et cache) |
 | `offline-sync.md` | Offline-first, fenêtre de re-sync, merge serveur, `_version`, retry |
 | `network-realtime.md` | `networkStore` (détection, debounce, retour au premier plan), souscriptions realtime |
 | `admin-lock.md` | Verrou d'édition admin : collection, routes, TTL, cycle de vie UI |

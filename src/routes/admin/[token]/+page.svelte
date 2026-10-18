@@ -166,7 +166,7 @@
 		let cancelled = false;
 
 		lockState = "acquiring";
-		acquireOrBlock(masterId, adminToken, userId, identity.name, () => cancelled);
+		void acquireOrBlock(masterId, adminToken, userId, identity.name, () => cancelled);
 
 		// pagehide : release via fetch keepalive — releaseLock (pb.send) ne survit
 		// pas à la fermeture de l'onglet, keepalive permet à la requête de partir.

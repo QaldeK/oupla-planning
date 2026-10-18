@@ -64,7 +64,7 @@ describe("F2 — Restriction des champs scalaire d'occurrence par rôle", () => 
 		}
 
 		expect(caught).toBeDefined();
-		expect((caught as { status?: number })?.status).toBe(403);
+		expect((caught as { status?: number }).status).toBe(403);
 
 		// Vérification serveur : l'occurrence n'a pas été annulée.
 		const adminPb = await authenticateAdmin();
@@ -96,7 +96,7 @@ describe("F2 — Restriction des champs scalaire d'occurrence par rôle", () => 
 		}
 
 		expect(caught).toBeDefined();
-		expect((caught as { status?: number })?.status).toBe(403);
+		expect((caught as { status?: number }).status).toBe(403);
 	});
 
 	it("rejette la modification du slotId par un participant", async () => {
@@ -117,7 +117,7 @@ describe("F2 — Restriction des champs scalaire d'occurrence par rôle", () => 
 		}
 
 		expect(caught).toBeDefined();
-		expect((caught as { status?: number })?.status).toBe(403);
+		expect((caught as { status?: number }).status).toBe(403);
 	});
 
 	it("autorise un participant à mettre à jour responses/comments (non-régression)", async () => {

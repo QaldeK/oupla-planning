@@ -20,6 +20,7 @@
 	import IdentifyModal from "$lib/components/IdentifyModal.svelte";
 	import MobileHeader from "$lib/components/MobileHeader.svelte";
 	import NetworkIndicator from "$lib/components/NetworkIndicator.svelte";
+	import { setSubscriptionObserver } from "$lib/data/collections";
 	import { m } from "$lib/paraglide/messages.js";
 	import { getLocale } from "$lib/paraglide/runtime.js";
 	import { pb } from "$lib/pocketbase/pb";
@@ -29,6 +30,7 @@
 	import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 	import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
 	import { modalStore } from "$lib/stores/modalStore.svelte";
+	import { networkStore } from "$lib/stores/networkStore.svelte";
 	import { planningStore } from "$lib/stores/planningStore.svelte";
 	import { pwaStore } from "$lib/stores/pwaStore.svelte";
 	import { userStore } from "$lib/stores/userStore.svelte";
@@ -38,6 +40,13 @@
 	let { children } = $props();
 
 	import { page } from "$app/state";
+
+	// Les souscriptions realtime de `data/` remontent par observer : c'est ici, au
+	// sommet, que la réaction rejoint le store. Branché au montage du layout, avant
+	// toute activation de planning — la valeur est réaffectable, donc idempotent.
+	setSubscriptionObserver((hasActiveSubscription) =>
+		networkStore.setHasActiveSubscription(hasActiveSubscription),
+	);
 
 	// Layout-driven : observer page.params.token pour activer/désactiver le planning
 	$effect(() => {

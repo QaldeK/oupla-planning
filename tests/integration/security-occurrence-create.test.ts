@@ -66,7 +66,7 @@ describe("F4 — createRule de planning_occurrences (adminToken requis)", () => 
 		// PB retourne 400 quand la createRule référence @request.query._token absent
 		// (filtre inévaluable) ou 403 si la condition est simplement fausse. Les deux
 		// bloquent la création — l'assertion sur l'absence d'occurrence est la garantie réelle.
-		const status = (caught as { status?: number })?.status;
+		const status = (caught as { status?: number }).status;
 		expect(status === 400 || status === 403).toBe(true);
 
 		// Vérification serveur : aucune occurrence n'a été créée.

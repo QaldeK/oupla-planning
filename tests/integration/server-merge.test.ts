@@ -260,7 +260,7 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 		}
 
 		expect(caught).toBeDefined();
-		expect((caught as { status?: number })?.status).toBe(409);
+		expect((caught as { status?: number }).status).toBe(409);
 	});
 
 	// ---------------------------------------------------------------------------
