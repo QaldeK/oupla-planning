@@ -28,7 +28,7 @@
 	async function shareOrCopy(
 		url: string,
 		label: string,
-		copiedState: () => boolean,
+		_copiedState: () => boolean,
 		setCopied: (v: boolean) => void,
 	) {
 		if (canNativeShare) {

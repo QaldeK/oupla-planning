@@ -299,8 +299,8 @@ export class UserStore {
 		const record = pb.authStore.record;
 		return {
 			id: record.id,
-			name: (record["name"] as string | undefined) ?? "",
-			email: (record["email"] as string | undefined) ?? ""
+			name: (record.name as string | undefined) ?? "",
+			email: (record.email as string | undefined) ?? ""
 		};
 	}
 }

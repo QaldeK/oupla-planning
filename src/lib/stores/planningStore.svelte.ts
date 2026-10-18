@@ -517,7 +517,7 @@ class PlanningStore {
 		const record = pb.authStore.record;
 		if (!record) return; // Défensif : la branche auth garantit un user connecté.
 
-		const currentMasterIds: string[] = (record["masterId"] as string[] | undefined) ?? [];
+		const currentMasterIds: string[] = (record.masterId as string[] | undefined) ?? [];
 		if (currentMasterIds.includes(master.id)) return; // Déjà claimé.
 
 		try {

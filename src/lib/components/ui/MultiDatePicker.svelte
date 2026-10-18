@@ -96,7 +96,7 @@
 		if (isDisabled(date)) return;
 
 		const dateString = format(date, "yyyy-MM-dd");
-		const index = selectedDates.findIndex((d) => d === dateString);
+		const index = selectedDates.indexOf(dateString);
 
 		let newDates: string[];
 		if (index > -1) {

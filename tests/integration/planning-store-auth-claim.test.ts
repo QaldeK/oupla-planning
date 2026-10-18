@@ -58,7 +58,7 @@ const USER_PWD = "password123";
  */
 function currentAuthMasterIds(): string[] {
 	const record = pb.authStore.record;
-	return (record?.["masterId"] as string[] | undefined) ?? [];
+	return (record?.masterId as string[] | undefined) ?? [];
 }
 
 describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", () => {

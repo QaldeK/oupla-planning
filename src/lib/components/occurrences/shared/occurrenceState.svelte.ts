@@ -149,7 +149,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		// Vérifier que le participant a un nom valide
 		const participant = options.master.participants.find((p) => p.id === options.currentUserId);
 
-		if (!participant || !participant.name) {
+		if (!participant?.name) {
 			// Remplace le toast d'erreur par une ouverture de modal pilotée par le parent
 			if (options.onNeedReidentify) {
 				options.onNeedReidentify();

@@ -211,7 +211,7 @@ export function generateRecurrenceDates(recurrence: RecurrenceConfig): string[] 
 	const firstDate = parse(recurrence.firstDate || "", "yyyy-MM-dd", new Date());
 	const lastDate = parse(recurrence.lastDate || "", "yyyy-MM-dd", new Date());
 
-	if (isNaN(firstDate.getTime()) || isNaN(lastDate.getTime())) {
+	if (Number.isNaN(firstDate.getTime()) || Number.isNaN(lastDate.getTime())) {
 		return [];
 	}
 
