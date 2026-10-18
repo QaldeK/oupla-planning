@@ -206,15 +206,12 @@
 			const existing = master.participants.find((p) => p.id === identity.id);
 
 			if (isNewParticipant && !existing) {
-				await addParticipant(
-					master.id,
-					{
-						id: identity.id,
-						name: identity.name,
-						isAdmin: false,
-						...additionalFields,
-					},
-				);
+				await addParticipant(master.id, {
+					id: identity.id,
+					name: identity.name,
+					isAdmin: false,
+					...additionalFields,
+				});
 			} else if (existing && existing.name !== identity.name) {
 				await updateParticipant(master.id, identity.id, { name: identity.name });
 			}
@@ -506,7 +503,7 @@
 							<div class="flex flex-wrap gap-2">
 								<!-- Nom = bouton crayon : rename local au planning (guest et auth) -->
 								<button
-									class="btn btn-info  btn-sm gap-1 font-bold"
+									class="btn btn-info btn-sm gap-1 font-bold"
 									type="button"
 									onclick={() => (showRenameModal = true)}
 									aria-label={m.participant_rename_aria()}
@@ -519,7 +516,7 @@
 									<!-- Auth : revendication d'une identité existante, sinon sortie de compte -->
 									{#if claimableParticipants.length > 0 && !myParticipant?.claimedAt}
 										<button
-											class="btn btn-link btn-info  gap-1"
+											class="btn btn-link btn-info gap-1"
 											type="button"
 											onclick={openIdentityClaimModal}
 										>

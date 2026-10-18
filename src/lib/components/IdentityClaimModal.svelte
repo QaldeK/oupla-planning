@@ -240,15 +240,12 @@
 		isSubmitting = true;
 		try {
 			// Créer nouveau participant avec userId = pbUser.id
-			await addParticipant(
-				master.id,
-				{
-					id: pbUser.id,
-					name: trimmedName,
-					isAdmin: false,
-					userId: pbUser.id,
-				},
-			);
+			await addParticipant(master.id, {
+				id: pbUser.id,
+				name: trimmedName,
+				isAdmin: false,
+				userId: pbUser.id,
+			});
 			try {
 				await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin);
 			} catch (err) {

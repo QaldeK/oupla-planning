@@ -159,28 +159,28 @@
 			</div>
 		{:else}
 			<div class="alert alert-info alert-soft alert-vertical shadow-md">
-					<div class="bg-info/20 shrink-0 rounded-full p-3">
-						<Download size={mediaQuery.isMobile ? 20 : 24} class="text-info" />
-					</div>
-
-					<div class="flex-1 space-y-2">
-						<h3 class="text-base font-bold">{m.pwa_install_subtitle()}</h3>
-
-						<p class="text-sm leading-relaxed opacity-80">
-							{m.pwa_install_description()}
-						</p>
-
-						{@render manualInstallInstructions()}
-					</div>
-
-					{#if isDismissible}
-						<div class="shrink-0">
-							<button class="btn btn-ghost btn-xs" onclick={() => (dismissed = true)}>
-								{m.pwa_later()}
-							</button>
-						</div>
-					{/if}
+				<div class="bg-info/20 shrink-0 rounded-full p-3">
+					<Download size={mediaQuery.isMobile ? 20 : 24} class="text-info" />
 				</div>
+
+				<div class="flex-1 space-y-2">
+					<h3 class="text-base font-bold">{m.pwa_install_subtitle()}</h3>
+
+					<p class="text-sm leading-relaxed opacity-80">
+						{m.pwa_install_description()}
+					</p>
+
+					{@render manualInstallInstructions()}
+				</div>
+
+				{#if isDismissible}
+					<div class="shrink-0">
+						<button class="btn btn-ghost btn-xs" onclick={() => (dismissed = true)}>
+							{m.pwa_later()}
+						</button>
+					</div>
+				{/if}
+			</div>
 		{/if}
 	{/if}
 {/if}

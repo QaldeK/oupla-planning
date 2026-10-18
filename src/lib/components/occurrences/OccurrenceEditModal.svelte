@@ -14,7 +14,11 @@
 	import { toast } from "svelte-sonner";
 	import { AVAILABLE_RESPONSE_TYPES, RESPONSE_TYPE_CONFIG } from "$lib/constants";
 	import * as m from "$lib/paraglide/messages.js";
-	import { addParticipant, submitResponse, updateOccurrence } from "$lib/services/planningMutations";
+	import {
+		addParticipant,
+		submitResponse,
+		updateOccurrence,
+	} from "$lib/services/planningMutations";
 	import { networkStore } from "$lib/stores/networkStore.svelte";
 	import type {
 		Participant,
@@ -139,13 +143,10 @@
 	}
 
 	async function handleCreateParticipant(name: string): Promise<Participant> {
-		const updatedMaster = await addParticipant(
-			master.id,
-			{
-				name,
-				isAdmin: false,
-			},
-		);
+		const updatedMaster = await addParticipant(master.id, {
+			name,
+			isAdmin: false,
+		});
 
 		// Mettre à jour master localement pour réactivité
 		master = updatedMaster;
@@ -254,7 +255,6 @@
 			isSubmitting = false;
 		}
 	}
-
 </script>
 
 {#snippet actions()}
@@ -468,8 +468,7 @@
 														class="check check-sm"
 														name="response-{participant.id}"
 														checked={response?.response === type}
-														onchange={() =>
-														workflow.requestResponseChange(participant.id, type)}
+														onchange={() => workflow.requestResponseChange(participant.id, type)}
 													/>
 													{config.label()}
 												</label>

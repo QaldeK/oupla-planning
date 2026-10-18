@@ -285,8 +285,8 @@
 			<form
 				onsubmit={(e) => {
 					e.preventDefault();
-				handleProfileUpdate();
-			}}
+					handleProfileUpdate();
+				}}
 				class="space-y-4"
 			>
 				<fieldset class="fieldset">
@@ -326,11 +326,7 @@
 				</fieldset>
 
 				<div class="card-actions mt-6 justify-end">
-					<button
-						type="submit"
-						class="btn btn-primary"
-						disabled={isSaving || !name.trim()}
-					>
+					<button type="submit" class="btn btn-primary" disabled={isSaving || !name.trim()}>
 						{#if isSaving}
 							<span class="loading loading-spinner loading-xs"></span>
 							{m.settings_saving_button()}
@@ -579,11 +575,7 @@
 				>
 					{m.settings_cancel_button()}
 				</button>
-				<button
-					type="submit"
-					class="btn btn-error"
-					disabled={isDeleting || !deletePassword}
-				>
+				<button type="submit" class="btn btn-error" disabled={isDeleting || !deletePassword}>
 					{#if isDeleting}
 						<span class="loading loading-spinner loading-xs"></span>
 					{:else}

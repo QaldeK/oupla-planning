@@ -57,13 +57,10 @@
 
 		isCreatingVolunteer = true;
 		try {
-			const updatedMaster = await addParticipant(
-				masterId,
-				{
-					name: newVolunteerName.trim(),
-					isAdmin: false,
-				},
-			);
+			const updatedMaster = await addParticipant(masterId, {
+				name: newVolunteerName.trim(),
+				isAdmin: false,
+			});
 			onUpdateMaster(updatedMaster);
 
 			const newParticipant = updatedMaster.participants.find(

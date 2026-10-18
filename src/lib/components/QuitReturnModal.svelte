@@ -19,13 +19,7 @@
 		onRejoined?: () => void;
 	}
 
-	let {
-		open = $bindable(false),
-		onClose,
-		master,
-		quitParticipantId,
-		onRejoined,
-	}: Props = $props();
+	let { open = $bindable(false), onClose, master, quitParticipantId, onRejoined }: Props = $props();
 
 	let isSubmitting = $state(false);
 
