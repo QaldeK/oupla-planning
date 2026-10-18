@@ -6,6 +6,7 @@ import { SvelteMap } from "svelte/reactivity";
 import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
 import { db, ensureDbReady, upsertLocalMeta, upsertRecord } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
+import { claimPlannings } from "$lib/services/claimPlannings";
 import { commentStateService } from "$lib/services/commentStateService";
 import { getPlanningByToken } from "$lib/services/planningReads";
 import { userStore } from "$lib/stores/userStore.svelte";
@@ -501,7 +502,7 @@ class PlanningStore {
 	 * Étapes :
 	 *   1. Skip si `master.id` est déjà dans `pb.authStore.record.masterId`
 	 *      (cache local à jour — évite un coût réseau inutile).
-	 *   2. `POST /api/sync-plannings` (hook idempotent).
+	 *   2. `claimPlannings([master])` (hook serveur idempotent).
 	 *   3. `pb.collection('users').authRefresh()` pour propager `masterId` côté
 	 *      client (les guards UI comme `pbUser.masterId.includes(...)` deviennent
 	 *      cohérents sans attendre la prochaine sync).
@@ -520,18 +521,7 @@ class PlanningStore {
 		if (currentMasterIds.includes(master.id)) return; // Déjà claimé.
 
 		try {
-			await pb.send("/api/sync-plannings", {
-				method: "POST",
-				body: {
-					tokens: [
-						{
-							masterId: master.id,
-							participantToken: master.participantToken,
-							adminToken: master.adminToken
-						}
-					]
-				}
-			});
+			await claimPlannings([master]);
 			// Rafraîchir le record pour propager masterId (et adminOf si lien admin)
 			// côté client — les guards UI locales deviennent cohérents sans attendre
 			// la prochaine sync via syncService.

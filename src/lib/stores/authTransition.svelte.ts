@@ -10,16 +10,14 @@
  */
 
 import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
-import {
-	fetchAllMasters,
-	syncActiveOccurrences
-} from "$lib/data/planningSync";
 import { db } from "$lib/pb-sync/db";
-import { pb } from "$lib/pocketbase/pb";
+import { syncAuthData } from "$lib/services/authDataSync";
+import { claimPlannings } from "$lib/services/claimPlannings";
 import { commentStateService } from "$lib/services/commentStateService";
 import { syncPushSubscription } from "$lib/services/push";
 import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
+import { userStore } from "$lib/stores/userStore.svelte";
 import type { AuthTransitionResult } from "$lib/utils/authTransition";
 import { runAuthTransition } from "$lib/utils/authTransition";
 
@@ -57,9 +55,11 @@ class AuthTransitionWrapper {
 				planningStore,
 				mastersCollection,
 				occurrencesCollection,
-				planningSync: { fetchAllMasters, syncActiveOccurrences },
+				claimPlannings,
+				// Le marqueur de fraîcheur appartient à userStore (ADR 0009) ;
+				// son moment appartient à syncAuthData.
+				syncAuthData: () => syncAuthData(() => userStore.markAuthSynced()),
 				commentStateService,
-				pb,
 				db
 			};
 

@@ -94,8 +94,9 @@ utilisateur actif ; à réévaluer sur observation en production.
 | Compte | `userStore.lastAuthSyncAt`, global, persisté sous `auth_sync_at` |
 
 Un horodatage global suffit en mode Compte parce que la sync y est globale : tous les
-masters d'un coup, filtrés par les API Rules. `markAuthSynced()` est appelé par
-`syncService.sync()`, par le boot d'un Compte et par la transition guest → auth.
+masters d'un coup, filtrés par les API Rules. Le marqueur est posé par `syncAuthData`
+(`src/lib/services/authDataSync.ts`), que les trois chemins post-auth appellent — polling
+réseau, boot d'un Compte et transition guest → auth.
 
 ## Souscriptions realtime
 
@@ -158,4 +159,6 @@ réinitialisé à `true`.
 - `src/lib/stores/planningStore.svelte.ts` — souscription Guest, `refreshActive()`
 - `src/lib/stores/userStore.svelte.ts` — souscription globale, `markAuthSynced()`
 - `src/lib/services/syncService.ts` — sync globale à la reconnexion
+- `src/lib/services/claimPlannings.ts` — claim des plannings locaux (hook idempotent)
+- `src/lib/services/authDataSync.ts` — séquence post-auth : fetch → marqueur de fraîcheur
 - `src/lib/data/planningSync.ts` — opérations de re-sync (voir `offline-sync.md`)

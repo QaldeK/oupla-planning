@@ -400,7 +400,7 @@ export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
 // 3. Sync active occurrences with _token (#syncOccurrences → data/planningSync)
 await syncActiveOccurrences({ masterId: master.id, token });
 
-// 4a. Auth branch: synchronous claim via /api/sync-plannings + authRefresh
+// 4a. Auth branch: synchronous claim via claimPlannings() + authRefresh
 //     (#attachMasterToUser — global subscribe covers realtime)
 // 4b. Guest branch: individual realtime subscribe
 mastersCollection.subscribe({ record: master.id, query: { _token: token } });

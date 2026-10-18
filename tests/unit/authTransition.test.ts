@@ -3,9 +3,9 @@
  *
  * Vérifie :
  *   - Le snapshot guest identity est lu AVANT le clear Dexie
- *   - unsubscribe collections avant POST sync
+ *   - L'ordre de la séquence : claim → clear → syncAuthData → subscribe → read-state
  *   - guestClaim retourné contient la bonne identité
- *   - Gestion d'erreur : sync échoué → clear quand même
+ *   - Gestion d'erreur : une étape non bloquante qui échoue n'interrompt pas la suite
  */
 import { describe, expect, it, vi } from "vitest";
 import type { SavedPlanning } from "$lib/types/planning.types";
@@ -41,22 +41,10 @@ function createFakeDeps(callTracker?: { order: string[] }): AuthTransitionDeps {
 				.mockImplementation(() => track("occurrencesCollection.unsubscribeAll")),
 			subscribe: vi.fn().mockImplementation(() => track("occurrencesCollection.subscribe"))
 		},
-		planningSync: {
-			fetchAllMasters: vi
-				.fn()
-				.mockImplementation(async () => track("planningSync.fetchAllMasters")),
-			syncActiveOccurrences: vi
-				.fn()
-				.mockImplementation(async () => track("planningSync.syncActiveOccurrences"))
-		},
+		claimPlannings: vi.fn().mockImplementation(async () => track("claimPlannings")),
+		syncAuthData: vi.fn().mockImplementation(async () => track("syncAuthData")),
 		commentStateService: {
 			syncCommentReadState: vi.fn().mockImplementation(async () => track("syncCommentReadState"))
-		},
-		pb: {
-			send: vi.fn().mockImplementation(async (_path, _config) => {
-				track("pb.send");
-				return { success: true };
-			})
 		},
 		db: {
 			masters: {
@@ -111,22 +99,46 @@ describe("runAuthTransition", () => {
 		});
 	});
 
-	it("unsubscribe collections appelé AVANT le POST sync", async () => {
+	it("unsubscribe collections appelé AVANT le claim", async () => {
 		const callTracker = { order: [] as string[] };
 		const deps = createFakeDeps(callTracker);
 		const ctx = createContext();
 
 		await runAuthTransition(ctx, deps);
 
-		// Vérifier l'ordre : initGlobalSync → snapshot (pas d'appel) → unsubscribe AVANT pb.send
+		// Vérifier l'ordre : initGlobalSync → snapshot (pas d'appel) → unsubscribe AVANT le claim
 		const unsubscribeIndex = Math.min(
 			callTracker.order.indexOf("mastersCollection.unsubscribeAll"),
 			callTracker.order.indexOf("occurrencesCollection.unsubscribeAll")
 		);
-		const pbSendIndex = callTracker.order.indexOf("pb.send");
+		const claimIndex = callTracker.order.indexOf("claimPlannings");
 
 		expect(unsubscribeIndex).toBeGreaterThan(-1);
-		expect(pbSendIndex).toBeGreaterThan(unsubscribeIndex);
+		expect(claimIndex).toBeGreaterThan(unsubscribeIndex);
+	});
+
+	it("claim -> clear -> syncAuthData -> subscribe -> read-state", async () => {
+		const callTracker = { order: [] as string[] };
+		const deps = createFakeDeps(callTracker);
+
+		await runAuthTransition(createContext(), deps);
+
+		const at = (name: string) => callTracker.order.indexOf(name);
+		expect(at("claimPlannings")).toBeGreaterThan(-1);
+		expect(at("claimPlannings")).toBeLessThan(at("db.masters.clear"));
+		expect(at("db.masters.clear")).toBeLessThan(at("syncAuthData"));
+		expect(at("syncAuthData")).toBeLessThan(at("mastersCollection.subscribe"));
+		expect(at("mastersCollection.subscribe")).toBeLessThan(at("syncCommentReadState"));
+	});
+
+	it("claim le planning courant avec ses deux tokens", async () => {
+		const deps = createFakeDeps();
+
+		await runAuthTransition(createContext(), deps);
+
+		expect(deps.claimPlannings).toHaveBeenCalledExactlyOnceWith([
+			{ id: "master-1", participantToken: "tok-part", adminToken: "tok-admin" }
+		]);
 	});
 
 	it("guestClaim null si pas de planning actif", async () => {
@@ -150,22 +162,30 @@ describe("runAuthTransition", () => {
 		expect(result.guestClaim).toBeNull();
 	});
 
-	it("gestion d erreur : sync échoué → clear Dexie quand même", async () => {
+	it("gestion d erreur : claim échoué → la séquence continue", async () => {
 		const callTracker = { order: [] as string[] };
 		const deps = createFakeDeps(callTracker);
-		// Faire échouer pb.send
-		(deps.pb.send as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Network error"));
+		(deps.claimPlannings as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Network error"));
 
-		const ctx = createContext();
+		// Ne doit pas throw — l'erreur du claim est catchée
+		await expect(runAuthTransition(createContext(), deps)).resolves.toBeDefined();
 
-		// Ne doit pas throw — l'erreur est catchée
-		await expect(runAuthTransition(ctx, deps)).resolves.toBeDefined();
-
-		// Vérifier que le clear a bien eu lieu malgré l'erreur sync
 		expect(deps.db.masters.clear).toHaveBeenCalled();
 		expect(deps.db.occurrences.clear).toHaveBeenCalled();
 		expect(deps.db.commentState.clear).toHaveBeenCalled();
 		expect(deps.db.localMeta.clear).toHaveBeenCalled();
+		expect(deps.syncAuthData).toHaveBeenCalled();
+	});
+
+	it("gestion d erreur : syncAuthData échoué → subscribe et read-state assurés", async () => {
+		const deps = createFakeDeps();
+		(deps.syncAuthData as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Fetch failed"));
+
+		await expect(runAuthTransition(createContext(), deps)).resolves.toBeDefined();
+
+		expect(deps.mastersCollection.subscribe).toHaveBeenCalled();
+		expect(deps.occurrencesCollection.subscribe).toHaveBeenCalled();
+		expect(deps.commentStateService.syncCommentReadState).toHaveBeenCalled();
 	});
 
 	it("fetch et subscribe sont appelés après le clear", async () => {
@@ -177,7 +197,7 @@ describe("runAuthTransition", () => {
 
 		// db clear avant fetch
 		const clearIndex = callTracker.order.indexOf("db.localMeta.clear");
-		const fetchIndex = callTracker.order.indexOf("planningSync.fetchAllMasters");
+		const fetchIndex = callTracker.order.indexOf("syncAuthData");
 
 		expect(clearIndex).toBeGreaterThan(-1);
 		expect(fetchIndex).toBeGreaterThan(-1);
@@ -194,12 +214,13 @@ describe("runAuthTransition", () => {
 		expect(deps.planningStore.setActiveToken).toHaveBeenCalledWith("my-token");
 	});
 
-	it("skip sync si pas de token actif", async () => {
+	it("skip claim et setActiveToken si pas de token actif", async () => {
 		const deps = createFakeDeps();
 		const ctx = createContext({ currentToken: null, activeMasterId: null });
 
 		await runAuthTransition(ctx, deps);
 
-		expect(deps.pb.send).not.toHaveBeenCalled();
+		expect(deps.claimPlannings).not.toHaveBeenCalled();
+		expect(deps.syncAuthData).toHaveBeenCalled();
 	});
 });

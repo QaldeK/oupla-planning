@@ -87,9 +87,9 @@ sequenceDiagram
   R->>R: 1 initGlobalSync
   R->>R: 2 snapshot identité guest
   R->>R: 3 unsubscribe collections
-  R->>PB: 4 POST /api/sync-plannings (1 token)
+  R->>PB: 4 claimPlannings — hook /api/sync-plannings (1 planning)
   R->>D: 5 clear masters, occurrences, commentState, localMeta
-  R->>PB: 6 fetchAllMasters + syncActiveOccurrences
+  R->>PB: 6 syncAuthData — fetch masters + occurrences, puis marqueur
   R->>PB: 7 subscribe + syncCommentReadState
   R->>R: 8 invalidateActiveToken + setActiveToken
   R-->>W: guestClaim
@@ -104,10 +104,13 @@ Points d'attention, tous vécus :
   de l'identité guest.
 - **L'étape 5 vide `localMeta`**, donc les identités guest et le marqueur `lastFetchAt`
   (`src/lib/utils/authTransition.ts`, étape 5).
-- **L'étape 4 n'envoie qu'un seul token**, celui du planning courant. Le post-login ne
+- **L'étape 4 n'envoie qu'un seul planning**, celui de la page courante. Le post-login ne
   synchronise pas les autres plannings connus localement.
 - **L'étape 4 est non bloquante** : un échec réseau n'empêche pas le clear, les données
   guest orphelines sont jetées volontairement.
+- **L'étape 6 est le seul endroit qui pose le marqueur de fraîcheur** (`lastAuthSyncAt`,
+  `userStore`) : `syncAuthData` possède la séquence fetch → marqueur. Une transition qui ne
+  passe pas par lui laisse la « Dernière sync » périmée jusqu'au polling suivant.
 - `pendingGuestClaim` est **in-memory, non persisté** : une transition ne survit pas à un
   reload, et la suggestion ne se rejoue pas.
 

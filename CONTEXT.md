@@ -52,6 +52,10 @@ _Avoid_: profil, compte, utilisateur
 Mécanisme par lequel un participant revendique le rôle d'administrateur d'un planning via l'API `/api/claim-admin`.
 _Avoid_: takeover, récupération, appropriation
 
+**Claim de plannings** :
+Mécanisme par lequel un Compte rattache à lui-même des plannings connus localement, en présentant leurs tokens au hook idempotent `/api/sync-plannings`. Distinct du claim-admin (rôle d'administrateur sur un planning) et de l'identité revendiquée (rattachement d'une identité guest).
+_Avoid_: claim de tokens, sync de tokens
+
 **Identité revendiquée** (Claimed identity) :
 État d'un guest dont le participant a été associé à un compte authentifié sur un autre terminal (champ `participant.userId` défini alors que `isLoggedIn === false`). Le guest est « verrouillé » : ses réponses sont bloquées, un bandeau dédié s'affiche, pas d'auto-ouverture d'IdentifyModal. Résolu par `resolveCurrentIdentity` (`claimedByAuth: true`).
 _Avoid_: vol d'identité, takeover, compte lié, lock

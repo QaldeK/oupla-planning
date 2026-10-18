@@ -5,6 +5,7 @@
  * via le paramètre `deps`. Le wrapper réactif (`authTransition.svelte.ts`)
  * instancie les deps réelles et gère les guards (`isTransitioning`).
  */
+import type { ClaimablePlanning } from "$lib/services/claimPlannings";
 import type { SavedPlanning } from "$lib/types/planning.types";
 
 // =============================================
@@ -39,21 +40,12 @@ export interface AuthTransitionDeps {
 		unsubscribeAll(): void;
 		subscribe(): void;
 	};
-	planningSync: {
-		fetchAllMasters(): Promise<void>;
-		syncActiveOccurrences(): Promise<void>;
-	};
+	/** Claim des plannings connus localement (hook serveur idempotent). */
+	claimPlannings(masters: ClaimablePlanning[]): Promise<void>;
+	/** Re-sync des données du compte : fetch masters → occurrences → marqueur. */
+	syncAuthData(): Promise<void>;
 	commentStateService: {
 		syncCommentReadState(): Promise<void>;
-	};
-	pb: {
-		send(
-			path: string,
-			config: {
-				method: string;
-				body: Record<string, unknown>;
-			}
-		): Promise<unknown>;
 	};
 	db: {
 		masters: {
@@ -93,9 +85,9 @@ export interface AuthTransitionResult {
  * 1. Réactiver le liveQuery global (sidebar/homepage)
  * 2. Snapshot de l'identité guest AVANT tout clear
  * 3. Unsubscribe des collections guest realtime
- * 4. Sync PocketBase : planning courant (non bloquant)
+ * 4. Claim du planning courant (non bloquant — ses tokens vivent en Dexie)
  * 5. Clear des données locales Dexie (cache technique jetable)
- * 6. Fetch depuis PB (API Rules)
+ * 6. Re-sync des données du compte + marqueur de fraîcheur (non bloquant)
  * 7. Subscribe realtime global + comment state
  * 8. Re-charger le planning courant dans le bon mode (auth)
  *
@@ -108,8 +100,15 @@ export async function runAuthTransition(
 	deps: AuthTransitionDeps
 ): Promise<AuthTransitionResult> {
 	const { currentToken, activeMasterId, savedPlannings } = ctx;
-	const { planningStore, mastersCollection, occurrencesCollection, planningSync, commentStateService, pb, db } =
-		deps;
+	const {
+		planningStore,
+		mastersCollection,
+		occurrencesCollection,
+		claimPlannings,
+		syncAuthData,
+		commentStateService,
+		db
+	} = deps;
 
 	// 1. Réactiver le liveQuery global alimentant #allMasters (sidebar + homepage)
 	planningStore.initGlobalSync();
@@ -126,7 +125,7 @@ export async function runAuthTransition(
 	mastersCollection.unsubscribeAll();
 	occurrencesCollection.unsubscribeAll();
 
-	// 4. Sync PocketBase : UNIQUEMENT le planning courant (si sur /p ou /admin)
+	// 4. Claim PocketBase : UNIQUEMENT le planning courant (si sur /p ou /admin)
 	//    Échec non bloquant — on clear quand même Dexie (données guest orphelines)
 	if (currentToken && activeMasterId) {
 		// Résoudre le master depuis Dexie (pas encore clearée à ce stade)
@@ -134,20 +133,15 @@ export async function runAuthTransition(
 		const activeMaster = await db.masters.get(activeMasterId);
 		if (activeMaster) {
 			try {
-				await pb.send("/api/sync-plannings", {
-					method: "POST",
-					body: {
-						tokens: [
-							{
-								masterId: activeMasterId,
-								participantToken: activeMaster.participantToken,
-								adminToken: activeMaster.adminToken
-							}
-						]
+				await claimPlannings([
+					{
+						id: activeMasterId,
+						participantToken: activeMaster.participantToken,
+						adminToken: activeMaster.adminToken
 					}
-				});
+				]);
 			} catch (err) {
-				console.error("Token sync failed:", err);
+				console.error("Claim failed (non-blocking):", err);
 			}
 		}
 	}
@@ -166,12 +160,12 @@ export async function runAuthTransition(
 			}
 		: null;
 
-	// 6. Re-sync complète via planningSync (ADR 0017) — le post-login doit
-	// converger vers le serveur même après un trou SSE. Les API Rules filtrent
-	// automatiquement via user.masterId.
+	// 6. Re-sync complète des données du compte (ADR 0017) + marqueur de fraîcheur
+	// — le post-login doit converger vers le serveur même après un trou SSE.
+	// Les API Rules filtrent automatiquement via user.masterId. Échec non
+	// bloquant : subscribe et lecture d'état restent utiles.
 	try {
-		await planningSync.fetchAllMasters();
-		await planningSync.syncActiveOccurrences();
+		await syncAuthData();
 	} catch (err) {
 		console.error("Post-login fetch failed:", err);
 	}

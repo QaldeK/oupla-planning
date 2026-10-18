@@ -3,6 +3,7 @@ import { mastersCollection, occurrencesCollection } from "$lib/data/collections"
 import { setLocale } from "$lib/paraglide/runtime";
 import { db, ensureDbReady } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
+import { syncAuthData } from "$lib/services/authDataSync";
 import { commentStateService } from "$lib/services/commentStateService";
 import { detachCurrentDeviceFromAccount, syncPushSubscription } from "$lib/services/push";
 import { authTransition } from "$lib/stores/authTransition.svelte";
@@ -16,7 +17,6 @@ import type {
 	ViewType
 } from "$lib/types/planning.types";
 import { refreshSessionSilently } from "$lib/utils/sessionRefresh";
-import { fetchAllMasters, syncActiveOccurrences } from "$lib/data/planningSync";
 import { storage } from "$lib/utils/storage";
 
 const APP_PREFS_KEY = "app_preferences";
@@ -130,11 +130,9 @@ export class UserStore {
 	}
 	async #subscribeAuth() {
 		try {
-			// Boot auth : re-sync complète — le client doit converger vers le
-			// serveur même après un trou SSE (ADR 0017).
-			await fetchAllMasters();
-			await syncActiveOccurrences();
-			await this.markAuthSynced();
+			// Boot auth : re-sync complète des données du compte puis marqueur de
+			// fraîcheur (ADR 0017) — un seul propriétaire pour la séquence.
+			await syncAuthData(() => this.markAuthSynced());
 		} catch (err) {
 			console.error("Post-boot sync failed:", err);
 		}

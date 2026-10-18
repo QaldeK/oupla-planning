@@ -1,6 +1,6 @@
-import { fetchAllMasters, syncActiveOccurrences } from "$lib/data/planningSync";
 import { db } from "$lib/pb-sync/db";
-import { pb } from "$lib/pocketbase/pb";
+import { syncAuthData } from "$lib/services/authDataSync";
+import { claimPlannings } from "$lib/services/claimPlannings";
 import { userStore } from "$lib/stores/userStore.svelte";
 
 class SyncService {
@@ -24,26 +24,12 @@ class SyncService {
 	}
 
 	async #doSync(): Promise<void> {
-		// Étape 1 : Enregistrer les tokens depuis Dexie masters
-		const masters = await db.masters.toArray();
-		const tokens = masters.map((m) => ({
-			masterId: m.id,
-			participantToken: m.participantToken,
-			adminToken: m.adminToken
-		}));
+		// Étape 1 : revendiquer les plannings connus localement (hook idempotent).
+		await claimPlannings(await db.masters.toArray());
 
-		await pb.send("/api/sync-plannings", {
-			method: "POST",
-			body: { tokens }
-		});
-
-		// Étapes 2-3 : Re-sync complète via les ops de data/planningSync
-		// (API Rules auto-filtrent par user) — ADR 0017.
-		await fetchAllMasters();
-		await syncActiveOccurrences();
-
-		// Étape 4 : Marquer la fraîcheur auth (UI NetworkAlert)
-		await userStore.markAuthSynced();
+		// Étapes 2-3 : re-sync complète puis marqueur de fraîcheur (ADR 0017).
+		// L'échec remonte : `networkStore.runResyncOnce` s'appuie dessus pour retenter.
+		await syncAuthData(() => userStore.markAuthSynced());
 	}
 }
 

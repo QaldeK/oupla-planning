@@ -149,15 +149,16 @@ se déclenche qu'à l'échec final.
 
 | Moment | Chemin |
 | --- | --- |
-| Boot d'un Compte | `userStore.#subscribeAuth()` : masters puis occurrences actives |
-| Transition guest → auth | `runAuthTransition()` étapes 6-7 (`auth-identity.md`) |
+| Boot d'un Compte | `userStore.#subscribeAuth()`, via `syncAuthData` |
+| Transition guest → auth | `runAuthTransition()` étape 6, via `syncAuthData` (`auth-identity.md`) |
 | Reconnexion réseau | `networkStore` → `syncService.sync()` (Compte) ou `planningStore.refreshActive()` (Guest) |
 | Activation d'un planning | `planningStore.#activatePlanning()` étape 4 |
 | Entrée sur l'archive | `planningStore.refreshArchiveOccurrences()` |
 
 `syncService.sync()` (mode Compte) est protégé par un mutex : deux appels concurrents ne
-déclenchent qu'une seule passe. Il enregistre d'abord les tokens des masters locaux via
-`/api/sync-plannings`, puis re-sync masters et occurrences, puis marque la fraîcheur.
+déclenchent qu'une seule passe. Il revendique d'abord les plannings connus localement via
+`claimPlannings` (hook `/api/sync-plannings`), puis re-sync masters et occurrences et pose
+le marqueur de fraîcheur via `syncAuthData`.
 
 ## Pièges
 

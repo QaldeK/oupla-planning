@@ -40,7 +40,7 @@ Compte authentifié, préférences et orchestration du boot.
 | `isReady` | true après `init()` |
 | `lastAuthSyncAt` | date de la dernière sync globale auth, persistée sous `auth_sync_at`, pour la fraîcheur affichée par `NetworkAlert` |
 | `init()` | séquence de boot (ci-dessous) |
-| `markAuthSynced()` | pose `lastAuthSyncAt` après un fetch auth réussi |
+| `markAuthSynced()` | seul écrivain de `lastAuthSyncAt` ; sa référence est passée à `syncAuthData`, qui décide du moment |
 | `setTheme` / `setOccurrenceView` / `setAppLocale` | préférences ; la locale s'écrit aussi sur le record `users` si connecté (ADR-0010) |
 | `logout()` / `clearUser()` | redirection `/`, clear authStore, clear Dexie, `planningStore.destroy()` |
 | `logoutAndStayOnPlanning(token)` | déconnexion sans quitter le planning (voir `auth-identity.md`) |
@@ -56,9 +56,9 @@ Séquence de `init()` :
 5. `lastAuthSyncAt` relu depuis `auth_sync_at`.
 6. Si déjà connecté : `refreshSessionSilently()` (session glissante, non bloquant), `#subscribeAuth()`, `syncPushSubscription()`.
 
-`#subscribeAuth()` enchaîne un fetch complet des masters et des occurrences actives
-(ADR-0017), marque la sync, monte les deux souscriptions globales pb-sync, puis
-synchronise l'état de lecture des commentaires.
+`#subscribeAuth()` délègue la séquence de données à `syncAuthData` (fetch complet des
+masters → fetch des occurrences actives → marqueur de fraîcheur, ADR-0017), puis monte les
+deux souscriptions globales pb-sync et synchronise l'état de lecture des commentaires.
 
 **Ce que `userStore` ne fait plus** : les identités guest (`guestStateStore`), la transition
 guest → auth (`authTransition`), le cache du planning actif (`planningStore`). Les identités
