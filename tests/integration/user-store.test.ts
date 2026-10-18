@@ -349,7 +349,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			planningStore.destroy();
 		});
 
-		it("pose le marqueur de fraîcheur après la transition (régression du drift)", async () => {
+		it("pose le marqueur de fraîcheur après la transition guest → auth", async () => {
 			// === SEED ===
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Marker User");
 			trackIds("users", user.id);
@@ -359,8 +359,8 @@ describe("userStore — identity, auth transitions, logout", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 			userStore.isLoggedIn = true;
 
-			// État de départ : jamais sync (cas d'un boot vierge), comme le veut
-			// la régression corrigée — la transition guest → auth oubliait le marqueur.
+			// État de départ : marqueur vierge (boot jamais synchronisé) — c'est la
+			// transition guest → auth qui doit le poser, via la séquence post-auth.
 			userStore.lastAuthSyncAt = null;
 
 			// === ACTION ===
@@ -376,7 +376,8 @@ describe("userStore — identity, auth transitions, logout", () => {
 			planningStore.destroy();
 		});
 
-		it("ne sync rien si pas de planning actif (CAS 2 : sur homepage /)", async () => {			// === SEED ===
+		it("ne sync rien si pas de planning actif (CAS 2 : sur homepage /)", async () => {
+			// === SEED ===
 			const { master } = await seedPlanning({
 				title: "Homepage Login",
 				occurrenceCount: 2

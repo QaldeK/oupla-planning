@@ -5,7 +5,7 @@
  *
  * Module neutre : n'importe que le client PocketBase, aucun store ni service.
  * C'est ce qui le rend importable par les stores et les services sans créer de
- * cycle d'import (cf. ADR-0009).
+ * cycle d'import.
  */
 import { pb } from "$lib/pocketbase/pb";
 
