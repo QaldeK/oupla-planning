@@ -1,8 +1,11 @@
 import { format } from "date-fns";
 import { ClientResponseError } from "pocketbase";
 import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
+import {
+	executeMultiCollectionBatch,
+	type MultiCollectionBatchOperation
+} from "$lib/pb-sync/batch";
 import { db, ensureDbReady } from "$lib/pb-sync/db";
-import { withRetry } from "$lib/pb-sync/retry.utils";
 import { pb } from "$lib/pocketbase/pb";
 import { getActivePlanningToken } from "$lib/services/activePlanningContext";
 import { commentStateService } from "$lib/services/commentStateService";
@@ -163,8 +166,11 @@ export async function createPlanningWithOccurrences(
 }
 
 /**
- * Met à jour un planning master et ses occurrences de manière atomique (batch).
- * Note: hors pb-sync car batch multi-collections (non pris en charge par pb-sync)
+ * Met à jour un planning master et ses occurrences de manière atomique
+ * (batch multi-collections pb-sync, ADR-0018) : PocketBase applique l'ensemble
+ * en une transaction, puis Dexie est reconcilié depuis les réponses confirmées
+ * — le retour se lit en local et la convergence ne dépend ni du SSE ni d'une
+ * re-sync.
  * @param expectedVersion - Optionnel, timestamp `updated` du master pour optimistic locking
  */
 export async function updatePlanningWithOccurrences(
@@ -190,55 +196,74 @@ export async function updatePlanningWithOccurrences(
 	const targets = allTargets.filter((t) => normalizeOccurrenceDate(t.date) >= today);
 	const ops = diffPlanningOccurrences(targets, existingOccurrences);
 
-	const batch = pb.createBatch();
-
 	// Master update avec vérification de version (optimistic locking)
 	const masterQuery: Record<string, string> = { _token: token };
 	if (expectedVersion) {
 		masterQuery._version = expectedVersion;
 	}
 
-	batch.collection("planning_masters").update(
-		masterId,
-		withAudit({
-			title: data.title,
-			description: data.description,
-			place: data.place,
-			defaultStartTime: data.defaultStartTime,
-			defaultEndTime: data.defaultEndTime,
-			timeSlots: data.timeSlots,
-			recurrence: data.recurrence,
-			tasks: sortTasks(data.tasks),
-			minPresentRequired: data.minPresentRequired,
-			allowResponses: data.allowResponses,
-			toConfirm: data.toConfirm,
-			availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes)
-		}),
-		{ query: masterQuery }
-	);
+	const batchOps: MultiCollectionBatchOperation[] = [
+		{
+			type: "update",
+			table: mastersCollection.getTable(),
+			collection: "planning_masters",
+			id: masterId,
+			data: withAudit({
+				title: data.title,
+				description: data.description,
+				place: data.place,
+				defaultStartTime: data.defaultStartTime,
+				defaultEndTime: data.defaultEndTime,
+				timeSlots: data.timeSlots,
+				recurrence: data.recurrence,
+				tasks: sortTasks(data.tasks),
+				minPresentRequired: data.minPresentRequired,
+				allowResponses: data.allowResponses,
+				toConfirm: data.toConfirm,
+				availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes)
+			}),
+			params: { query: masterQuery }
+		}
+	];
 
 	// Matchées : update avec les horaires voulus (override porté par la cible, apply
 	// tel quel). `deleted: false` couvre le un-soft-delete (réactivation d'une DateSlot).
 	// responses/comments/isConfirmed/isCanceled sont préservés sur l'existante.
 	for (const { existing, target } of ops.updates) {
-		// Payload construit dynamiquement pour batch — type partiel non adapté aux signatures du SDK.
-		// biome-ignore lint/suspicious/noExplicitAny: payload batch partiel, typé par les API rules serveur
-		const updateData: any = withAudit({
-			date: normalizeOccurrenceDate(target.date),
-			startTime: target.startTime,
-			endTime: target.endTime,
-			slotId: target.slotId,
-			deleted: false
+		const updateData = withAudit(
+			data.forceTaskRefresh
+				? {
+						date: normalizeOccurrenceDate(target.date),
+						startTime: target.startTime,
+						endTime: target.endTime,
+						slotId: target.slotId,
+						deleted: false,
+						tasks: sortTasks(data.tasks)
+					}
+				: {
+						date: normalizeOccurrenceDate(target.date),
+						startTime: target.startTime,
+						endTime: target.endTime,
+						slotId: target.slotId,
+						deleted: false
+					}
+		);
+		batchOps.push({
+			type: "update",
+			table: occurrencesCollection.getTable(),
+			collection: "planning_occurrences",
+			id: existing.id,
+			data: updateData,
+			params: { query: { _token: token } }
 		});
-		if (data.forceTaskRefresh) updateData.tasks = sortTasks(data.tasks);
-		batch
-			.collection("planning_occurrences")
-			.update(existing.id, updateData, { query: { _token: token } });
 	}
 
 	for (const target of ops.creates) {
-		batch.collection("planning_occurrences").create(
-			withAudit({
+		batchOps.push({
+			type: "create",
+			table: occurrencesCollection.getTable(),
+			collection: "planning_occurrences",
+			data: withAudit({
 				master: masterId,
 				date: normalizeOccurrenceDate(target.date),
 				startTime: target.startTime,
@@ -249,20 +274,25 @@ export async function updatePlanningWithOccurrences(
 				isConfirmed: false,
 				isCanceled: false
 			}),
-			{ query: { _token: token } }
-		);
+			params: { query: { _token: token } }
+		});
 	}
 
 	// Soft-delete les existantes actives non ciblées. Les soft-deleted non ciblées
 	// restent telles quelles (déjà désactivées).
 	for (const occ of ops.softDeletes) {
-		batch
-			.collection("planning_occurrences")
-			.update(occ.id, withAudit({ deleted: true }), { query: { _token: token } });
+		batchOps.push({
+			type: "update",
+			table: occurrencesCollection.getTable(),
+			collection: "planning_occurrences",
+			id: occ.id,
+			data: withAudit({ deleted: true }),
+			params: { query: { _token: token } }
+		});
 	}
 
 	try {
-		await withRetry(() => batch.send());
+		await executeMultiCollectionBatch(pb, batchOps);
 	} catch (e: unknown) {
 		console.error(
 			"Batch error detail:",
@@ -272,9 +302,11 @@ export async function updatePlanningWithOccurrences(
 		throw e;
 	}
 
-	return await pb.collection("planning_masters").getOne<PlanningMaster>(masterId, {
-		query: { _token: token }
-	});
+	// Le reconcile du batch a écrit le master confirmé en Dexie : le retour se
+	// lit localement, sans refetch réseau.
+	const master = await mastersCollection.getTable().get(masterId);
+	if (!master) throw new Error(`Master ${masterId} introuvable en Dexie après update`);
+	return master;
 }
 
 /**

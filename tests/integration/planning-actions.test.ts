@@ -235,8 +235,8 @@ describe("planningActions — Pipeline CRUD complet", () => {
 		});
 
 		// Helper : crée un master CUSTOM + ses occs via pb-sync, et récupère les occs PB.
-		// On vérifie via PB (adminPb) car updatePlanningWithOccurrences utilise un batch
-		// direct (hors pb-sync) → Dexie n'est pas synchronisé.
+		// Les assertions PB passent par un superuser (adminPb) pour voir les champs
+		// masqués côté API ; l'état Dexie se lit directement sur db.
 		async function createForUpdate(
 			targets: { date: string; startTime: string; endTime: string; slotId: string }[]
 		) {
@@ -374,6 +374,35 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			expect(normDate(created.date)).toBe(d2);
 			expect(created.deleted).toBeFalsy();
 			expect(created.responses).toEqual([]); // nouvelle occurrence vierge
+		});
+
+		it("converge Dexie dès le retour du save (reconcile du batch, sans SSE)", async () => {
+			const d1 = futureDate(7);
+			const d2 = futureDate(14);
+			const { master, adminToken } = await createForUpdate([
+				{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }
+			]);
+			setActivePlanningToken(adminToken);
+
+			const returned = await updatePlanningWithOccurrences(
+				master.id,
+				buildData([
+					{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" },
+					{ date: d2, startTime: "19:00", endTime: "21:00", slotId: "s1" }
+				])
+			);
+
+			// La row master locale porte la nouvelle version (le `_version` du save
+			// suivant reste valide même sans SSE).
+			const localMaster = await db.masters.get(master.id);
+			expect(localMaster?.updated).not.toBe(master.updated);
+
+			// L'occurrence créée par le batch est en Dexie, id serveur compris.
+			const localOccs = await db.occurrences.where("master").equals(master.id).toArray();
+			expect(localOccs).toHaveLength(2);
+			expect(localOccs.map((o) => normDate(o.date)).sort()).toEqual([d1, d2].sort());
+
+			expect(returned.updated).not.toBe(master.updated);
 		});
 	});
 
