@@ -341,14 +341,14 @@
 			{:else if currentStatus !== "canceled"}
 				<p class="text-base-content/80 text-sm">
 					{m.occurrence_always_on_description()}
-					<button class="link link-error" onclick={() => setStatus("canceled")}
+					<button type="button" class="link link-error" onclick={() => setStatus("canceled")}
 						>{m.occurrence_cancel_this_date()}</button
 					>
 				</p>
 			{:else}
 				<p class="text-base-content/80">
 					{m.occurrence_date_canceled()}
-					<button class="link link-error" onclick={() => setStatus("pending")}
+					<button type="button" class="link link-error" onclick={() => setStatus("pending")}
 						>{m.occurrence_reactivate_this_date()}</button
 					>
 				</p>
