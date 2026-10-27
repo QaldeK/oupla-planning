@@ -62,7 +62,7 @@ service de push est externe (ADR-0005) ; il vit hors de ce dépôt.
 | `reminderValue` | number | J-X ; `0` pour les change events |
 | `changedBy` | text | userId de l'auteur, pour les change events |
 | `payload` | json | contexte (avant/après pour un changement d'horaire, compteurs pour les missings) |
-| `processedAt` | datetime | vide = en attente de consommation |
+| `processedAt` | datetime | état terminal (consommé ou mort) ; vide = attente de retry email |
 
 Types : `reminder`, `quorum_missing`, `task_unassigned`, `confirmation_needed`,
 `status_canceled`, `status_deleted`, `schedule_change`, `status_confirmed`, `new_comment`.
@@ -87,8 +87,19 @@ et insère les événements dus :
 un email par (utilisateur, planning) et envoie un push par événement. Un circuit breaker
 SMTP coupe le reste du lot après trois échecs consécutifs.
 
-**Purge.** Cron hebdomadaire (lundi 00h30) qui supprime les lignes traitées de plus de
-60 jours.
+**Contrat de consommation.** `processedAt` est un état terminal — « l'event ne sera plus
+jamais touché » (`notification-consumer.js`). Tout event vivant sort du run soit consommé
+(email envoyé, ou aucun email possible : planning push-only, message déjà lu par tous),
+soit mort sans envoi : occurrence passée (garde d'obsolescence), annulée ou supprimée
+pour un event J-X/`new_comment`, master disparu. Les change events (`status_canceled`,
+`status_deleted`) font exception — l'état de l'occurrence EST la nouvelle à délivrer,
+l'event reste consommable. Le seul état pending résiduel est l'attente de retry email
+(SMTP en panne), borné par le garde d'obsolescence. Le push J-X ne part que pour les
+events consommés : un event n'est jamais poussé deux fois, et l'absence de marquage ne
+peut plus produire de re-push quotidien sur occurrence passée.
+
+**Purge.** Cron hebdomadaire (lundi 00h30) qui supprime les lignes en état terminal
+(`processedAt` posé) de plus de 60 jours.
 
 ### Hook occurrence-update — `notify-on-occurrence-update.pb.js`
 
@@ -226,6 +237,10 @@ occurrence future. La notification reçue doit s'ouvrir sur
   occurrence-update est le déclencheur de test pratique.
 - **`insertEvent()` jette.** L'avaler sans logger côté hook perd l'email de secours ; ne
   pas laisser l'exception remonter casse la réponse de l'écriture d'occurrence.
+- **Un event push-only est consommé au premier dispatch.** Si notify-service est
+  inaccessible à cet instant, le push est perdu (pas d'email en secours, pas de retry) —
+  c'est le prix de l'absence de re-push quotidien. L'email, lui, reste garanti par le
+  retry.
 - **`app` est toujours injecté, jamais `$app`** dans les modules de notification : `$app`
   capturé dans un hook deadlocke sur le verrou d'écriture SQLite pendant la transaction du
   save parent.
@@ -238,6 +253,7 @@ occurrence future. La notification reçue doit s'ouvrir sur
 - `pocketbase/pb_hooks/cron-notifications.pb.js` — cron 00h UTC (phases 1 et 2) et purge
 - `pocketbase/pb_hooks/notify-on-occurrence-update.pb.js` — hook de changement d'occurrence et de commentaire
 - `pocketbase/pb_hooks/notification-events.cjs` — `insertEvent`, résolveur de contexte master
+- `pocketbase/pb_hooks/notification-consumer.js` — politique de consommation : classification mort/vivant, séparation consommé/retry email
 - `pocketbase/pb_hooks/notification-jx-detector.js` / `occurrence-change-detector.js` / `new-comment-detector.js` — détecteurs purs
 - `pocketbase/pb_hooks/notification-recipients.js` — calcul des destinataires
 - `pocketbase/pb_hooks/notify-templates.js` — rendu email

@@ -20,7 +20,7 @@
  * tasks), puis itération sur les participants.
  */
 
-const { parseJsonArray, readRecurrenceType, resolveMinPresentRequired } = require(
+const { parseJsonArray, readRecurrenceType, resolveMinPresentRequired, computeDaysUntil } = require(
 	`${__hooks}/pb-helpers.cjs`
 );
 
@@ -39,22 +39,6 @@ const CONFIRMATION_NEEDED_JX = {
 
 /** Valeurs J-X autorisées pour `reminderDays` (plus restreint que missingDays). */
 const REMINDER_JX_VALUES = [1, 3, 7];
-
-/**
- * Nombre de jours entre `now` (UTC minuit) et la date de l'occurrence (UTC minuit).
- * Retourne un entier (positif pour une occ future, 0 pour aujourd'hui, négatif pour
- * le passé). Arrondi pour tolérer d'éventuels décalages sub-journaliers dans le
- * stockage PocketBase.
- */
-function computeDaysUntil(occDateRaw, now) {
-	if (!occDateRaw) return -1;
-	const day = String(occDateRaw).split(' ')[0].split('T')[0];
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return -1;
-	const occMs = new Date(`${day}T00:00:00Z`).getTime();
-	if (Number.isNaN(occMs)) return -1;
-	const todayUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-	return Math.round((occMs - todayUtcMidnight) / (24 * 60 * 60 * 1000));
-}
 
 /** True si au moins un participant a `day` dans le champ `field` (select multiple). */
 function atLeastOneParticipantWithDay(participants, day, field) {

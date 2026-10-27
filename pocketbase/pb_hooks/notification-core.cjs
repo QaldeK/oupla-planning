@@ -25,6 +25,19 @@ const JX_EVENT_TYPES = new Set([
 	'confirmation_needed'
 ]);
 
+/**
+ * Types d'events issus du hook occurrence-update : l'état de l'occurrence
+ * (annulée, supprimée…) EST la nouvelle à délivrer — un event de ce groupe
+ * reste consommable même si l'occ est passée en deleted/isCanceled depuis
+ * son insertion.
+ */
+const CHANGE_EVENT_TYPES = new Set([
+	'status_canceled',
+	'status_deleted',
+	'schedule_change',
+	'status_confirmed'
+]);
+
 /** Fallback générique d'auteur dans les notifications (email agrégé + terminal). */
 const UNKNOWN_AUTHOR = 'un·e administrateur·ice';
 
@@ -45,6 +58,7 @@ module.exports = {
 	MAX_CONTENT_PREVIEW,
 	TASK_TYPE_LABEL,
 	JX_EVENT_TYPES,
+	CHANGE_EVENT_TYPES,
 	MISSING_EVENT_TYPES,
 	UNKNOWN_AUTHOR,
 	buildContentPreview

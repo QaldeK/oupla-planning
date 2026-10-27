@@ -25,15 +25,11 @@
  */
 
 const { parseJsonArray } = require(`${__hooks}/pb-helpers.cjs`);
-const { JX_EVENT_TYPES, MISSING_EVENT_TYPES } = require(`${__hooks}/notification-core.cjs`);
-
-/** Types d'events issus du hook update (C2) — déclenchés par `onOccurrenceChange`. */
-const CHANGE_EVENT_TYPES = [
-	'status_canceled',
-	'status_deleted',
-	'schedule_change',
-	'status_confirmed'
-];
+const {
+	CHANGE_EVENT_TYPES,
+	JX_EVENT_TYPES,
+	MISSING_EVENT_TYPES
+} = require(`${__hooks}/notification-core.cjs`);
 
 /** Catégories de filtre response par type d'event. */
 const RESPONSE_FILTER = {

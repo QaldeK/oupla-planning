@@ -14,6 +14,12 @@
  *   par (user, master) et envoie via SMTP. Push 1 par event J-X pour les users
  *   qui ont activé `push`. Circuit breaker SMTP après 3 échecs consécutifs.
  *
+ *   Contrat de `processedAt` (notification-consumer.js) : état TERMINAL.
+ *   Tout event vivant sort du run consommé (email envoyé, ou aucun email
+ *   possible) ou mort (occurrence passée/annulée/supprimée, master disparu) ;
+ *   le seul état pending résiduel est l'attente de retry email (SMTP down),
+ *   borné par le garde d'obsolescence.
+ *
  * La fusion des deux phases dans un seul cron garantit l'ordre séquentiel
  * (insertion → envoi) sans scheduling parallèle, et produit un seul log
  * zerolog final.
@@ -37,6 +43,9 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	const { dispatchPushForEvent } = require(`${__hooks}/push-dispatch.js`);
 	const { insertEvent, createMasterContextResolver, resolveUserName } = require(
 		`${__hooks}/notification-events.cjs`
+	);
+	const { classifyPendingEvent, splitTerminalItems } = require(
+		`${__hooks}/notification-consumer.js`
 	);
 	const { UNKNOWN_AUTHOR } = require(`${__hooks}/notification-core.cjs`);
 
@@ -180,24 +189,34 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 		return occ;
 	};
 
-	// Pré-calcul des items : pour chaque event, on résout {record, eventPlain,
-	// master, occ, recipients}. Le payload event-level (missings counts) est
-	// enrichi une seule fois par event.
+	// Pré-calcul des items : pour chaque event, classification (mort-né /
+	// obsolète → marquage direct) puis résolution {record, eventPlain, master,
+	// occ, recipients}. Le payload event-level (missings counts) est enrichi
+	// une seule fois par event. `bucketKeys` accumule les buckets email qui
+	// portent l'event — vide = aucun destinataire email possible.
 	const processedAt = nowIsoCompat();
 	const eventItems = [];
+	const deadItems = [];
+	let phase2Unreadable = 0;
 	for (const eventRecord of pendingEvents) {
 		const masterId = eventRecord.getString('master');
 		const occId = eventRecord.getString('occurrence');
 		const type = eventRecord.getString('type');
 
 		const masterCtx = getMasterContext(masterId);
-		if (!masterCtx) continue;
-		// Destinataires indéterminés (lecture participants échouée, loggée par le
-		// resolver) : pas d'email plutôt qu'un email sans ses destinataires.
-		if (masterCtx.participants === null) continue;
-
 		const occ = getOcc(occId);
-		if (!occ || occ.getBool('deleted') || occ.getBool('isCanceled')) continue;
+		const cls = classifyPendingEvent({ type, occ, masterCtx, now });
+		if (cls.kind === 'dead') {
+			deadItems.push({ record: eventRecord, reason: cls.reason });
+			continue;
+		}
+		// Destinataires indéterminés (lecture participants échouée, loggée par
+		// le resolver) : panne transitoire → retry au prochain cron, borné par
+		// le garde d'obsolescence (l'event meurt quand l'occurrence passe).
+		if (masterCtx.participants === null) {
+			phase2Unreadable++;
+			continue;
+		}
 
 		// `new_comment` porte son payload dans la DB (inséré par le hook) ; les
 		// autres types le calculent à l'envoi via buildEventPayload (missings).
@@ -230,7 +249,8 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			master: masterCtx.master,
 			occ,
 			recipients,
-			participants: masterCtx.participants
+			participants: masterCtx.participants,
+			bucketKeys: []
 		});
 	}
 
@@ -299,6 +319,7 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 				};
 				buffer.set(key, bucket);
 			}
+			item.bucketKeys.push(key);
 			const enrichedEvent = {
 				...item.event,
 				payload: {
@@ -316,14 +337,17 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	}
 
 	// Envoi des emails avec circuit breaker SMTP.
+	// Le marquage des events n'a pas lieu ici : il se fait dans le balayage
+	// terminal, après connaissances de tous les buckets en échec.
 	let emailsSent = 0;
-	let pushSent = 0;
 	let consecutiveSmtpFailures = 0;
 	let smtpErrors = 0;
 	let bufferSkipped = 0;
+	const failedBucketKeys = new Set();
 
-	for (const [, bucket] of buffer) {
+	for (const [bucketKey, bucket] of buffer) {
 		if (consecutiveSmtpFailures >= MAX_SMTP_FAILURES) {
+			failedBucketKeys.add(bucketKey);
 			bufferSkipped++;
 			continue;
 		}
@@ -373,6 +397,9 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			html = buildHtmlEmail(bucket.master, eventsForTemplate, user, ctx);
 			text = buildTextEmail(bucket.master, eventsForTemplate, user, ctx);
 		} catch (err) {
+			// Le rendu restera en échec tant que la donnée n'est pas corrigée :
+			// le bucket attend le retry, borné par le garde d'obsolescence.
+			failedBucketKeys.add(bucketKey);
 			$app
 				.logger()
 				.error(
@@ -396,26 +423,10 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			});
 			emailsSent++;
 			consecutiveSmtpFailures = 0;
-
-			// Tous les events du bucket sont marqués traités (envoi agrégé réussi).
-			for (const it of bucket.items) {
-				try {
-					it.record.set('processedAt', processedAt);
-					$app.save(it.record);
-				} catch (saveErr) {
-					$app
-						.logger()
-						.error(
-							'[Notif] Phase 2 — processedAt save failed',
-							'cron',
-							'notifications-daily',
-							'err',
-							saveErr?.message || String(saveErr)
-						);
-				}
-			}
 		} catch (err) {
-			// sendIndividualEmail rethrow sur SMTP fail — on log et on compte.
+			// sendIndividualEmail rethrow sur SMTP fail — les events du bucket
+			// attendent le retry du prochain cron (seule survie pending autorisée).
+			failedBucketKeys.add(bucketKey);
 			consecutiveSmtpFailures++;
 			smtpErrors++;
 			$app
@@ -449,8 +460,72 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	}
 
 	// ========================================================================
+	// Balayage terminal — contrat de `processedAt` : tout event vivant sort du
+	// run soit consommé (email envoyé, ou aucun email possible), soit en
+	// attente de retry email (SMTP down). Les morts-nés sont marqués sans
+	// envoi : plus aucune ligne n'est laissée pending par défaillance.
+	// ========================================================================
+	let markedDead = 0;
+	const deadReasons = {
+		master_gone: 0,
+		occ_missing: 0,
+		occ_deleted: 0,
+		occ_canceled: 0,
+		stale_occurrence: 0
+	};
+	for (const d of deadItems) {
+		try {
+			d.record.set('processedAt', processedAt);
+			$app.save(d.record);
+			markedDead++;
+			deadReasons[d.reason] = (deadReasons[d.reason] || 0) + 1;
+		} catch (err) {
+			$app
+				.logger()
+				.error(
+					'[Notif] Phase 2 — dead mark failed',
+					'cron',
+					'notifications-daily',
+					'reason',
+					d.reason,
+					'err',
+					err?.message || String(err)
+				);
+		}
+	}
+
+	const { terminal: terminalItems, retry: retryItems } = splitTerminalItems(
+		eventItems,
+		failedBucketKeys
+	);
+	let markedTerminal = 0;
+	for (const it of terminalItems) {
+		try {
+			it.record.set('processedAt', processedAt);
+			$app.save(it.record);
+			markedTerminal++;
+		} catch (err) {
+			$app
+				.logger()
+				.error(
+					'[Notif] Phase 2 — terminal mark failed',
+					'cron',
+					'notifications-daily',
+					'err',
+					err?.message || String(err)
+				);
+		}
+	}
+	const pendingRetry = retryItems.length + phase2Unreadable;
+
+	// ========================================================================
 	// PUSH J-X — dispatch unifié avec le hook update (push-dispatch.js)
 	// ========================================================================
+	// Uniquement pour les events consommés : un event en retry email (SMTP
+	// down) repart intégralement au prochain cron, push compris — un event
+	// n'est jamais poussé deux fois, et un push seul ne se répète pas chaque
+	// nuit faute de marquage.
+	//
 	// Cache user partagé entre events : un même user peut être destinataire
 	// de plusieurs events du même cron run.
 	const userCache = new Map();
@@ -466,7 +541,8 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 		return u;
 	};
 
-	for (const item of eventItems) {
+	let pushSent = 0;
+	for (const item of terminalItems) {
 		if (!JX_EVENT_TYPES.has(item.event.type)) continue;
 
 		pushSent += dispatchPushForEvent($app, {
@@ -512,7 +588,23 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			'phase2_bufferSkipped',
 			bufferSkipped,
 			'phase2_circuitBreaker',
-			consecutiveSmtpFailures >= MAX_SMTP_FAILURES ? 1 : 0
+			consecutiveSmtpFailures >= MAX_SMTP_FAILURES ? 1 : 0,
+			'phase2_markedDead',
+			markedDead,
+			'phase2_deadMasterGone',
+			deadReasons.master_gone,
+			'phase2_deadOccMissing',
+			deadReasons.occ_missing,
+			'phase2_deadOccDeleted',
+			deadReasons.occ_deleted,
+			'phase2_deadOccCanceled',
+			deadReasons.occ_canceled,
+			'phase2_deadStale',
+			deadReasons.stale_occurrence,
+			'phase2_markedTerminal',
+			markedTerminal,
+			'phase2_pendingRetry',
+			pendingRetry
 		);
 });
 

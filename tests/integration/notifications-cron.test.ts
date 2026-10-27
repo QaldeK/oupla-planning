@@ -209,6 +209,7 @@ async function seedCronScenario(
 			reminderDays?: string[];
 			missingDays?: string[];
 			onConfirmationNeeded?: boolean;
+			onOccurrenceChange?: boolean;
 		};
 	}
 ): Promise<{ master: PlanningMaster; occ: PlanningOccurrence; userId: string }> {
@@ -290,6 +291,7 @@ async function seedCronScenario(
 		push: prefs.push ?? false,
 		reminderDays: prefs.reminderDays || [],
 		missingDays: prefs.missingDays || [],
+		onOccurrenceChange: prefs.onOccurrenceChange ?? false,
 		onConfirmationNeeded: prefs.onConfirmationNeeded ?? false
 	});
 
@@ -510,9 +512,11 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		expect(pendingEvents.length).toBe(events.length);
 	});
 
-	it("destinataire sans pref email → pas destinataire, event reste pending", async () => {
-		// Participant sans `email: true` dans sa pref → non destinataire → bucket vide.
-		// Le cron ne tente aucun envoi pour ce master → pas d'erreur SMTP, pas d'event traité.
+	it("planning push-only (email=false) → event consommé sans email (marqué terminal)", async () => {
+		// Participant avec email:false → aucun bucket email ne porte l'event.
+		// Le push (canal restant) part au run et l'event est marqué terminal :
+		// sans marquage, il serait re-diffusé chaque nuit par la boucle push,
+		// occurrence passée comprise.
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
@@ -524,15 +528,15 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 
 		const events = await listEventsForMaster(adminPb, master.id);
 		expect(events).toHaveLength(1);
-		// Pas de destinataire → event jamais traité.
-		expect(events[0].processedAt).toBe("");
+		// Aucun email possible → consommé au premier run, jamais re-poussé.
+		expect(events[0].processedAt).not.toBe("");
 	});
 
-	it("occ annulée entre Phase 1 et Phase 2 → event J-X skippé en Phase 2", async () => {
+	it("occ annulée entre Phase 1 et Phase 2 → J-X marqué mort, annulation en retry email", async () => {
 		const { master, occ } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"], onOccurrenceChange: true }
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -544,14 +548,84 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		// Annuler l'occ avant Phase 2. Hook C2 va insérer status_canceled en parallèle.
 		await adminPb.collection("planning_occurrences").update(occ.id, { isCanceled: true });
 
-		// Phase 2 : doit skipper l'event J-X car occ est canceled
+		// Phase 2
 		await runNotificationsCron(adminPb);
 
 		const events = await listEventsForMaster(adminPb, master.id);
+		// Le rappel J-X meurt avec l'occurrence : marqué sans envoi — il ne
+		// doit ni partir en email ni être re-poussé sur une occ annulée.
 		const jxEvents = jxEventsOnly(events);
 		expect(jxEvents).toHaveLength(1);
-		// L'event J-X reste pending car skipped en Phase 2.
-		expect(jxEvents[0].processedAt).toBe("");
+		expect(jxEvents[0].processedAt).not.toBe("");
+		// L'annulation elle-même EST la nouvelle à délivrer : SMTP réellement
+		// injoignable en test → l'event attend le retry du prochain cron.
+		const cancelEvents = events.filter((e) => e.type === "status_canceled");
+		expect(cancelEvents.length).toBeGreaterThanOrEqual(1);
+		expect(cancelEvents.every((e) => e.processedAt === "")).toBe(true);
+	});
+
+	it("event résiduel sur occurrence passée → marqué mort sans envoi (garde d'obsolescence)", async () => {
+		const { master, occ } = await seedCronScenario(adminPb, {
+			occDayOffset: -2, // passée : la phase 1 n'insère rien
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
+		});
+		scenarioIds.push({ masterId: master.id });
+
+		// Event résiduel (ex: laissé pending par une panne SMTP les jours passés).
+		await adminPb.collection("notification_events").create({
+			type: "reminder",
+			master: master.id,
+			occurrence: occ.id,
+			reminderValue: 3,
+			changedBy: "",
+			payload: null,
+			processedAt: ""
+		});
+
+		await withSmtpStub(adminPb, async (capture) => {
+			await runNotificationsCron(adminPb);
+			// Aucun email ne part pour une occurrence passée.
+			expect(capture.subjects.some((s) => s.includes(master.title))).toBe(false);
+		});
+
+		const events = await listEventsForMaster(adminPb, master.id);
+		expect(events).toHaveLength(1);
+		expect(events[0].processedAt).not.toBe("");
+	});
+
+	it("status_deleted sur occurrence supprimée → délivré par email et marqué", async () => {
+		const { master, occ } = await seedCronScenario(adminPb, {
+			occDayOffset: 3,
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"], onOccurrenceChange: true }
+		});
+		scenarioIds.push({ masterId: master.id });
+
+		// Event résiduel antérieur à la suppression (laissé pending par une panne).
+		await adminPb.collection("notification_events").create({
+			type: "status_deleted",
+			master: master.id,
+			occurrence: occ.id,
+			reminderValue: 0,
+			changedBy: "",
+			payload: null,
+			processedAt: ""
+		});
+
+		// Soft-delete : le hook occurrence-update insère son propre status_deleted.
+		await adminPb.collection("planning_occurrences").update(occ.id, { deleted: true });
+
+		await withSmtpStub(adminPb, async (capture) => {
+			await runNotificationsCron(adminPb);
+			// La suppression EST la nouvelle : elle part en email (agrégé).
+			expect(capture.subjects.some((s) => s.includes(master.title))).toBe(true);
+		});
+
+		const events = await listEventsForMaster(adminPb, master.id);
+		const deletions = events.filter((e) => e.type === "status_deleted");
+		expect(deletions.length).toBeGreaterThanOrEqual(2);
+		expect(deletions.every((e) => e.processedAt !== "")).toBe(true);
 	});
 });
 
@@ -821,11 +895,12 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			expect(countForTitle(capture, title)).toBe(0);
 		});
 
-		// L'event n'étant dans aucun bucket, il n'est pas marqué traité.
+		// L'event filtré pour tous ses destinataires est consommé sans email :
+		// le marquage terminal évite qu'il traîne en pending éternel.
 		const events = await listEventsForMaster(adminPb, master.id);
 		const nc = events.filter((e) => e.type === "new_comment");
 		expect(nc).toHaveLength(1);
-		expect(nc[0].processedAt).toBe("");
+		expect(nc[0].processedAt).not.toBe("");
 	});
 
 	it("filtre déjà lu : pas de commentReadState[occId] → email inclus (jamais visité = non lu)", async () => {

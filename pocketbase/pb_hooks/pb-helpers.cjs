@@ -58,8 +58,29 @@ function resolveMinPresentRequired(occurrence, master) {
 	return Number(master.getInt('minPresentRequired')) || 0;
 }
 
+/**
+ * Nombre de jours (entier) entre `now` (UTC minuit) et la date d'une occurrence
+ * (UTC minuit). Positif pour une occ future, 0 aujourd'hui, négatif pour le
+ * passé. Arrondi pour tolérer d'éventuels décalages sub-journaliers dans le
+ * stockage PocketBase. Date illisible → -1 (traitée comme passée).
+ *
+ * @param {string} occDateRaw — champ `date` d'une occurrence
+ * @param {Date} now — horloge injectée (UTC)
+ * @returns {number}
+ */
+function computeDaysUntil(occDateRaw, now) {
+	if (!occDateRaw) return -1;
+	const day = String(occDateRaw).split(' ')[0].split('T')[0];
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return -1;
+	const occMs = new Date(`${day}T00:00:00Z`).getTime();
+	if (Number.isNaN(occMs)) return -1;
+	const todayUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+	return Math.round((occMs - todayUtcMidnight) / (24 * 60 * 60 * 1000));
+}
+
 module.exports = {
 	parseJsonArray,
 	readRecurrenceType,
-	resolveMinPresentRequired
+	resolveMinPresentRequired,
+	computeDaysUntil
 };
