@@ -12,6 +12,7 @@ export const Collections = {
 	Otps: "_otps",
 	Superusers: "_superusers",
 	ContactMessages: "contact_messages",
+	NotificationDeliveries: "notification_deliveries",
 	NotificationEvents: "notification_events",
 	PlanningLocks: "planning_locks",
 	PlanningMasters: "planning_masters",
@@ -109,6 +110,19 @@ export type ContactMessagesRecord = {
 	name?: string
 	subject?: string
 	updated: IsoAutoDateString
+}
+
+export type NotificationDeliveriesRecord = {
+	created: IsoAutoDateString
+	emailSentAt?: IsoDateString
+	emailWaivedAt?: IsoDateString
+	event: RecordIdString
+	id: string
+	master: RecordIdString
+	pushSentAt?: IsoDateString
+	pushWaivedAt?: IsoDateString
+	updated: IsoAutoDateString
+	user: RecordIdString
 }
 
 export const NotificationEventsTypeOptions = {
@@ -271,6 +285,7 @@ export type MfasResponse<Texpand = unknown> = Required<MfasRecord> & BaseSystemF
 export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemFields<Texpand>
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
 export type ContactMessagesResponse<Texpand = unknown> = Required<ContactMessagesRecord> & BaseSystemFields<Texpand>
+export type NotificationDeliveriesResponse<Texpand = unknown> = Required<NotificationDeliveriesRecord> & BaseSystemFields<Texpand>
 export type NotificationEventsResponse<Tpayload = unknown, Texpand = unknown> = Required<NotificationEventsRecord<Tpayload>> & BaseSystemFields<Texpand>
 export type PlanningLocksResponse<Texpand = unknown> = Required<PlanningLocksRecord> & BaseSystemFields<Texpand>
 export type PlanningMastersResponse<TavailableResponseTypes = unknown, Tparticipants = unknown, Trecurrence = unknown, Ttasks = unknown, TtimeSlots = unknown, Texpand = unknown> = Required<PlanningMastersRecord<TavailableResponseTypes, Tparticipants, Trecurrence, Ttasks, TtimeSlots>> & BaseSystemFields<Texpand>
@@ -288,6 +303,7 @@ export type CollectionRecords = {
 	_otps: OtpsRecord
 	_superusers: SuperusersRecord
 	contact_messages: ContactMessagesRecord
+	notification_deliveries: NotificationDeliveriesRecord
 	notification_events: NotificationEventsRecord
 	planning_locks: PlanningLocksRecord
 	planning_masters: PlanningMastersRecord
@@ -304,6 +320,7 @@ export type CollectionResponses = {
 	_otps: OtpsResponse
 	_superusers: SuperusersResponse
 	contact_messages: ContactMessagesResponse
+	notification_deliveries: NotificationDeliveriesResponse
 	notification_events: NotificationEventsResponse
 	planning_locks: PlanningLocksResponse
 	planning_masters: PlanningMastersResponse

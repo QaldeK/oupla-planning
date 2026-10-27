@@ -17,13 +17,15 @@ flowchart TD
   HOOK["Hook occurrence-update<br/>notify-on-occurrence-update.pb.js"]
   DEL["Suppression de planning<br/>planning-deletion.pb.js"]
   EVENTS[("notification_events<br/>file d'attente")]
-  PHASE2["Cron, phase 2<br/>envoi agrégé"]
+  LEDGER[("notification_deliveries<br/>registre par destinataire")]
+  PHASE2["Cron, phase 2<br/>fan-out, vague push, buckets email"]
   MAIL["MailerMessage<br/>SMTP PocketBase"]
   PUSH["notify-service<br/>POST /notify"]
   CRON -->|"phase 1 : events J-X"| EVENTS
   HOOK -->|"change events + new_comment"| EVENTS
   DEL -->|"annulation de planning"| EVENTS
   EVENTS --> PHASE2
+  PHASE2 -->|"fan-out : 1 ligne par (event, destinataire)"| LEDGER
   PHASE2 --> MAIL
   PHASE2 --> PUSH
   HOOK -->|"push immédiat best-effort"| PUSH
@@ -67,6 +69,32 @@ service de push est externe (ADR-0005) ; il vit hors de ce dépôt.
 Types : `reminder`, `quorum_missing`, `task_unassigned`, `confirmation_needed`,
 `status_canceled`, `status_deleted`, `schedule_change`, `status_confirmed`, `new_comment`.
 
+## Registre `notification_deliveries`
+
+Une ligne par paire (event, destinataire métier) : la trace de « quelle paire
+(event, user) a été servie » sur chaque canal. C'est ce qui découple les
+canaux — un email qui échoue (même pour un seul destinataire d'un agrégat)
+n'affecte ni le push, ni les autres destinataires — et garantit exactement un
+email par (event, user), quelle que soit la cause d'échec.
+
+| Champ | Rôle |
+| --- | --- |
+| `event` / `user` | relation en cascade (purge des events, suppression de compte) |
+| `master` | dénormalisé pour le bucketing agrégé |
+| `emailSentAt` / `emailWaivedAt` | email : `''` = dû ; sinon envoyé ou renoncé (opt-out `email`, déjà lu, départ durable, clôture de mort) |
+| `pushSentAt` / `pushWaivedAt` | push : `''` = dû ; sinon envoyé ou renoncé (pref `push` off, type non-J-X, départ durable, clôture) |
+
+Index unique `(event, user)` ; API Rules toutes verrouillées (table interne,
+écrite uniquement par le cron). `notification-deliveries.cjs` est la porte
+d'écriture : upsert indexé au fan-out, réglage d'un canal jamais écrasé.
+
+États de fin d'un email dû (pas de cap d'attempts — un compteur ne
+distinguerait pas une panne SMTP globale d'une adresse morte) : envoi réussi,
+waive (opt-out, déjà lu, départ durable), mort de l'event (garde
+d'obsolescence), ou clôture résiduelle (event consommé hors cron). Une adresse
+morte est retentée une fois par jour, bornée par le garde d'obsolescence ;
+l'erreur loggée signale l'adresse à l'admin.
+
 ## Producteurs
 
 ### Cron quotidien — `cron-notifications.pb.js`
@@ -83,23 +111,45 @@ et insère les événements dus :
 | `task_unassigned` | J-X dans les `missingDays` d'un participant, une tâche a moins d'inscrits que `requiredVolunteers` |
 | `confirmation_needed` | master à `toConfirm`, occurrence non confirmée |
 
-**Phase 2 — envoi.** Consomme les lignes non traitées, calcule les destinataires, construit
-un email par (utilisateur, planning) et envoie un push par événement. Un circuit breaker
-SMTP coupe le reste du lot après trois échecs consécutifs.
+**Phase 2 — consommation via le registre.** Consomme les lignes non traitées
+dans l'ordre : clôture résiduelle (delivery due sur un event qui n'est plus
+pending → waive : couvre le cleanup `new_comment` du hook, qui pose
+`processedAt` hors cron, et tout save de clôture échoué) ; fan-out (upsert des
+deliveries manquantes, filtré aux destinataires avec au moins un canal actif —
+prefs lues à chaud, un destinataire qui rejoint à mi-fenêtre est servi) ;
+reaper (waive d'une delivery due seulement pour un départ durable :
+`hasQuit`, userId retiré du master, user supprimé — jamais pour une response
+ou une pref réversible) ; vague push J-X, avant et indépendamment de l'email ;
+buckets email agrégés par (utilisateur, planning) avec circuit breaker SMTP
+après trois échecs consécutifs ; dérivation terminale ; clôture à la mort.
 
 **Contrat de consommation.** `processedAt` est un état terminal — « l'event ne sera plus
-jamais touché » (`notification-consumer.js`). Tout event vivant sort du run soit consommé
-(email envoyé, ou aucun email possible : planning push-only, message déjà lu par tous),
-soit mort sans envoi : occurrence passée (garde d'obsolescence), annulée ou supprimée
-pour un event J-X/`new_comment`, master disparu. Les change events (`status_canceled`,
-`status_deleted`) font exception — l'état de l'occurrence EST la nouvelle à délivrer,
-l'event reste consommable. Le seul état pending résiduel est l'attente de retry email
-(SMTP en panne), borné par le garde d'obsolescence. Le push J-X ne part que pour les
-events consommés : un event n'est jamais poussé deux fois, et l'absence de marquage ne
-peut plus produire de re-push quotidien sur occurrence passée.
+jamais touché » (`notification-consumer.js`), dérivé du registre : un event vivant est
+consommé quand toutes ses deliveries ont leurs deux canaux réglés, d'emblée s'il n'en a
+aucune (espace vide de destinataires). La terminalité ne se déduit que pour les events
+passés par le fan-out du run — jamais d'un simple « 0 deliveries dues », sinon un event
+au fan-out sauté (participants illisibles) serait consommé à tort. Tout event vivant sort
+du run soit consommé, soit mort sans envoi : occurrence passée (garde d'obsolescence),
+annulée ou supprimée pour un event J-X/`new_comment`, master disparu. Les change events
+(`status_canceled`, `status_deleted`) font exception — l'état de l'occurrence EST la
+nouvelle à délivrer, l'event reste consommable. Le seul état pending résiduel est
+l'attente de retry email (SMTP en panne), borné par le garde d'obsolescence.
 
-**Purge.** Cron hebdomadaire (lundi 00h30) qui supprime les lignes en état terminal
-(`processedAt` posé) de plus de 60 jours.
+**Vague push J-X.** Elle part au premier run où l'event est vivant, avant et
+indépendamment de la boucle email (un SMTP down ne la retarde pas). Elle est
+unique **par destinataire** : seules les lignes dont le canal push est encore
+dû partent ; un destinataire apparu au run 2 sur un event encore vivant
+reçoit son push au run 2 (fan-out dynamique), ce n'est pas un doublon. Les
+types non-J-X naissent avec `pushWaivedAt` posé : leur push immédiat est fait
+par le hook occurrence-update, les re-pousser depuis le cron serait un
+doublon.
+
+**Purge.** Cron hebdomadaire (lundi 00h30) qui supprime **en natif**
+(`app.delete()`) les events terminaux (`processedAt` posé) de plus de 60
+jours — les cascades du schéma emportent leurs deliveries, pas de sweep
+indépendant. Un `DELETE` SQL brut ne convient pas ici : les cascades de
+relation sont appliquées par le runtime sur `app.delete()`, pas par des FK
+SQLite (précédent natif : `planning-purge`).
 
 ### Hook occurrence-update — `notify-on-occurrence-update.pb.js`
 
@@ -241,6 +291,19 @@ occurrence future. La notification reçue doit s'ouvrir sur
   inaccessible à cet instant, le push est perdu (pas d'email en secours, pas de retry) —
   c'est le prix de l'absence de re-push quotidien. L'email, lui, reste garanti par le
   retry.
+- **Jamais de `DELETE` SQL brut sur `notification_events`** en opérationnel : les
+  cascades de relation sont appliquées par le runtime sur `app.delete()`, pas par des
+  FK SQLite — un DELETE brut laisserait des deliveries orphelines. Le SQL brut reste
+  légitime en migration (chirurgie de schéma) et en test (`node:sqlite` pour vieillir
+  un champ `autodate`).
+- **Fenêtre résiduelle incompressible** : un save de marque (`emailSentAt`,
+  `pushSentAt`, `processedAt`) qui échoue après un envoi réussi fait repartir cet envoi
+  au run suivant — incompressible sans transaction SMTP+DB. La clôture résiduelle du
+  registre (delivery due sur event terminal → waive) borne le cas au run d'après et
+  couvre aussi tout futur écrivain de `processedAt` hors cron.
+- **Un waive n'est pas réversible** : opt-out, départ durable, clôture — revenir sur
+  la cause ne rouvre pas la ligne (fenêtre étroite, assumée). Une pref ou une response
+  réversible, en revanche, reste évaluée à chaud tant que la ligne est due.
 - **`app` est toujours injecté, jamais `$app`** dans les modules de notification : `$app`
   capturé dans un hook deadlocke sur le verrou d'écriture SQLite pendant la transaction du
   save parent.
@@ -253,7 +316,8 @@ occurrence future. La notification reçue doit s'ouvrir sur
 - `pocketbase/pb_hooks/cron-notifications.pb.js` — cron 00h UTC (phases 1 et 2) et purge
 - `pocketbase/pb_hooks/notify-on-occurrence-update.pb.js` — hook de changement d'occurrence et de commentaire
 - `pocketbase/pb_hooks/notification-events.cjs` — `insertEvent`, résolveur de contexte master
-- `pocketbase/pb_hooks/notification-consumer.js` — politique de consommation : classification mort/vivant, séparation consommé/retry email
+- `pocketbase/pb_hooks/notification-deliveries.cjs` — porte d'écriture du registre de livraison (upsert, réglage des canaux)
+- `pocketbase/pb_hooks/notification-consumer.js` — politique de consommation : classification mort/vivant, réglage des deliveries, prédicat du reaper, dérivation de terminalité
 - `pocketbase/pb_hooks/notification-jx-detector.js` / `occurrence-change-detector.js` / `new-comment-detector.js` — détecteurs purs
 - `pocketbase/pb_hooks/notification-recipients.js` — calcul des destinataires
 - `pocketbase/pb_hooks/notify-templates.js` — rendu email

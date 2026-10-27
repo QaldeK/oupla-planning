@@ -1,16 +1,21 @@
 /// <reference path="../pb_data/types.d.ts" />
 /**
- * Politique de consommation de la file `notification_events` (phase 2 du cron).
+ * Politique de consommation de la file `notification_events` et du registre
+ * `notification_deliveries` (phase 2 du cron).
  *
  * Contrat de `processedAt` : état TERMINAL — « cet event ne sera plus jamais
- * touché ». Trois chemins y conduisent :
- *   - mort-né ou obsolète (`classifyPendingEvent`) ;
- *   - consommé par email (tous ses buckets envoyés) ;
- *   - consommé sans email possible (aucun bucket email ne le porte).
+ * touché ». La terminalité se déduit du registre de livraison : un event est
+ * consommé quand toutes ses deliveries ont leurs deux canaux réglés (envoyé
+ * ou waivé), d'emblée s'il n'en a aucune (espace vide de destinataires).
+ * Les états de fin d'une delivery sont tous explicites : envoyée, waivée
+ * (opt-out, déjà lu, départ durable, clôture de mort), ou dûe — la seule
+ * survie dûe autorisée est l'attente de retry email (SMTP down), bornée par
+ * le garde d'obsolescence.
  *
- * Le SEUL état non terminal est l'attente de retry email (SMTP en panne ou
- * circuit breaker) : l'event repart au prochain cron, borné par le garde
- * d'obsolescence — une occurrence passée tue l'event au run suivant.
+ * ⚠️ La terminalité ne se déduit QUE pour les events qui ont passé le fan-out
+ * du run (garde anti « 0 deliveries dues » : un event au fan-out sauté —
+ * participants illisibles — serait sinon consommé à tort). C'est la
+ * responsabilité du caller, pas de `isEventTerminal`.
  *
  * Module PUR : pas d'accès DB, pas de logging, horloge injectée. Requiert
  * uniquement des helpers résolvables par Node (testable hors JSVM).
@@ -18,8 +23,6 @@
 
 const { computeDaysUntil } = require(`${__hooks}/pb-helpers.cjs`);
 const { CHANGE_EVENT_TYPES } = require(`${__hooks}/notification-core.cjs`);
-
-/** Raisons de mort d'un event (compteur de log côté cron). */
 
 /**
  * Classe un event pending au moment de sa préparation.
@@ -53,24 +56,57 @@ function classifyPendingEvent({ type, occ, masterCtx, now }) {
 }
 
 /**
- * Sépare les events vivants entre consommables et en attente de retry.
+ * Une delivery est réglée quand chacun de ses canaux est envoyé ou waivé.
+ * '' sur un canal = dû (l'email attend son envoi ou son retry).
  *
- * @param {Array<{bucketKeys: string[]}>} items — un item par event, avec la
- *        liste des buckets email qui le portent (vide = aucun destinataire
- *        email éligible : le push est la seule livraison, l'event est
- *        consommé dès qu'il est parti).
- * @param {Set<string>} failedBucketKeys — buckets non envoyés (échec SMTP,
- *        template, circuit breaker) : leurs events attendent le prochain cron.
- * @returns {{terminal: object[], retry: object[]}}
+ * @param {object} d — plain object des quatre marques de la row
+ * @returns {boolean}
  */
-function splitTerminalItems(items, failedBucketKeys) {
-	const terminal = [];
-	const retry = [];
-	for (const item of items) {
-		const blocked = (item.bucketKeys || []).some((k) => failedBucketKeys.has(k));
-		(blocked ? retry : terminal).push(item);
-	}
-	return { terminal, retry };
+function isDeliverySettled(d) {
+	return !!(d.emailSentAt || d.emailWaivedAt) && !!(d.pushSentAt || d.pushWaivedAt);
 }
 
-module.exports = { classifyPendingEvent, splitTerminalItems };
+/**
+ * Prédicat étroit du reaper : le départ du planning est-il durable ?
+ * Durable = le userId n'apparaît plus dans `master.participants`, ou toutes
+ * ses entrées portent `hasQuit` (une seule entrée active suffit à garder la
+ * ligne due — cas hasQuit + ré-inscription). Jamais vrai pour une response
+ * (`absent` réversible) ou une pref : ces états restent évalués à chaud.
+ * Liste indéterminée (null) → jamais un départ durable (on ne waive pas
+ * à l'aveugle).
+ *
+ * @param {Array<{userId: string, hasQuit?: boolean}>|null} participants
+ *        — tableau `master.participants` parsé
+ * @param {string} userId
+ * @returns {boolean}
+ */
+function isDepartureDurable(participants, userId) {
+	if (!Array.isArray(participants)) return false;
+	for (const p of participants) {
+		if (!p || p.userId !== userId) continue;
+		if (!p.hasQuit) return false;
+	}
+	return true;
+}
+
+/**
+ * Terminalité d'un event : toutes ses deliveries sont réglées. Un event sans
+ * delivery (espace vide de destinataires, ou aucun canal actif) est consommé
+ * d'emblée — SAUF si son fan-out a échoué, même partiellement : un tableau
+ * vide produit par des écritures ratées n'est pas un espace vide de
+ * destinataires, et une ligne manquante est invisible de la dérivation. À
+ * n'appeler que pour les events passés par le fan-out du run.
+ *
+ * @param {Array<object>} deliveries — plain objects des marques, TOUTES les
+ *        lignes de l'event (dues comme réglées)
+ * @param {object} [opts]
+ * @param {number} [opts.fanoutFailed=0] — échecs d'upsert du fan-out de ce
+ *        run pour cet event
+ * @returns {boolean}
+ */
+function isEventTerminal(deliveries, opts = {}) {
+	if (opts.fanoutFailed) return false;
+	return deliveries.every(isDeliverySettled);
+}
+
+module.exports = { classifyPendingEvent, isDeliverySettled, isDepartureDurable, isEventTerminal };

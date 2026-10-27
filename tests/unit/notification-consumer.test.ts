@@ -1,9 +1,10 @@
 import path from "path";
 import { describe, expect, it } from "vitest";
 
-// Politique de consommation de la file notification_events (phase 2 du cron).
-// Contrat de `processedAt` : état terminal — « cet event ne sera plus jamais
-// touché ». Les records PB sont mockés via mkRecord() (cf. jx-detector).
+// Politique de consommation de la file notification_events (phase 2 du cron)
+// et du registre notification_deliveries. Contrat de `processedAt` : état
+// terminal — « cet event ne sera plus jamais touché ». Les records PB sont
+// mockés via mkRecord() (cf. jx-detector).
 //
 // Couverture classifyPendingEvent :
 //   - master/occurrence introuvables → mort
@@ -12,16 +13,17 @@ import { describe, expect, it } from "vitest";
 //   - occurrence passée → mort (garde d'obsolescence, quel que soit le type)
 //   - borne « aujourd'hui » : vivant
 //
-// Couverture splitTerminalItems :
-//   - sans bucket email / buckets tous réussis → terminal
-//   - au moins un bucket en échec → retry (seule survie autorisée : SMTP down)
+// Couverture du registre deliveries :
+//   - isDeliverySettled : chaque canal envoyé ou waivé, '' = dû
+//   - isDepartureDurable : prédicat étroit du reaper (hasQuit / userId retiré,
+//     JAMAIS une response ou une pref réversible)
+//   - isEventTerminal : toutes deliveries réglées ; vide = consommé d'emblée
 
 const HOOKS_DIR = path.resolve(__dirname, "../../", "pocketbase/pb_hooks");
 (globalThis as any).__hooks = HOOKS_DIR;
 
-const { classifyPendingEvent, splitTerminalItems } = await import(
-	"../../pocketbase/pb_hooks/notification-consumer.js"
-);
+const { classifyPendingEvent, isDeliverySettled, isDepartureDurable, isEventTerminal } =
+	await import("../../pocketbase/pb_hooks/notification-consumer.js");
 
 // ============================================================================
 // Factory de mock pour core.Record
@@ -197,37 +199,112 @@ describe("classifyPendingEvent", () => {
 });
 
 // ============================================================================
-// splitTerminalItems
+// Registre deliveries — isDeliverySettled / isDepartureDurable / isEventTerminal
 // ============================================================================
 
-describe("splitTerminalItems", () => {
-	it("item sans bucket email → terminal (consommé sans email possible)", () => {
-		const item = { bucketKeys: [] as string[] };
-		const { terminal, retry } = splitTerminalItems([item], new Set(["b1"]));
-		expect(terminal).toEqual([item]);
-		expect(retry).toEqual([]);
+describe("isDeliverySettled", () => {
+	const SETTLED_EMAIL = { emailSentAt: "2026-07-19 00:00:00.000Z", emailWaivedAt: "" };
+	const SETTLED_PUSH = { pushSentAt: "2026-07-19 00:00:00.000Z", pushWaivedAt: "" };
+
+	it("les deux canaux envoyés → réglée", () => {
+		expect(isDeliverySettled({ ...SETTLED_EMAIL, ...SETTLED_PUSH })).toBe(true);
 	});
 
-	it("item dont tous les buckets ont réussi → terminal", () => {
-		const item = { bucketKeys: ["b1", "b2"] };
-		const { terminal, retry } = splitTerminalItems([item], new Set());
-		expect(terminal).toEqual([item]);
-		expect(retry).toEqual([]);
+	it("un canal envoyé, l'autre waivé → réglée", () => {
+		expect(
+			isDeliverySettled({
+				emailSentAt: "",
+				emailWaivedAt: "2026-07-19 00:00:00.000Z",
+				...SETTLED_PUSH
+			})
+		).toBe(true);
 	});
 
-	it("item avec un bucket en échec → retry (seule survie autorisée : SMTP down)", () => {
-		const item = { bucketKeys: ["b1", "b2"] };
-		const { terminal, retry } = splitTerminalItems([item], new Set(["b2"]));
-		expect(terminal).toEqual([]);
-		expect(retry).toEqual([item]);
+	it("email dû ('' des deux côtés) → non réglée", () => {
+		expect(isDeliverySettled({ emailSentAt: "", emailWaivedAt: "", ...SETTLED_PUSH })).toBe(false);
 	});
 
-	it("mélange d'items → séparation correcte", () => {
-		const consumed = { bucketKeys: [] };
-		const emailed = { bucketKeys: ["b1"] };
-		const blocked = { bucketKeys: ["b1", "b2"] };
-		const { terminal, retry } = splitTerminalItems([consumed, emailed, blocked], new Set(["b2"]));
-		expect(terminal).toEqual([consumed, emailed]);
-		expect(retry).toEqual([blocked]);
+	it("push dû → non réglée", () => {
+		expect(isDeliverySettled({ ...SETTLED_EMAIL, pushSentAt: "", pushWaivedAt: "" })).toBe(false);
+	});
+});
+
+describe("isDepartureDurable (reaper, prédicat étroit)", () => {
+	it("userId absent du master → départ durable", () => {
+		expect(isDepartureDurable([{ userId: "u1" }], "u2")).toBe(true);
+	});
+
+	it("liste vide → départ durable (plus aucune entrée)", () => {
+		expect(isDepartureDurable([], "u1")).toBe(true);
+	});
+
+	it("toutes les entrées hasQuit → départ durable", () => {
+		expect(
+			isDepartureDurable(
+				[
+					{ id: "p1", userId: "u1", hasQuit: true },
+					{ id: "p2", userId: "u1", hasQuit: true }
+				],
+				"u1"
+			)
+		).toBe(true);
+	});
+
+	it("une seule entrée active suffit → PAS un départ durable (cas hasQuit + ré-inscription)", () => {
+		expect(
+			isDepartureDurable(
+				[
+					{ id: "p1", userId: "u1", hasQuit: true },
+					{ id: "p2", userId: "u1" }
+				],
+				"u1"
+			)
+		).toBe(false);
+	});
+
+	it("entrée sans hasQuit → actif, pas un départ durable", () => {
+		expect(isDepartureDurable([{ id: "p1", userId: "u1" }], "u1")).toBe(false);
+	});
+
+	it("les autres users sont ignorés", () => {
+		expect(isDepartureDurable([{ id: "p1", userId: "u2", hasQuit: true }], "u1")).toBe(true);
+	});
+
+	it("participants indéterminés (null/absent) → JAMAIS un départ durable", () => {
+		expect(isDepartureDurable(null, "u1")).toBe(false);
+		expect(isDepartureDurable(undefined, "u1")).toBe(false);
+	});
+});
+
+describe("isEventTerminal", () => {
+	const SENT = {
+		emailSentAt: "2026-07-19 00:00:00.000Z",
+		emailWaivedAt: "",
+		pushSentAt: "2026-07-19 00:00:00.000Z",
+		pushWaivedAt: ""
+	};
+
+	it("aucune delivery (espace vide de destinataires) → consommé d'emblée", () => {
+		expect(isEventTerminal([])).toBe(true);
+	});
+
+	it("toutes les deliveries réglées → terminal", () => {
+		expect(isEventTerminal([{ ...SENT }, { ...SENT, emailSentAt: "", emailWaivedAt: "x" }])).toBe(
+			true
+		);
+	});
+
+	it("une delivery dont l'email est dû → non terminal (l'event attend le retry)", () => {
+		expect(isEventTerminal([{ ...SENT }, { ...SENT, emailSentAt: "", emailWaivedAt: "" }])).toBe(
+			false
+		);
+	});
+
+	it("fan-out en échec → JAMAIS terminal (garde N3 : tableau vide = écritures ratées)", () => {
+		expect(isEventTerminal([], { fanoutFailed: 3 })).toBe(false);
+	});
+
+	it("fan-out en échec partiel avec lignes réglées → non terminal (ligne manquante attendue)", () => {
+		expect(isEventTerminal([{ ...SENT }], { fanoutFailed: 1 })).toBe(false);
 	});
 });

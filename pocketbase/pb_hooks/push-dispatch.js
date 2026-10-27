@@ -34,6 +34,12 @@ const { parseJsonArray } = require(`${__hooks}/pb-helpers.cjs`);
  *                                            une version cachée (un même user peut être
  *                                            destinataire de plusieurs events) ; le hook
  *                                            passe un lookup direct.
+ * @param {function} [opts.onResult]        — `(userId, sent) => void` appelé après chaque
+ *                                            tentative réussie ou échouée (absent du
+ *                                            callback du hook, inchangé). Le cron l'utilise
+ *                                            pour marquer pushSentAt/pushWaivedAt par
+ *                                            destinataire — un userId sans callback est un
+ *                                            user que resolveUser n'a pas résolu.
  * @param {function} opts.buildPushTitle    — `(event, master) => string`
  * @param {function} opts.buildPushBody     — `(event, occ, recipient, occTasks) => string`
  * @param {function} opts.sendPushNotification — `(app, user, title, body, url) => void`
@@ -45,6 +51,7 @@ function dispatchPushForEvent(app, {
 	occ,
 	recipients,
 	resolveUser,
+	onResult,
 	buildPushTitle,
 	buildPushBody,
 	sendPushNotification
@@ -64,9 +71,11 @@ function dispatchPushForEvent(app, {
 		try {
 			sendPushNotification(app, user, title, body, url);
 			sent++;
+			if (onResult) onResult(r.userId, true);
 		} catch {
 			// sendPushNotification loggue ses propres erreurs en interne.
 			// Un échec ponctuel ne doit pas interrompre les envois restants.
+			if (onResult) onResult(r.userId, false);
 		}
 	}
 	return sent;

@@ -220,12 +220,7 @@
 				const pbUser = userStore.pbUser;
 				if (pbUser) {
 					try {
-						await ensurePlanningParticipant(
-							master.id,
-							pbUser.id,
-							master.recurrence.type,
-							isAdmin,
-						);
+						await ensurePlanningParticipant(master.id, pbUser.id, master.recurrence.type, isAdmin);
 					} catch (err) {
 						console.error("Erreur création planning_participant:", err);
 					}
@@ -304,9 +299,13 @@
 			// Pas de conflit → auto-add silencieux + fermer le modal
 			if (!autoAddedMasterIds.has(master.id)) {
 				autoAddedMasterIds.add(master.id);
-				void handlePlanningIdentify({ id: pbUser.id, name: pbUser.name, email: pbUser.email }, true, {
-					userId: pbUser.id,
-				});
+				void handlePlanningIdentify(
+					{ id: pbUser.id, name: pbUser.name, email: pbUser.email },
+					true,
+					{
+						userId: pbUser.id,
+					},
+				);
 			}
 			showClaimModal = false;
 		}

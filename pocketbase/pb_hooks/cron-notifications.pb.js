@@ -8,24 +8,33 @@
  *   Parcourt les occurrences dans la fenêtre à venir (today → today+20 jours) et
  *   insère dans `notification_events` les faits notifiables liés au timing.
  *
- * Phase 2 — Envoi agrégé.
- *   Consomme les events non traités, calcule les destinataires au runtime selon
- *   la matrice brainstorm § 3 + prefs individuelles, construit 1 email agrégé
- *   par (user, master) et envoie via SMTP. Push 1 par event J-X pour les users
- *   qui ont activé `push`. Circuit breaker SMTP après 3 échecs consécutifs.
+ * Phase 2 — Consommation via le registre de livraison `notification_deliveries`
+ *   (une ligne par paire event/destinataire, créée au fan-out) :
+ *   1. classification + clôture résiduelle (delivery due sur event terminal → waive) ;
+ *   2. fan-out (upsert des lignes manquantes, filtré aux destinataires avec au
+ *      moins un canal actif) + reaper (waive pour départ durable uniquement) ;
+ *   3. vague push J-X, avant et indépendamment de l'email ;
+ *   4. buckets email agrégés par (user, master), succès → emailSentAt ;
+ *   5. dérivation terminale : event consommé quand toutes ses deliveries ont
+ *      les deux canaux réglés — uniquement pour les events passés par le
+ *      fan-out de CE run (garde N3 : un event au fan-out sauté ne serait pas
+ *      consommé d'emblée) ;
+ *   6. clôture à la mort : event mort → bulk-waive de ses deliveries dues.
  *
- *   Contrat de `processedAt` (notification-consumer.js) : état TERMINAL.
- *   Tout event vivant sort du run consommé (email envoyé, ou aucun email
- *   possible) ou mort (occurrence passée/annulée/supprimée, master disparu) ;
- *   le seul état pending résiduel est l'attente de retry email (SMTP down),
- *   borné par le garde d'obsolescence.
+ *   Contrat de `processedAt` (notification-consumer.js) : état TERMINAL, tenu
+ *   en cohérence avec le ledger : tout event vivant sort du run consommé ou
+ *   mort ; le seul état pending résiduel est l'attente de retry email (SMTP
+ *   down), borné par le garde d'obsolescence.
  *
  * La fusion des deux phases dans un seul cron garantit l'ordre séquentiel
  * (insertion → envoi) sans scheduling parallèle, et produit un seul log
  * zerolog final.
  *
- * `notifications-purge` : cron hebdomadaire lundi 00h30 UTC, supprime les
- * rows `notification_events` traitées de plus de 60 jours.
+ * `notifications-purge` : cron hebdomadaire lundi 00h30 UTC, supprime en
+ * natif (`app.delete()`) les events terminaux de plus de 60 jours — les
+ * cascades du schéma emportent leurs deliveries. Un DELETE SQL brut ne
+ * cascade pas : les cascades de relation sont appliquées par le runtime sur
+ * app.delete(), pas par des FK SQLite.
  *
  * Tous les helpers nécessaires sont importés via `require()` au début du
  * handler : les fonctions top-level d'un `.pb.js` ne sont PAS visibles depuis
@@ -44,9 +53,10 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	const { insertEvent, createMasterContextResolver, resolveUserName } = require(
 		`${__hooks}/notification-events.cjs`
 	);
-	const { classifyPendingEvent, splitTerminalItems } = require(
+	const { classifyPendingEvent, isDeliverySettled, isDepartureDurable, isEventTerminal } = require(
 		`${__hooks}/notification-consumer.js`
 	);
+	const deliveryStore = require(`${__hooks}/notification-deliveries.cjs`);
 	const { UNKNOWN_AUTHOR } = require(`${__hooks}/notification-core.cjs`);
 
 	const {
@@ -162,11 +172,11 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	}
 
 	// ========================================================================
-	// PHASE 2 — Envoi agrégé
+	// PHASE 2 — Consommation via le registre de livraison
 	// ========================================================================
 
-	// Sélectionner les events non traités. `attempts` est ignoré (champ DB conservé
-	// pour compat, mais la logique de retry est remplacée par le circuit breaker).
+	// Sélectionner les events non traités. `attempts` est ignoré (champ DB
+	// conservé pour compat, sans aucune logique de retry).
 	const pendingEvents = $app.findRecordsByFilter(
 		'notification_events',
 		"processedAt = ''",
@@ -174,6 +184,85 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 		0,
 		0
 	);
+	const pendingIds = new Set(pendingEvents.map((e) => e.get('id')));
+	const processedAt = nowIsoCompat();
+
+	// Cache user partagé par tout le run : reaper, vague push, buckets et
+	// résolution des noms passent par le même lookup (un même user peut être
+	// destinataire de plusieurs events).
+	const userCache = new Map();
+	const getUser = (userId) => {
+		if (userCache.has(userId)) return userCache.get(userId);
+		let u = null;
+		try {
+			u = $app.findRecordById('users', userId);
+		} catch {
+			/* deleted */
+		}
+		userCache.set(userId, u);
+		return u;
+	};
+
+	// ------------------------------------------------------------------
+	// Clôture résiduelle : toute delivery dont un canal est dû alors que
+	// son event a quitté l'état pending est waivée. Défend la seconde porte
+	// d'écriture de `processedAt` (cleanup `new_comment` du hook
+	// occurrence-update, hors cron) et rattrape les saves de clôture échoués.
+	// Les events encore pending sont sautés : le flux de CE run les règle.
+	// ------------------------------------------------------------------
+	let residualWaived = 0;
+	try {
+		const dueRows = $app.findRecordsByFilter(
+			'notification_deliveries',
+			"(emailSentAt = '' && emailWaivedAt = '') || (pushSentAt = '' && pushWaivedAt = '')",
+			'',
+			0,
+			0
+		);
+		const terminalEventCache = new Map();
+		for (const row of dueRows) {
+			const evId = row.getString('event');
+			if (pendingIds.has(evId)) continue;
+			let ev = terminalEventCache.get(evId);
+			if (ev === undefined) {
+				try {
+					ev = $app.findRecordById('notification_events', evId);
+				} catch {
+					// Orpheline structurellement impossible (cascade sur event) :
+					// ne pas waiver à l'aveugle, la purge finira par l'emporter.
+					ev = null;
+				}
+				terminalEventCache.set(evId, ev);
+			}
+			if (!ev || ev.getString('processedAt') === '') continue;
+			try {
+				deliveryStore.closePending($app, row, processedAt);
+				residualWaived++;
+			} catch (err) {
+				$app
+					.logger()
+					.error(
+						'[Notif] Phase 2 — residual waive failed',
+						'cron',
+						'notifications-daily',
+						'eventId',
+						evId,
+						'err',
+						err?.message || String(err)
+					);
+			}
+		}
+	} catch (err) {
+		$app
+			.logger()
+			.error(
+				'[Notif] Phase 2 — residual due lookup failed',
+				'cron',
+				'notifications-daily',
+				'err',
+				err?.message || String(err)
+			);
+	}
 
 	// Cache des occurrences réutilisées entre events du même master/occ.
 	const occCache = new Map();
@@ -190,11 +279,9 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	};
 
 	// Pré-calcul des items : pour chaque event, classification (mort-né /
-	// obsolète → marquage direct) puis résolution {record, eventPlain, master,
-	// occ, recipients}. Le payload event-level (missings counts) est enrichi
-	// une seule fois par event. `bucketKeys` accumule les buckets email qui
-	// portent l'event — vide = aucun destinataire email possible.
-	const processedAt = nowIsoCompat();
+	// obsolète → marquage direct + clôture du ledger) puis résolution
+	// {record, eventPlain, master, occ, recipients}. Le payload event-level
+	// (missings counts) est enrichi une seule fois par event.
 	const eventItems = [];
 	const deadItems = [];
 	let phase2Unreadable = 0;
@@ -250,12 +337,204 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			occ,
 			recipients,
 			participants: masterCtx.participants,
-			bucketKeys: []
+			isJx: JX_EVENT_TYPES.has(type)
 		});
 	}
 
-	// Buffer (userId|masterId) → { userId, masterId, master, items: [{record, event, occ}] }
-	// Une entrée du buffer = 1 email agrégé à envoyer.
+	// ------------------------------------------------------------------
+	// Fan-out : upsert des deliveries (event, user) manquantes, filtré aux
+	// destinataires ayant au moins un canal actif (prefs lues à chaud, donc
+	// réévaluées chaque run — un muted n'a jamais de ligne). Le fan-out a
+	// lieu à la consommation, pas à l'insertion : le jeu de destinataires
+	// reste dynamique jusqu'à l'envoi. Les types non-J-X naissent avec
+	// pushWaivedAt posé : leur push immédiat est fait par le hook
+	// occurrence-update, les re-pousser depuis le cron serait un doublon.
+	//
+	// Puis reaper au prédicat étroit : une delivery due d'un user parti
+	// durablement (hasQuit, userId retiré du master, user supprimé) est
+	// waivée — jamais pour une response ou une pref réversible.
+	// ------------------------------------------------------------------
+	let fanoutCreated = 0;
+	let fanoutExisting = 0;
+	let reaperWaived = 0;
+	// eventId → lignes du registre (fetchées après upsert, réutilisées par la
+	// vague push et les buckets).
+	const deliveriesByEvent = new Map();
+	for (const item of eventItems) {
+		const eventId = item.record.get('id');
+		item.fanoutFailed = 0;
+		for (const r of item.recipients) {
+			if (!r.email && !r.push) continue;
+			try {
+				const { created } = deliveryStore.upsertDelivery(
+					$app,
+					{ eventId, userId: r.userId, masterId: item.event.master },
+					processedAt,
+					!item.isJx
+				);
+				if (created) fanoutCreated++;
+				else fanoutExisting++;
+			} catch (err) {
+				item.fanoutFailed++;
+				$app
+					.logger()
+					.error(
+						'[Notif] Phase 2 — fan-out upsert failed',
+						'cron',
+						'notifications-daily',
+						'eventId',
+						eventId,
+						'userId',
+						r.userId,
+						'err',
+						err?.message || String(err)
+					);
+			}
+		}
+
+		let rows = [];
+		try {
+			rows = deliveryStore.findByEvent($app, eventId);
+		} catch (err) {
+			$app
+				.logger()
+				.error(
+					'[Notif] Phase 2 — deliveries lookup failed',
+					'cron',
+					'notifications-daily',
+					'eventId',
+					eventId,
+					'err',
+					err?.message || String(err)
+				);
+		}
+		deliveriesByEvent.set(eventId, rows);
+
+		const masterParticipants = parseJsonArray(item.master, 'participants');
+		for (const row of rows) {
+			if (isDeliverySettled(deliveryStore.toPlain(row))) continue;
+			const userId = row.getString('user');
+			const departed =
+				isDepartureDurable(masterParticipants, userId) || !getUser(userId);
+			if (!departed) continue;
+			try {
+				deliveryStore.closePending($app, row, processedAt);
+				reaperWaived++;
+			} catch (err) {
+				$app
+					.logger()
+					.error(
+						'[Notif] Phase 2 — reaper waive failed',
+						'cron',
+						'notifications-daily',
+						'eventId',
+						eventId,
+						'userId',
+						userId,
+						'err',
+						err?.message || String(err)
+					);
+			}
+		}
+	}
+
+	// ------------------------------------------------------------------
+	// Vague push J-X — avant et indépendamment de la boucle email (un SMTP
+	// down ne la retarde pas). Unique par destinataire : seules les lignes
+	// dont le canal push est encore dû partent — un destinataire apparu au
+	// run 2 sur un event encore vivant reçoit SON push au run 2 (fan-out
+	// dynamique), ce n'est pas un doublon.
+	// ------------------------------------------------------------------
+	let pushMarkedSent = 0;
+	let pushMarkedWaived = 0;
+	for (const item of eventItems) {
+		if (!item.isJx) continue;
+		const rows = deliveriesByEvent.get(item.record.get('id')) || [];
+		const recByUser = new Map(item.recipients.map((r) => [r.userId, r]));
+		const pendingWave = [];
+		for (const row of rows) {
+			if (row.getString('pushSentAt') || row.getString('pushWaivedAt')) continue;
+			const r = recByUser.get(row.getString('user'));
+			if (!r || !r.push || !getUser(r.userId)) {
+				// Hors cible de la vague (pref push off, sorti du jeu de
+				// destinataires, user disparu) → waive explicite, pas de
+				// ligne push dûe qui traîne.
+				try {
+					if (deliveryStore.settlePush($app, row, processedAt, false)) {
+						pushMarkedWaived++;
+					}
+				} catch (err) {
+					$app
+						.logger()
+						.error(
+							'[Notif] Phase 2 — push waive failed',
+							'cron',
+							'notifications-daily',
+							'eventId',
+							item.record.get('id'),
+							'err',
+							err?.message || String(err)
+						);
+				}
+				continue;
+			}
+			pendingWave.push({ row, r });
+		}
+		if (pendingWave.length === 0) continue;
+
+		const rowByUser = new Map(pendingWave.map((p) => [p.r.userId, p.row]));
+		try {
+			dispatchPushForEvent($app, {
+				event: item.event,
+				master: item.master,
+				occ: item.occ,
+				recipients: pendingWave.map((p) => p.r),
+				resolveUser: getUser,
+				buildPushTitle,
+				buildPushBody,
+				sendPushNotification,
+				onResult: (userId, ok) => {
+					const row = rowByUser.get(userId);
+					if (!row) return;
+					try {
+						if (deliveryStore.settlePush($app, row, processedAt, ok)) {
+							if (ok) pushMarkedSent++;
+							else pushMarkedWaived++;
+						}
+					} catch (err) {
+						// Fenêtre résiduelle (symétrique de S6 email) : le push
+						// est parti, la marque n'est pas passée — la ligne
+						// restera dûe et repartira au prochain run.
+						$app
+							.logger()
+							.error(
+								'[Notif] Phase 2 — push mark failed',
+								'cron',
+								'notifications-daily',
+								'eventId',
+								item.record.get('id'),
+								'userId',
+								userId,
+								'err',
+								err?.message || String(err)
+							);
+					}
+				}
+			});
+		} catch (err) {
+			$app
+				.logger()
+				.error(
+					'[Notif] Phase 2 — push wave failed',
+					'cron',
+					'notifications-daily',
+					'eventId',
+					item.record.get('id'),
+					'err',
+					err?.message || String(err)
+				);
+		}
+	}
 
 	// Filtre "déjà lu" côté email : un destinataire qui a déjà lu le message
 	// (commentReadState[occId] ≥ commentCreatedAt) ne le reçoit pas dans l'email
@@ -283,13 +562,53 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 		return rs;
 	};
 
+	// ------------------------------------------------------------------
+	// Buckets email : deliveries dont l'email est dû, portées par un
+	// destinataire dont la pref live dit email:true et non filtrées « déjà
+	// lu ». Opt-out et déjà lu sont waivées d'emblée (le waive ne dépend
+	// pas du succès SMTP). Un destinataire sorti du jeu de destinataires
+	// pour une raison réversible (response absente…) reste dû — l'event
+	// survit jusqu'au garde d'obsolescence, la clôture à la mort règle la
+	// ligne.
+	// ------------------------------------------------------------------
+	let optOutWaived = 0;
+	let readWaived = 0;
+	// Buffer (userId|masterId) → { userId, masterId, master, items: [{delivery, event, occ}] }
+	// Une entrée du buffer = 1 email agrégé à envoyer.
 	const buffer = new Map();
 	for (const item of eventItems) {
 		const occTasks = parseJsonArray(item.occ, 'tasks');
-		for (const r of item.recipients) {
-			// Filtre canal email : r.email vient de computeRecipients (booléen
-			// de la row planning_participants).
-			if (!r.email) continue;
+		const recByUser = new Map(item.recipients.map((r) => [r.userId, r]));
+		const rows = deliveriesByEvent.get(item.record.get('id')) || [];
+		for (const row of rows) {
+			if (row.getString('emailSentAt') || row.getString('emailWaivedAt')) continue;
+			const r = recByUser.get(row.getString('user'));
+			if (!r) continue;
+
+			// Opt-out email : renoncer est le comportement voulu (l'opt-out
+			// est par planning) — waive immédiat, l'event n'attend pas.
+			if (!r.email) {
+				try {
+					if (deliveryStore.settleEmail($app, row, processedAt, false)) {
+						optOutWaived++;
+					}
+				} catch (err) {
+					$app
+						.logger()
+						.error(
+							'[Notif] Phase 2 — opt-out waive failed',
+							'cron',
+							'notifications-daily',
+							'eventId',
+							item.record.get('id'),
+							'userId',
+							r.userId,
+							'err',
+							err?.message || String(err)
+						);
+				}
+				continue;
+			}
 
 			// Filtre "déjà lu" par message (uniquement new_comment, uniquement
 			// email) : compare le timestamp de lecture de l'occ au timestamp de
@@ -303,6 +622,25 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 						createdAt &&
 						new Date(readAt).getTime() >= new Date(createdAt).getTime()
 					) {
+						try {
+							if (deliveryStore.settleEmail($app, row, processedAt, false)) {
+								readWaived++;
+							}
+						} catch (err) {
+							$app
+								.logger()
+								.error(
+									'[Notif] Phase 2 — read waive failed',
+									'cron',
+									'notifications-daily',
+									'eventId',
+									item.record.get('id'),
+									'userId',
+									r.userId,
+									'err',
+									err?.message || String(err)
+								);
+						}
 						continue;
 					}
 				}
@@ -319,7 +657,6 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 				};
 				buffer.set(key, bucket);
 			}
-			item.bucketKeys.push(key);
 			const enrichedEvent = {
 				...item.event,
 				payload: {
@@ -329,7 +666,7 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 				}
 			};
 			bucket.items.push({
-				record: item.record,
+				delivery: row,
 				event: enrichedEvent,
 				occ: item.occ
 			});
@@ -337,17 +674,16 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	}
 
 	// Envoi des emails avec circuit breaker SMTP.
-	// Le marquage des events n'a pas lieu ici : il se fait dans le balayage
-	// terminal, après connaissances de tous les buckets en échec.
+	// Le marquage de terminalité des events n'a pas lieu ici : il se dérive
+	// du registre après la boucle (un bucket en échec laisse ses lignes
+	// dues, donc l'event non terminal → retry au prochain cron).
 	let emailsSent = 0;
 	let consecutiveSmtpFailures = 0;
 	let smtpErrors = 0;
 	let bufferSkipped = 0;
-	const failedBucketKeys = new Set();
 
-	for (const [bucketKey, bucket] of buffer) {
+	for (const bucket of buffer.values()) {
 		if (consecutiveSmtpFailures >= MAX_SMTP_FAILURES) {
-			failedBucketKeys.add(bucketKey);
 			bufferSkipped++;
 			continue;
 		}
@@ -356,7 +692,25 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 		try {
 			user = $app.findRecordById('users', bucket.userId);
 		} catch {
-			// User supprimé entre-temps — abandonner ce bucket silencieusement.
+			// User supprimé entre-temps : waive des lignes du bucket — un
+			// compte disparu ne gardera jamais une delivery dûe.
+			for (const it of bucket.items) {
+				try {
+					deliveryStore.settleEmail($app, it.delivery, processedAt, false);
+				} catch (err) {
+					$app
+						.logger()
+						.error(
+							'[Notif] Phase 2 — deleted-user waive failed',
+							'cron',
+							'notifications-daily',
+							'userId',
+							bucket.userId,
+							'err',
+							err?.message || String(err)
+						);
+				}
+			}
 			bufferSkipped++;
 			continue;
 		}
@@ -399,7 +753,6 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 		} catch (err) {
 			// Le rendu restera en échec tant que la donnée n'est pas corrigée :
 			// le bucket attend le retry, borné par le garde d'obsolescence.
-			failedBucketKeys.add(bucketKey);
 			$app
 				.logger()
 				.error(
@@ -423,10 +776,31 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			});
 			emailsSent++;
 			consecutiveSmtpFailures = 0;
+			// Marquage après envoi : l'email parti ne repart pas. Fenêtre
+			// résiduelle assumée si un save échoue (identique à celle du
+			// marquage processedAt) — la clôture résiduelle du run suivant
+			// règle la ligne.
+			for (const it of bucket.items) {
+				try {
+					deliveryStore.settleEmail($app, it.delivery, processedAt, true);
+				} catch (err) {
+					$app
+						.logger()
+						.error(
+							'[Notif] Phase 2 — email mark failed',
+							'cron',
+							'notifications-daily',
+							'userId',
+							bucket.userId,
+							'err',
+							err?.message || String(err)
+						);
+				}
+			}
 		} catch (err) {
-			// sendIndividualEmail rethrow sur SMTP fail — les events du bucket
-			// attendent le retry du prochain cron (seule survie pending autorisée).
-			failedBucketKeys.add(bucketKey);
+			// sendIndividualEmail rethrow sur SMTP fail — les lignes du bucket
+			// restent dues et l'event non terminal : retry au prochain cron
+			// (seule survie pending autorisée).
 			consecutiveSmtpFailures++;
 			smtpErrors++;
 			$app
@@ -460,12 +834,72 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 	}
 
 	// ========================================================================
-	// Balayage terminal — contrat de `processedAt` : tout event vivant sort du
-	// run soit consommé (email envoyé, ou aucun email possible), soit en
-	// attente de retry email (SMTP down). Les morts-nés sont marqués sans
-	// envoi : plus aucune ligne n'est laissée pending par défaillance.
+	// Dérivation terminale — un event vivant est consommé quand toutes ses
+	// deliveries ont les deux canaux réglés (envoyé ou waivé) ; un espace
+	// vide de destinataires est consommé d'emblée. Garde N3 : la terminalité
+	// ne se déduit QUE pour les events passés par le fan-out de CE run —
+	// jamais d'un simple « 0 deliveries dues », sinon un event au fan-out
+	// sauté (participants illisibles) serait consommé à tort ; et pas non
+	// plus pour un fan-out en échec (un tableau vide produit par des
+	// écritures ratées n'est pas un espace vide de destinataires).
+	// ========================================================================
+	let markedTerminal = 0;
+	let pendingRetry = phase2Unreadable;
+	for (const item of eventItems) {
+		let rows;
+		try {
+			rows = deliveryStore.findByEvent($app, item.record.get('id'));
+		} catch (err) {
+			$app
+				.logger()
+				.error(
+					'[Notif] Phase 2 — terminality lookup failed',
+					'cron',
+					'notifications-daily',
+					'eventId',
+					item.record.get('id'),
+					'err',
+					err?.message || String(err)
+				);
+			pendingRetry++;
+			continue;
+		}
+		if (!isEventTerminal(rows.map((row) => deliveryStore.toPlain(row)), {
+			fanoutFailed: item.fanoutFailed
+		})) {
+			// Un email dû reste dû : retry du run suivant (seule survie
+			// pending autorisée, bornée par le garde d'obsolescence).
+			pendingRetry++;
+			continue;
+		}
+		try {
+			item.record.set('processedAt', processedAt);
+			$app.save(item.record);
+			markedTerminal++;
+		} catch (err) {
+			$app
+				.logger()
+				.error(
+					'[Notif] Phase 2 — terminal mark failed',
+					'cron',
+					'notifications-daily',
+					'eventId',
+					item.record.get('id'),
+					'err',
+					err?.message || String(err)
+				);
+			pendingRetry++;
+		}
+	}
+
+	// ========================================================================
+	// Clôture à la mort — event marqué mort → bulk-waive de ses deliveries
+	// dues : le ledger reste véridique, aucun email ne sortira jamais d'un
+	// event mort. Un save de clôture qui échoue est rattrapé par la clôture
+	// résiduelle du run suivant (l'event n'est alors plus pending).
 	// ========================================================================
 	let markedDead = 0;
+	let ledgerClosed = 0;
 	const deadReasons = {
 		master_gone: 0,
 		occ_missing: 0,
@@ -479,6 +913,18 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			$app.save(d.record);
 			markedDead++;
 			deadReasons[d.reason] = (deadReasons[d.reason] || 0) + 1;
+			const dueRows = $app.findRecordsByFilter(
+				'notification_deliveries',
+				"event = {:ev} && ((emailSentAt = '' && emailWaivedAt = '') || (pushSentAt = '' && pushWaivedAt = ''))",
+				'',
+				0,
+				0,
+				{ ev: d.record.get('id') }
+			);
+			for (const row of dueRows) {
+				deliveryStore.closePending($app, row, processedAt);
+				ledgerClosed++;
+			}
 		} catch (err) {
 			$app
 				.logger()
@@ -492,69 +938,6 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 					err?.message || String(err)
 				);
 		}
-	}
-
-	const { terminal: terminalItems, retry: retryItems } = splitTerminalItems(
-		eventItems,
-		failedBucketKeys
-	);
-	let markedTerminal = 0;
-	for (const it of terminalItems) {
-		try {
-			it.record.set('processedAt', processedAt);
-			$app.save(it.record);
-			markedTerminal++;
-		} catch (err) {
-			$app
-				.logger()
-				.error(
-					'[Notif] Phase 2 — terminal mark failed',
-					'cron',
-					'notifications-daily',
-					'err',
-					err?.message || String(err)
-				);
-		}
-	}
-	const pendingRetry = retryItems.length + phase2Unreadable;
-
-	// ========================================================================
-	// PUSH J-X — dispatch unifié avec le hook update (push-dispatch.js)
-	// ========================================================================
-	// Uniquement pour les events consommés : un event en retry email (SMTP
-	// down) repart intégralement au prochain cron, push compris — un event
-	// n'est jamais poussé deux fois, et un push seul ne se répète pas chaque
-	// nuit faute de marquage.
-	//
-	// Cache user partagé entre events : un même user peut être destinataire
-	// de plusieurs events du même cron run.
-	const userCache = new Map();
-	const getUser = (userId) => {
-		if (userCache.has(userId)) return userCache.get(userId);
-		let u = null;
-		try {
-			u = $app.findRecordById('users', userId);
-		} catch {
-			/* deleted */
-		}
-		userCache.set(userId, u);
-		return u;
-	};
-
-	let pushSent = 0;
-	for (const item of terminalItems) {
-		if (!JX_EVENT_TYPES.has(item.event.type)) continue;
-
-		pushSent += dispatchPushForEvent($app, {
-			event: item.event,
-			master: item.master,
-			occ: item.occ,
-			recipients: item.recipients,
-			resolveUser: getUser,
-			buildPushTitle,
-			buildPushBody,
-			sendPushNotification
-		});
 	}
 
 	// ========================================================================
@@ -579,10 +962,24 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			skippedUnreadableCtx,
 			'phase2_eventsProcessed',
 			eventItems.length,
+			'phase2_fanoutCreated',
+			fanoutCreated,
+			'phase2_fanoutExisting',
+			fanoutExisting,
+			'phase2_residualWaived',
+			residualWaived,
+			'phase2_reaperWaived',
+			reaperWaived,
+			'phase2_pushMarkedSent',
+			pushMarkedSent,
+			'phase2_pushMarkedWaived',
+			pushMarkedWaived,
+			'phase2_optOutWaived',
+			optOutWaived,
+			'phase2_readWaived',
+			readWaived,
 			'phase2_emailsSent',
 			emailsSent,
-			'phase2_pushSent',
-			pushSent,
 			'phase2_smtpErrors',
 			smtpErrors,
 			'phase2_bufferSkipped',
@@ -601,6 +998,8 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 			deadReasons.occ_canceled,
 			'phase2_deadStale',
 			deadReasons.stale_occurrence,
+			'phase2_ledgerClosed',
+			ledgerClosed,
 			'phase2_markedTerminal',
 			markedTerminal,
 			'phase2_pendingRetry',
@@ -609,26 +1008,45 @@ cronAdd('notifications-daily', '0 0 * * *', () => {
 });
 
 cronAdd('notifications-purge', '30 0 * * 1', () => {
+	// Purge native : boucle app.delete() pour que les cascades du schéma
+	// emportent les notification_deliveries de chaque event. Un DELETE SQL
+	// brut ne cascade pas (les cascades de relation sont appliquées par le
+	// runtime, pas par des FK SQLite). Même pattern de bornes bindées que la
+	// fenêtre de la phase 1 ; précédent : planning-purge.
+	const cutoffDate = new Date();
+	cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 60);
+	const cutoff = cutoffDate.toISOString().replace('T', ' ');
+
+	let deleted = 0;
+	let failed = 0;
 	try {
-		const where = "processedAt != '' AND processedAt < datetime('now', '-60 days')";
-
-		const counter = new DynamicModel({ total: 0 });
-		$app
-			.db()
-			.newQuery(`SELECT COUNT(*) as total FROM notification_events WHERE ${where}`)
-			.one(counter);
-
-		$app.db().newQuery(`DELETE FROM notification_events WHERE ${where}`).execute();
-
-		$app
-			.logger()
-			.info(
-				'[Notif] Purge notification_events',
-				'cron',
-				'notifications-purge',
-				'deleted',
-				counter.total || 0
-			);
+		const candidates = $app.findRecordsByFilter(
+			'notification_events',
+			"processedAt != '' && processedAt < {:cutoff}",
+			'',
+			0,
+			0,
+			{ cutoff }
+		);
+		for (const ev of candidates) {
+			try {
+				$app.delete(ev);
+				deleted++;
+			} catch (err) {
+				failed++;
+				$app
+					.logger()
+					.error(
+						'[Notif] Purge notification_events — delete failed',
+						'cron',
+						'notifications-purge',
+						'eventId',
+						ev.get('id'),
+						'err',
+						err?.message || String(err)
+					);
+			}
+		}
 	} catch (err) {
 		$app
 			.logger()
@@ -640,4 +1058,16 @@ cronAdd('notifications-purge', '30 0 * * 1', () => {
 				err?.message || String(err)
 			);
 	}
+
+	$app
+		.logger()
+		.info(
+			'[Notif] Purge notification_events',
+			'cron',
+			'notifications-purge',
+			'deleted',
+			deleted,
+			'failed',
+			failed
+		);
 });

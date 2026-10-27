@@ -88,7 +88,10 @@ function decodeMimeHeader(str: string): string {
 	});
 }
 
-async function startSmtpStub(capture: SmtpCapture): Promise<net.Server> {
+async function startSmtpStub(
+	capture: SmtpCapture,
+	opts: { rejectRcpt?: (address: string) => boolean } = {}
+): Promise<net.Server> {
 	const server = net.createServer((socket) => {
 		let mode: "command" | "data" = "command";
 		let buf = "";
@@ -116,9 +119,18 @@ async function startSmtpStub(capture: SmtpCapture): Promise<net.Server> {
 				if (line.startsWith("EHLO") || line.startsWith("HELO")) {
 					// Pas d'AUTH ni STARTTLS annoncés → le client Go n'authentifie pas.
 					socket.write("250-smtp.stub\r\n250 OK\r\n");
+				} else if (line.startsWith("RCPT TO:")) {
+					// Rejet RCPT permanent (adresse morte) : simule un destinataire
+					// dont la boîte rejette à tout jamais — le mailer Go échoue
+					// et le cron doit retenter ce destinataire seul au run suivant.
+					const addr = line.slice("RCPT TO:".length).trim();
+					if (opts.rejectRcpt?.(addr)) {
+						socket.write(`550 5.1.1 ${addr}: Recipient address rejected\r\n`);
+						continue;
+					}
+					socket.write("250 OK\r\n");
 				} else if (
 					line.startsWith("MAIL FROM:") ||
-					line.startsWith("RCPT TO:") ||
 					line.startsWith("RSET") ||
 					line.startsWith("NOOP")
 				) {
@@ -156,10 +168,11 @@ async function startSmtpStub(capture: SmtpCapture): Promise<net.Server> {
  */
 async function withSmtpStub<T>(
 	adminPb: PocketBase,
-	fn: (capture: SmtpCapture) => Promise<T>
+	fn: (capture: SmtpCapture) => Promise<T>,
+	opts: { rejectRcpt?: (address: string) => boolean } = {}
 ): Promise<T> {
 	const capture: SmtpCapture = { count: 0, subjects: [] };
-	const server = await startSmtpStub(capture);
+	const server = await startSmtpStub(capture, opts);
 	const originalSmtp = (await adminPb.settings.getAll()).smtp;
 	const addr = server.address();
 	if (!addr || typeof addr !== "object") throw new Error("SMTP stub non bindé");
@@ -296,6 +309,91 @@ async function seedCronScenario(
 	});
 
 	return { master, occ, userId: user.id };
+}
+
+/**
+ * Ajoute un second destinataire authentifié à un scénario existant : user,
+ * pref planning_participants, entrée dans `master.participants[]` et réponse
+ * sur l'occurrence. Sert au test multi-destinataires (doublon email).
+ */
+async function addRecipient(
+	pb: PocketBase,
+	scenario: { master: PlanningMaster; occ: PlanningOccurrence },
+	options: { email?: boolean; push?: boolean; response?: string } = {}
+): Promise<{ userId: string; email: string }> {
+	const email = `rcp-${Math.random().toString(36).slice(2)}@test.com`;
+	const user = await pb.collection("users").create({
+		email,
+		password: "password123",
+		passwordConfirm: "password123",
+		name: "Second Recipient",
+		emailVisibility: true,
+		verified: true
+	});
+	trackIds("users", user.id);
+
+	const participantId = `p-test-participant-${Math.random().toString(36).slice(2, 8)}`;
+	const participant: Participant = {
+		id: participantId,
+		name: "Second Recipient",
+		email,
+		isAdmin: false,
+		createdAt: new Date().toISOString(),
+		userId: user.id
+	};
+	const masterFresh = await pb
+		.collection("planning_masters")
+		.getOne<PlanningMaster>(scenario.master.id);
+	await pb.collection("planning_masters").update(scenario.master.id, {
+		participants: [...masterFresh.participants, participant as never]
+	});
+
+	const pp = await pb.collection("planning_participants").create({
+		planning: scenario.master.id,
+		user: user.id,
+		email: options.email ?? true,
+		push: options.push ?? false,
+		reminderDays: ["3"],
+		missingDays: ["3"],
+		onOccurrenceChange: false,
+		onConfirmationNeeded: false
+	});
+	trackIds("planning_participants", pp.id);
+
+	const occFresh = await pb
+		.collection("planning_occurrences")
+		.getOne<PlanningOccurrence>(scenario.occ.id);
+	await pb.collection("planning_occurrences").update(scenario.occ.id, {
+		responses: [
+			...occFresh.responses,
+			{
+				participantId,
+				response: options.response ?? "present",
+				tasks: [],
+				respondedAt: new Date().toISOString()
+			}
+		] as never
+	});
+
+	return { userId: user.id, email };
+}
+
+/** Ligne du registre `notification_deliveries` (type local — table interne du cron). */
+interface DeliveryRow {
+	id: string;
+	event: string;
+	user: string;
+	master: string;
+	emailSentAt: string;
+	emailWaivedAt: string;
+	pushSentAt: string;
+	pushWaivedAt: string;
+}
+
+async function listDeliveriesForEvent(pb: PocketBase, eventId: string): Promise<DeliveryRow[]> {
+	return pb.collection("notification_deliveries").getFullList<DeliveryRow>({
+		filter: `event = "${eventId}"`
+	});
 }
 
 /**
@@ -513,9 +611,10 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 	});
 
 	it("planning push-only (email=false) → event consommé sans email (marqué terminal)", async () => {
-		// Participant avec email:false → aucun bucket email ne porte l'event.
-		// Le push (canal restant) part au run et l'event est marqué terminal :
-		// sans marquage, il serait re-diffusé chaque nuit par la boucle push,
+		// Participant sans AUCUN canal actif (email:false, push:false) : le
+		// fan-out ne crée jamais de ligne pour lui — espace vide de
+		// destinataires → l'event est consommé d'emblée.
+		// Sans marquage, il serait re-diffusé chaque nuit par la boucle push,
 		// occurrence passée comprise.
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
@@ -626,6 +725,11 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		const deletions = events.filter((e) => e.type === "status_deleted");
 		expect(deletions.length).toBeGreaterThanOrEqual(2);
 		expect(deletions.every((e) => e.processedAt !== "")).toBe(true);
+		// Change event : le push immédiat est du ressort du hook — la vague
+		// cron ne les re-pousse jamais (pushWaivedAt posé dès le fan-out).
+		const dels = await listDeliveriesForEvent(adminPb, deletions[0].id);
+		expect(dels.length).toBeGreaterThanOrEqual(1);
+		expect(dels.every((d) => d.pushWaivedAt !== "")).toBe(true);
 	});
 });
 
@@ -976,5 +1080,371 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			expect(subject!).toContain("Modification");
 			expect(subject!).toContain("+ 2 nouveaux messages");
 		});
+	});
+});
+
+// ============================================================================
+// Registre notification_deliveries — découplage des canaux et exactly-once.
+// Les lignes naissent au fan-out du cron (à la consommation) ; chaque canal
+// se règle séparément (envoyé ou waivé) et la terminalité de l'event s'en
+// déduit. Les cas de waive : opt-out, déjà lu, départ durable (reaper),
+// clôture de mort, clôture résiduelle (event consommé hors cron).
+// ============================================================================
+
+describe("Cron notifications-daily — registre notification_deliveries", () => {
+	let adminPb: PocketBase;
+	const scenarioIds: { masterId: string }[] = [];
+
+	beforeEach(async () => {
+		clearTrackedIds();
+		adminPb = await authenticateAdmin();
+		scenarioIds.length = 0;
+	});
+
+	afterEach(async () => {
+		// La suppression des events emporte leurs deliveries par cascade.
+		for (const { masterId } of scenarioIds) {
+			const events = await adminPb
+				.collection("notification_events")
+				.getFullList({ filter: `master = "${masterId}"` });
+			for (const ev of events) {
+				await adminPb.collection("notification_events").delete(ev.id);
+			}
+		}
+		await cleanupTrackedRecords();
+	});
+
+	it("décisif : RCPT rejeté pour B → A servi exactement une fois, B seule retentée", async () => {
+		const scenario = await seedCronScenario(adminPb, {
+			occDayOffset: 3,
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
+		});
+		scenarioIds.push({ masterId: scenario.master.id });
+		const b = await addRecipient(adminPb, scenario, { email: true });
+
+		// Jour 1 : A reçoit, le RCPT de B est rejeté (adresse morte).
+		await withSmtpStub(
+			adminPb,
+			async (capture) => {
+				await runNotificationsCron(adminPb);
+				expect(capture.count).toBe(1);
+			},
+			{ rejectRcpt: (addr) => addr.includes(b.email) }
+		);
+
+		const events = await listEventsForMaster(adminPb, scenario.master.id);
+		const reminder = events.find((e) => e.type === "reminder")!;
+		const dels = await listDeliveriesForEvent(adminPb, reminder.id);
+		expect(dels).toHaveLength(2);
+		const delA = dels.find((d) => d.user === scenario.userId)!;
+		const delB = dels.find((d) => d.user === b.userId)!;
+		expect(delA.emailSentAt).not.toBe("");
+		expect(delB.emailSentAt).toBe("");
+		expect(delB.emailWaivedAt).toBe("");
+		// B due → l'event reste pending (retry du run suivant).
+		expect(reminder.processedAt).toBe("");
+
+		// Jour 2 : aucun doublon pour A, B seule retentée (et rejetée à nouveau).
+		await withSmtpStub(
+			adminPb,
+			async (capture) => {
+				await runNotificationsCron(adminPb);
+				expect(capture.count).toBe(0);
+			},
+			{ rejectRcpt: (addr) => addr.includes(b.email) }
+		);
+
+		const delsAfter = await listDeliveriesForEvent(adminPb, reminder.id);
+		const delAAfter = delsAfter.find((d) => d.user === scenario.userId)!;
+		const delBAfter = delsAfter.find((d) => d.user === b.userId)!;
+		expect(delAAfter.emailSentAt).not.toBe("");
+		expect(delBAfter.emailSentAt).toBe("");
+		expect(delBAfter.emailWaivedAt).toBe("");
+	});
+
+	it("clôture résiduelle : delivery due sur event consommé hors cron → waivée au run suivant", async () => {
+		const { master, occ, userId } = await seedCronScenario(adminPb, {
+			occDayOffset: 3,
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
+		});
+		scenarioIds.push({ masterId: master.id });
+
+		// Event new_comment consommé par le hook (cleanup à la suppression d'un
+		// commentaire) : processedAt posé hors cron, sa delivery restée due.
+		const ev = await adminPb.collection("notification_events").create({
+			type: "new_comment",
+			master: master.id,
+			occurrence: occ.id,
+			reminderValue: 0,
+			changedBy: "author-other-user",
+			payload: { commentId: "c1", commentCreatedAt: new Date().toISOString() },
+			processedAt: ""
+		});
+		await adminPb.collection("notification_events").update(ev.id, {
+			processedAt: "2026-10-26 00:00:00.000Z"
+		});
+		await adminPb.collection("notification_deliveries").create({
+			event: ev.id,
+			user: userId,
+			master: master.id
+		});
+		// Seconde ligne, autre destinataire : email réglé mais push dû — la
+		// lettre B1 dit « toute delivery due », les deux canaux sont couverts.
+		const other = await adminPb.collection("users").create({
+			email: `res-${Math.random().toString(36).slice(2)}@test.com`,
+			password: "password123",
+			passwordConfirm: "password123",
+			name: "Residual Recipient",
+			emailVisibility: true,
+			verified: true
+		});
+		trackIds("users", other.id);
+		await adminPb.collection("notification_deliveries").create({
+			event: ev.id,
+			user: other.id,
+			master: master.id,
+			emailSentAt: "2026-10-26 00:00:00.000Z"
+		});
+
+		// SMTP down : aucun envoi possible, la clôture résiduelle est le seul
+		// chemin qui règle la ligne.
+		await runNotificationsCron(adminPb);
+
+		const dels = await listDeliveriesForEvent(adminPb, ev.id);
+		expect(dels).toHaveLength(2);
+		const emailDue = dels.find((d) => d.user === userId)!;
+		expect(emailDue.emailWaivedAt).not.toBe("");
+		expect(emailDue.emailSentAt).toBe("");
+		const pushDue = dels.find((d) => d.user === other.id)!;
+		expect(pushDue.pushWaivedAt).not.toBe("");
+		expect(pushDue.pushSentAt).toBe("");
+		expect(pushDue.emailWaivedAt).toBe("");
+	});
+
+	it("reaper : hasQuit après fan-out → delivery waivée des deux canaux, event terminal", async () => {
+		const { master, userId } = await seedCronScenario(adminPb, {
+			occDayOffset: 3,
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
+		});
+		scenarioIds.push({ masterId: master.id });
+
+		// Run 1 (SMTP down) : fan-out, delivery due (email), push waived.
+		await runNotificationsCron(adminPb);
+		const events = await listEventsForMaster(adminPb, master.id);
+		const reminder = events.find((e) => e.type === "reminder")!;
+		let dels = await listDeliveriesForEvent(adminPb, reminder.id);
+		expect(dels[0].emailSentAt).toBe("");
+		expect(dels[0].emailWaivedAt).toBe("");
+
+		// Départ durable : hasQuit sur l'entrée du master.
+		const masterFresh = await adminPb
+			.collection("planning_masters")
+			.getOne<PlanningMaster>(master.id);
+		await adminPb.collection("planning_masters").update(master.id, {
+			participants: masterFresh.participants.map((p) =>
+				p.userId === userId ? { ...p, hasQuit: true } : p
+			)
+		});
+
+		await runNotificationsCron(adminPb);
+
+		dels = await listDeliveriesForEvent(adminPb, reminder.id);
+		expect(dels[0].emailWaivedAt).not.toBe("");
+		expect(dels[0].emailSentAt).toBe("");
+		// Les deux canaux réglés → l'event est consommé.
+		const eventsAfter = await listEventsForMaster(adminPb, master.id);
+		expect(eventsAfter.find((e) => e.id === reminder.id)!.processedAt).not.toBe("");
+	});
+
+	it("response réversible : absent pendant le retry → delivery reste due ; repasse present → l'email part", async () => {
+		const { master, occ, userId } = await seedCronScenario(adminPb, {
+			occDayOffset: 3,
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
+		});
+		scenarioIds.push({ masterId: master.id });
+		const setResponse = async (response: string) => {
+			const occFresh = await adminPb
+				.collection("planning_occurrences")
+				.getOne<PlanningOccurrence>(occ.id);
+			await adminPb.collection("planning_occurrences").update(occ.id, {
+				responses: occFresh.responses.map((r) =>
+					r.participantId === PARTICIPANT_ID ? { ...r, response } : r
+				) as never
+			});
+		};
+
+		await runNotificationsCron(adminPb); // SMTP down → delivery due
+		const events = await listEventsForMaster(adminPb, master.id);
+		const reminder = events.find((e) => e.type === "reminder")!;
+
+		// `absent` est réversible : le reaper ne touche pas à la ligne.
+		await setResponse("absent");
+		await runNotificationsCron(adminPb);
+		let dels = await listDeliveriesForEvent(adminPb, reminder.id);
+		expect(dels[0].user).toBe(userId);
+		expect(dels[0].emailSentAt).toBe("");
+		expect(dels[0].emailWaivedAt).toBe("");
+
+		// Retour à present : la ligne due repart dans le bucket.
+		await setResponse("present");
+		await withSmtpStub(adminPb, async (capture) => {
+			await runNotificationsCron(adminPb);
+			expect(capture.count).toBe(1);
+		});
+		dels = await listDeliveriesForEvent(adminPb, reminder.id);
+		expect(dels[0].emailSentAt).not.toBe("");
+		const eventsAfter = await listEventsForMaster(adminPb, master.id);
+		expect(eventsAfter.find((e) => e.id === reminder.id)!.processedAt).not.toBe("");
+	});
+
+	it("opt-out email=false avec push=true → emailWaivedAt + pushSentAt, event consommé sans email", async () => {
+		const { master } = await seedCronScenario(adminPb, {
+			occDayOffset: 3,
+			responses: [{ response: "present" }],
+			participantPrefs: { email: false, push: true, reminderDays: ["3"] }
+		});
+		scenarioIds.push({ masterId: master.id });
+
+		// SMTP down : l'email ne pouvait de toute façon pas partir — le waive
+		// opt-out est un choix explicite, pas un effet de la panne.
+		await runNotificationsCron(adminPb);
+
+		const events = await listEventsForMaster(adminPb, master.id);
+		const reminder = events.find((e) => e.type === "reminder")!;
+		const dels = await listDeliveriesForEvent(adminPb, reminder.id);
+		expect(dels).toHaveLength(1);
+		expect(dels[0].emailWaivedAt).not.toBe("");
+		expect(dels[0].emailSentAt).toBe("");
+		// Le push est marqué en DB (observation possible via le ledger ; la
+		// livraison HTTP elle-même est best-effort et silencieuse en test).
+		expect(dels[0].pushSentAt).not.toBe("");
+		expect(reminder.processedAt).not.toBe("");
+	});
+
+	it("vague push indépendante : email=true push=true SMTP down → pushSentAt mais event pending", async () => {
+		const { master } = await seedCronScenario(adminPb, {
+			occDayOffset: 3,
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, push: true, reminderDays: ["3"] }
+		});
+		scenarioIds.push({ masterId: master.id });
+
+		await runNotificationsCron(adminPb); // SMTP dev injoignable
+
+		const events = await listEventsForMaster(adminPb, master.id);
+		const reminder = events.find((e) => e.type === "reminder")!;
+		const dels = await listDeliveriesForEvent(adminPb, reminder.id);
+		expect(dels).toHaveLength(1);
+		// La vague push est partie (marquée) malgré la panne SMTP…
+		expect(dels[0].pushSentAt).not.toBe("");
+		expect(dels[0].pushWaivedAt).toBe("");
+		// …l'email reste dû → l'event attend le retry, jamais re-poussé.
+		expect(dels[0].emailSentAt).toBe("");
+		expect(dels[0].emailWaivedAt).toBe("");
+		expect(reminder.processedAt).toBe("");
+	});
+
+	it("staleness : event mort → deliveries dues clôturées (bulk-waive)", async () => {
+		const { master, occ, userId } = await seedCronScenario(adminPb, {
+			occDayOffset: -2, // passée : le garde d'obsolescence tue l'event
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
+		});
+		scenarioIds.push({ masterId: master.id });
+
+		// Event qui a passé un fan-out dans un run antérieur, delivery restée
+		// due (échec SMTP), occurrence passée depuis.
+		const ev = await adminPb.collection("notification_events").create({
+			type: "reminder",
+			master: master.id,
+			occurrence: occ.id,
+			reminderValue: 3,
+			changedBy: "",
+			payload: null,
+			processedAt: ""
+		});
+		await adminPb.collection("notification_deliveries").create({
+			event: ev.id,
+			user: userId,
+			master: master.id
+		});
+		// Seconde ligne, autre destinataire : email réglé, push dû — la
+		// clôture à la mort règle tout canal resté dû (ledger véridique).
+		const other = await adminPb.collection("users").create({
+			email: `stale-${Math.random().toString(36).slice(2)}@test.com`,
+			password: "password123",
+			passwordConfirm: "password123",
+			name: "Stale Recipient",
+			emailVisibility: true,
+			verified: true
+		});
+		trackIds("users", other.id);
+		await adminPb.collection("notification_deliveries").create({
+			event: ev.id,
+			user: other.id,
+			master: master.id,
+			emailSentAt: "2026-10-26 00:00:00.000Z"
+		});
+
+		await runNotificationsCron(adminPb);
+
+		const events = await listEventsForMaster(adminPb, master.id);
+		expect(events[0].processedAt).not.toBe("");
+		const dels = await listDeliveriesForEvent(adminPb, ev.id);
+		expect(dels).toHaveLength(2);
+		const emailDue = dels.find((d) => d.user === userId)!;
+		expect(emailDue.emailWaivedAt).not.toBe("");
+		expect(emailDue.pushWaivedAt).not.toBe("");
+		expect(emailDue.emailSentAt).toBe("");
+		const pushDue = dels.find((d) => d.user === other.id)!;
+		expect(pushDue.pushWaivedAt).not.toBe("");
+	});
+});
+
+describe("Cron notifications-purge — purge native avec cascade deliveries", () => {
+	let adminPb: PocketBase;
+
+	beforeEach(async () => {
+		clearTrackedIds();
+		adminPb = await authenticateAdmin();
+	});
+
+	afterEach(async () => {
+		await cleanupTrackedRecords();
+	});
+
+	it("events terminaux > 60j supprimés par app.delete() → deliveries emportées par cascade", async () => {
+		const { master, occ, userId } = await seedCronScenario(adminPb, {
+			occDayOffset: -2,
+			responses: [{ response: "present" }],
+			participantPrefs: { email: true, reminderDays: ["3"] }
+		});
+		const processedLongAgo = new Date(Date.now() - 70 * 86400_000).toISOString().replace("T", " ");
+		const ev = await adminPb.collection("notification_events").create({
+			type: "reminder",
+			master: master.id,
+			occurrence: occ.id,
+			reminderValue: 3,
+			changedBy: "",
+			payload: null,
+			processedAt: processedLongAgo
+		});
+		const del = await adminPb.collection("notification_deliveries").create({
+			event: ev.id,
+			user: userId,
+			master: master.id,
+			emailSentAt: processedLongAgo
+		});
+
+		await adminPb.crons.run("notifications-purge");
+		await new Promise((resolve) => setTimeout(resolve, 500));
+
+		await expect(adminPb.collection("notification_events").getOne(ev.id)).rejects.toThrow();
+		// Pas de sweep indépendant : la delivery meurt avec son event.
+		await expect(adminPb.collection("notification_deliveries").getOne(del.id)).rejects.toThrow();
 	});
 });
