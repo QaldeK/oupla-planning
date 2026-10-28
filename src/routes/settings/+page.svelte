@@ -7,6 +7,7 @@
 	import * as m from "$lib/paraglide/messages.js";
 	import { getLocale } from "$lib/paraglide/runtime";
 	import { pb } from "$lib/pocketbase/pb";
+	import { installStore } from "$lib/stores/installStore.svelte";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import type { RecurrenceType } from "$lib/types/planning.types";
 	import type {
@@ -407,6 +408,13 @@
 						<p class="text-sm opacity-70">
 							{m.settings_session_description()}
 						</p>
+						{#if installStore.isInstalled}
+							<!-- Déconnexion dans l'app installée : retour au mur
+							     d'authentification, pas à l'accueil invité. -->
+							<p class="text-warning mt-1 text-xs">
+								{m.settings_logout_wall_hint()}
+							</p>
+						{/if}
 					</div>
 					<button class="btn btn-error btn-ghost btn-sm" onclick={handleLogout}>
 						{m.settings_logout_button()}

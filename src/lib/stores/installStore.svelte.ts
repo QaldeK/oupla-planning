@@ -1,10 +1,10 @@
 import { on } from "svelte/events";
 import { pb } from "$lib/pocketbase/pb";
-import { storage } from "$lib/utils/storage";
 
 /**
  * Cycle de vie « adoption » : détection de l'installation, prompt natif différé,
- * détection terminal (getInstalledRelatedApps), invite post-installation.
+ * détection terminal (getInstalledRelatedApps). La conversion post-installation
+ * vit dans le mur d'authentification du layout racine, plus l'invite.
  * La mise à jour du service worker vit dans swUpdateStore.
  */
 class InstallStore {
@@ -33,11 +33,7 @@ class InstallStore {
 		!this.installCheckPending && !this.isInstalled && !this.installedOnDevice,
 	);
 
-	// Invite post-installation déjà vue (premier lancement installé).
-	hasSeenPostInstallInvite = $state(false);
-
 	#initialized = false;
-
 	constructor() {
 		// beforeinstallprompt peut se déclencher avant onMount → écoute immédiate
 		if (typeof window !== "undefined") {
@@ -73,15 +69,6 @@ class InstallStore {
 		on(window.matchMedia("(display-mode: standalone)"), "change", (e) => {
 			this.isInstalled = e.matches;
 		});
-
-		// 4. Charger le flag de l'invite post-installation
-		this.hasSeenPostInstallInvite =
-			(await storage.getItem<boolean>("pwa_post_install_invite_seen")) ?? false;
-	}
-
-	markPostInstallInviteSeen() {
-		this.hasSeenPostInstallInvite = true;
-		storage.setItem("pwa_post_install_invite_seen", true, { persist: true });
 	}
 
 	async install(): Promise<"accepted" | "dismissed" | null> {

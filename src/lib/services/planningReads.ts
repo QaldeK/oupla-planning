@@ -33,3 +33,18 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 		return { error: "network" };
 	}
 }
+
+/**
+ * Titre du planning pour un token donné — contexte affiché par le mur
+ * d'authentification quand l'URL est un lien participant.
+ *
+ * @returns Le titre, ou null si le planning est introuvable ou injoignable
+ *   (l'appelant affiche alors un message générique).
+ */
+export async function getPlanningTitleByToken(
+	token: string,
+	fetchPlanning: (token: string) => Promise<GetPlanningByTokenResult> = getPlanningByToken,
+): Promise<string | null> {
+	const result = await fetchPlanning(token);
+	return "master" in result ? result.master.title : null;
+}
