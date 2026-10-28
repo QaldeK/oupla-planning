@@ -1,6 +1,6 @@
 # Spec — Mur d'authentification pour l'app installée
 
-Status: ready-for-agent
+Status: done
 Issue: [issues/01-politique-compte-apres-install.md](issues/01-politique-compte-apres-install.md) (grill du 28-10-2026)
 
 ## Problem Statement
