@@ -3,3 +3,6 @@
 
 # Reformat one-shot des .svelte avec prettier-plugin-svelte
 1887408dc37169893af8c38af16980ed4b857ef4
+
+# Migration du formatage vers bun fmt (JS/TS/Svelte/JSON/CSS/MD)
+94c44070d64e860137554d070f19e5cf16a89dae
