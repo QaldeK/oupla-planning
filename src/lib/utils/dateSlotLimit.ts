@@ -34,7 +34,7 @@ export function computeMaxDateForLimit(args: ComputeMaxDateArgs): string | null 
 		manualDates,
 		timeSlots,
 		disabledSlotKeys,
-		todayStr
+		todayStr,
 	} = args;
 
 	// Bouton non rendu en CUSTOM, garde-fou défensif.
@@ -46,7 +46,7 @@ export function computeMaxDateForLimit(args: ComputeMaxDateArgs): string | null 
 		lastDate,
 		monthlyByDayOccurrences:
 			recurrenceType === "MONTHLY_BY_DAY" ? monthlyByDayOccurrences : undefined,
-		monthlyByDateMode: recurrenceType === "MONTHLY_BY_DATE" ? monthlyByDateMode : undefined
+		monthlyByDateMode: recurrenceType === "MONTHLY_BY_DATE" ? monthlyByDateMode : undefined,
 	});
 	if (cycleDates.length === 0) return null;
 

@@ -50,16 +50,16 @@ function makeFakePb(sendImpl: () => Promise<FakeBatchResult[]>) {
 				update: (
 					id: string,
 					data: Record<string, unknown>,
-					options?: { query?: Record<string, string> }
+					options?: { query?: Record<string, string> },
 				) => {
 					requests.push({ method: "PATCH", collection, id, body: data, query: options?.query });
 				},
 				delete: (id: string, options?: { query?: Record<string, string> }) => {
 					requests.push({ method: "DELETE", collection, id, query: options?.query });
-				}
+				},
 			}),
-			send
-		})
+			send,
+		}),
 	};
 	return { pb: pb as unknown as PocketBase, requests, send };
 }
@@ -80,7 +80,7 @@ describe("executeMultiCollectionBatch — envoi", () => {
 		const results: FakeBatchResult[] = [
 			{ status: 200, body: { id: "m1", title: "T", updated: "u1" } },
 			{ status: 200, body: { id: "srv1", date: "2026-11-01" } },
-			{ status: 204, body: null }
+			{ status: 204, body: null },
 		];
 		const { pb, requests, send } = makeFakePb(vi.fn().mockResolvedValue(results));
 
@@ -91,22 +91,22 @@ describe("executeMultiCollectionBatch — envoi", () => {
 				collection: "planning_masters",
 				id: "m1",
 				data: { title: "T" },
-				params: { query: { _token: "tok", _version: "u0" } }
+				params: { query: { _token: "tok", _version: "u0" } },
 			},
 			{
 				type: "create",
 				table: db.occurrences,
 				collection: "planning_occurrences",
 				data: { date: "2026-11-01" },
-				params: { query: { _token: "tok" } }
+				params: { query: { _token: "tok" } },
 			},
 			{
 				type: "delete",
 				table: db.occurrences,
 				collection: "planning_occurrences",
 				id: "occ9",
-				params: { query: { _token: "tok" } }
-			}
+				params: { query: { _token: "tok" } },
+			},
 		]);
 
 		expect(send).toHaveBeenCalledTimes(1);
@@ -115,17 +115,17 @@ describe("executeMultiCollectionBatch — envoi", () => {
 			method: "PATCH",
 			collection: "planning_masters",
 			id: "m1",
-			query: { _token: "tok", _version: "u0" }
+			query: { _token: "tok", _version: "u0" },
 		});
 		expect(requests[1]).toMatchObject({
 			method: "POST",
 			collection: "planning_occurrences",
-			query: { _token: "tok" }
+			query: { _token: "tok" },
 		});
 		expect(requests[2]).toMatchObject({
 			method: "DELETE",
 			collection: "planning_occurrences",
-			id: "occ9"
+			id: "occ9",
 		});
 	});
 
@@ -133,7 +133,7 @@ describe("executeMultiCollectionBatch — envoi", () => {
 		const pb = {
 			createBatch: () => {
 				throw new Error("ne doit pas être appelé");
-			}
+			},
 		} as unknown as PocketBase;
 
 		await expect(executeMultiCollectionBatch(pb, [])).resolves.toBeUndefined();
@@ -144,7 +144,7 @@ describe("executeMultiCollectionBatch — reconcile Dexie", () => {
 	it("écrit les corps confirmés dans les tables mappées (id serveur des creates inclus)", async () => {
 		const results: FakeBatchResult[] = [
 			{ status: 200, body: { id: "m1", title: "Nouveau titre", updated: "u1" } },
-			{ status: 200, body: { id: "srv_occ1", date: "2026-11-01", deleted: false } }
+			{ status: 200, body: { id: "srv_occ1", date: "2026-11-01", deleted: false } },
 		];
 		const { pb } = makeFakePb(vi.fn().mockResolvedValue(results));
 
@@ -154,14 +154,14 @@ describe("executeMultiCollectionBatch — reconcile Dexie", () => {
 				table: db.masters,
 				collection: "planning_masters",
 				id: "m1",
-				data: { title: "Nouveau titre" }
+				data: { title: "Nouveau titre" },
 			},
 			{
 				type: "create",
 				table: db.occurrences,
 				collection: "planning_occurrences",
-				data: { date: "2026-11-01" }
-			}
+				data: { date: "2026-11-01" },
+			},
 		]);
 
 		const master = await db.masters.get("m1");
@@ -176,11 +176,11 @@ describe("executeMultiCollectionBatch — reconcile Dexie", () => {
 			id: "m1",
 			title: "Old",
 			adminToken: "localtok",
-			updated: "u0"
+			updated: "u0",
 		} as never);
 		const results: FakeBatchResult[] = [
 			// Corps SANS adminToken : onRecordEnrich le masque dans la réponse.
-			{ status: 200, body: { id: "m1", title: "New", updated: "u1" } }
+			{ status: 200, body: { id: "m1", title: "New", updated: "u1" } },
 		];
 		const { pb } = makeFakePb(vi.fn().mockResolvedValue(results));
 
@@ -190,8 +190,8 @@ describe("executeMultiCollectionBatch — reconcile Dexie", () => {
 				table: db.masters,
 				collection: "planning_masters",
 				id: "m1",
-				data: { title: "New" }
-			}
+				data: { title: "New" },
+			},
 		]);
 
 		const master = await db.masters.get("m1");
@@ -210,8 +210,8 @@ describe("executeMultiCollectionBatch — reconcile Dexie", () => {
 				type: "delete",
 				table: db.occurrences,
 				collection: "planning_occurrences",
-				id: "occ1"
-			}
+				id: "occ1",
+			},
 		]);
 
 		expect(await db.occurrences.get("occ1")).toBeUndefined();
@@ -230,9 +230,9 @@ describe("executeMultiCollectionBatch — échecs", () => {
 					table: db.masters,
 					collection: "planning_masters",
 					id: "m1",
-					data: { title: "New" }
-				}
-			])
+					data: { title: "New" },
+				},
+			]),
 		).rejects.toThrow("boom 400");
 
 		expect(send).toHaveBeenCalledTimes(1); // 4xx → non retryable
@@ -241,7 +241,7 @@ describe("executeMultiCollectionBatch — échecs", () => {
 
 	it("erreur 5xx : retry puis succès, reconcile appliqué", async () => {
 		const results: FakeBatchResult[] = [
-			{ status: 200, body: { id: "m1", title: "New", updated: "u1" } }
+			{ status: 200, body: { id: "m1", title: "New", updated: "u1" } },
 		];
 		const send = vi
 			.fn<() => Promise<FakeBatchResult[]>>()
@@ -255,8 +255,8 @@ describe("executeMultiCollectionBatch — échecs", () => {
 				table: db.masters,
 				collection: "planning_masters",
 				id: "m1",
-				data: { title: "New" }
-			}
+				data: { title: "New" },
+			},
 		]);
 
 		expect(send).toHaveBeenCalledTimes(2);

@@ -37,7 +37,7 @@ describe("openAppDB — happy path", () => {
 			participantToken: "tok",
 			recurrence: { type: "WEEKLY" },
 			participants: [],
-			occurrences: []
+			occurrences: [],
 		} as never);
 
 		const got = await db.masters.get("m1");
@@ -62,7 +62,7 @@ describe("openAppDB — reset sur erreur", () => {
 		expect(deleteSpy).toHaveBeenCalledTimes(1);
 		expect(errorSpy).toHaveBeenCalledWith(
 			expect.stringContaining("[Dexie] Open failed"),
-			expect.any(Error)
+			expect.any(Error),
 		);
 		expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("reset successful"));
 		expect(result).toBe(db);

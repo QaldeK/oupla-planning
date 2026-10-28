@@ -22,7 +22,7 @@ import {
 	cleanupTrackedRecords,
 	clearTrackedIds,
 	seedPlanning,
-	trackIds
+	trackIds,
 } from "./seed";
 
 const PB_URL = process.env.VITE_PLANNING_PB_URL || "http://127.0.0.1:8090";
@@ -42,7 +42,7 @@ describe("F4 — createRule de planning_occurrences (adminToken requis)", () => 
 	it("rejette la création d'une occurrence sans _token", async () => {
 		const { master } = await seedPlanning({
 			title: "F4 create sans token",
-			occurrenceCount: 0
+			occurrenceCount: 0,
 		});
 
 		const client = tokenClient();
@@ -56,7 +56,7 @@ describe("F4 — createRule de planning_occurrences (adminToken requis)", () => 
 				responses: [],
 				comments: [],
 				isConfirmed: false,
-				isCanceled: false
+				isCanceled: false,
 			});
 		} catch (err) {
 			caught = err;
@@ -80,7 +80,7 @@ describe("F4 — createRule de planning_occurrences (adminToken requis)", () => 
 	it("autorise la création d'une occurrence avec l'adminToken", async () => {
 		const { master, adminToken } = await seedPlanning({
 			title: "F4 create avec adminToken",
-			occurrenceCount: 0
+			occurrenceCount: 0,
 		});
 
 		const client = tokenClient();
@@ -93,9 +93,9 @@ describe("F4 — createRule de planning_occurrences (adminToken requis)", () => 
 				responses: [],
 				comments: [],
 				isConfirmed: false,
-				isCanceled: false
+				isCanceled: false,
 			},
-			{ query: { _token: adminToken } }
+			{ query: { _token: adminToken } },
 		);
 
 		expect(occ.id).toBeDefined();
@@ -105,7 +105,7 @@ describe("F4 — createRule de planning_occurrences (adminToken requis)", () => 
 	it("autorise un batch de creates avec l'adminToken (non-régression /new)", async () => {
 		const { master, adminToken } = await seedPlanning({
 			title: "F4 batch create avec adminToken",
-			occurrenceCount: 0
+			occurrenceCount: 0,
 		});
 
 		const client = tokenClient();
@@ -120,9 +120,9 @@ describe("F4 — createRule de planning_occurrences (adminToken requis)", () => 
 					responses: [],
 					comments: [],
 					isConfirmed: false,
-					isCanceled: false
+					isCanceled: false,
 				},
-				{ query: { _token: adminToken } }
+				{ query: { _token: adminToken } },
 			);
 		}
 

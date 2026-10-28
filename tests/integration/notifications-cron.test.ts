@@ -30,7 +30,7 @@ import {
 	cleanupTrackedRecords,
 	clearTrackedIds,
 	dateInDays,
-	trackIds
+	trackIds,
 } from "./seed";
 
 const PARTICIPANT_ID = "p-test-participant-0001";
@@ -76,7 +76,7 @@ function decodeMimeHeader(str: string): string {
 			const latin = text
 				.replace(/_/g, " ")
 				.replace(/=([0-9A-Fa-f]{2})/g, (_h: string, h: string) =>
-					String.fromCharCode(parseInt(h, 16))
+					String.fromCharCode(parseInt(h, 16)),
 				);
 			if (!isUtf8) return latin;
 			// Les octets UTF-8 multi-bytes (—, é…) arrivent comme chars latin-1 :
@@ -90,7 +90,7 @@ function decodeMimeHeader(str: string): string {
 
 async function startSmtpStub(
 	capture: SmtpCapture,
-	opts: { rejectRcpt?: (address: string) => boolean } = {}
+	opts: { rejectRcpt?: (address: string) => boolean } = {},
 ): Promise<net.Server> {
 	const server = net.createServer((socket) => {
 		let mode: "command" | "data" = "command";
@@ -169,7 +169,7 @@ async function startSmtpStub(
 async function withSmtpStub<T>(
 	adminPb: PocketBase,
 	fn: (capture: SmtpCapture) => Promise<T>,
-	opts: { rejectRcpt?: (address: string) => boolean } = {}
+	opts: { rejectRcpt?: (address: string) => boolean } = {},
 ): Promise<T> {
 	const capture: SmtpCapture = { count: 0, subjects: [] };
 	const server = await startSmtpStub(capture, opts);
@@ -186,8 +186,8 @@ async function withSmtpStub<T>(
 				password: "",
 				tls: false,
 				authMethod: "PLAIN",
-				localName: "localhost"
-			}
+				localName: "localhost",
+			},
 		});
 		return await fn(capture);
 	} finally {
@@ -224,7 +224,7 @@ async function seedCronScenario(
 			onConfirmationNeeded?: boolean;
 			onOccurrenceChange?: boolean;
 		};
-	}
+	},
 ): Promise<{ master: PlanningMaster; occ: PlanningOccurrence; userId: string }> {
 	const { occDayOffset } = options;
 	const recurrenceType = options.recurrenceType ?? "WEEKLY";
@@ -237,7 +237,7 @@ async function seedCronScenario(
 		passwordConfirm: "password123",
 		name: "Cron User",
 		emailVisibility: true,
-		verified: true
+		verified: true,
 	});
 	trackIds("users", user.id);
 
@@ -248,13 +248,13 @@ async function seedCronScenario(
 		email,
 		isAdmin: true,
 		createdAt: new Date().toISOString(),
-		userId: user.id
+		userId: user.id,
 	};
 	const adminToken = Array.from({ length: 64 }, () =>
-		Math.floor(Math.random() * 16).toString(16)
+		Math.floor(Math.random() * 16).toString(16),
 	).join("");
 	const participantToken = Array.from({ length: 32 }, () =>
-		Math.floor(Math.random() * 16).toString(16)
+		Math.floor(Math.random() * 16).toString(16),
 	).join("");
 
 	const master = await pb.collection("planning_masters").create<PlanningMaster>({
@@ -270,7 +270,7 @@ async function seedCronScenario(
 		availableResponseTypes: ["present", "absent"],
 		adminToken,
 		participantToken,
-		lastModifiedBy: ""
+		lastModifiedBy: "",
 	});
 	trackIds("planning_masters", master.id);
 
@@ -279,7 +279,7 @@ async function seedCronScenario(
 		participantId: PARTICIPANT_ID,
 		response: r.response,
 		tasks: r.tasks || [],
-		respondedAt: new Date().toISOString()
+		respondedAt: new Date().toISOString(),
 	}));
 	const occ = await pb.collection("planning_occurrences").create<PlanningOccurrence>({
 		master: master.id,
@@ -291,7 +291,7 @@ async function seedCronScenario(
 		tasks: (options.tasks as never) || [],
 		isConfirmed: false,
 		isCanceled: false,
-		lastModifiedBy: ""
+		lastModifiedBy: "",
 	});
 	trackIds("planning_occurrences", occ.id);
 
@@ -305,7 +305,7 @@ async function seedCronScenario(
 		reminderDays: prefs.reminderDays || [],
 		missingDays: prefs.missingDays || [],
 		onOccurrenceChange: prefs.onOccurrenceChange ?? false,
-		onConfirmationNeeded: prefs.onConfirmationNeeded ?? false
+		onConfirmationNeeded: prefs.onConfirmationNeeded ?? false,
 	});
 
 	return { master, occ, userId: user.id };
@@ -319,7 +319,7 @@ async function seedCronScenario(
 async function addRecipient(
 	pb: PocketBase,
 	scenario: { master: PlanningMaster; occ: PlanningOccurrence },
-	options: { email?: boolean; push?: boolean; response?: string } = {}
+	options: { email?: boolean; push?: boolean; response?: string } = {},
 ): Promise<{ userId: string; email: string }> {
 	const email = `rcp-${Math.random().toString(36).slice(2)}@test.com`;
 	const user = await pb.collection("users").create({
@@ -328,7 +328,7 @@ async function addRecipient(
 		passwordConfirm: "password123",
 		name: "Second Recipient",
 		emailVisibility: true,
-		verified: true
+		verified: true,
 	});
 	trackIds("users", user.id);
 
@@ -339,13 +339,13 @@ async function addRecipient(
 		email,
 		isAdmin: false,
 		createdAt: new Date().toISOString(),
-		userId: user.id
+		userId: user.id,
 	};
 	const masterFresh = await pb
 		.collection("planning_masters")
 		.getOne<PlanningMaster>(scenario.master.id);
 	await pb.collection("planning_masters").update(scenario.master.id, {
-		participants: [...masterFresh.participants, participant as never]
+		participants: [...masterFresh.participants, participant as never],
 	});
 
 	const pp = await pb.collection("planning_participants").create({
@@ -356,7 +356,7 @@ async function addRecipient(
 		reminderDays: ["3"],
 		missingDays: ["3"],
 		onOccurrenceChange: false,
-		onConfirmationNeeded: false
+		onConfirmationNeeded: false,
 	});
 	trackIds("planning_participants", pp.id);
 
@@ -370,9 +370,9 @@ async function addRecipient(
 				participantId,
 				response: options.response ?? "present",
 				tasks: [],
-				respondedAt: new Date().toISOString()
-			}
-		] as never
+				respondedAt: new Date().toISOString(),
+			},
+		] as never,
 	});
 
 	return { userId: user.id, email };
@@ -392,7 +392,7 @@ interface DeliveryRow {
 
 async function listDeliveriesForEvent(pb: PocketBase, eventId: string): Promise<DeliveryRow[]> {
 	return pb.collection("notification_deliveries").getFullList<DeliveryRow>({
-		filter: `event = "${eventId}"`
+		filter: `event = "${eventId}"`,
 	});
 }
 
@@ -401,11 +401,11 @@ async function listDeliveriesForEvent(pb: PocketBase, eventId: string): Promise<
  */
 async function listEventsForMaster(
 	pb: PocketBase,
-	masterId: string
+	masterId: string,
 ): Promise<NotificationEventsResponse[]> {
 	return pb.collection("notification_events").getFullList<NotificationEventsResponse>({
 		filter: `master = "${masterId}"`,
-		sort: "created"
+		sort: "created",
 	});
 }
 
@@ -414,7 +414,7 @@ const C2_EVENT_TYPES = new Set([
 	"schedule_change",
 	"status_canceled",
 	"status_deleted",
-	"status_confirmed"
+	"status_confirmed",
 ]);
 
 /**
@@ -453,7 +453,7 @@ describe("Cron notifications-daily — Phase 1 (insertion events J-X)", () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -470,7 +470,7 @@ describe("Cron notifications-daily — Phase 1 (insertion events J-X)", () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 7,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["7"] }
+			participantPrefs: { email: true, reminderDays: ["7"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -487,7 +487,7 @@ describe("Cron notifications-daily — Phase 1 (insertion events J-X)", () => {
 			occDayOffset: 3,
 			minPresentRequired: 2,
 			responses: [{ response: "present" }], // 1 present < 2 required
-			participantPrefs: { email: true, missingDays: ["3"] }
+			participantPrefs: { email: true, missingDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -504,7 +504,7 @@ describe("Cron notifications-daily — Phase 1 (insertion events J-X)", () => {
 			occDayOffset: 3,
 			recurrenceType: "WEEKLY",
 			toConfirm: true,
-			participantPrefs: { email: true, onConfirmationNeeded: true }
+			participantPrefs: { email: true, onConfirmationNeeded: true },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -520,7 +520,7 @@ describe("Cron notifications-daily — Phase 1 (insertion events J-X)", () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -536,7 +536,7 @@ describe("Cron notifications-daily — Phase 1 (insertion events J-X)", () => {
 		const { master, occ } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -556,7 +556,7 @@ describe("Cron notifications-daily — Phase 1 (insertion events J-X)", () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 25,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["7"] }
+			participantPrefs: { email: true, reminderDays: ["7"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -596,7 +596,7 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -619,7 +619,7 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: false, reminderDays: ["3"] }
+			participantPrefs: { email: false, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -635,7 +635,7 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		const { master, occ } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"], onOccurrenceChange: true }
+			participantPrefs: { email: true, reminderDays: ["3"], onOccurrenceChange: true },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -667,7 +667,7 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		const { master, occ } = await seedCronScenario(adminPb, {
 			occDayOffset: -2, // passée : la phase 1 n'insère rien
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -679,7 +679,7 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 			reminderValue: 3,
 			changedBy: "",
 			payload: null,
-			processedAt: ""
+			processedAt: "",
 		});
 
 		await withSmtpStub(adminPb, async (capture) => {
@@ -697,7 +697,7 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 		const { master, occ } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"], onOccurrenceChange: true }
+			participantPrefs: { email: true, reminderDays: ["3"], onOccurrenceChange: true },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -709,7 +709,7 @@ describe("Cron notifications-daily — Phase 2 (envoi agrégé + circuit breaker
 			reminderValue: 0,
 			changedBy: "",
 			payload: null,
-			processedAt: ""
+			processedAt: "",
 		});
 
 		// Soft-delete : le hook occurrence-update insère son propre status_deleted.
@@ -763,7 +763,7 @@ describe("Cron notifications-daily — Push J-X", () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: false, push: true, reminderDays: ["3"] }
+			participantPrefs: { email: false, push: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -805,7 +805,7 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 	 */
 	async function seedCommentScenario(
 		adminPb: PocketBase,
-		title: string
+		title: string,
 	): Promise<{
 		master: PlanningMaster;
 		occ: PlanningOccurrence;
@@ -819,7 +819,7 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			passwordConfirm: "password123",
 			name: "Comment Recipient",
 			emailVisibility: true,
-			verified: true
+			verified: true,
 		});
 		trackIds("users", user.id);
 
@@ -829,13 +829,13 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			email,
 			isAdmin: true,
 			createdAt: new Date().toISOString(),
-			userId: user.id
+			userId: user.id,
 		};
 		const adminToken = Array.from({ length: 64 }, () =>
-			Math.floor(Math.random() * 16).toString(16)
+			Math.floor(Math.random() * 16).toString(16),
 		).join("");
 		const participantToken = Array.from({ length: 32 }, () =>
-			Math.floor(Math.random() * 16).toString(16)
+			Math.floor(Math.random() * 16).toString(16),
 		).join("");
 
 		const master = await adminPb.collection("planning_masters").create<PlanningMaster>({
@@ -851,7 +851,7 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			availableResponseTypes: ["present", "absent"],
 			adminToken,
 			participantToken,
-			lastModifiedBy: ""
+			lastModifiedBy: "",
 		});
 		trackIds("planning_masters", master.id);
 
@@ -865,14 +865,14 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 					participantId: PARTICIPANT_ID,
 					response: "present",
 					tasks: [],
-					respondedAt: new Date().toISOString()
-				}
+					respondedAt: new Date().toISOString(),
+				},
 			] as never,
 			comments: [],
 			tasks: [],
 			isConfirmed: false,
 			isCanceled: false,
-			lastModifiedBy: ""
+			lastModifiedBy: "",
 		});
 		trackIds("planning_occurrences", occ.id);
 
@@ -885,7 +885,7 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			missingDays: [],
 			onOccurrenceChange: true,
 			onConfirmationNeeded: false,
-			newCommentScope: "all"
+			newCommentScope: "all",
 		});
 		trackIds("planning_participants", pp.id);
 
@@ -903,7 +903,7 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			commentCreatedAt?: string;
 			changedBy?: string;
 			commentId?: string;
-		}
+		},
 	): Promise<void> {
 		await adminPb.collection("notification_events").create({
 			type: "new_comment",
@@ -915,9 +915,9 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 				commentId: opts.commentId || "c-" + Math.random().toString(36).slice(2, 6),
 				commentCreatedAt: opts.commentCreatedAt || new Date().toISOString(),
 				authorName: opts.authorName,
-				contentPreview: opts.contentPreview
+				contentPreview: opts.contentPreview,
 			},
-			processedAt: ""
+			processedAt: "",
 		});
 	}
 
@@ -932,7 +932,7 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		scenarioIds.push({ masterId: master.id });
 		await insertCommentEvent(adminPb, master.id, occ.id, {
 			authorName: "Alice",
-			contentPreview: "Bonjour"
+			contentPreview: "Bonjour",
 		});
 
 		await withSmtpStub(adminPb, async (capture) => {
@@ -954,15 +954,15 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		scenarioIds.push({ masterId: master.id });
 		await insertCommentEvent(adminPb, master.id, occ.id, {
 			authorName: "Alice",
-			contentPreview: "Premier"
+			contentPreview: "Premier",
 		});
 		await insertCommentEvent(adminPb, master.id, occ.id, {
 			authorName: "Bob",
-			contentPreview: "Second"
+			contentPreview: "Second",
 		});
 		await insertCommentEvent(adminPb, master.id, occ.id, {
 			authorName: "Alice",
-			contentPreview: "Troisième"
+			contentPreview: "Troisième",
 		});
 
 		await withSmtpStub(adminPb, async (capture) => {
@@ -986,11 +986,11 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		await insertCommentEvent(adminPb, master.id, occ.id, {
 			authorName: "Alice",
 			contentPreview: "Vieux message déjà lu",
-			commentCreatedAt: oldCreatedAt
+			commentCreatedAt: oldCreatedAt,
 		});
 		// Marque la conversation comme lue après la création du message.
 		await adminPb.collection("planning_participants").update(participantRecordId, {
-			commentReadState: { [occ.id]: readAfter }
+			commentReadState: { [occ.id]: readAfter },
 		});
 
 		await withSmtpStub(adminPb, async (capture) => {
@@ -1013,7 +1013,7 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		scenarioIds.push({ masterId: master.id });
 		await insertCommentEvent(adminPb, master.id, occ.id, {
 			authorName: "Alice",
-			contentPreview: "Message non lu"
+			contentPreview: "Message non lu",
 		});
 		// Pas de commentReadState → l'event est inclus.
 
@@ -1033,10 +1033,10 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 		await insertCommentEvent(adminPb, master.id, occ.id, {
 			authorName: "Alice",
 			contentPreview: "Message plus récent que la lecture",
-			commentCreatedAt: newerCreatedAt
+			commentCreatedAt: newerCreatedAt,
 		});
 		await adminPb.collection("planning_participants").update(participantRecordId, {
-			commentReadState: { [occ.id]: readBefore }
+			commentReadState: { [occ.id]: readBefore },
 		});
 
 		await withSmtpStub(adminPb, async (capture) => {
@@ -1059,15 +1059,15 @@ describe("Cron notifications-daily — Phase 2 : new_comment (email agrégé + f
 			reminderValue: 0,
 			changedBy: "author-other-user",
 			payload: { oldStartTime: "09:00", newStartTime: "10:00" },
-			processedAt: ""
+			processedAt: "",
 		});
 		await insertCommentEvent(adminPb, master.id, occ.id, {
 			authorName: "Alice",
-			contentPreview: "Ok pour 10h"
+			contentPreview: "Ok pour 10h",
 		});
 		await insertCommentEvent(adminPb, master.id, occ.id, {
 			authorName: "Bob",
-			contentPreview: "Noté"
+			contentPreview: "Noté",
 		});
 
 		await withSmtpStub(adminPb, async (capture) => {
@@ -1118,7 +1118,7 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 		const scenario = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: scenario.master.id });
 		const b = await addRecipient(adminPb, scenario, { email: true });
@@ -1130,7 +1130,7 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 				await runNotificationsCron(adminPb);
 				expect(capture.count).toBe(1);
 			},
-			{ rejectRcpt: (addr) => addr.includes(b.email) }
+			{ rejectRcpt: (addr) => addr.includes(b.email) },
 		);
 
 		const events = await listEventsForMaster(adminPb, scenario.master.id);
@@ -1152,7 +1152,7 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 				await runNotificationsCron(adminPb);
 				expect(capture.count).toBe(0);
 			},
-			{ rejectRcpt: (addr) => addr.includes(b.email) }
+			{ rejectRcpt: (addr) => addr.includes(b.email) },
 		);
 
 		const delsAfter = await listDeliveriesForEvent(adminPb, reminder.id);
@@ -1167,7 +1167,7 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 		const { master, occ, userId } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -1180,15 +1180,15 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 			reminderValue: 0,
 			changedBy: "author-other-user",
 			payload: { commentId: "c1", commentCreatedAt: new Date().toISOString() },
-			processedAt: ""
+			processedAt: "",
 		});
 		await adminPb.collection("notification_events").update(ev.id, {
-			processedAt: "2026-10-26 00:00:00.000Z"
+			processedAt: "2026-10-26 00:00:00.000Z",
 		});
 		await adminPb.collection("notification_deliveries").create({
 			event: ev.id,
 			user: userId,
-			master: master.id
+			master: master.id,
 		});
 		// Seconde ligne, autre destinataire : email réglé mais push dû — la
 		// lettre B1 dit « toute delivery due », les deux canaux sont couverts.
@@ -1198,14 +1198,14 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 			passwordConfirm: "password123",
 			name: "Residual Recipient",
 			emailVisibility: true,
-			verified: true
+			verified: true,
 		});
 		trackIds("users", other.id);
 		await adminPb.collection("notification_deliveries").create({
 			event: ev.id,
 			user: other.id,
 			master: master.id,
-			emailSentAt: "2026-10-26 00:00:00.000Z"
+			emailSentAt: "2026-10-26 00:00:00.000Z",
 		});
 
 		// SMTP down : aucun envoi possible, la clôture résiduelle est le seul
@@ -1227,7 +1227,7 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 		const { master, userId } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -1245,8 +1245,8 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 			.getOne<PlanningMaster>(master.id);
 		await adminPb.collection("planning_masters").update(master.id, {
 			participants: masterFresh.participants.map((p) =>
-				p.userId === userId ? { ...p, hasQuit: true } : p
-			)
+				p.userId === userId ? { ...p, hasQuit: true } : p,
+			),
 		});
 
 		await runNotificationsCron(adminPb);
@@ -1263,7 +1263,7 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 		const { master, occ, userId } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 		const setResponse = async (response: string) => {
@@ -1272,8 +1272,8 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 				.getOne<PlanningOccurrence>(occ.id);
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				responses: occFresh.responses.map((r) =>
-					r.participantId === PARTICIPANT_ID ? { ...r, response } : r
-				) as never
+					r.participantId === PARTICIPANT_ID ? { ...r, response } : r,
+				) as never,
 			});
 		};
 
@@ -1305,7 +1305,7 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: false, push: true, reminderDays: ["3"] }
+			participantPrefs: { email: false, push: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -1329,7 +1329,7 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, push: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, push: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -1352,7 +1352,7 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 		const { master, occ, userId } = await seedCronScenario(adminPb, {
 			occDayOffset: -2, // passée : le garde d'obsolescence tue l'event
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		scenarioIds.push({ masterId: master.id });
 
@@ -1365,12 +1365,12 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 			reminderValue: 3,
 			changedBy: "",
 			payload: null,
-			processedAt: ""
+			processedAt: "",
 		});
 		await adminPb.collection("notification_deliveries").create({
 			event: ev.id,
 			user: userId,
-			master: master.id
+			master: master.id,
 		});
 		// Seconde ligne, autre destinataire : email réglé, push dû — la
 		// clôture à la mort règle tout canal resté dû (ledger véridique).
@@ -1380,14 +1380,14 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 			passwordConfirm: "password123",
 			name: "Stale Recipient",
 			emailVisibility: true,
-			verified: true
+			verified: true,
 		});
 		trackIds("users", other.id);
 		await adminPb.collection("notification_deliveries").create({
 			event: ev.id,
 			user: other.id,
 			master: master.id,
-			emailSentAt: "2026-10-26 00:00:00.000Z"
+			emailSentAt: "2026-10-26 00:00:00.000Z",
 		});
 
 		await runNotificationsCron(adminPb);
@@ -1421,7 +1421,7 @@ describe("Cron notifications-purge — purge native avec cascade deliveries", ()
 		const { master, occ, userId } = await seedCronScenario(adminPb, {
 			occDayOffset: -2,
 			responses: [{ response: "present" }],
-			participantPrefs: { email: true, reminderDays: ["3"] }
+			participantPrefs: { email: true, reminderDays: ["3"] },
 		});
 		const processedLongAgo = new Date(Date.now() - 70 * 86400_000).toISOString().replace("T", " ");
 		const ev = await adminPb.collection("notification_events").create({
@@ -1431,13 +1431,13 @@ describe("Cron notifications-purge — purge native avec cascade deliveries", ()
 			reminderValue: 3,
 			changedBy: "",
 			payload: null,
-			processedAt: processedLongAgo
+			processedAt: processedLongAgo,
 		});
 		const del = await adminPb.collection("notification_deliveries").create({
 			event: ev.id,
 			user: userId,
 			master: master.id,
-			emailSentAt: processedLongAgo
+			emailSentAt: processedLongAgo,
 		});
 
 		await adminPb.crons.run("notifications-purge");

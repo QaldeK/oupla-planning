@@ -21,8 +21,8 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	resolve: {
 		alias: {
-			$lib: path.resolve("./src/lib")
-		}
+			$lib: path.resolve("./src/lib"),
+		},
 	},
 	test: {
 		name: "integration",
@@ -33,6 +33,6 @@ export default defineConfig({
 		hookTimeout: 15_000,
 		pool: "forks",
 		maxWorkers: 1,
-		globals: true
-	}
+		globals: true,
+	},
 });

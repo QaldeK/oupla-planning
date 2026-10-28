@@ -27,8 +27,8 @@ vi.mock("svelte-sonner", () => ({
 		warning: vi.fn(),
 		loading: vi.fn(),
 		promise: vi.fn(),
-		custom: vi.fn()
-	}
+		custom: vi.fn(),
+	},
 }));
 
 /** Formate une date YYYY-MM-DD comme le fait le badge (EEE d MMM).
@@ -40,7 +40,7 @@ function formatBadgeDate(iso: string): string {
 /** Sélecteur badge pour une date donnée (cible le bouton du popover). */
 function getDateBadge(iso: string) {
 	return screen.getByRole("button", {
-		name: new RegExp(formatBadgeDate(iso).replace(/\./g, "\\."), "i")
+		name: new RegExp(formatBadgeDate(iso).replace(/\./g, "\\."), "i"),
 	});
 }
 
@@ -62,7 +62,7 @@ function getDateInput(which: "From" | "To"): HTMLInputElement {
 async function setDate(
 	user: ReturnType<typeof userEvent.setup>,
 	input: HTMLInputElement,
-	value: string
+	value: string,
 ) {
 	await user.clear(input);
 	await user.type(input, value);
@@ -80,14 +80,14 @@ async function setDate(
 async function setDateOverwrite(
 	user: ReturnType<typeof userEvent.setup>,
 	input: HTMLInputElement,
-	value: string
+	value: string,
 ) {
 	await user.click(input);
 	// Sélectionne tout le contenu current puis type la nouvelle valeur :
 	// userEvent remplace la sélection en un seul flux de keystrokes.
 	await user.type(input, value, {
 		initialSelectionStart: 0,
-		initialSelectionEnd: input.value.length
+		initialSelectionEnd: input.value.length,
 	});
 	await user.tab();
 }
@@ -142,9 +142,9 @@ describe("PlanningForm — Porte 2 (requestDateChange)", () => {
 		const { user } = renderForm({
 			master: makeMaster({
 				// DAILY sur tout août → 2026-08-15 est dans le cycle initial.
-				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-08-31" }
+				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-08-31" },
 			}),
-			datesWithData: ["2026-08-15"]
+			datesWithData: ["2026-08-15"],
 		});
 
 		// firstDate → 2026-08-16 : 2026-08-15 sort du nouveau cycle (atRisk).
@@ -158,9 +158,9 @@ describe("PlanningForm — Porte 2 (requestDateChange)", () => {
 	it("édition : changer une borne sans exclure de date avec données ne confirme pas", async () => {
 		const { user } = renderForm({
 			master: makeMaster({
-				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-08-31" }
+				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-08-31" },
 			}),
-			datesWithData: ["2026-08-15"]
+			datesWithData: ["2026-08-15"],
 		});
 
 		// firstDate → 2026-08-05 : 2026-08-15 reste dans le cycle (pas atRisk).
@@ -176,8 +176,8 @@ describe("PlanningForm — Porte 2 (requestDateChange)", () => {
 	it("CUSTOM : les inputs firstDate/lastDate ne sont pas rendus", () => {
 		renderForm({
 			master: makeMaster({
-				recurrence: { type: "CUSTOM" }
-			})
+				recurrence: { type: "CUSTOM" },
+			}),
 		});
 
 		// En CUSTOM, le bloc `{#if recurrenceType !== 'CUSTOM'}` masque les
@@ -200,10 +200,10 @@ describe("PlanningForm — Porte 3 (requestRemoveManualDate)", () => {
 				// (un samedi) est hors-cycle → atterrira dans manualDates via
 				// le seeding one-shot, ce qui déclenche l'affichage du bouton
 				// « Supprimer » dans le popover mono-slot.
-				recurrence: { type: "WEEKLY", firstDate: "2026-08-05", lastDate: "2026-08-19" }
+				recurrence: { type: "WEEKLY", firstDate: "2026-08-05", lastDate: "2026-08-19" },
 			}),
 			datesWithData: ["2026-08-22"],
-			occurrences: [makeOccurrence({ date: "2026-08-22" })]
+			occurrences: [makeOccurrence({ date: "2026-08-22" })],
 		});
 
 		// Ouvrir le popover du badge 2026-08-22 (date manuelle hors-cycle).
@@ -224,10 +224,10 @@ describe("PlanningForm — Porte 3 (requestRemoveManualDate)", () => {
 	it("édition : supprimer une date manuelle sans données ne confirme pas", async () => {
 		const { user } = renderForm({
 			master: makeMaster({
-				recurrence: { type: "WEEKLY", firstDate: "2026-08-05", lastDate: "2026-08-19" }
+				recurrence: { type: "WEEKLY", firstDate: "2026-08-05", lastDate: "2026-08-19" },
 			}),
 			datesWithData: [],
-			occurrences: [makeOccurrence({ date: "2026-08-22" })]
+			occurrences: [makeOccurrence({ date: "2026-08-22" })],
 		});
 
 		await user.click(getDateBadge("2026-08-22"));
@@ -238,8 +238,8 @@ describe("PlanningForm — Porte 3 (requestRemoveManualDate)", () => {
 		// Le badge a disparu du DOM (manualDates ne contient plus 2026-08-22).
 		expect(
 			screen.queryByRole("button", {
-				name: new RegExp(formatBadgeDate("2026-08-22").replace(/\./g, "\\."), "i")
-			})
+				name: new RegExp(formatBadgeDate("2026-08-22").replace(/\./g, "\\."), "i"),
+			}),
 		).not.toBeInTheDocument();
 	});
 });
@@ -254,7 +254,7 @@ describe("PlanningForm — Porte 4 (requestDisableSlot)", () => {
 		// 2026-08-12 = mercredi, dans le cycle hebdo démarrant 2026-08-05.
 		const { user } = renderForm({
 			master: makeMaster(),
-			datesWithData: ["2026-08-12"]
+			datesWithData: ["2026-08-12"],
 		});
 
 		await user.click(getDateBadge("2026-08-12"));
@@ -271,7 +271,7 @@ describe("PlanningForm — Porte 4 (requestDisableSlot)", () => {
 	it("édition : désactiver une DateSlot sans données ne confirme pas", async () => {
 		const { user } = renderForm({
 			master: makeMaster(),
-			datesWithData: []
+			datesWithData: [],
 		});
 
 		await user.click(getDateBadge("2026-08-12"));

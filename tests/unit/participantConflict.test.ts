@@ -23,7 +23,7 @@ function makeParticipant(overrides: Partial<Participant> = {}): Participant {
 		name: "Anonymous",
 		isAdmin: false,
 		createdAt: new Date().toISOString(),
-		...overrides
+		...overrides,
 	};
 }
 
@@ -80,7 +80,7 @@ describe("hasNameConflict — invariante d'unicité du nom par planning", () => 
 		const participants = [
 			makeParticipant({ name: "Alice" }),
 			makeParticipant({ name: "Bob" }),
-			makeParticipant({ name: "Charlie" })
+			makeParticipant({ name: "Charlie" }),
 		];
 		expect(hasNameConflict(participants, "Dave", CURRENT_USER_ID)).toBe(false);
 	});
@@ -93,7 +93,7 @@ describe("hasNameConflict — invariante d'unicité du nom par planning", () => 
 			makeParticipant({ name: "Alice", userId: CURRENT_USER_ID }), // exclu (claimé par moi)
 			makeParticipant({ id: CURRENT_USER_ID, name: "Alice" }), // exclu (auto-add CAS C)
 			makeParticipant({ name: "Alice" }), // ← conflit (guest actif)
-			makeParticipant({ name: "Bob" })
+			makeParticipant({ name: "Bob" }),
 		];
 		expect(hasNameConflict(participants, "Alice", CURRENT_USER_ID)).toBe(true);
 	});
@@ -102,7 +102,7 @@ describe("hasNameConflict — invariante d'unicité du nom par planning", () => 
 		const participants = [
 			makeParticipant({ name: "Alice", hasQuit: true }),
 			makeParticipant({ name: "Alice", userId: CURRENT_USER_ID }),
-			makeParticipant({ id: CURRENT_USER_ID, name: "Alice" })
+			makeParticipant({ id: CURRENT_USER_ID, name: "Alice" }),
 		];
 		expect(hasNameConflict(participants, "Alice", CURRENT_USER_ID)).toBe(false);
 	});

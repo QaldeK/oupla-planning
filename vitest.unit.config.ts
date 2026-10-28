@@ -6,14 +6,14 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	resolve: {
 		alias: {
-			$lib: path.resolve("./src/lib")
+			$lib: path.resolve("./src/lib"),
 		},
 		// Forcer la résolution des exports "browser" des dépendances (notamment
 		// Svelte 5) pour les tests de composants. Sans ça, Vite résout vers les
 		// exports "server" (SSR) qui rendent `mount()` indisponible → erreur
 		// `lifecycle_function_unavailable`. Les tests purement Node n'ont pas
 		// de dépendances qui différencient browser/server, donc sans impact.
-		conditions: ["browser"]
+		conditions: ["browser"],
 	},
 	test: {
 		name: "unit",
@@ -25,6 +25,6 @@ export default defineConfig({
 		// fake-indexeddb est en mémoire — chaque test commence avec une DB vide.
 		setupFiles: ["tests/unit/setup.ts"],
 		testTimeout: 10_000,
-		globals: true
-	}
+		globals: true,
+	},
 });

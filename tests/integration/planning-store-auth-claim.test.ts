@@ -45,7 +45,7 @@ import {
 	clearTrackedIds,
 	seedPlanning,
 	seedUser,
-	trackIds
+	trackIds,
 } from "./seed";
 
 const USER_EMAIL = "auth-claim@test.local";
@@ -89,7 +89,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 		// === SEED : planning + user SANS masterIds ===
 		const { master, participantToken } = await seedPlanning({
 			title: "Planning Tiers",
-			occurrenceCount: 2
+			occurrenceCount: 2,
 		});
 		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Claim", {});
 		trackIds("users", user.id);
@@ -109,7 +109,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 				expect(planningStore.master?.title).toBe("Planning Tiers");
 				expect(planningStore.occurrences.length).toBe(2);
 			},
-			{ timeout: 3000 }
+			{ timeout: 3000 },
 		);
 
 		// === VÉRIFICATION STORE ===
@@ -140,10 +140,10 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 		// === SEED : planning + user AVEC le master en masterId ===
 		const { master, participantToken } = await seedPlanning({
 			title: "Planning Connu",
-			occurrenceCount: 2
+			occurrenceCount: 2,
 		});
 		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Skip", {
-			masterIds: [master.id]
+			masterIds: [master.id],
 		});
 		trackIds("users", user.id);
 
@@ -166,7 +166,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 				expect(planningStore.master?.title).toBe("Planning Connu");
 				expect(planningStore.occurrences.length).toBe(2);
 			},
-			{ timeout: 3000 }
+			{ timeout: 3000 },
 		);
 
 		// === VÉRIFICATION STORE ===
@@ -184,7 +184,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 		// === SEED : planning + user SANS masterIds ===
 		const { master, adminToken, participantToken } = await seedPlanning({
 			title: "Planning Admin Tiers",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Admin", {});
 		trackIds("users", user.id);
@@ -206,7 +206,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 				expect(planningStore.master?.title).toBe("Planning Admin Tiers");
 				expect(planningStore.occurrences.length).toBe(1);
 			},
-			{ timeout: 3000 }
+			{ timeout: 3000 },
 		);
 
 		// === VÉRIFICATION STORE ===
@@ -235,7 +235,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 		// === SEED ===
 		const { master, participantToken } = await seedPlanning({
 			title: "Planning Claim Fail",
-			occurrenceCount: 2
+			occurrenceCount: 2,
 		});
 		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Net Fail", {});
 		trackIds("users", user.id);
@@ -265,7 +265,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 				expect(planningStore.master?.title).toBe("Planning Claim Fail");
 				expect(planningStore.occurrences.length).toBe(2);
 			},
-			{ timeout: 3000 }
+			{ timeout: 3000 },
 		);
 
 		// === VÉRIFICATION STORE — pas d'erreur fatale ===
@@ -297,7 +297,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 		// cette distinction fatal/non-bloquant (US 7).
 		const { participantToken } = await seedPlanning({
 			title: "Planning Fatal Claim",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Fatal", {});
 		trackIds("users", user.id);
@@ -315,7 +315,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 				throw new ClientResponseError({
 					url: "http://test/api/sync-plannings",
 					status: 400,
-					response: { code: 400, message: "Bad request", data: {} }
+					response: { code: 400, message: "Bad request", data: {} },
 				});
 			}
 			return originalSend(url, options);
@@ -340,7 +340,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 		// === SEED ===
 		const { master, participantToken } = await seedPlanning({
 			title: "Realtime Auth Test",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth Realtime", {});
 		trackIds("users", user.id);
@@ -365,13 +365,13 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 				expect(planningStore.master?.title).toBe("Realtime Auth Test");
 				expect(planningStore.occurrences.length).toBe(1);
 			},
-			{ timeout: 3000 }
+			{ timeout: 3000 },
 		);
 
 		// === MODIFICATION EXTERNE via client indépendant (admin) ===
 		const adminPb = await authenticateAdmin();
 		await adminPb.collection("planning_masters").update(master.id, {
-			title: "Updated via Realtime Auth"
+			title: "Updated via Realtime Auth",
 		});
 
 		// === VÉRIFICATION : realtime → Dexie → liveQuery → store ===
@@ -383,7 +383,7 @@ describe("PlanningStore — Auth claim flow (#activatePlanning, branche auth)", 
 			() => {
 				expect(planningStore.master?.title).toBe("Updated via Realtime Auth");
 			},
-			{ timeout: 5000 }
+			{ timeout: 5000 },
 		);
 
 		const dexieMaster = await db.masters.get(master.id);

@@ -9,7 +9,7 @@ import { getLocale, overwriteGetLocale } from "$lib/paraglide/runtime.js";
 import {
 	generateRecurrenceDates,
 	getRecurrenceLabel,
-	isLastDayOfMonth
+	isLastDayOfMonth,
 } from "$lib/utils/recurrence";
 
 // =============================================
@@ -59,7 +59,7 @@ describe("MONTHLY_BY_DATE — fixed-day (défaut)", () => {
 		const dates = generateRecurrenceDates({
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-07-31",
-			lastDate: "2026-12-31"
+			lastDate: "2026-12-31",
 		});
 		expect(dates).toEqual(["2026-07-31", "2026-08-31", "2026-10-31", "2026-12-31"]);
 	});
@@ -68,7 +68,7 @@ describe("MONTHLY_BY_DATE — fixed-day (défaut)", () => {
 		const dates = generateRecurrenceDates({
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-01-31",
-			lastDate: "2026-12-31"
+			lastDate: "2026-12-31",
 		});
 		expect(dates).toEqual([
 			"2026-01-31",
@@ -77,7 +77,7 @@ describe("MONTHLY_BY_DATE — fixed-day (défaut)", () => {
 			"2026-07-31",
 			"2026-08-31",
 			"2026-10-31",
-			"2026-12-31"
+			"2026-12-31",
 		]);
 	});
 
@@ -85,7 +85,7 @@ describe("MONTHLY_BY_DATE — fixed-day (défaut)", () => {
 		const dates = generateRecurrenceDates({
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-04-30",
-			lastDate: "2026-12-31"
+			lastDate: "2026-12-31",
 		});
 		// Tous les mois ont 30 jours ou plus, sauf février qui n'a pas de 30 → skip.
 		expect(dates).toEqual([
@@ -97,7 +97,7 @@ describe("MONTHLY_BY_DATE — fixed-day (défaut)", () => {
 			"2026-09-30",
 			"2026-10-30",
 			"2026-11-30",
-			"2026-12-30"
+			"2026-12-30",
 		]);
 	});
 
@@ -105,7 +105,7 @@ describe("MONTHLY_BY_DATE — fixed-day (défaut)", () => {
 		const dates = generateRecurrenceDates({
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2024-02-29",
-			lastDate: "2028-03-31"
+			lastDate: "2028-03-31",
 		});
 		expect(dates).toContain("2024-02-29");
 		expect(dates).toContain("2024-03-29");
@@ -121,7 +121,7 @@ describe("MONTHLY_BY_DATE — fixed-day (défaut)", () => {
 		const dates = generateRecurrenceDates({
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-02-28",
-			lastDate: "2026-06-30"
+			lastDate: "2026-06-30",
 		});
 		expect(dates).toEqual(["2026-02-28", "2026-03-28", "2026-04-28", "2026-05-28", "2026-06-28"]);
 	});
@@ -130,7 +130,7 @@ describe("MONTHLY_BY_DATE — fixed-day (défaut)", () => {
 		const dates = generateRecurrenceDates({
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-01-15",
-			lastDate: "2026-06-30"
+			lastDate: "2026-06-30",
 		});
 		expect(dates).toEqual([
 			"2026-01-15",
@@ -138,7 +138,7 @@ describe("MONTHLY_BY_DATE — fixed-day (défaut)", () => {
 			"2026-03-15",
 			"2026-04-15",
 			"2026-05-15",
-			"2026-06-15"
+			"2026-06-15",
 		]);
 	});
 
@@ -146,13 +146,13 @@ describe("MONTHLY_BY_DATE — fixed-day (défaut)", () => {
 		const a = generateRecurrenceDates({
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-07-31",
-			lastDate: "2026-12-31"
+			lastDate: "2026-12-31",
 		});
 		const b = generateRecurrenceDates({
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-07-31",
 			lastDate: "2026-12-31",
-			monthlyByDateMode: "fixed-day"
+			monthlyByDateMode: "fixed-day",
 		});
 		expect(a).toEqual(b);
 	});
@@ -168,7 +168,7 @@ describe("MONTHLY_BY_DATE — last-day", () => {
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-07-31",
 			lastDate: "2026-12-31",
-			monthlyByDateMode: "last-day"
+			monthlyByDateMode: "last-day",
 		});
 		// Dec 31 doit être inclus malgré le time 23:59:59.999 d'endOfMonth.
 		expect(dates).toEqual([
@@ -177,7 +177,7 @@ describe("MONTHLY_BY_DATE — last-day", () => {
 			"2026-09-30",
 			"2026-10-31",
 			"2026-11-30",
-			"2026-12-31"
+			"2026-12-31",
 		]);
 	});
 
@@ -186,7 +186,7 @@ describe("MONTHLY_BY_DATE — last-day", () => {
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-02-28",
 			lastDate: "2026-07-31",
-			monthlyByDateMode: "last-day"
+			monthlyByDateMode: "last-day",
 		});
 		expect(dates).toEqual([
 			"2026-02-28",
@@ -194,7 +194,7 @@ describe("MONTHLY_BY_DATE — last-day", () => {
 			"2026-04-30",
 			"2026-05-31",
 			"2026-06-30",
-			"2026-07-31"
+			"2026-07-31",
 		]);
 	});
 
@@ -203,7 +203,7 @@ describe("MONTHLY_BY_DATE — last-day", () => {
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2024-02-29",
 			lastDate: "2025-03-31",
-			monthlyByDateMode: "last-day"
+			monthlyByDateMode: "last-day",
 		});
 		expect(dates).toContain("2024-02-29");
 		expect(dates).toContain("2025-02-28");
@@ -216,7 +216,7 @@ describe("MONTHLY_BY_DATE — last-day", () => {
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-01-15",
 			lastDate: "2026-06-30",
-			monthlyByDateMode: "last-day"
+			monthlyByDateMode: "last-day",
 		});
 		expect(dates).toEqual([
 			"2026-01-15",
@@ -224,7 +224,7 @@ describe("MONTHLY_BY_DATE — last-day", () => {
 			"2026-03-15",
 			"2026-04-15",
 			"2026-05-15",
-			"2026-06-15"
+			"2026-06-15",
 		]);
 	});
 });
@@ -238,7 +238,7 @@ describe("Non-régression autres types", () => {
 		const dates = generateRecurrenceDates({
 			type: "DAILY",
 			firstDate: "2026-01-01",
-			lastDate: "2026-01-05"
+			lastDate: "2026-01-05",
 		});
 		expect(dates).toEqual(["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05"]);
 	});
@@ -247,7 +247,7 @@ describe("Non-régression autres types", () => {
 		const dates = generateRecurrenceDates({
 			type: "WEEKLY",
 			firstDate: "2026-01-07",
-			lastDate: "2026-01-28"
+			lastDate: "2026-01-28",
 		});
 		expect(dates).toEqual(["2026-01-07", "2026-01-14", "2026-01-21", "2026-01-28"]);
 	});
@@ -256,7 +256,7 @@ describe("Non-régression autres types", () => {
 		const dates = generateRecurrenceDates({
 			type: "BIWEEKLY",
 			firstDate: "2026-01-07",
-			lastDate: "2026-02-18"
+			lastDate: "2026-02-18",
 		});
 		expect(dates).toEqual(["2026-01-07", "2026-01-21", "2026-02-04", "2026-02-18"]);
 	});
@@ -266,7 +266,7 @@ describe("Non-régression autres types", () => {
 			type: "MONTHLY_BY_DAY",
 			firstDate: "2026-01-07", // 1er mercredi de janvier
 			lastDate: "2026-03-31",
-			monthlyByDayOccurrences: [1]
+			monthlyByDayOccurrences: [1],
 		});
 		expect(dates).toEqual(["2026-01-07", "2026-02-04", "2026-03-04"]);
 	});
@@ -295,7 +295,7 @@ describe("getRecurrenceLabel — MONTHLY_BY_DATE", () => {
 		const label = getRecurrenceLabel({
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-07-31",
-			lastDate: "2026-12-31"
+			lastDate: "2026-12-31",
 		});
 		expect(label).toBe("Tous les 31 du mois");
 	});
@@ -305,7 +305,7 @@ describe("getRecurrenceLabel — MONTHLY_BY_DATE", () => {
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-07-31",
 			lastDate: "2026-12-31",
-			monthlyByDateMode: "fixed-day"
+			monthlyByDateMode: "fixed-day",
 		});
 		expect(label).toBe("Tous les 31 du mois");
 	});
@@ -315,7 +315,7 @@ describe("getRecurrenceLabel — MONTHLY_BY_DATE", () => {
 			type: "MONTHLY_BY_DATE",
 			firstDate: "2026-07-31",
 			lastDate: "2026-12-31",
-			monthlyByDateMode: "last-day"
+			monthlyByDateMode: "last-day",
 		});
 		expect(label).toBe("Le dernier jour du mois");
 	});

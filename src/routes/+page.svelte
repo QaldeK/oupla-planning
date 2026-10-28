@@ -60,7 +60,7 @@
 	<!-- Branding (always visible) -->
 	<div class="mb-8 flex min-h-[30vh] flex-col items-center justify-center space-y-6 text-center">
 		<div class="space-y-4">
-			<div class="bg-white/80 rounded-full">
+			<div class="rounded-full bg-white/80">
 				<img src="/logo.svg" class="mx-auto size-48 sm:size-54" alt="Oupla planning" />
 			</div>
 			<h1 class="text-6xl font-black max-sm:hidden">Oupla planning</h1>

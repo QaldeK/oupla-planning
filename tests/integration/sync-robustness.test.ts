@@ -22,7 +22,7 @@ async function remoteWriteResponses(occId: string, token: string) {
 		.update<PlanningOccurrence>(
 			occId,
 			{ responses: [{ participantId: "participant-A", response: "present" }] },
-			{ query: { _token: token } }
+			{ query: { _token: token } },
 		);
 }
 
@@ -33,7 +33,7 @@ async function remoteAddComment(occId: string, token: string) {
 		.update<PlanningOccurrence>(
 			occId,
 			{ comments: [{ id: "c-remote", participantId: "participant-A", text: "vu sur place" }] },
-			{ query: { _token: token } }
+			{ query: { _token: token } },
 		);
 }
 
@@ -54,7 +54,7 @@ describe("resync de routine — fenêtre date, sans curseur", () => {
 	it("rattrape un write du jour effectué après l'activation (scénario du bug)", async () => {
 		const { occurrences, participantToken } = await seedPlanning({
 			title: "P write du jour",
-			occurrenceCount: 2
+			occurrenceCount: 2,
 		});
 
 		// Activation locale (fetch initial) puis write distant
@@ -71,7 +71,7 @@ describe("resync de routine — fenêtre date, sans curseur", () => {
 	it("un lastFetchAt persisté corrompu (horloge déréglée, ancienne version) ne bloque plus le rattrapage", async () => {
 		const { master, occurrences, participantToken } = await seedPlanning({
 			title: "P curseur corrompu",
-			occurrenceCount: 2
+			occurrenceCount: 2,
 		});
 
 		await planningStore.setActiveToken(participantToken);
@@ -91,7 +91,7 @@ describe("resync de routine — fenêtre date, sans curseur", () => {
 	it("la fenêtre de routine exclut les vieilles occurrences jamais vues (elles relèvent de l'archive)", async () => {
 		const { master, participantToken, adminToken } = await seedPlanning({
 			title: "P fenêtres",
-			occurrenceDates: [dateInDays(7)]
+			occurrenceDates: [dateInDays(7)],
 		});
 
 		await planningStore.setActiveToken(participantToken);
@@ -114,9 +114,9 @@ describe("resync de routine — fenêtre date, sans curseur", () => {
 				tasks: [],
 				isConfirmed: false,
 				isCanceled: false,
-				lastModifiedBy: ""
+				lastModifiedBy: "",
 			},
-			{ query: { _token: adminToken } }
+			{ query: { _token: adminToken } },
 		);
 
 		await planningStore.refreshActive();
@@ -145,7 +145,7 @@ describe("fetch archive — à la demande, borné au passé récent", () => {
 	it("rattrape un commentaire ajouté sur une occurrence passée (l'ancien trou du delta)", async () => {
 		const { occurrences, participantToken } = await seedPlanning({
 			title: "P archive commentaires",
-			occurrenceDates: [dateInDays(-10), dateInDays(7)]
+			occurrenceDates: [dateInDays(-10), dateInDays(7)],
 		});
 		// PB normalise le champ date en datetime ("YYYY-MM-DD 00:00:00.000Z")
 		const pastOcc = occurrences.find((o) => o.date.startsWith(dateInDays(-10)))!;

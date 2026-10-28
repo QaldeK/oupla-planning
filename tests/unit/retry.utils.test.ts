@@ -203,7 +203,7 @@ describe("withRetry", () => {
 			.mockRejectedValueOnce(pbError(500));
 
 		await expect(withRetry(fn, { maxRetries: 2, baseDelayMs: 500, capMs })).rejects.toThrow(
-			"HTTP 500"
+			"HTTP 500",
 		);
 
 		expect(seenDelays.length).toBe(2); // 2 retries → 2 délais
@@ -238,7 +238,7 @@ describe("withRetry", () => {
 
 		// maxRetries 1 → 2 tentatives ; baseDelayMs 100 ; capMs 100.
 		await expect(withRetry(fn, { maxRetries: 1, baseDelayMs: 100, capMs: 100 })).rejects.toThrow(
-			"HTTP 500"
+			"HTTP 500",
 		);
 
 		expect(fn).toHaveBeenCalledTimes(2); // 1 initial + 1 retry

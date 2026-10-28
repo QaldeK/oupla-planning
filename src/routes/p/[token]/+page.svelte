@@ -415,7 +415,7 @@
 	<NetworkAlert />
 	{#if isDeleted}
 		<div
-			class="alert alert-warning alert-soft mx-auto max-w-6xl md:px-4 alert-vertical md:alert-horizontal mb-8"
+			class="alert alert-warning alert-soft alert-vertical md:alert-horizontal mx-auto mb-8 max-w-6xl md:px-4"
 			role="alert"
 		>
 			<Trash2 size={24} class="shrink-0" />

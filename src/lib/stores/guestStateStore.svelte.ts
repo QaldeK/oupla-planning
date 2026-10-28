@@ -69,7 +69,7 @@ class GuestStateStore {
 								first = false;
 								reject(err);
 							}
-						}
+						},
 					});
 				})
 				.catch(reject);

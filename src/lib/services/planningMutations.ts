@@ -3,7 +3,7 @@ import { ClientResponseError } from "pocketbase";
 import { mastersCollection, occurrencesCollection } from "$lib/data/collections";
 import {
 	executeMultiCollectionBatch,
-	type MultiCollectionBatchOperation
+	type MultiCollectionBatchOperation,
 } from "$lib/pb-sync/batch";
 import { db, ensureDbReady } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
@@ -20,13 +20,13 @@ import type {
 	RecurrenceConfig,
 	ResponseType,
 	Task,
-	TimeSlot
+	TimeSlot,
 } from "$lib/types/planning.types";
 import { sortTasks } from "$lib/utils/tasks";
 import {
 	generateAdminToken,
 	generateParticipantId,
-	generateParticipantToken
+	generateParticipantToken,
 } from "$lib/utils/tokens";
 
 // ============================================
@@ -112,7 +112,7 @@ interface CreatePlanningData {
 export async function createPlanningWithOccurrences(
 	data: CreatePlanningData,
 	adminToken?: string,
-	participantToken?: string
+	participantToken?: string,
 ): Promise<PlanningMaster> {
 	const finalAdminToken = adminToken || generateAdminToken();
 	const finalParticipantToken = participantToken || generateParticipantToken();
@@ -134,8 +134,8 @@ export async function createPlanningWithOccurrences(
 			availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes),
 			adminToken: finalAdminToken,
 			participantToken: finalParticipantToken,
-			participants: data.participants || []
-		})
+			participants: data.participants || [],
+		}),
 	);
 
 	// 2. Créer les occurrences depuis les cibles voulues (contrat formulaire↔service).
@@ -155,8 +155,8 @@ export async function createPlanningWithOccurrences(
 					responses: [],
 					comments: [],
 					isConfirmed: false,
-					isCanceled: false
-				})
+					isCanceled: false,
+				}),
 			);
 		}
 		await batch.send();
@@ -176,7 +176,7 @@ export async function createPlanningWithOccurrences(
 export async function updatePlanningWithOccurrences(
 	masterId: string,
 	data: CreatePlanningData,
-	expectedVersion?: string
+	expectedVersion?: string,
 ): Promise<PlanningMaster> {
 	const token = await resolveWriteToken();
 	const today = format(new Date(), "yyyy-MM-dd");
@@ -187,7 +187,7 @@ export async function updatePlanningWithOccurrences(
 		.collection("planning_occurrences")
 		.getFullList<PlanningOccurrence>({
 			filter: `master = "${masterId}" && date >= "${today}"`,
-			query: { _token: token }
+			query: { _token: token },
 		});
 
 	// Cibles = occurrences voulues par l'admin, futures uniquement. Le diff exige
@@ -220,10 +220,10 @@ export async function updatePlanningWithOccurrences(
 				minPresentRequired: data.minPresentRequired,
 				allowResponses: data.allowResponses,
 				toConfirm: data.toConfirm,
-				availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes)
+				availableResponseTypes: normalizeResponseTypes(data.availableResponseTypes),
 			}),
-			params: { query: masterQuery }
-		}
+			params: { query: masterQuery },
+		},
 	];
 
 	// Matchées : update avec les horaires voulus (override porté par la cible, apply
@@ -238,15 +238,15 @@ export async function updatePlanningWithOccurrences(
 						endTime: target.endTime,
 						slotId: target.slotId,
 						deleted: false,
-						tasks: sortTasks(data.tasks)
+						tasks: sortTasks(data.tasks),
 					}
 				: {
 						date: normalizeOccurrenceDate(target.date),
 						startTime: target.startTime,
 						endTime: target.endTime,
 						slotId: target.slotId,
-						deleted: false
-					}
+						deleted: false,
+					},
 		);
 		batchOps.push({
 			type: "update",
@@ -254,7 +254,7 @@ export async function updatePlanningWithOccurrences(
 			collection: "planning_occurrences",
 			id: existing.id,
 			data: updateData,
-			params: { query: { _token: token } }
+			params: { query: { _token: token } },
 		});
 	}
 
@@ -272,9 +272,9 @@ export async function updatePlanningWithOccurrences(
 				responses: [],
 				comments: [],
 				isConfirmed: false,
-				isCanceled: false
+				isCanceled: false,
 			}),
-			params: { query: { _token: token } }
+			params: { query: { _token: token } },
 		});
 	}
 
@@ -287,7 +287,7 @@ export async function updatePlanningWithOccurrences(
 			collection: "planning_occurrences",
 			id: occ.id,
 			data: withAudit({ deleted: true }),
-			params: { query: { _token: token } }
+			params: { query: { _token: token } },
 		});
 	}
 
@@ -296,7 +296,7 @@ export async function updatePlanningWithOccurrences(
 	} catch (e: unknown) {
 		console.error(
 			"Batch error detail:",
-			JSON.stringify(e instanceof ClientResponseError ? e.data : e, null, 2)
+			JSON.stringify(e instanceof ClientResponseError ? e.data : e, null, 2),
 		);
 		if (e instanceof ClientResponseError) console.error("Batch error response:", e.response);
 		throw e;
@@ -321,8 +321,8 @@ export async function deletePlanning(masterId: string, expectedVersion: string):
 		masterId,
 		withAudit({ deleted: true }) as Partial<PlanningMaster>,
 		{
-			query: { _token: await resolveWriteToken(), _version: expectedVersion }
-		}
+			query: { _token: await resolveWriteToken(), _version: expectedVersion },
+		},
 	);
 }
 
@@ -342,8 +342,8 @@ export async function restorePlanning(masterId: string, expectedVersion: string)
 		masterId,
 		withAudit({ deleted: false }) as Partial<PlanningMaster>,
 		{
-			query: { _token: await resolveWriteToken(), _version: expectedVersion }
-		}
+			query: { _token: await resolveWriteToken(), _version: expectedVersion },
+		},
 	);
 }
 
@@ -353,12 +353,12 @@ export async function restorePlanning(masterId: string, expectedVersion: string)
 
 export async function addParticipant(
 	masterId: string,
-	participant: Omit<Participant, "id" | "createdAt"> & { id?: string }
+	participant: Omit<Participant, "id" | "createdAt"> & { id?: string },
 ): Promise<PlanningMaster> {
 	const newParticipant: Participant = {
 		...participant,
 		id: participant.id || generateParticipantId(),
-		createdAt: new Date().toISOString()
+		createdAt: new Date().toISOString(),
 	};
 
 	// Lire le master depuis Dexie pour calculer la nouvelle liste
@@ -370,47 +370,47 @@ export async function addParticipant(
 		withAudit({
 			participants: [
 				...(current.participants || []).filter((p) => p.id !== newParticipant.id),
-				newParticipant
-			]
+				newParticipant,
+			],
 		}),
-		{ query: { _token: await resolveWriteToken() } }
+		{ query: { _token: await resolveWriteToken() } },
 	);
 }
 
 export async function updateParticipant(
 	masterId: string,
 	participantId: string,
-	updates: Partial<Participant>
+	updates: Partial<Participant>,
 ): Promise<PlanningMaster> {
 	const current = await mastersCollection.getTable().get(masterId);
 	if (!current) throw new Error(`Master ${masterId} not found in local DB`);
 
 	const updatedParticipants = (current.participants || []).map((p) =>
-		p.id === participantId ? { ...p, ...updates } : p
+		p.id === participantId ? { ...p, ...updates } : p,
 	);
 
 	return await mastersCollection.update(
 		masterId,
 		withAudit({ participants: updatedParticipants }),
-		{ query: { _token: await resolveWriteToken() } }
+		{ query: { _token: await resolveWriteToken() } },
 	);
 }
 
 export async function quitPlanning(
 	masterId: string,
-	participantId: string
+	participantId: string,
 ): Promise<PlanningMaster> {
 	const current = await mastersCollection.getTable().get(masterId);
 	if (!current) throw new Error(`Master ${masterId} not found in local DB`);
 
 	const updatedParticipants = (current.participants || []).map((p) =>
-		p.id === participantId ? { ...p, hasQuit: true } : p
+		p.id === participantId ? { ...p, hasQuit: true } : p,
 	);
 
 	return await mastersCollection.update(
 		masterId,
 		withAudit({ participants: updatedParticipants }),
-		{ query: { _token: await resolveWriteToken() } }
+		{ query: { _token: await resolveWriteToken() } },
 	);
 }
 
@@ -465,12 +465,12 @@ export interface ClaimIdentityResult {
  */
 export async function claimParticipantIdentity(
 	masterId: string,
-	guestParticipantId: string
+	guestParticipantId: string,
 ): Promise<ClaimIdentityResult> {
 	return await pb.send("/api/claim-participant-identity", {
 		method: "POST",
 		body: { masterId, guestParticipantId },
-		query: { _token: await resolveWriteToken() }
+		query: { _token: await resolveWriteToken() },
 	});
 }
 
@@ -480,12 +480,12 @@ export async function claimParticipantIdentity(
 
 export async function updateOccurrence(
 	occurrenceId: string,
-	updates: Partial<PlanningOccurrence>
+	updates: Partial<PlanningOccurrence>,
 ): Promise<PlanningOccurrence> {
 	const updateData = withAudit(updates);
 	if (updateData.tasks !== undefined) updateData.tasks = sortTasks(updateData.tasks);
 	return await occurrencesCollection.update(occurrenceId, updateData, {
-		query: { _token: await resolveWriteToken() }
+		query: { _token: await resolveWriteToken() },
 	});
 }
 
@@ -496,7 +496,7 @@ export async function updateOccurrence(
 export async function submitResponse(
 	occurrenceId: string,
 	participantId: string,
-	response: ParticipantResponse
+	response: ParticipantResponse,
 ): Promise<PlanningOccurrence> {
 	const current = await occurrencesCollection.getTable().get(occurrenceId);
 	if (!current) throw new Error(`Occurrence ${occurrenceId} not found in local DB`);
@@ -514,7 +514,7 @@ export async function submitResponse(
 	return await occurrencesCollection.update(
 		occurrenceId,
 		withAudit({ responses: updatedResponses }),
-		{ query: { _token: await resolveWriteToken() } }
+		{ query: { _token: await resolveWriteToken() } },
 	);
 }
 
@@ -525,7 +525,7 @@ export async function submitResponse(
 export async function addComment(
 	occurrenceId: string,
 	participantId: string,
-	content: string
+	content: string,
 ): Promise<PlanningOccurrence> {
 	const current = await occurrencesCollection.getTable().get(occurrenceId);
 	if (!current) throw new Error(`Occurrence ${occurrenceId} not found in local DB`);
@@ -534,13 +534,13 @@ export async function addComment(
 		id: generateParticipantId(),
 		participantId,
 		content,
-		createdAt: new Date().toISOString()
+		createdAt: new Date().toISOString(),
 	};
 
 	const confirmed = await occurrencesCollection.update(
 		occurrenceId,
 		withAudit({ comments: [...(current.comments || []), newComment] }),
-		{ query: { _token: await resolveWriteToken() } }
+		{ query: { _token: await resolveWriteToken() } },
 	);
 
 	commentStateService.markConversationAsRead(occurrenceId, current.master, true);
@@ -549,7 +549,7 @@ export async function addComment(
 
 export async function deleteComment(
 	occurrenceId: string,
-	commentId: string
+	commentId: string,
 ): Promise<PlanningOccurrence> {
 	const current = await occurrencesCollection.getTable().get(occurrenceId);
 	if (!current) throw new Error(`Occurrence ${occurrenceId} not found in local DB`);
@@ -557,6 +557,6 @@ export async function deleteComment(
 	return await occurrencesCollection.update(
 		occurrenceId,
 		withAudit({ comments: (current.comments || []).filter((c) => c.id !== commentId) }),
-		{ query: { _token: await resolveWriteToken() } }
+		{ query: { _token: await resolveWriteToken() } },
 	);
 }

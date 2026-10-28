@@ -37,7 +37,7 @@ import type {
 	OccurrenceTarget,
 	Participant,
 	PlanningMaster,
-	RecurrenceConfig
+	RecurrenceConfig,
 } from "$lib/types/planning.types";
 import { generateRecurrenceDates } from "$lib/utils/recurrence";
 import { generateAdminToken, generateParticipantToken } from "$lib/utils/tokens";
@@ -47,7 +47,7 @@ import {
 	cleanupTrackedRecords,
 	clearTrackedIds,
 	seedUser,
-	trackIds
+	trackIds,
 } from "./seed";
 
 // Helper: normalise les dates PB (format 'YYYY-MM-DD HH:mm:ss.SSSZ') en 'YYYY-MM-DD'
@@ -61,7 +61,7 @@ function buildTargetsFromRecurrence(
 	recurrence: RecurrenceConfig,
 	startTime: string,
 	endTime: string,
-	slotId = "s1"
+	slotId = "s1",
 ): OccurrenceTarget[] {
 	return generateRecurrenceDates(recurrence).map((date) => ({ date, startTime, endTime, slotId }));
 }
@@ -101,15 +101,15 @@ describe("Planning Create Flow — /new", () => {
 						date,
 						startTime: "10:00",
 						endTime: "12:00",
-						slotId: "s1"
+						slotId: "s1",
 					})),
 					minPresentRequired: 3,
 					allowResponses: true,
 					availableResponseTypes: ["present", "absent", "maybe"],
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -159,14 +159,14 @@ describe("Planning Create Flow — /new", () => {
 						date,
 						startTime: "09:00",
 						endTime: "17:00",
-						slotId: "s1"
+						slotId: "s1",
 					})),
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -222,7 +222,7 @@ describe("Planning Create Flow — /new", () => {
 				id: user.id,
 				name: "Createur Test",
 				isAdmin: true,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 
 			// === ACTION ===
@@ -233,14 +233,14 @@ describe("Planning Create Flow — /new", () => {
 					defaultEndTime: "17:00",
 					recurrence: { type: "CUSTOM" },
 					occurrenceTargets: [
-						{ date: "2026-07-01", startTime: "09:00", endTime: "17:00", slotId: "s1" }
+						{ date: "2026-07-01", startTime: "09:00", endTime: "17:00", slotId: "s1" },
 					],
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: [creatorParticipant]
+					participants: [creatorParticipant],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -282,7 +282,7 @@ describe("Planning Create Flow — /new", () => {
 			const recurrence = {
 				type: "WEEKLY" as const,
 				firstDate,
-				lastDate
+				lastDate,
 			};
 
 			// Calculer les dates attendues
@@ -297,10 +297,10 @@ describe("Planning Create Flow — /new", () => {
 					occurrenceTargets: buildTargetsFromRecurrence(recurrence, "14:00", "16:00"),
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -338,7 +338,7 @@ describe("Planning Create Flow — /new", () => {
 			const recurrence = {
 				type: "BIWEEKLY" as const,
 				firstDate,
-				lastDate
+				lastDate,
 			};
 
 			const expectedDates = generateRecurrenceDates(recurrence);
@@ -353,10 +353,10 @@ describe("Planning Create Flow — /new", () => {
 					occurrenceTargets: buildTargetsFromRecurrence(recurrence, "10:00", "12:00"),
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -383,7 +383,7 @@ describe("Planning Create Flow — /new", () => {
 			const recurrence = {
 				type: "MONTHLY_BY_DATE" as const,
 				firstDate,
-				lastDate
+				lastDate,
 			};
 
 			const expectedDates = generateRecurrenceDates(recurrence);
@@ -398,10 +398,10 @@ describe("Planning Create Flow — /new", () => {
 					occurrenceTargets: buildTargetsFromRecurrence(recurrence, "09:00", "17:00"),
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -429,7 +429,7 @@ describe("Planning Create Flow — /new", () => {
 				type: "MONTHLY_BY_DAY" as const,
 				firstDate,
 				lastDate,
-				monthlyByDayOccurrences: [2]
+				monthlyByDayOccurrences: [2],
 			};
 
 			const expectedDates = generateRecurrenceDates(recurrence);
@@ -444,10 +444,10 @@ describe("Planning Create Flow — /new", () => {
 					occurrenceTargets: buildTargetsFromRecurrence(recurrence, "14:00", "18:00"),
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -480,14 +480,14 @@ describe("Planning Create Flow — /new", () => {
 					recurrence: { type: "CUSTOM" },
 					occurrenceTargets: [
 						{ date: "2026-06-01", startTime: "09:00", endTime: "17:00", slotId: "s1" },
-						{ date: "2026-06-08", startTime: "09:00", endTime: "17:00", slotId: "s1" }
+						{ date: "2026-06-08", startTime: "09:00", endTime: "17:00", slotId: "s1" },
 					],
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -531,14 +531,14 @@ describe("Planning Create Flow — /new", () => {
 					defaultEndTime: "17:00",
 					recurrence: { type: "CUSTOM" },
 					occurrenceTargets: [
-						{ date: "2026-06-01", startTime: "09:00", endTime: "17:00", slotId: "s1" }
+						{ date: "2026-06-01", startTime: "09:00", endTime: "17:00", slotId: "s1" },
 					],
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -549,13 +549,13 @@ describe("Planning Create Flow — /new", () => {
 			const guestMaster = await pb
 				.collection("planning_masters")
 				.getFirstListItem<PlanningMaster>(`participantToken = "${participantToken}"`, {
-					query: { _token: participantToken }
+					query: { _token: participantToken },
 				});
 
 			// Tracker les occurrences pour cleanup
 			const guestOccurrences = await pb.collection("planning_occurrences").getFullList({
 				filter: `master = "${master.id}"`,
-				query: { _token: participantToken }
+				query: { _token: participantToken },
 			});
 			for (const occ of guestOccurrences) {
 				trackIds("planning_occurrences", occ.id);
@@ -584,11 +584,11 @@ describe("Planning Create Flow — /new", () => {
 				defaultEndTime: "12:00",
 				recurrence: { type: "CUSTOM" },
 				occurrenceTargets: [
-					{ date: "2026-06-01", startTime: "10:00", endTime: "12:00", slotId: "s1" }
+					{ date: "2026-06-01", startTime: "10:00", endTime: "12:00", slotId: "s1" },
 				],
 				minPresentRequired: 1,
 				allowResponses: true,
-				participants: []
+				participants: [],
 			});
 
 			trackIds("planning_masters", master.id);
@@ -620,7 +620,7 @@ describe("Planning Create Flow — /new", () => {
 				recurrence: { type: "CUSTOM" },
 				minPresentRequired: 1,
 				allowResponses: true,
-				participants: []
+				participants: [],
 			});
 
 			trackIds("planning_masters", master.id);
@@ -658,14 +658,14 @@ describe("Planning Create Flow — /new", () => {
 						date,
 						startTime: "09:00",
 						endTime: "17:00",
-						slotId: "s1"
+						slotId: "s1",
 					})),
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -704,7 +704,7 @@ describe("Planning Create Flow — /new", () => {
 					defaultEndTime: "17:00",
 					recurrence: { type: "CUSTOM" },
 					occurrenceTargets: [
-						{ date: "2026-06-01", startTime: "09:00", endTime: "17:00", slotId: "s1" }
+						{ date: "2026-06-01", startTime: "09:00", endTime: "17:00", slotId: "s1" },
 					],
 					minPresentRequired: 1,
 					allowResponses: true,
@@ -716,13 +716,13 @@ describe("Planning Create Flow — /new", () => {
 							name: "Before",
 							description: "",
 							requiredVolunteers: 1,
-							type: "beforeEvent"
+							type: "beforeEvent",
 						},
-						{ id: "t2", name: "During", description: "", requiredVolunteers: 2, type: "onEvent" }
-					]
+						{ id: "t2", name: "During", description: "", requiredVolunteers: 2, type: "onEvent" },
+					],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -758,10 +758,10 @@ describe("Planning Create Flow — /new", () => {
 					minPresentRequired: 1,
 					allowResponses: true,
 					availableResponseTypes: ["absent", "maybe", "if_needed", "present"],
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -797,10 +797,10 @@ describe("Planning Create Flow — /new", () => {
 					recurrence: { type: "CUSTOM" },
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: []
+					participants: [],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -842,7 +842,7 @@ describe("Planning Create Flow — /new", () => {
 				id: user.id,
 				name: "Auth Creator",
 				isAdmin: true,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 
 			// === ACTION — Création (simule /new) ===
@@ -854,10 +854,10 @@ describe("Planning Create Flow — /new", () => {
 					recurrence: { type: "CUSTOM" },
 					minPresentRequired: 1,
 					allowResponses: true,
-					participants: [creatorParticipant]
+					participants: [creatorParticipant],
 				},
 				adminToken,
-				participantToken
+				participantToken,
 			);
 
 			trackIds("planning_masters", master.id);

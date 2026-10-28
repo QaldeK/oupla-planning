@@ -47,8 +47,8 @@ export const mastersCollection = createSyncCollection<PlanningMaster>(
 	db.masters,
 	"planning_masters",
 	{
-		onSubscriptionChange: notifySubscriptionChange
-	}
+		onSubscriptionChange: notifySubscriptionChange,
+	},
 );
 
 export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
@@ -56,6 +56,6 @@ export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
 	db.occurrences,
 	"planning_occurrences",
 	{
-		onSubscriptionChange: notifySubscriptionChange
-	}
+		onSubscriptionChange: notifySubscriptionChange,
+	},
 );

@@ -8,7 +8,7 @@ import {
 	isAfter,
 	isBefore,
 	parse,
-	startOfMonth
+	startOfMonth,
 } from "date-fns";
 import * as m from "$lib/paraglide/messages.js";
 import { getLocale } from "$lib/paraglide/runtime.js";
@@ -117,7 +117,7 @@ export const formatRecurrence = (recurrence: RecurrenceConfig): string => {
 		BIWEEKLY: () => m.recurrence_type_biweekly(),
 		MONTHLY_BY_DATE: () => m.recurrence_type_monthly_date(),
 		MONTHLY_BY_DAY: () => m.recurrence_type_monthly_day(),
-		CUSTOM: () => m.recurrence_type_custom()
+		CUSTOM: () => m.recurrence_type_custom(),
 	};
 
 	return recurrenceTypes[recurrence.type]?.() || recurrence.type;
@@ -174,11 +174,11 @@ export function getRecurrenceLabel(recurrence: RecurrenceConfig): string {
 					.map((occurrence) => getOccurrenceLabel(occurrence));
 				const formatter = new Intl.ListFormat(getLocale(), {
 					style: "long",
-					type: "conjunction"
+					type: "conjunction",
 				});
 				return m.recurrence_label_monthly_day_ordinals({
 					ordinals: formatter.format(ordinals),
-					weekday: weekdayName
+					weekday: weekdayName,
 				});
 			}
 

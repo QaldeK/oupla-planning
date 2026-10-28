@@ -31,7 +31,7 @@ describe("generateTimeSlotId", () => {
 	it("coexiste avec des UUID : incrémente seulement les ids s<N>", () => {
 		// Mix legacy UUID + nouveau court : le max numérique (s2) pilote la suite.
 		expect(generateTimeSlotId([{ id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890" }, { id: "s2" }])).toBe(
-			"s3"
+			"s3",
 		);
 	});
 

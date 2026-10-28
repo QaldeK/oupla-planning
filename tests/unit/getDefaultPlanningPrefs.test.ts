@@ -17,7 +17,7 @@ const RECURRENCE_TYPES: RecurrenceType[] = [
 	"MONTHLY_BY_DATE",
 	"MONTHLY_BY_DAY",
 	"DAILY",
-	"CUSTOM"
+	"CUSTOM",
 ];
 
 describe("getDefaultPlanningPrefs", () => {
@@ -68,19 +68,19 @@ describe("getDefaultPlanningPrefs", () => {
 		it("applique les reminderDays / missingDays attendus pour chaque recurrenceType", () => {
 			expect(getDefaultPlanningPrefs("WEEKLY", false)).toMatchObject({
 				reminderDays: ["1", "3"],
-				missingDays: ["1", "3"]
+				missingDays: ["1", "3"],
 			});
 			expect(getDefaultPlanningPrefs("BIWEEKLY", false)).toMatchObject({
 				reminderDays: ["1", "3"],
-				missingDays: ["1", "3", "7"]
+				missingDays: ["1", "3", "7"],
 			});
 			expect(getDefaultPlanningPrefs("MONTHLY_BY_DATE", false)).toMatchObject({
 				reminderDays: ["1", "3", "7"],
-				missingDays: ["1", "3", "7"]
+				missingDays: ["1", "3", "7"],
 			});
 			expect(getDefaultPlanningPrefs("CUSTOM", false)).toMatchObject({
 				reminderDays: ["1", "3", "7"],
-				missingDays: ["1", "3", "7", "15"]
+				missingDays: ["1", "3", "7", "15"],
 			});
 		});
 
@@ -90,7 +90,7 @@ describe("getDefaultPlanningPrefs", () => {
 				push: false,
 				email: true,
 				onOccurrenceChange: true,
-				onConfirmationNeeded: false
+				onConfirmationNeeded: false,
 			});
 		});
 	});

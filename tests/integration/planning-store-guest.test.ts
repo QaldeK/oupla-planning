@@ -57,10 +57,10 @@ describe("PlanningStore — Guest Flow", () => {
 			const {
 				master,
 				occurrences: _occurrences,
-				participantToken
+				participantToken,
 			} = await seedPlanning({
 				title: "Planning Guest Test",
-				occurrenceCount: 3
+				occurrenceCount: 3,
 			});
 
 			// === ACTION ===
@@ -71,7 +71,7 @@ describe("PlanningStore — Guest Flow", () => {
 				() => {
 					expect(planningStore.master).not.toBeNull();
 				},
-				{ timeout: 2000 }
+				{ timeout: 2000 },
 			);
 
 			// === VÉRIFICATION STORE ===
@@ -105,7 +105,7 @@ describe("PlanningStore — Guest Flow", () => {
 			expect(dexieMaster!.updated).toBe(pbMaster.updated);
 
 			const pbOccurrences = await adminPb.collection("planning_occurrences").getFullList({
-				filter: `master = "${master.id}"`
+				filter: `master = "${master.id}"`,
 			});
 			expect(pbOccurrences.length).toBe(3);
 			const pbDates = pbOccurrences.map((o) => o.date).sort();
@@ -134,7 +134,7 @@ describe("PlanningStore — Guest Flow", () => {
 			// === SEED ===
 			const { master, adminToken } = await seedPlanning({
 				title: "Planning Admin Test",
-				occurrenceCount: 2
+				occurrenceCount: 2,
 			});
 
 			// === ACTION ===
@@ -145,7 +145,7 @@ describe("PlanningStore — Guest Flow", () => {
 				() => {
 					expect(planningStore.master).not.toBeNull();
 				},
-				{ timeout: 500 }
+				{ timeout: 500 },
 			);
 
 			// === VÉRIFICATION STORE ===
@@ -173,7 +173,7 @@ describe("PlanningStore — Guest Flow", () => {
 			expect(dexieMaster!.updated).toBe(pbMaster.updated);
 
 			const pbOccurrences = await adminPb.collection("planning_occurrences").getFullList({
-				filter: `master = "${master.id}"`
+				filter: `master = "${master.id}"`,
 			});
 			expect(pbOccurrences.length).toBe(2);
 		});
@@ -183,10 +183,10 @@ describe("PlanningStore — Guest Flow", () => {
 		it("désactive l ancien planning et charge le nouveau", async () => {
 			// === SEED ===
 			const { participantToken: token1, master: master1 } = await seedPlanning({
-				title: "Planning 1"
+				title: "Planning 1",
 			});
 			const { participantToken: token2, master: master2 } = await seedPlanning({
-				title: "Planning 2"
+				title: "Planning 2",
 			});
 
 			// === ACTION 1 ===
@@ -204,7 +204,7 @@ describe("PlanningStore — Guest Flow", () => {
 				() => {
 					expect(planningStore.master?.title).toBe("Planning 2");
 				},
-				{ timeout: 500 }
+				{ timeout: 500 },
 			);
 
 			// === VÉRIFICATION ===
@@ -227,10 +227,10 @@ describe("PlanningStore — Guest Flow", () => {
 			expect(dexieMaster2!.updated).toBe(pbMaster2.updated);
 
 			const pbOccurrences1 = await adminPb.collection("planning_occurrences").getFullList({
-				filter: `master = "${master1.id}"`
+				filter: `master = "${master1.id}"`,
 			});
 			const pbOccurrences2 = await adminPb.collection("planning_occurrences").getFullList({
-				filter: `master = "${master2.id}"`
+				filter: `master = "${master2.id}"`,
 			});
 			const dexieOccurrences1 = await db.occurrences.where("master").equals(master1.id).toArray();
 			const dexieOccurrences2 = await db.occurrences.where("master").equals(master2.id).toArray();
@@ -244,7 +244,7 @@ describe("PlanningStore — Guest Flow", () => {
 			// === SEED ===
 			const { master, participantToken } = await seedPlanning({
 				title: "Realtime Test",
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 			const adminPb = await authenticateAdmin();
 
@@ -257,7 +257,7 @@ describe("PlanningStore — Guest Flow", () => {
 
 			// === ACTION : modification externe via client independant ===
 			await adminPb.collection("planning_masters").update(master.id, {
-				title: "Updated via Realtime"
+				title: "Updated via Realtime",
 			});
 
 			// === VERIFICATION : realtime → Dexie → liveQuery → store ===
@@ -265,7 +265,7 @@ describe("PlanningStore — Guest Flow", () => {
 				() => {
 					expect(planningStore.master?.title).toBe("Updated via Realtime");
 				},
-				{ timeout: 5000 }
+				{ timeout: 5000 },
 			);
 
 			// Verification Dexie coherence
@@ -279,10 +279,10 @@ describe("PlanningStore — Guest Flow", () => {
 				master: _master,
 				occurrences,
 				participantToken,
-				adminToken
+				adminToken,
 			} = await seedPlanning({
 				title: "Realtime Occ Test",
-				occurrenceCount: 2
+				occurrenceCount: 2,
 			});
 			const adminPb = await authenticateAdmin();
 
@@ -304,7 +304,7 @@ describe("PlanningStore — Guest Flow", () => {
 					const occ = planningStore.occurrences.find((o) => o.id === targetOcc.id);
 					expect(occ?.isConfirmed).toBe(true);
 				},
-				{ timeout: 5000 }
+				{ timeout: 5000 },
 			);
 		});
 	});
@@ -314,7 +314,7 @@ describe("PlanningStore — Guest Flow", () => {
 			// === SEED ===
 			const { master, participantToken } = await seedPlanning({
 				title: "Planning Soft Deleted",
-				occurrenceCount: 2
+				occurrenceCount: 2,
 			});
 			const adminPb = await authenticateAdmin();
 			await adminPb.collection("planning_masters").update(master.id, { deleted: true });
@@ -326,7 +326,7 @@ describe("PlanningStore — Guest Flow", () => {
 				() => {
 					expect(planningStore.master).not.toBeNull();
 				},
-				{ timeout: 2000 }
+				{ timeout: 2000 },
 			);
 
 			// === VÉRIFICATION STORE ===
@@ -340,7 +340,7 @@ describe("PlanningStore — Guest Flow", () => {
 				() => {
 					expect(planningStore.occurrences.length).toBe(2);
 				},
-				{ timeout: 2000 }
+				{ timeout: 2000 },
 			);
 		});
 
@@ -361,7 +361,7 @@ describe("PlanningStore — Guest Flow", () => {
 				allowResponses: true,
 				deleted: false,
 				created: new Date().toISOString(),
-				updated: new Date().toISOString()
+				updated: new Date().toISOString(),
 			});
 
 			// === ACTION ===

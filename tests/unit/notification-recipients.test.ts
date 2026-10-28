@@ -49,7 +49,7 @@ function mkRecord(data: Record<string, unknown>): any {
 		getStringSlice(field: string) {
 			const v = data[field];
 			return Array.isArray(v) ? v.map(String) : [];
-		}
+		},
 	};
 }
 
@@ -60,7 +60,7 @@ function mkRecord(data: Record<string, unknown>): any {
 function mkMaster({ participants = [] }: { participants?: any[] } = {}): any {
 	return mkRecord({
 		participantToken: "abc123",
-		participants
+		participants,
 	});
 }
 
@@ -68,7 +68,7 @@ function mkParticipant({
 	id,
 	userId,
 	hasQuit = false,
-	isAdmin = false
+	isAdmin = false,
 }: {
 	id: string;
 	userId: string | undefined;
@@ -86,7 +86,7 @@ function mkPlanningParticipant({
 	onConfirmationNeeded = false,
 	reminderDays = [],
 	missingDays = [],
-	newCommentScope
+	newCommentScope,
 }: {
 	userId: string;
 	email?: boolean;
@@ -105,7 +105,7 @@ function mkPlanningParticipant({
 		onConfirmationNeeded,
 		reminderDays,
 		missingDays,
-		newCommentScope
+		newCommentScope,
 	});
 }
 
@@ -134,7 +134,7 @@ function normalize(list: any[]): NormalizedRecipient[] {
 			response: r.response === undefined ? null : r.response,
 			tasks: Array.isArray(r.tasks) ? [...r.tasks].sort() : [],
 			email: r.email ?? true,
-			push: r.push ?? false
+			push: r.push ?? false,
 		}))
 		.sort((a, b) => a.userId.localeCompare(b.userId));
 }
@@ -151,7 +151,7 @@ describe("reminder", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", reminderDays: ["3"] })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "present", tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			}),
 			expected: [
 				{
@@ -160,9 +160,9 @@ describe("reminder", () => {
 					response: "present",
 					tasks: [],
 					email: true,
-					push: false
-				}
-			]
+					push: false,
+				},
+			],
 		},
 		{
 			name: "reminder J-3 : user absent + inscrit tâche → destinataire",
@@ -170,7 +170,7 @@ describe("reminder", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", reminderDays: ["3"] })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "absent", tasks: ["t1"] }]
+				responses: [{ participantId: "p1", response: "absent", tasks: ["t1"] }],
 			}),
 			expected: [
 				{
@@ -179,9 +179,9 @@ describe("reminder", () => {
 					response: "absent",
 					tasks: ["t1"],
 					email: true,
-					push: false
-				}
-			]
+					push: false,
+				},
+			],
 		},
 		{
 			name: "reminder J-3 : user absent sans tâche → pas destinataire",
@@ -189,9 +189,9 @@ describe("reminder", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", reminderDays: ["3"] })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "absent", tasks: [] }]
+				responses: [{ participantId: "p1", response: "absent", tasks: [] }],
 			}),
-			expected: []
+			expected: [],
 		},
 		{
 			name: "reminder J-3 : sans-réponse → pas destinataire (reminder filtre)",
@@ -199,7 +199,7 @@ describe("reminder", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", reminderDays: ["3"] })],
 			occ: mkOcc({ responses: [] }),
-			expected: []
+			expected: [],
 		},
 		{
 			name: "reminder J-3 : reminderDays=[1,7] ne contient pas 3 → pas destinataire",
@@ -207,10 +207,10 @@ describe("reminder", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", reminderDays: ["1", "7"] })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "present", tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			}),
-			expected: []
-		}
+			expected: [],
+		},
 	];
 
 	for (const c of cases) {
@@ -230,8 +230,8 @@ describe("missings (quorum_missing / task_unassigned)", () => {
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", missingDays: ["3"] })],
 			occ: mkOcc({ responses: [] }),
 			expected: [
-				{ userId: "u1", participantId: "p1", response: null, tasks: [], email: true, push: false }
-			]
+				{ userId: "u1", participantId: "p1", response: null, tasks: [], email: true, push: false },
+			],
 		},
 		{
 			name: "quorum_missing J-3 : présent + missingDays=[3] → destinataire",
@@ -239,7 +239,7 @@ describe("missings (quorum_missing / task_unassigned)", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", missingDays: ["3"] })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "present", tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			}),
 			expected: [
 				{
@@ -248,9 +248,9 @@ describe("missings (quorum_missing / task_unassigned)", () => {
 					response: "present",
 					tasks: [],
 					email: true,
-					push: false
-				}
-			]
+					push: false,
+				},
+			],
 		},
 		{
 			name: "quorum_missing J-3 : absent → pas destinataire",
@@ -258,10 +258,10 @@ describe("missings (quorum_missing / task_unassigned)", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", missingDays: ["3"] })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "absent", tasks: [] }]
+				responses: [{ participantId: "p1", response: "absent", tasks: [] }],
 			}),
-			expected: []
-		}
+			expected: [],
+		},
 	];
 
 	for (const c of cases) {
@@ -281,8 +281,8 @@ describe("confirmation_needed (admin only via pref)", () => {
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", onConfirmationNeeded: true })],
 			occ: mkOcc({ responses: [] }),
 			expected: [
-				{ userId: "u1", participantId: "p1", response: null, tasks: [], email: true, push: false }
-			]
+				{ userId: "u1", participantId: "p1", response: null, tasks: [], email: true, push: false },
+			],
 		},
 		{
 			name: "confirmation_needed J-3 : onConfirmationNeeded=false → pas destinataire",
@@ -290,8 +290,8 @@ describe("confirmation_needed (admin only via pref)", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", onConfirmationNeeded: false })],
 			occ: mkOcc({ responses: [] }),
-			expected: []
-		}
+			expected: [],
+		},
 	];
 
 	for (const c of cases) {
@@ -310,7 +310,7 @@ describe("schedule_change / status_canceled (onOccurrenceChange)", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", onOccurrenceChange: true })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "present", tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			}),
 			expected: [
 				{
@@ -319,9 +319,9 @@ describe("schedule_change / status_canceled (onOccurrenceChange)", () => {
 					response: "present",
 					tasks: [],
 					email: true,
-					push: false
-				}
-			]
+					push: false,
+				},
+			],
 		},
 		{
 			name: "schedule_change : sans-réponse → pas destinataire",
@@ -329,7 +329,7 @@ describe("schedule_change / status_canceled (onOccurrenceChange)", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", onOccurrenceChange: true })],
 			occ: mkOcc({ responses: [] }),
-			expected: []
+			expected: [],
 		},
 		{
 			name: "schedule_change : absent → pas destinataire",
@@ -337,9 +337,9 @@ describe("schedule_change / status_canceled (onOccurrenceChange)", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", onOccurrenceChange: true })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "absent", tasks: [] }]
+				responses: [{ participantId: "p1", response: "absent", tasks: [] }],
 			}),
-			expected: []
+			expected: [],
 		},
 		{
 			name: "schedule_change : onOccurrenceChange=false → pas destinataire",
@@ -347,10 +347,10 @@ describe("schedule_change / status_canceled (onOccurrenceChange)", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", onOccurrenceChange: false })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "present", tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			}),
-			expected: []
-		}
+			expected: [],
+		},
 	];
 
 	for (const c of cases) {
@@ -368,10 +368,10 @@ describe("Filtre prefs communes", () => {
 			event: { type: "reminder", reminderValue: 3 },
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [
-				mkPlanningParticipant({ userId: "u1", email: false, reminderDays: ["3"] })
+				mkPlanningParticipant({ userId: "u1", email: false, reminderDays: ["3"] }),
 			],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "present", tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			}),
 			expected: [
 				{
@@ -380,19 +380,19 @@ describe("Filtre prefs communes", () => {
 					response: "present",
 					tasks: [],
 					email: false,
-					push: false
-				}
-			]
+					push: false,
+				},
+			],
 		},
 		{
 			name: "push=true → destinataire avec push:true (filtre délégué)",
 			event: { type: "reminder", reminderValue: 3 },
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [
-				mkPlanningParticipant({ userId: "u1", push: true, reminderDays: ["3"] })
+				mkPlanningParticipant({ userId: "u1", push: true, reminderDays: ["3"] }),
 			],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "present", tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			}),
 			expected: [
 				{
@@ -401,10 +401,10 @@ describe("Filtre prefs communes", () => {
 					response: "present",
 					tasks: [],
 					email: true,
-					push: true
-				}
-			]
-		}
+					push: true,
+				},
+			],
+		},
 	];
 
 	for (const c of cases) {
@@ -421,14 +421,14 @@ describe("Filtre hasQuit", () => {
 			name: "hasQuit=true → pas destinataire",
 			event: { type: "reminder", reminderValue: 3 },
 			master: mkMaster({
-				participants: [mkParticipant({ id: "p1", userId: "u1", hasQuit: true })]
+				participants: [mkParticipant({ id: "p1", userId: "u1", hasQuit: true })],
 			}),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", reminderDays: ["3"] })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "present", tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			}),
-			expected: []
-		}
+			expected: [],
+		},
 	];
 
 	for (const c of cases) {
@@ -445,14 +445,14 @@ describe("Guest pur (pas de userId)", () => {
 			name: "guest pur (userId undefined) → pas destinataire email",
 			event: { type: "reminder", reminderValue: 3 },
 			master: mkMaster({
-				participants: [mkParticipant({ id: "p1", userId: undefined })]
+				participants: [mkParticipant({ id: "p1", userId: undefined })],
 			}),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", reminderDays: ["3"] })],
 			occ: mkOcc({
-				responses: [{ participantId: "p1", response: "present", tasks: [] }]
+				responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			}),
-			expected: []
-		}
+			expected: [],
+		},
 	];
 
 	for (const c of cases) {
@@ -471,12 +471,12 @@ describe("Mapping CAS B : userId ≠ participantId", () => {
 			master: mkMaster({
 				participants: [
 					// guest revendiqué : id (participantId) = UUID guest, userId = user PB
-					mkParticipant({ id: "guest-uuid-123", userId: "u1" })
-				]
+					mkParticipant({ id: "guest-uuid-123", userId: "u1" }),
+				],
 			}),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1", reminderDays: ["3"] })],
 			occ: mkOcc({
-				responses: [{ participantId: "guest-uuid-123", response: "present", tasks: ["t1"] }]
+				responses: [{ participantId: "guest-uuid-123", response: "present", tasks: ["t1"] }],
 			}),
 			expected: [
 				{
@@ -485,10 +485,10 @@ describe("Mapping CAS B : userId ≠ participantId", () => {
 					response: "present",
 					tasks: ["t1"],
 					email: true,
-					push: false
-				}
-			]
-		}
+					push: false,
+				},
+			],
+		},
 	];
 
 	for (const c of cases) {
@@ -508,21 +508,21 @@ describe("Multi-destinataires", () => {
 				participants: [
 					mkParticipant({ id: "p1", userId: "u1" }),
 					mkParticipant({ id: "p2", userId: "u2" }),
-					mkParticipant({ id: "p3", userId: "u3" })
-				]
+					mkParticipant({ id: "p3", userId: "u3" }),
+				],
 			}),
 			planningParticipants: [
 				mkPlanningParticipant({ userId: "u1", reminderDays: ["3"] }),
 				mkPlanningParticipant({ userId: "u2", reminderDays: ["3"] }),
 				// u3 n'a pas reminderDays=[3]
-				mkPlanningParticipant({ userId: "u3", reminderDays: ["1", "7"] })
+				mkPlanningParticipant({ userId: "u3", reminderDays: ["1", "7"] }),
 			],
 			occ: mkOcc({
 				responses: [
 					{ participantId: "p1", response: "present", tasks: [] },
 					{ participantId: "p2", response: "present", tasks: ["t1"] },
-					{ participantId: "p3", response: "present", tasks: [] }
-				]
+					{ participantId: "p3", response: "present", tasks: [] },
+				],
 			}),
 			expected: [
 				{
@@ -531,7 +531,7 @@ describe("Multi-destinataires", () => {
 					response: "present",
 					tasks: [],
 					email: true,
-					push: false
+					push: false,
 				},
 				{
 					userId: "u2",
@@ -539,10 +539,10 @@ describe("Multi-destinataires", () => {
 					response: "present",
 					tasks: ["t1"],
 					email: true,
-					push: false
-				}
-			]
-		}
+					push: false,
+				},
+			],
+		},
 	];
 
 	for (const c of cases) {
@@ -562,14 +562,14 @@ describe("new_comment (newCommentScope dynamic)", () => {
 			scope: "off",
 			responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			excludeUserId: undefined,
-			expected: []
+			expected: [],
 		},
 		{
 			name: "newCommentScope null → traité comme 'off' (exclu)",
 			scope: undefined,
 			responses: [{ participantId: "p1", response: "present", tasks: [] }],
 			excludeUserId: undefined,
-			expected: []
+			expected: [],
 		},
 		{
 			name: "'concerned' + response present → inclus",
@@ -583,16 +583,16 @@ describe("new_comment (newCommentScope dynamic)", () => {
 					response: "present",
 					tasks: [],
 					email: true,
-					push: false
-				}
-			]
+					push: false,
+				},
+			],
 		},
 		{
 			name: "'concerned' + response absent sans tâche → exclu",
 			scope: "concerned",
 			responses: [{ participantId: "p1", response: "absent", tasks: [] }],
 			excludeUserId: undefined,
-			expected: []
+			expected: [],
 		},
 		{
 			name: "'concerned' + sans réponse (null) + inscrit tâche → inclus",
@@ -606,16 +606,16 @@ describe("new_comment (newCommentScope dynamic)", () => {
 					response: null,
 					tasks: ["t1"],
 					email: true,
-					push: false
-				}
-			]
+					push: false,
+				},
+			],
 		},
 		{
 			name: "'concerned' + sans-réponse sans tâche → exclu",
 			scope: "concerned",
 			responses: [],
 			excludeUserId: undefined,
-			expected: []
+			expected: [],
 		},
 		{
 			name: "'all' + response absent → inclus (pas de filtre response)",
@@ -629,21 +629,21 @@ describe("new_comment (newCommentScope dynamic)", () => {
 					response: "absent",
 					tasks: [],
 					email: true,
-					push: false
-				}
-			]
-		}
+					push: false,
+				},
+			],
+		},
 	];
 
 	for (const c of cases) {
 		it(c.name, () => {
 			const master = mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] });
 			const planningParticipants = [
-				mkPlanningParticipant({ userId: "u1", newCommentScope: c.scope })
+				mkPlanningParticipant({ userId: "u1", newCommentScope: c.scope }),
 			];
 			const occ = mkOcc({ responses: c.responses });
 			const got = normalize(
-				computeRecipients(newCommentEvent, master, planningParticipants, occ, c.excludeUserId)
+				computeRecipients(newCommentEvent, master, planningParticipants, occ, c.excludeUserId),
 			);
 			expect(got).toEqual(normalize(c.expected as any));
 		});
@@ -653,22 +653,22 @@ describe("new_comment (newCommentScope dynamic)", () => {
 		const master = mkMaster({
 			participants: [
 				mkParticipant({ id: "p1", userId: "author" }),
-				mkParticipant({ id: "p2", userId: "other" })
-			]
+				mkParticipant({ id: "p2", userId: "other" }),
+			],
 		});
 		const planningParticipants = [
 			mkPlanningParticipant({ userId: "author", newCommentScope: "all" }),
-			mkPlanningParticipant({ userId: "other", newCommentScope: "all" })
+			mkPlanningParticipant({ userId: "other", newCommentScope: "all" }),
 		];
 		const occ = mkOcc({
 			responses: [
 				{ participantId: "p1", response: "present", tasks: [] },
-				{ participantId: "p2", response: "present", tasks: [] }
-			]
+				{ participantId: "p2", response: "present", tasks: [] },
+			],
 		});
 
 		const got = normalize(
-			computeRecipients(newCommentEvent, master, planningParticipants, occ, "author")
+			computeRecipients(newCommentEvent, master, planningParticipants, occ, "author"),
 		);
 		expect(got).toEqual(
 			normalize([
@@ -678,9 +678,9 @@ describe("new_comment (newCommentScope dynamic)", () => {
 					response: "present",
 					tasks: [],
 					email: true,
-					push: false
-				}
-			])
+					push: false,
+				},
+			]),
 		);
 	});
 });
@@ -693,8 +693,8 @@ describe("Type inconnu", () => {
 			master: mkMaster({ participants: [mkParticipant({ id: "p1", userId: "u1" })] }),
 			planningParticipants: [mkPlanningParticipant({ userId: "u1" })],
 			occ: mkOcc({ responses: [] }),
-			expected: []
-		}
+			expected: [],
+		},
 	];
 
 	for (const c of cases) {

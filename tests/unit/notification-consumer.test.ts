@@ -51,7 +51,7 @@ function mkRecord(data: Record<string, unknown>): any {
 		getStringSlice(field: string) {
 			const v = data[field];
 			return Array.isArray(v) ? v.map(String) : [];
-		}
+		},
 	};
 }
 
@@ -74,7 +74,7 @@ function mkOcc(overrides: Record<string, unknown> = {}): any {
 		date: mkDate(3),
 		deleted: false,
 		isCanceled: false,
-		...overrides
+		...overrides,
 	});
 }
 
@@ -90,7 +90,7 @@ describe("classifyPendingEvent", () => {
 			type: "reminder",
 			occ: mkOcc(),
 			masterCtx: null,
-			now: NOW
+			now: NOW,
 		});
 		expect(cls).toEqual({ kind: "dead", reason: "master_gone" });
 	});
@@ -100,7 +100,7 @@ describe("classifyPendingEvent", () => {
 			type: "reminder",
 			occ: null,
 			masterCtx: LIVE_CTX,
-			now: NOW
+			now: NOW,
 		});
 		expect(cls).toEqual({ kind: "dead", reason: "occ_missing" });
 	});
@@ -110,7 +110,7 @@ describe("classifyPendingEvent", () => {
 			type: "reminder",
 			occ: mkOcc({ deleted: true }),
 			masterCtx: LIVE_CTX,
-			now: NOW
+			now: NOW,
 		});
 		expect(cls).toEqual({ kind: "dead", reason: "occ_deleted" });
 	});
@@ -120,7 +120,7 @@ describe("classifyPendingEvent", () => {
 			type: "quorum_missing",
 			occ: mkOcc({ isCanceled: true }),
 			masterCtx: LIVE_CTX,
-			now: NOW
+			now: NOW,
 		});
 		expect(cls).toEqual({ kind: "dead", reason: "occ_canceled" });
 	});
@@ -130,7 +130,7 @@ describe("classifyPendingEvent", () => {
 			type: "new_comment",
 			occ: mkOcc({ deleted: true }),
 			masterCtx: LIVE_CTX,
-			now: NOW
+			now: NOW,
 		});
 		expect(cls).toEqual({ kind: "dead", reason: "occ_deleted" });
 	});
@@ -140,7 +140,7 @@ describe("classifyPendingEvent", () => {
 			type: "status_deleted",
 			occ: mkOcc({ deleted: true }),
 			masterCtx: LIVE_CTX,
-			now: NOW
+			now: NOW,
 		});
 		expect(cls).toEqual({ kind: "live" });
 	});
@@ -150,7 +150,7 @@ describe("classifyPendingEvent", () => {
 			type: "status_canceled",
 			occ: mkOcc({ isCanceled: true }),
 			masterCtx: LIVE_CTX,
-			now: NOW
+			now: NOW,
 		});
 		expect(cls).toEqual({ kind: "live" });
 	});
@@ -160,7 +160,7 @@ describe("classifyPendingEvent", () => {
 			type: "schedule_change",
 			occ: mkOcc(),
 			masterCtx: LIVE_CTX,
-			now: NOW
+			now: NOW,
 		});
 		expect(cls).toEqual({ kind: "live" });
 	});
@@ -171,7 +171,7 @@ describe("classifyPendingEvent", () => {
 				type,
 				occ: mkOcc({ date: mkDate(-2) }),
 				masterCtx: LIVE_CTX,
-				now: NOW
+				now: NOW,
 			});
 			expect(cls).toEqual({ kind: "dead", reason: "stale_occurrence" });
 		}
@@ -182,7 +182,7 @@ describe("classifyPendingEvent", () => {
 			type: "schedule_change",
 			occ: mkOcc({ date: mkDate(0) }),
 			masterCtx: LIVE_CTX,
-			now: NOW
+			now: NOW,
 		});
 		expect(cls).toEqual({ kind: "live" });
 	});
@@ -192,7 +192,7 @@ describe("classifyPendingEvent", () => {
 			type: "reminder",
 			occ: mkOcc({ date: "pas-une-date" }),
 			masterCtx: LIVE_CTX,
-			now: NOW
+			now: NOW,
 		});
 		expect(cls).toEqual({ kind: "dead", reason: "stale_occurrence" });
 	});
@@ -215,8 +215,8 @@ describe("isDeliverySettled", () => {
 			isDeliverySettled({
 				emailSentAt: "",
 				emailWaivedAt: "2026-07-19 00:00:00.000Z",
-				...SETTLED_PUSH
-			})
+				...SETTLED_PUSH,
+			}),
 		).toBe(true);
 	});
 
@@ -243,10 +243,10 @@ describe("isDepartureDurable (reaper, prédicat étroit)", () => {
 			isDepartureDurable(
 				[
 					{ id: "p1", userId: "u1", hasQuit: true },
-					{ id: "p2", userId: "u1", hasQuit: true }
+					{ id: "p2", userId: "u1", hasQuit: true },
 				],
-				"u1"
-			)
+				"u1",
+			),
 		).toBe(true);
 	});
 
@@ -255,10 +255,10 @@ describe("isDepartureDurable (reaper, prédicat étroit)", () => {
 			isDepartureDurable(
 				[
 					{ id: "p1", userId: "u1", hasQuit: true },
-					{ id: "p2", userId: "u1" }
+					{ id: "p2", userId: "u1" },
 				],
-				"u1"
-			)
+				"u1",
+			),
 		).toBe(false);
 	});
 
@@ -281,7 +281,7 @@ describe("isEventTerminal", () => {
 		emailSentAt: "2026-07-19 00:00:00.000Z",
 		emailWaivedAt: "",
 		pushSentAt: "2026-07-19 00:00:00.000Z",
-		pushWaivedAt: ""
+		pushWaivedAt: "",
 	};
 
 	it("aucune delivery (espace vide de destinataires) → consommé d'emblée", () => {
@@ -290,13 +290,13 @@ describe("isEventTerminal", () => {
 
 	it("toutes les deliveries réglées → terminal", () => {
 		expect(isEventTerminal([{ ...SENT }, { ...SENT, emailSentAt: "", emailWaivedAt: "x" }])).toBe(
-			true
+			true,
 		);
 	});
 
 	it("une delivery dont l'email est dû → non terminal (l'event attend le retry)", () => {
 		expect(isEventTerminal([{ ...SENT }, { ...SENT, emailSentAt: "", emailWaivedAt: "" }])).toBe(
-			false
+			false,
 		);
 	});
 

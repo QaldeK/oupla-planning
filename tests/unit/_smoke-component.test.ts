@@ -22,8 +22,8 @@ describe("Smoke test — chaîne @testing-library/svelte", () => {
 				onClose: () => {},
 				onConfirm: () => {},
 				title: "Titre test",
-				message: "Message visible"
-			}
+				message: "Message visible",
+			},
 		});
 
 		expect(screen.getByText("Message visible")).toBeInTheDocument();
@@ -43,8 +43,8 @@ describe("Smoke test — chaîne @testing-library/svelte", () => {
 				onConfirm: () => {},
 				title: "T",
 				message: "M",
-				cancelLabel: "Annuler"
-			}
+				cancelLabel: "Annuler",
+			},
 		});
 
 		await user.click(screen.getByRole("button", { name: /annuler/i }));

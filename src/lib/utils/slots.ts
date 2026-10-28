@@ -39,7 +39,7 @@ export function generateTimeSlotId(existing: { id: string }[]): string {
  * `defaultStartTime`/`defaultEndTime`. Plus de sentinelle `'default'`.
  */
 export function resolveTimeSlots(
-	master: Pick<PlanningMaster, "timeSlots" | "defaultStartTime" | "defaultEndTime">
+	master: Pick<PlanningMaster, "timeSlots" | "defaultStartTime" | "defaultEndTime">,
 ): TimeSlot[] {
 	if (master.timeSlots && master.timeSlots.length > 0) {
 		return master.timeSlots;
@@ -48,8 +48,8 @@ export function resolveTimeSlots(
 		{
 			id: "s1",
 			startTime: master.defaultStartTime,
-			endTime: master.defaultEndTime
-		}
+			endTime: master.defaultEndTime,
+		},
 	];
 }
 
@@ -72,7 +72,7 @@ type TimeSlotResolvable = Pick<PlanningMaster, "timeSlots" | "defaultStartTime" 
  */
 export function isOverridden(
 	occ: Pick<PlanningOccurrence, "slotId" | "startTime" | "endTime">,
-	master: TimeSlotResolvable
+	master: TimeSlotResolvable,
 ): boolean {
 	if (!occ.slotId) return false;
 	const slot = resolveTimeSlots(master).find((s) => s.id === occ.slotId);

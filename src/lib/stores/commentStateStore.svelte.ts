@@ -44,7 +44,7 @@ class CommentStateStore {
 					.where("date")
 					.aboveOrEqual(cutoff)
 					.filter((o) => !o.deleted)
-					.toArray()
+					.toArray(),
 			]);
 
 			const result = new Map<string, number>();
@@ -58,7 +58,7 @@ class CommentStateStore {
 
 				const lastCommentAt = occ.comments.reduce(
 					(latest, c) => (c.createdAt > latest ? c.createdAt : latest),
-					occ.comments[0].createdAt
+					occ.comments[0].createdAt,
 				);
 				if (new Date(lastCommentAt).getTime() > new Date(state.lastReadAt).getTime()) {
 					result.set(occ.master, (result.get(occ.master) || 0) + 1);
@@ -74,7 +74,7 @@ class CommentStateStore {
 		}).subscribe({
 			next: (map) => {
 				this.unreadCounts = map;
-			}
+			},
 		});
 	}
 

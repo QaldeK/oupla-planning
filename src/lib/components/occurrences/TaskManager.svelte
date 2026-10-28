@@ -216,12 +216,12 @@
 		<div class="bg-base-200/50 space-y-3 rounded-xl p-4">
 			<div class="grid grid-cols-1 items-baseline gap-3 sm:grid-cols-2">
 				{#if editingTaskId}
-					<div class="h-4 flex gap-2 col-span-full items-center" in:fade>
+					<div class="col-span-full flex h-4 items-center gap-2" in:fade>
 						<Pencil size={20} />
 						<span>{m.task_editing_selected()}</span>
 					</div>
 				{:else}
-					<div class="h-4 flex gap-2 col-span-full items-center" in:fade>
+					<div class="col-span-full flex h-4 items-center gap-2" in:fade>
 						<Plus size={20} />
 						<span>{m.task_add_new()}</span>
 					</div>

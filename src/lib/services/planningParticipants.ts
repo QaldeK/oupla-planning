@@ -8,7 +8,7 @@ import { getDefaultPlanningPrefs, type PlanningParticipantPrefs } from "./push";
  */
 export async function getParticipantPrefs(
 	planningId: string,
-	userId: string
+	userId: string,
 ): Promise<PlanningParticipantsResponse | null> {
 	try {
 		return await pb
@@ -30,7 +30,7 @@ export async function updateParticipantPrefs(
 	userId: string,
 	prefs: Partial<PlanningParticipantPrefs>,
 	recurrenceType: RecurrenceType = "WEEKLY",
-	isAdmin = false
+	isAdmin = false,
 ): Promise<PlanningParticipantsResponse> {
 	if (!pb.authStore.isValid || !pb.authStore.record) {
 		throw new Error("Utilisateur non connecté");
@@ -45,7 +45,7 @@ export async function updateParticipantPrefs(
 			planning: planningId,
 			user: userId,
 			...getDefaultPlanningPrefs(recurrenceType, isAdmin),
-			...prefs
+			...prefs,
 		});
 	}
 }
@@ -60,7 +60,7 @@ export async function ensurePlanningParticipant(
 	planningId: string,
 	userId: string,
 	recurrenceType: RecurrenceType = "WEEKLY",
-	isAdmin = false
+	isAdmin = false,
 ): Promise<void> {
 	try {
 		await pb
@@ -71,7 +71,7 @@ export async function ensurePlanningParticipant(
 		await pb.collection("planning_participants").create({
 			planning: planningId,
 			user: userId,
-			...getDefaultPlanningPrefs(recurrenceType, isAdmin)
+			...getDefaultPlanningPrefs(recurrenceType, isAdmin),
 		});
 	}
 }

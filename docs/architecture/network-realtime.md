@@ -12,14 +12,14 @@ détection et le transport.
 Store singleton qui suit la connectivité du navigateur et l'état de la connexion SSE, et
 déclenche les re-sync.
 
-| Membre | Rôle |
-| --- | --- |
-| `online` | `navigator.onLine` |
-| `realtimeConnected` | état SSE **débouncé** sur la descente, exposé à l'UI |
-| `hasActiveSubscription` | au moins un canal pb-sync est souscrit |
-| `lastError` | date de la dernière erreur détectée |
-| `lastSyncAt` | date de la dernière re-sync réussie — curseur de throttle, non persisté |
-| `isNetworkOk` | `online && (!hasActiveSubscription \|\| realtimeConnected)` |
+| Membre                  | Rôle                                                                    |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `online`                | `navigator.onLine`                                                      |
+| `realtimeConnected`     | état SSE **débouncé** sur la descente, exposé à l'UI                    |
+| `hasActiveSubscription` | au moins un canal pb-sync est souscrit                                  |
+| `lastError`             | date de la dernière erreur détectée                                     |
+| `lastSyncAt`            | date de la dernière re-sync réussie — curseur de throttle, non persisté |
+| `isNetworkOk`           | `online && (!hasActiveSubscription \|\| realtimeConnected)`             |
 
 ### Sources de détection
 
@@ -55,10 +55,10 @@ arrière-plan (environ 30 s sur iOS Safari, parfois moins en PWA autonome). Au r
 peut mettre plusieurs secondes à reprendre, laissant l'utilisateur devant des données
 périmées. Deux écouteurs DOM corrigent ce cas :
 
-| Écouteur | Déclenchement | Throttle |
-| --- | --- | --- |
-| `visibilitychange` | retour de l'onglet ou de l'app au premier plan | 5 s |
-| `pageshow` | restauration depuis le bfcache (`event.persisted`) | aucun — un restore est rare |
+| Écouteur           | Déclenchement                                      | Throttle                    |
+| ------------------ | -------------------------------------------------- | --------------------------- |
+| `visibilitychange` | retour de l'onglet ou de l'app au premier plan     | 5 s                         |
+| `pageshow`         | restauration depuis le bfcache (`event.persisted`) | aucun — un restore est rare |
 
 Ces deux chemins forcent la re-sync **indépendamment de l'état SSE** : après un gel, le SDK
 peut se croire connecté alors que des événements ont été perdus silencieusement (TCP
@@ -70,12 +70,12 @@ l'instant du retour ; un guard in-flight empêche deux cycles concurrents quand
 
 ### Deux horodatages à ne pas confondre
 
-| | `lastFetchAt` | `lastSyncAt` |
-| --- | --- | --- |
-| But | fraîcheur affichée à l'utilisateur | curseur de throttle de l'UI |
-| Portée | par master | globale |
-| Stockage | Dexie `localMeta` (persisté) | mémoire (non persisté) |
-| Écrit par | `planningStore.markFetched()` | `networkStore` à la re-sync |
+|           | `lastFetchAt`                      | `lastSyncAt`                |
+| --------- | ---------------------------------- | --------------------------- |
+| But       | fraîcheur affichée à l'utilisateur | curseur de throttle de l'UI |
+| Portée    | par master                         | globale                     |
+| Stockage  | Dexie `localMeta` (persisté)       | mémoire (non persisté)      |
+| Écrit par | `planningStore.markFetched()`      | `networkStore` à la re-sync |
 
 `lastSyncAt` n'est marqué **qu'au succès** : une sync échouée ne doit pas bloquer un retry
 légitime au prochain retour au premier plan.
@@ -88,9 +88,9 @@ utilisateur actif ; à réévaluer sur observation en production.
 
 `NetworkAlert` affiche « Dernière sync : … » depuis deux sources :
 
-| Mode | Source |
-| --- | --- |
-| Guest | `lastFetchAt` du master actif, en Dexie |
+| Mode   | Source                                                           |
+| ------ | ---------------------------------------------------------------- |
+| Guest  | `lastFetchAt` du master actif, en Dexie                          |
 | Compte | `userStore.lastAuthSyncAt`, global, persisté sous `auth_sync_at` |
 
 Un horodatage global suffit en mode Compte parce que la sync y est globale : tous les
@@ -103,13 +103,13 @@ réseau, boot d'un Compte et transition guest → auth.
 Les souscriptions passent par pb-sync, pas par le SDK directement. Deux modes, selon qui
 est connecté.
 
-| | Guest | Compte |
-| --- | --- | --- |
-| Topic | le record du master actif | `'*'` — collection entière |
-| Filtre | occurrences par `master = masterId` | aucun, les API Rules filtrent côté serveur |
-| Auth | `_token` en query parameter | session |
-| Monté par | `planningStore.#activatePlanning()` | `userStore.#subscribeAuth()` |
-| Démonté par | `planningStore.#deactivate()` | `userStore.logout()`, `clearAllLocalData()` |
+|             | Guest                               | Compte                                      |
+| ----------- | ----------------------------------- | ------------------------------------------- |
+| Topic       | le record du master actif           | `'*'` — collection entière                  |
+| Filtre      | occurrences par `master = masterId` | aucun, les API Rules filtrent côté serveur  |
+| Auth        | `_token` en query parameter         | session                                     |
+| Monté par   | `planningStore.#activatePlanning()` | `userStore.#subscribeAuth()`                |
+| Démonté par | `planningStore.#deactivate()`       | `userStore.logout()`, `clearAllLocalData()` |
 
 Le Guest n'a accès qu'à un planning à la fois, via son token : souscrire à la collection
 entière serait inutile et coûteux. Le Compte, lui, doit voir bouger tous ses plannings

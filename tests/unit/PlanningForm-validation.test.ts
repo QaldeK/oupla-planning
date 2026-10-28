@@ -28,8 +28,8 @@ vi.mock("svelte-sonner", () => ({
 		warning: vi.fn(),
 		loading: vi.fn(),
 		promise: vi.fn(),
-		custom: vi.fn()
-	}
+		custom: vi.fn(),
+	},
 }));
 
 // Importé APRÈS vi.mock (hoisté par vitest) pour récupérer le mock.
@@ -157,7 +157,7 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 
 		// Ouvre le modal d'édition du slot existant (bouton pencil aria-label).
 		const editBtn = screen.getByRole("button", {
-			name: /edit slot times/i
+			name: /edit slot times/i,
 		});
 		await user.click(editBtn);
 
@@ -173,7 +173,7 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 
 		// Décocher "Enable attendance form" (coché par défaut en création).
 		const checkbox = screen.getByRole("checkbox", {
-			name: /enable attendance form/i
+			name: /enable attendance form/i,
 		});
 		await user.click(checkbox);
 
@@ -240,7 +240,7 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 					tasks: [],
 					participants: [],
 					created: "2025-01-01T00:00:00Z",
-					updated: "2025-01-01T00:00:00Z"
+					updated: "2025-01-01T00:00:00Z",
 				} as any,
 				// Une seule occurrence passée → seeded dans `manualDates` (hors-cycle car
 				// `allGeneratedDates` est vide avec today=2026-07-01 > lastDate=2026-06-30).
@@ -258,9 +258,9 @@ describe("PlanningForm — handleSubmit validation rules", () => {
 						isConfirmed: false,
 						isCanceled: false,
 						created: "2025-01-01T00:00:00Z",
-						updated: "2025-01-01T00:00:00Z"
-					}
-				]
+						updated: "2025-01-01T00:00:00Z",
+					},
+				],
 			});
 
 			// En édition, le libellé du bouton submit diffère (« Enregistrer... » vs

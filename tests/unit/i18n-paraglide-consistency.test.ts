@@ -71,14 +71,14 @@ function detectParaglideAliases(source: string): Set<string> {
 	// import * as X from "...paraglide/messages(.js)?"
 	const namespaceRe = new RegExp(
 		String.raw`import\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+["'][^"']*${pathPattern}["']`,
-		"g"
+		"g",
 	);
 	for (const match of source.matchAll(namespaceRe)) aliases.add(match[1]);
 
 	// import { ... } from "...paraglide/messages(.js)?"
 	const namedRe = new RegExp(
 		String.raw`import\s+\{([^}]*)\}\s+from\s+["'][^"']*${pathPattern}["']`,
-		"g"
+		"g",
 	);
 	for (const match of source.matchAll(namedRe)) {
 		for (const spec of match[1].split(",")) {
@@ -103,7 +103,7 @@ function detectParaglideAliases(source: string): Set<string> {
 function extractCalls(source: string, alias: string): Array<{ key: string; line: number }> {
 	const callRe = new RegExp(
 		String.raw`(?<![\w.$])${escapeRegex(alias)}\.([A-Za-z_$][\w$]*)\s*\(`,
-		"g"
+		"g",
 	);
 	const calls: Array<{ key: string; line: number }> = [];
 	for (const match of source.matchAll(callRe)) {
@@ -160,7 +160,7 @@ describe("i18n Paraglide — cohérence des clés", () => {
 			{ onlyInFr, onlyInEn },
 			onlyInFr.length || onlyInEn.length
 				? `Asymétrie fr/en —\n  uniquement en FR (${onlyInFr.length}): ${onlyInFr.join(", ")}\n  uniquement en EN (${onlyInEn.length}): ${onlyInEn.join(", ")}`
-				: ""
+				: "",
 		).toEqual({ onlyInFr: [], onlyInEn: [] });
 	});
 
@@ -171,7 +171,7 @@ describe("i18n Paraglide — cohérence des clés", () => {
 			.map((k) => `  - "${k}" → ${(calledKeys.get(k) ?? []).slice(0, 3).join(", ")}`);
 		expect(
 			missing,
-			missing.length ? `Clés appelées mais absentes de fr.json:\n${missing.join("\n")}` : ""
+			missing.length ? `Clés appelées mais absentes de fr.json:\n${missing.join("\n")}` : "",
 		).toEqual([]);
 	});
 
@@ -182,7 +182,7 @@ describe("i18n Paraglide — cohérence des clés", () => {
 			.map((k) => `  - "${k}" → ${(calledKeys.get(k) ?? []).slice(0, 3).join(", ")}`);
 		expect(
 			missing,
-			missing.length ? `Clés appelées mais absentes de en.json:\n${missing.join("\n")}` : ""
+			missing.length ? `Clés appelées mais absentes de en.json:\n${missing.join("\n")}` : "",
 		).toEqual([]);
 	});
 
@@ -195,7 +195,7 @@ describe("i18n Paraglide — cohérence des clés", () => {
 			// eslint-disable-next-line no-console
 			console.warn(
 				`[i18n] ${dead.length} clé(s) définie(s) mais jamais appelée(s) (informationnel, hors verdict):\n` +
-					dead.map((k) => `  - ${k}`).join("\n")
+					dead.map((k) => `  - ${k}`).join("\n"),
 			);
 		}
 		expect(true).toBe(true);

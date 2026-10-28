@@ -4,9 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Module sans require interne : tout est injecté (app, Record global JSVM mocké),
 // aucun global __hooks nécessaire.
 
-const { insertEvent, createMasterContextResolver, resolveUserName } = await import(
-	"../../pocketbase/pb_hooks/notification-events.cjs"
-);
+const { insertEvent, createMasterContextResolver, resolveUserName } =
+	await import("../../pocketbase/pb_hooks/notification-events.cjs");
 
 function mockLogger() {
 	return { info: vi.fn(), error: vi.fn(), warn: vi.fn() };
@@ -41,13 +40,13 @@ function mockApp(overrides: Record<string, any> = {}) {
 		findRecordById: vi.fn(),
 		findRecordsByFilter: vi.fn(() => []),
 		_logger: logger,
-		...overrides
+		...overrides,
 	};
 }
 
 function mockUser(fields: { name?: string; email?: string }) {
 	return {
-		getString: vi.fn((field: string) => (fields as any)[field] ?? "")
+		getString: vi.fn((field: string) => (fields as any)[field] ?? ""),
 	};
 }
 
@@ -78,7 +77,7 @@ describe("insertEvent", () => {
 			occurrence: "o1",
 			reminderValue: 0,
 			changedBy: "u1",
-			payload
+			payload,
 		});
 
 		expect(app.findCollectionByNameOrId).toHaveBeenCalledWith("notification_events");
@@ -90,7 +89,7 @@ describe("insertEvent", () => {
 			occurrence: "o1",
 			reminderValue: 0,
 			changedBy: "u1",
-			payload
+			payload,
 		});
 		expect(app.save).toHaveBeenCalledTimes(1);
 		expect(app.save).toHaveBeenCalledWith(record);
@@ -107,7 +106,7 @@ describe("insertEvent", () => {
 			occurrence: "o1",
 			reminderValue: 3,
 			changedBy: "",
-			payload: null
+			payload: null,
 		});
 
 		expect(instances[0].values.payload).toBeNull();
@@ -119,7 +118,7 @@ describe("insertEvent", () => {
 		const app = mockApp({
 			save: vi.fn(() => {
 				throw new Error("db locked");
-			})
+			}),
 		});
 
 		expect(() =>
@@ -129,8 +128,8 @@ describe("insertEvent", () => {
 				occurrence: "o1",
 				reminderValue: 1,
 				changedBy: "",
-				payload: null
-			})
+				payload: null,
+			}),
 		).toThrow("db locked");
 	});
 
@@ -140,7 +139,7 @@ describe("insertEvent", () => {
 		const app = mockApp({
 			findCollectionByNameOrId: vi.fn(() => {
 				throw new Error("missing collection");
-			})
+			}),
 		});
 
 		expect(() =>
@@ -150,8 +149,8 @@ describe("insertEvent", () => {
 				occurrence: "o1",
 				reminderValue: 1,
 				changedBy: "",
-				payload: null
-			})
+				payload: null,
+			}),
 		).toThrow("missing collection");
 	});
 });
@@ -175,7 +174,7 @@ describe("createMasterContextResolver", () => {
 			"",
 			0,
 			0,
-			{ masterId: "m1" }
+			{ masterId: "m1" },
 		);
 	});
 
@@ -248,7 +247,7 @@ describe("createMasterContextResolver", () => {
 		const app = mockApp({
 			findRecordById: vi.fn(() => {
 				throw new Error("not found");
-			})
+			}),
 		});
 
 		const getCtx = createMasterContextResolver(app);
@@ -259,7 +258,7 @@ describe("createMasterContextResolver", () => {
 	it("ne confond pas les ids distincts", () => {
 		const app = mockApp();
 		app.findRecordById.mockImplementation((_col: string, id: string) =>
-			mockMaster(id === "m-deleted")
+			mockMaster(id === "m-deleted"),
 		);
 
 		const getCtx = createMasterContextResolver(app);
@@ -273,7 +272,7 @@ describe("createMasterContextResolver", () => {
 describe("resolveUserName", () => {
 	it("retourne le name quand présent", () => {
 		const app = mockApp({
-			findRecordById: vi.fn(() => mockUser({ name: "Alice", email: "a@x.co" }))
+			findRecordById: vi.fn(() => mockUser({ name: "Alice", email: "a@x.co" })),
 		});
 		expect(resolveUserName(app, "u1", "fallback")).toBe("Alice");
 	});
@@ -298,7 +297,7 @@ describe("resolveUserName", () => {
 		const app = mockApp({
 			findRecordById: vi.fn(() => {
 				throw new Error("not found");
-			})
+			}),
 		});
 		expect(resolveUserName(app, "u1", "fallback")).toBe("fallback");
 	});

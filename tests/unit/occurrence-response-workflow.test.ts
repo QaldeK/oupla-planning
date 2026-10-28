@@ -16,7 +16,7 @@ import {
 	createOccurrenceResponseWorkflow,
 	deriveConfirmationMessage,
 	onEventInscribedIds,
-	resolveTaskToggleOutcome
+	resolveTaskToggleOutcome,
 } from "$lib/components/occurrences/shared/occurrenceResponseWorkflow.svelte";
 import type { Task } from "$lib/types/planning.types";
 
@@ -25,13 +25,13 @@ const secondOnEventTask: Task = {
 	id: "t4",
 	name: "Caisse",
 	type: "onEvent",
-	requiredVolunteers: 1
+	requiredVolunteers: 1,
 };
 const beforeTask: Task = {
 	id: "t2",
 	name: "Installation",
 	type: "beforeEvent",
-	requiredVolunteers: 1
+	requiredVolunteers: 1,
 };
 const afterTask: Task = { id: "t3", name: "Rangement", type: "afterEvent", requiredVolunteers: 1 };
 
@@ -52,14 +52,14 @@ describe("buildParticipantResponse", () => {
 		const response = buildParticipantResponse({
 			participantId: "p1",
 			response: "maybe",
-			tasks: ["t1"]
+			tasks: ["t1"],
 		});
 
 		expect(response).toEqual({
 			participantId: "p1",
 			response: "maybe",
 			tasks: ["t1"],
-			respondedAt: expect.any(String)
+			respondedAt: expect.any(String),
 		});
 		expect("comment" in response).toBe(false);
 	});
@@ -68,7 +68,7 @@ describe("buildParticipantResponse", () => {
 		const response = buildParticipantResponse({
 			participantId: "p1",
 			response: "present",
-			tasks: []
+			tasks: [],
 		});
 		expect(Number.isNaN(Date.parse(response.respondedAt))).toBe(false);
 	});
@@ -90,7 +90,7 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 			currentResponse: undefined,
 			allowResponses: true,
 			isAdding: true,
-			expected: "autoPresent"
+			expected: "autoPresent",
 		},
 		// Ajout en conflit : refus, quelle que soit la réponse ≠ present.
 		{
@@ -99,7 +99,7 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 			currentResponse: "maybe",
 			allowResponses: true,
 			isAdding: true,
-			expected: "refuse"
+			expected: "refuse",
 		},
 		{
 			name: "ajout onEvent avec absent",
@@ -107,7 +107,7 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 			currentResponse: "absent",
 			allowResponses: true,
 			isAdding: true,
-			expected: "refuse"
+			expected: "refuse",
 		},
 		{
 			name: "ajout onEvent avec if_needed",
@@ -115,7 +115,7 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 			currentResponse: "if_needed",
 			allowResponses: true,
 			isAdding: true,
-			expected: "refuse"
+			expected: "refuse",
 		},
 		// Déjà present : rien à faire.
 		{
@@ -124,7 +124,7 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 			currentResponse: "present",
 			allowResponses: true,
 			isAdding: true,
-			expected: "none"
+			expected: "none",
 		},
 		// Retrait : la réponse n'est jamais touchée, même ≠ present.
 		{
@@ -133,7 +133,7 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 			currentResponse: "maybe",
 			allowResponses: true,
 			isAdding: false,
-			expected: "none"
+			expected: "none",
 		},
 		{
 			name: "retrait onEvent sans réponse",
@@ -141,7 +141,7 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 			currentResponse: undefined,
 			allowResponses: true,
 			isAdding: false,
-			expected: "none"
+			expected: "none",
 		},
 		// beforeEvent/afterEvent : aucune incidence sur la réponse.
 		{
@@ -150,7 +150,7 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 			currentResponse: "maybe",
 			allowResponses: true,
 			isAdding: true,
-			expected: "none"
+			expected: "none",
 		},
 		{
 			name: "ajout afterEvent sans réponse",
@@ -158,7 +158,7 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 			currentResponse: undefined,
 			allowResponses: true,
 			isAdding: true,
-			expected: "none"
+			expected: "none",
 		},
 		// Réponses désactivées sur le planning : pas de règle de présence.
 		{
@@ -167,8 +167,8 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 			currentResponse: "maybe",
 			allowResponses: false,
 			isAdding: true,
-			expected: "none"
-		}
+			expected: "none",
+		},
 	];
 
 	for (const c of cases) {
@@ -177,7 +177,7 @@ describe("resolveTaskToggleOutcome — matrice « onEvent ⟹ présent »", () =
 				task: c.task,
 				currentResponse: c.currentResponse,
 				allowResponses: c.allowResponses,
-				isAdding: c.isAdding
+				isAdding: c.isAdding,
 			});
 			expect(outcome.kind).toBe(c.expected);
 		});
@@ -218,7 +218,7 @@ function makeWorkflow(
 		actor?: "self" | "admin";
 		tasks?: Task[];
 		getDisplayName?: (participantId: string) => string;
-	} = {}
+	} = {},
 ) {
 	const submitChange = vi.fn().mockResolvedValue(undefined);
 	let catalog: Task[] = overrides.tasks ?? [onEventTask, beforeTask, secondOnEventTask];
@@ -229,7 +229,7 @@ function makeWorkflow(
 		tasks: () => catalog,
 		getInscribedTaskIds: () => inscribed,
 		getDisplayName: overrides.getDisplayName,
-		submitChange
+		submitChange,
 	}));
 
 	return {
@@ -240,7 +240,7 @@ function makeWorkflow(
 		},
 		setTasks: (tasks: Task[]) => {
 			catalog = tasks;
-		}
+		},
 	};
 }
 
@@ -254,7 +254,7 @@ describe("createOccurrenceResponseWorkflow — la garde onEvent", () => {
 			participantId: "p1",
 			participantName: "",
 			targetResponse: "maybe",
-			onEventTaskIds: ["t1"]
+			onEventTaskIds: ["t1"],
 		});
 		expect(submitChange).not.toHaveBeenCalled();
 	});
@@ -268,7 +268,7 @@ describe("createOccurrenceResponseWorkflow — la garde onEvent", () => {
 		expect(submitChange).toHaveBeenCalledWith({
 			participantId: "p1",
 			response: "present",
-			tasks: ["t1"]
+			tasks: ["t1"],
 		});
 	});
 
@@ -282,7 +282,7 @@ describe("createOccurrenceResponseWorkflow — la garde onEvent", () => {
 		expect(submitChange).toHaveBeenCalledWith({
 			participantId: "p1",
 			response: "absent",
-			tasks: ["t2"]
+			tasks: ["t2"],
 		});
 	});
 
@@ -308,7 +308,7 @@ describe("createOccurrenceResponseWorkflow — confirmation", () => {
 		expect(submitChange).toHaveBeenCalledWith({
 			participantId: "p1",
 			response: "maybe",
-			tasks: ["t2"]
+			tasks: ["t2"],
 		});
 		expect(workflow.pendingResponseChange).toBeNull();
 	});
@@ -323,7 +323,7 @@ describe("createOccurrenceResponseWorkflow — confirmation", () => {
 		expect(submitChange).toHaveBeenCalledWith({
 			participantId: "p1",
 			response: "maybe",
-			tasks: ["t3"]
+			tasks: ["t3"],
 		});
 	});
 
@@ -357,7 +357,7 @@ describe("createOccurrenceResponseWorkflow — message de confirmation", () => {
 	it("admin : le message nomme le participant", () => {
 		const { workflow } = makeWorkflow({
 			actor: "admin",
-			getDisplayName: (id) => (id === "p1" ? "Alice" : "Inconnu")
+			getDisplayName: (id) => (id === "p1" ? "Alice" : "Inconnu"),
 		});
 		workflow.requestResponseChange("p1", "maybe");
 

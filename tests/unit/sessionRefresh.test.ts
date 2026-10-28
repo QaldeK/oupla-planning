@@ -18,7 +18,7 @@ import { refreshSessionSilently } from "$lib/utils/sessionRefresh";
 function createFakeDeps() {
 	return {
 		authRefresh: vi.fn(async () => ({})),
-		clearAuth: vi.fn()
+		clearAuth: vi.fn(),
 	};
 }
 
@@ -39,7 +39,7 @@ describe("refreshSessionSilently", () => {
 	it.each([400, 401, 403])("rejet d'auth %i → clearAuth", async (status) => {
 		const deps = createFakeDeps();
 		deps.authRefresh.mockRejectedValue(
-			new ClientResponseError({ status, response: { message: "invalid token" } })
+			new ClientResponseError({ status, response: { message: "invalid token" } }),
 		);
 
 		await expect(refreshSessionSilently(deps)).resolves.toBeUndefined();
@@ -50,7 +50,7 @@ describe("refreshSessionSilently", () => {
 	it.each([429, 408])("4xx transitoire %i → état conservé", async (status) => {
 		const deps = createFakeDeps();
 		deps.authRefresh.mockRejectedValue(
-			new ClientResponseError({ status, response: { message: "slow down" } })
+			new ClientResponseError({ status, response: { message: "slow down" } }),
 		);
 
 		await expect(refreshSessionSilently(deps)).resolves.toBeUndefined();

@@ -19,7 +19,7 @@ import {
 	createPlanningWithOccurrences,
 	deletePlanning,
 	restorePlanning,
-	updateOccurrence
+	updateOccurrence,
 } from "$lib/services/planningMutations";
 import type { PlanningOccurrence } from "$lib/types/planning.types";
 import { generateAdminToken, generateParticipantToken } from "$lib/utils/tokens";
@@ -28,7 +28,7 @@ import {
 	cleanupTrackedRecords,
 	clearTrackedIds,
 	dateInDays,
-	trackIds
+	trackIds,
 } from "./seed";
 
 /** Crée un planning porteur d'une occurrence, via pb-sync (PB + Dexie). */
@@ -45,11 +45,11 @@ async function createPlanningWithOneOccurrence(title: string) {
 			minPresentRequired: 1,
 			allowResponses: true,
 			occurrenceTargets: [
-				{ date: dateInDays(7), startTime: "19:00", endTime: "21:00", slotId: "s1" }
-			]
+				{ date: dateInDays(7), startTime: "19:00", endTime: "21:00", slotId: "s1" },
+			],
 		},
 		adminToken,
-		participantToken
+		participantToken,
 	);
 	trackIds("planning_masters", master.id);
 
@@ -78,7 +78,7 @@ describe("Token des écritures — capacité détenue localement vs token de la 
 
 	it("annule l'occurrence depuis un lien participant quand l'appareil détient l'adminToken", async () => {
 		const { master, occurrence, participantToken } = await createPlanningWithOneOccurrence(
-			"Lien participant sur un appareil admin"
+			"Lien participant sur un appareil admin",
 		);
 
 		// Précondition : l'appareil détient l'adminToken en cache local (c'est ce que
@@ -121,7 +121,7 @@ describe("Token des écritures — capacité détenue localement vs token de la 
 
 	it("restaure un planning supprimé depuis un lien participant quand l'appareil détient l'adminToken", async () => {
 		const { master, participantToken } = await createPlanningWithOneOccurrence(
-			"Restauration depuis un lien participant"
+			"Restauration depuis un lien participant",
 		);
 		setActivePlanningToken(participantToken);
 

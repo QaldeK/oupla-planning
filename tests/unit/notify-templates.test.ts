@@ -8,7 +8,7 @@ import {
 	mkRecord,
 	OCC_5_AVRIL,
 	OCC_6_AVRIL,
-	OCC_31_MARS
+	OCC_31_MARS,
 } from "./notify-templates.cases";
 
 // Validation isolée (pas de PocketBase) du rendu des templates de notification.
@@ -69,7 +69,7 @@ type CaseExpectations = {
 const EXPECTATIONS: Record<number, CaseExpectations> = {
 	1: {
 		expectedSubjectContains: ["Rappel", "Repas hebdo"],
-		expectedBodyContains: ["Rappel — mar. 31 mars", "L'événement a lieu demain", "présent·e"]
+		expectedBodyContains: ["Rappel — mar. 31 mars", "L'événement a lieu demain", "présent·e"],
 	},
 	2: {
 		expectedSubjectContains: ["Rappel", "Repas hebdo"],
@@ -78,20 +78,20 @@ const EXPECTATIONS: Record<number, CaseExpectations> = {
 			"présent·e",
 			"Préparer salle (avant)",
 			"Accueil (pendant)",
-			"n'est pas encore confirmé"
-		]
+			"n'est pas encore confirmé",
+		],
 	},
 	3: {
 		expectedSubjectContains: ["Modification", "Repas hebdo"],
 		expectedBodyContains: [
 			"Modification — mar. 31 mars",
 			"L'horaire de début a été modifié",
-			"19h00 → 20h00"
-		]
+			"19h00 → 20h00",
+		],
 	},
 	4: {
 		expectedSubjectContains: ["Annulation", "Repas hebdo"],
-		expectedBodyContains: ["Annulation — mar. 31 mars", "L'événement a été annulé", "Sarah"]
+		expectedBodyContains: ["Annulation — mar. 31 mars", "L'événement a été annulé", "Sarah"],
 	},
 	5: {
 		expectedSubjectContains: ["Participants manquants", "Repas hebdo"],
@@ -103,8 +103,8 @@ const EXPECTATIONS: Record<number, CaseExpectations> = {
 			"incertain·e·s",
 			"Tâches à pourvoir",
 			"Accueil (0/2)",
-			"Rangement (1/3)"
-		]
+			"Rangement (1/3)",
+		],
 	},
 	6: {
 		expectedSubjectContains: ["À confirmer", "Repas hebdo"],
@@ -112,8 +112,8 @@ const EXPECTATIONS: Record<number, CaseExpectations> = {
 			"⏳ À confirmer — dim. 5 avril à 19h00 — 22h00 — Salle des fêtes",
 			"est prévu dans 3 jours mais n'est pas encore confirmé",
 			"En tant qu'",
-			"confirmez sa tenue"
-		]
+			"confirmez sa tenue",
+		],
 	},
 	7: {
 		expectedSubjectContains: ["À confirmer", "Repas hebdo"],
@@ -123,8 +123,8 @@ const EXPECTATIONS: Record<number, CaseExpectations> = {
 			"Préparer salle (avant)",
 			// Le reminder ne doit PAS répéter "dans 3 jours" (déjà dit par la
 			// confirmation présente dans le même bloc — voir spec §4.2).
-			"est prévu dans 3 jours mais n'est pas encore confirmé"
-		]
+			"est prévu dans 3 jours mais n'est pas encore confirmé",
+		],
 	},
 	8: {
 		expectedSubjectContains: ["Important", "Repas hebdo", "3 événements"],
@@ -137,17 +137,17 @@ const EXPECTATIONS: Record<number, CaseExpectations> = {
 			"🔔 Rappel — lun. 6 avril à 19h00 — 22h00 — Salle des fêtes",
 			"L'événement a lieu demain",
 			"présent·e",
-			"Rangement (après)"
-		]
+			"Rangement (après)",
+		],
 	},
 	9: {
 		expectedSubjectContains: ["5 modifications", "Repas hebdo"],
 		expectedBodyContains: [
 			"L'horaire de début a été modifié",
 			"Le lieu a été modifié",
-			"+ 2 autres"
-		]
-	}
+			"+ 2 autres",
+		],
+	},
 };
 
 // ============================================================================
@@ -218,7 +218,7 @@ describe("notify-templates — buildHtmlEmail", () => {
 	it("Cas 8 (change lieu) — balise <s> sur l'ancien lieu", () => {
 		const html = htmlForCase(7); // Cas 8
 		expect(html).toContain(
-			'<s style="text-decoration:line-through;color:#9ca3af;">Salle des fêtes</s>'
+			'<s style="text-decoration:line-through;color:#9ca3af;">Salle des fêtes</s>',
 		);
 		expect(html).toContain("→ Gymnase");
 		// Pas de marqueur brut [[s]] qui aurait fuité
@@ -249,17 +249,17 @@ describe("notify-templates — helpers contextuels", () => {
 	describe("_buildConfirmationContextualLine (confirmation admin)", () => {
 		it('J-1 → "...prévu demain mais n\'est pas encore confirmé."', () => {
 			expect(templates._buildConfirmationContextualLine(1)).toBe(
-				"L'événement est prévu demain mais n'est pas encore confirmé."
+				"L'événement est prévu demain mais n'est pas encore confirmé.",
 			);
 		});
 		it('J-N (N≥2) → "...prévu dans N jours mais..."', () => {
 			expect(templates._buildConfirmationContextualLine(3)).toBe(
-				"L'événement est prévu dans 3 jours mais n'est pas encore confirmé."
+				"L'événement est prévu dans 3 jours mais n'est pas encore confirmé.",
 			);
 		});
 		it("J-0/absent → \"L'événement n'est pas encore confirmé.\"", () => {
 			expect(templates._buildConfirmationContextualLine(0)).toBe(
-				"L'événement n'est pas encore confirmé."
+				"L'événement n'est pas encore confirmé.",
 			);
 		});
 	});
@@ -272,7 +272,7 @@ describe("notify-templates — helpers contextuels", () => {
 			// Le contenu doit déjà être échappé par l'appelant (voir buildHtmlEmail).
 			const escaped = "[[s]]Salle des fêtes[[/s]] → Gymnase";
 			expect(templates._renderStrikeForHtml(escaped)).toBe(
-				'<s style="text-decoration:line-through;color:#9ca3af;">Salle des fêtes</s> → Gymnase'
+				'<s style="text-decoration:line-through;color:#9ca3af;">Salle des fêtes</s> → Gymnase',
 			);
 		});
 	});
@@ -306,8 +306,8 @@ describe("notify-templates — edge cases", () => {
 		const ev = {
 			type: "task_unassigned",
 			payload: {
-				tasksToFill: [{ name: "Accueil", signedUp: 0, required: 2 }]
-			}
+				tasksToFill: [{ name: "Accueil", signedUp: 0, required: 2 }],
+			},
 		};
 		const lines = templates._renderMissingsLine(ev, occ);
 		expect(lines.length).toBe(1);
@@ -327,7 +327,7 @@ describe("notify-templates — edge cases", () => {
 		it('ifNeeded > 0 et maybe > 0 → "X si besoin, Y incertain·e·s."', () => {
 			const lines = templates._renderMissingsLine(
 				missingsEv({ presentCount: 1, ifNeededCount: 2, maybeCount: 3, minPresentRequired: 5 }),
-				occ
+				occ,
 			);
 			expect(lines[0]).toContain("1 présent·e·s confirmé·e·s sur 5 requis");
 			expect(lines[1]).toBe("2 si besoin, 3 incertain·e·s.");
@@ -337,7 +337,7 @@ describe("notify-templates — edge cases", () => {
 		it('ifNeeded > 0 et maybe = 0 → "X si besoin." seul', () => {
 			const lines = templates._renderMissingsLine(
 				missingsEv({ presentCount: 1, ifNeededCount: 2, maybeCount: 0, minPresentRequired: 5 }),
-				occ
+				occ,
 			);
 			expect(lines[1]).toBe("2 si besoin.");
 			expect(lines.length).toBe(2);
@@ -346,7 +346,7 @@ describe("notify-templates — edge cases", () => {
 		it('ifNeeded = 0 et maybe > 0 → "Y incertain·e·s." seul', () => {
 			const lines = templates._renderMissingsLine(
 				missingsEv({ presentCount: 1, ifNeededCount: 0, maybeCount: 3, minPresentRequired: 5 }),
-				occ
+				occ,
 			);
 			expect(lines[1]).toBe("3 incertain·e·s.");
 			expect(lines.length).toBe(2);
@@ -355,7 +355,7 @@ describe("notify-templates — edge cases", () => {
 		it("ifNeeded = 0 et maybe = 0 → pas de 2e ligne", () => {
 			const lines = templates._renderMissingsLine(
 				missingsEv({ presentCount: 0, ifNeededCount: 0, maybeCount: 0, minPresentRequired: 5 }),
-				occ
+				occ,
 			);
 			expect(lines.length).toBe(1);
 			expect(lines[0]).toContain("0 présent·e·s confirmé·e·s sur 5 requis");
@@ -369,9 +369,9 @@ describe("notify-templates — edge cases", () => {
 					presentCount: 1,
 					maybeCount: 1,
 					noReplyCount: 5,
-					minPresentRequired: 5
+					minPresentRequired: 5,
 				}),
-				occ
+				occ,
 			);
 			expect(lines[1]).toBe("1 incertain·e·s.");
 			expect(lines.some((l: string) => l.includes("sans-réponse"))).toBe(false);
@@ -386,8 +386,8 @@ describe("notify-templates — edge cases", () => {
 				oldStartTime: "19:00",
 				newStartTime: "20:00",
 				oldPlace: "Salle",
-				newPlace: "Gymnase"
-			}
+				newPlace: "Gymnase",
+			},
 		};
 		const line = templates._renderChangeLine(ev, { userNamesById: new Map([["u1", "Sarah"]]) });
 		expect(line).toContain("Plusieurs détails ont été modifiés");
@@ -404,7 +404,7 @@ function commentEvent(
 	occId: string,
 	author: string,
 	preview: string,
-	createdAt = "2026-03-30T10:00:00Z"
+	createdAt = "2026-03-30T10:00:00Z",
 ) {
 	return {
 		type: "new_comment",
@@ -415,8 +415,8 @@ function commentEvent(
 			commentId: "c-" + author,
 			commentCreatedAt: createdAt,
 			authorName: author,
-			contentPreview: preview
-		}
+			contentPreview: preview,
+		},
 	};
 }
 
@@ -430,7 +430,7 @@ describe("notify-templates — new_comment agrégation par bloc occ", () => {
 			master,
 			events,
 			mkRecord({ id: "u1", name: "Sarah" }),
-			ctx
+			ctx,
 		);
 
 		expect(body).toContain("💬 1 nouveau message :");
@@ -443,14 +443,14 @@ describe("notify-templates — new_comment agrégation par bloc occ", () => {
 		const events = [
 			commentEvent("o1", "Alice", "Premier message"),
 			commentEvent("o1", "Bob", "Second message"),
-			commentEvent("o1", "Alice", "Troisième message")
+			commentEvent("o1", "Alice", "Troisième message"),
 		];
 
 		const body = templates.buildTextEmail(
 			master,
 			events,
 			mkRecord({ id: "u1", name: "Sarah" }),
-			ctx
+			ctx,
 		);
 
 		expect(body).toContain("💬 3 nouveaux messages :");
@@ -469,17 +469,17 @@ describe("notify-templates — new_comment agrégation par bloc occ", () => {
 				occurrence: "o1",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: { oldStartTime: "19:00", newStartTime: "20:00" }
+				payload: { oldStartTime: "19:00", newStartTime: "20:00" },
 			},
 			commentEvent("o1", "Alice", "Ok pour 20h"),
-			commentEvent("o1", "Bob", "Parfait")
+			commentEvent("o1", "Bob", "Parfait"),
 		];
 
 		const body = templates.buildTextEmail(
 			master,
 			events,
 			mkRecord({ id: "u1", name: "Sarah" }),
-			ctx
+			ctx,
 		);
 
 		// Le bloc occurrence porte le label de la catégorie dominante (change).
@@ -497,7 +497,7 @@ describe("notify-templates — new_comment agrégation par bloc occ", () => {
 		const long = "a".repeat(200);
 		const lines = templates._renderCommentLines(
 			[commentEvent("o1", "Alice", "ligne1\nligne2 " + long)],
-			{}
+			{},
 		);
 		expect(lines[0]).toBe("💬 1 nouveau message :");
 		// Le \n est replié en espace, la preview tronquée à 130.
@@ -516,13 +516,13 @@ describe("notify-templates — new_comment agrégation par bloc occ", () => {
 			master,
 			events,
 			mkRecord({ id: "u1", name: "Sarah" }),
-			ctx
+			ctx,
 		);
 		const html = templates.buildHtmlEmail(
 			master,
 			events,
 			mkRecord({ id: "u1", name: "Sarah" }),
-			ctx
+			ctx,
 		);
 
 		// Côté texte : sous-ligne indentée (préfixe 3espaces du bloc + 3espaces internes).
@@ -547,7 +547,7 @@ describe("notify-templates — buildSubject pour new_comment", () => {
 		const events = [
 			commentEvent("o1", "Alice", "A"),
 			commentEvent("o1", "Bob", "B"),
-			commentEvent("o1", "Alice", "C")
+			commentEvent("o1", "Alice", "C"),
 		];
 		const subject = templates.buildSubject(master, events, ctx);
 		expect(subject).toBe("3 nouveaux messages — Repas hebdo — mar. 31 mars");
@@ -562,10 +562,10 @@ describe("notify-templates — buildSubject pour new_comment", () => {
 				occurrence: "o1",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: { oldStartTime: "19:00", newStartTime: "20:00" }
+				payload: { oldStartTime: "19:00", newStartTime: "20:00" },
 			},
 			commentEvent("o1", "Alice", "Ok"),
-			commentEvent("o1", "Bob", "Ok")
+			commentEvent("o1", "Bob", "Ok"),
 		];
 		const subject = templates.buildSubject(master, events, ctx);
 		expect(subject).toBe("Modification — Repas hebdo — mar. 31 mars + 2 nouveaux messages");
@@ -579,7 +579,7 @@ describe("notify-templates — buildSubject pour new_comment", () => {
 			commentEvent("o1", "Bob", "B"),
 			commentEvent("o2", "Alice", "C"),
 			commentEvent("o3", "Bob", "D"),
-			commentEvent("o3", "Alice", "E")
+			commentEvent("o3", "Alice", "E"),
 		];
 		const subject = templates.buildSubject(master, events, ctx);
 		// 5 messages au total sur 3 occs → compte de messages, pas d'occs.

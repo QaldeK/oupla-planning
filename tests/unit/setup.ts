@@ -33,12 +33,12 @@ globalThis.IDBKeyRange = IDBKeyRange;
 Object.defineProperty(globalThis.navigator, "language", {
 	value: "fr",
 	configurable: true,
-	writable: true
+	writable: true,
 });
 Object.defineProperty(globalThis.navigator, "languages", {
 	value: ["fr"],
 	configurable: true,
-	writable: true
+	writable: true,
 });
 
 // La détection serveur du runtime paraglide compilé (dossier gitignoré, régénéré

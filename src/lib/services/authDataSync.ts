@@ -26,7 +26,7 @@ export interface AuthDataSyncDeps {
  */
 export async function syncAuthData(
 	markSynced: () => Promise<void>,
-	deps: Partial<AuthDataSyncDeps> = {}
+	deps: Partial<AuthDataSyncDeps> = {},
 ): Promise<void> {
 	await (deps.fetchMasters ?? fetchAllMasters)();
 	await (deps.fetchOccurrences ?? syncActiveOccurrences)();

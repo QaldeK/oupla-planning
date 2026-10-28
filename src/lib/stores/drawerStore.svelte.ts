@@ -12,7 +12,7 @@ class DrawerStore {
 
 	/** Métadonnées du drawer (userId, rôle) */
 	#metadata = $state<{ currentUserId?: string; isAdmin: boolean }>({
-		isAdmin: false
+		isAdmin: false,
 	});
 
 	/**
@@ -28,7 +28,7 @@ class DrawerStore {
 			occurrence,
 			master,
 			currentUserId: this.#metadata.currentUserId,
-			isAdmin: this.#metadata.isAdmin
+			isAdmin: this.#metadata.isAdmin,
 		};
 	});
 
@@ -39,7 +39,7 @@ class DrawerStore {
 		planningStore.setSelectedOccurrenceId(data.occurrenceId);
 		this.#metadata = {
 			currentUserId: data.currentUserId,
-			isAdmin: data.isAdmin
+			isAdmin: data.isAdmin,
 		};
 		this.open = true;
 	}

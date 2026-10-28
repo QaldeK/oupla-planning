@@ -15,7 +15,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		bgClass10: "bg-success/10",
 		btnClass: "bg-success/20",
 		ringClass: "ring-success",
-		borderClass: "border border-success"
+		borderClass: "border border-success",
 	},
 	if_needed: {
 		label: () => m.response_if_needed(),
@@ -25,7 +25,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		bgClass10: "bg-info/10",
 		btnClass: "btn-info btn-soft",
 		ringClass: "ring-info",
-		borderClass: "border border-info"
+		borderClass: "border border-info",
 	},
 	maybe: {
 		label: () => m.response_maybe(),
@@ -35,7 +35,7 @@ export const RESPONSE_TYPE_CONFIG = {
 		bgClass10: "bg-warning/10",
 		btnClass: "btn-warning btn-soft",
 		ringClass: "ring-warning",
-		borderClass: "border border-warning"
+		borderClass: "border border-warning",
 	},
 	absent: {
 		label: () => m.response_absent(),
@@ -45,8 +45,8 @@ export const RESPONSE_TYPE_CONFIG = {
 		bgClass10: "bg-error/10",
 		btnClass: "btn-error btn-soft",
 		ringClass: "ring-error",
-		borderClass: "border border-error"
-	}
+		borderClass: "border border-error",
+	},
 } as const satisfies Record<
 	ResponseType,
 	{
@@ -69,5 +69,5 @@ export const RESPONSE_TYPE_LABELS: Record<ResponseType, () => string> = {
 	present: RESPONSE_TYPE_CONFIG.present.label,
 	if_needed: RESPONSE_TYPE_CONFIG.if_needed.label,
 	maybe: RESPONSE_TYPE_CONFIG.maybe.label,
-	absent: RESPONSE_TYPE_CONFIG.absent.label
+	absent: RESPONSE_TYPE_CONFIG.absent.label,
 };

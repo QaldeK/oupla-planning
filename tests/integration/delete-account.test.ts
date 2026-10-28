@@ -26,7 +26,7 @@ import {
 	seedParticipantPrefs,
 	seedPlanning,
 	seedUser,
-	trackIds
+	trackIds,
 } from "./seed";
 
 const USER_EMAIL = "delete-account@test.com";
@@ -56,9 +56,9 @@ async function seedNotificationEvent(masterId: string, occId: string) {
 			commentId: "c-del-test",
 			commentCreatedAt: new Date().toISOString(),
 			authorName: "Other User",
-			contentPreview: "Hello"
+			contentPreview: "Hello",
 		},
-		processedAt: ""
+		processedAt: "",
 	});
 }
 
@@ -67,7 +67,7 @@ async function seedLock(masterId: string, lockedBy: string) {
 	return await adminPb.collection("planning_locks").create({
 		master: masterId,
 		lockedBy,
-		lockedByName: "Alice Delete"
+		lockedByName: "Alice Delete",
 	});
 }
 
@@ -104,12 +104,12 @@ describe("POST /api/delete-account — suppression de compte", () => {
 			isAdmin: true,
 			createdAt: new Date().toISOString(),
 			userId: userA.id,
-			claimedAt: new Date().toISOString()
+			claimedAt: new Date().toISOString(),
 		};
 		const m1 = await seedPlanning({
 			title: "M1 owned by A",
 			participants: [aliceInM1],
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 
 		// M2 : planning dont B est admin — A participe via un guest lié (userId)
@@ -120,35 +120,35 @@ describe("POST /api/delete-account — suppression de compte", () => {
 			isAdmin: false,
 			createdAt: new Date().toISOString(),
 			userId: userA.id,
-			claimedAt: new Date().toISOString()
+			claimedAt: new Date().toISOString(),
 		};
 		const aliceAutoAdd: Participant = {
 			id: userA.id, // CAS C : participant auto-ajouté avec id = pbUser.id
 			name: "Alice Delete",
 			isAdmin: false,
-			createdAt: new Date().toISOString()
+			createdAt: new Date().toISOString(),
 		};
 		const bobInM2: Participant = {
 			id: "bob-m2",
 			name: "Bob Admin",
 			isAdmin: true,
 			createdAt: new Date().toISOString(),
-			userId: userB.id
+			userId: userB.id,
 		};
 		const m2 = await seedPlanning({
 			title: "M2 owned by B",
 			participants: [aliceInM2, aliceAutoAdd, bobInM2],
-			occurrenceCount: 2
+			occurrenceCount: 2,
 		});
 
 		// Lier A/B à leurs masters (masterId + adminOf)
 		await adminPb.collection("users").update(userA.id, {
 			masterId: [m1.master.id, m2.master.id],
-			adminOf: { [m1.master.id]: m1.adminToken }
+			adminOf: { [m1.master.id]: m1.adminToken },
 		});
 		await adminPb.collection("users").update(userB.id, {
 			masterId: [m2.master.id],
-			adminOf: { [m2.master.id]: m2.adminToken }
+			adminOf: { [m2.master.id]: m2.adminToken },
 		});
 
 		// Prefs de notification : A sur M1 et M2, B sur M2
@@ -165,9 +165,9 @@ describe("POST /api/delete-account — suppression de compte", () => {
 					id: commentId,
 					participantId: "alice-m1",
 					content: "Message d'Alice",
-					createdAt: new Date().toISOString()
-				}
-			]
+					createdAt: new Date().toISOString(),
+				},
+			],
 		});
 
 		// Lock détenu par A (doit être nettoyé)
@@ -181,7 +181,7 @@ describe("POST /api/delete-account — suppression de compte", () => {
 
 		// === VERIFICATION : compte supprimé ===
 		await expect(adminPb.collection("users").getOne(userA.id)).rejects.toMatchObject({
-			status: 404
+			status: 404,
 		});
 
 		// === VERIFICATION : participations marquées quittées sur les 2 masters ===
@@ -246,17 +246,17 @@ describe("POST /api/delete-account — suppression de compte", () => {
 			name: "NoAuth User",
 			isAdmin: false,
 			createdAt: new Date().toISOString(),
-			userId: user.id
+			userId: user.id,
 		};
 		const { master } = await seedPlanning({
 			title: "NoAuth Test",
 			participants: [alice],
-			occurrenceCount: 0
+			occurrenceCount: 0,
 		});
 
 		// Pas d'auth dans le singleton pb
 		await expect(pb.send("/api/delete-account", { method: "POST" })).rejects.toMatchObject({
-			status: 401
+			status: 401,
 		});
 
 		// Rien n'a changé : compte et participants intacts
@@ -277,12 +277,12 @@ describe("POST /api/delete-account — suppression de compte", () => {
 			name: "Wrong Pwd",
 			isAdmin: false,
 			createdAt: new Date().toISOString(),
-			userId: user.id
+			userId: user.id,
 		};
 		const { master } = await seedPlanning({
 			title: "Wrong Pwd Test",
 			participants: [alice],
-			occurrenceCount: 0
+			occurrenceCount: 0,
 		});
 
 		const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -291,7 +291,7 @@ describe("POST /api/delete-account — suppression de compte", () => {
 		// La vérification du mot de passe (authWithPassword) rejette avant tout appel
 		// à l'endpoint (pattern handlePasswordChange) : rien ne doit être modifié.
 		await expect(
-			pb.collection("users").authWithPassword(USER_EMAIL, "wrong-password")
+			pb.collection("users").authWithPassword(USER_EMAIL, "wrong-password"),
 		).rejects.toThrow();
 
 		const adminPb = await authenticateAdmin();

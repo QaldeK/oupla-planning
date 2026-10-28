@@ -179,7 +179,7 @@
 				</legend>
 
 				<label
-					class="label whitespace-normal bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
+					class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3 whitespace-normal"
 				>
 					<input
 						type="checkbox"
@@ -194,7 +194,7 @@
 
 				{#if pushSupported}
 					<label
-						class="label whitespace-normal bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
+						class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3 whitespace-normal"
 					>
 						<input
 							type="checkbox"
@@ -217,7 +217,7 @@
 
 				<!-- Modifs d'occurrence (toggle unique : date / horaires / lieu / annulation / suppression / confirmation) -->
 				<label
-					class="label whitespace-normal bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
+					class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3 whitespace-normal"
 				>
 					<input
 						type="checkbox"
@@ -240,7 +240,7 @@
 					<p class="text-xs opacity-60">{m.notif_reminders_hint()}</p>
 					<div class="flex flex-wrap gap-x-4 gap-y-2 pt-1 pl-1">
 						{#each reminderOptions as opt (opt.value)}
-							<label class="label whitespace-normal cursor-pointer justify-start gap-2 p-0">
+							<label class="label cursor-pointer justify-start gap-2 p-0 whitespace-normal">
 								<input
 									type="checkbox"
 									bind:group={prefs.reminderDays}
@@ -261,7 +261,7 @@
 					<p class="text-xs opacity-60">{m.notif_missing_hint()}</p>
 					<div class="flex flex-wrap gap-x-4 gap-y-2 pt-1 pl-1">
 						{#each missingOptions as opt (opt.value)}
-							<label class="label whitespace-normal cursor-pointer justify-start gap-2 p-0">
+							<label class="label cursor-pointer justify-start gap-2 p-0 whitespace-normal">
 								<input
 									type="checkbox"
 									bind:group={prefs.missingDays}
@@ -285,7 +285,7 @@
 					<div class="space-y-2 pt-1">
 						{#each newCommentScopeOptions as opt (opt.value)}
 							<label
-								class="label whitespace-normal cursor-pointer justify-start gap-3 rounded-md p-1"
+								class="label cursor-pointer justify-start gap-3 rounded-md p-1 whitespace-normal"
 							>
 								<input
 									type="radio"
@@ -314,7 +314,7 @@
 					</legend>
 
 					<label
-						class="label whitespace-normal bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3"
+						class="label bg-base-200 border-base-300 cursor-pointer justify-start gap-3 rounded-lg border p-3 whitespace-normal"
 					>
 						<input
 							type="checkbox"

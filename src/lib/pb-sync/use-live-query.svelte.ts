@@ -24,7 +24,7 @@ export function useLiveQuery<T>(querier: () => T | Promise<T>, deps?: () => unkn
 	}>({
 		current: undefined,
 		isLoading: true,
-		error: undefined
+		error: undefined,
 	});
 
 	$effect(() => {
@@ -43,7 +43,7 @@ export function useLiveQuery<T>(querier: () => T | Promise<T>, deps?: () => unkn
 			error: (err) => {
 				query.error = err;
 				query.isLoading = false;
-			}
+			},
 		});
 
 		return () => subscription.unsubscribe();

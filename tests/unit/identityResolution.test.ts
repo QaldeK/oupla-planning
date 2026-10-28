@@ -19,7 +19,7 @@ const PARTICIPANT_GUEST: Participant = {
 	id: "guest-1",
 	name: "Alice",
 	isAdmin: false,
-	createdAt: "2026-01-01T00:00:00Z"
+	createdAt: "2026-01-01T00:00:00Z",
 };
 
 const PARTICIPANT_WITH_USER_ID: Participant = {
@@ -27,7 +27,7 @@ const PARTICIPANT_WITH_USER_ID: Participant = {
 	name: "Alice",
 	isAdmin: false,
 	createdAt: "2026-01-01T00:00:00Z",
-	userId: "pb-1"
+	userId: "pb-1",
 };
 
 const PARTICIPANT_CLAIMED: Participant = {
@@ -35,7 +35,7 @@ const PARTICIPANT_CLAIMED: Participant = {
 	name: "Alice",
 	isAdmin: false,
 	createdAt: "2026-01-01T00:00:00Z",
-	userId: "pb-remote"
+	userId: "pb-remote",
 };
 
 /** Post-claim par le compte courant : le participant guest garde son id (clé des données), seul userId est posé. */
@@ -44,7 +44,7 @@ const PARTICIPANT_GUEST_CLAIMED: Participant = {
 	name: "Alice",
 	isAdmin: false,
 	createdAt: "2026-01-01T00:00:00Z",
-	userId: "pb-1"
+	userId: "pb-1",
 };
 
 function makeInput(overrides: Partial<IdentityInput> = {}): IdentityInput {
@@ -53,7 +53,7 @@ function makeInput(overrides: Partial<IdentityInput> = {}): IdentityInput {
 		pbUser: null,
 		guestIdentity: null,
 		participants: [],
-		...overrides
+		...overrides,
 	};
 }
 
@@ -68,7 +68,7 @@ describe("resolveCurrentIdentity", () => {
 		expect(result).toEqual<IdentityResolution>({
 			participant: null,
 			identity: null,
-			claimedByAuth: false
+			claimedByAuth: false,
 		});
 	});
 
@@ -76,14 +76,14 @@ describe("resolveCurrentIdentity", () => {
 		const result = resolveCurrentIdentity(
 			makeInput({
 				guestIdentity: GUEST_ID,
-				participants: [PARTICIPANT_GUEST]
-			})
+				participants: [PARTICIPANT_GUEST],
+			}),
 		);
 
 		expect(result).toEqual<IdentityResolution>({
 			participant: PARTICIPANT_GUEST,
 			identity: GUEST_ID,
-			claimedByAuth: false
+			claimedByAuth: false,
 		});
 	});
 
@@ -93,14 +93,14 @@ describe("resolveCurrentIdentity", () => {
 		const result = resolveCurrentIdentity(
 			makeInput({
 				guestIdentity: GUEST_ID,
-				participants: [PARTICIPANT_WITH_USER_ID]
-			})
+				participants: [PARTICIPANT_WITH_USER_ID],
+			}),
 		);
 
 		expect(result).toEqual<IdentityResolution>({
 			participant: null,
 			identity: GUEST_ID,
-			claimedByAuth: false
+			claimedByAuth: false,
 		});
 	});
 
@@ -108,14 +108,14 @@ describe("resolveCurrentIdentity", () => {
 		const result = resolveCurrentIdentity(
 			makeInput({
 				guestIdentity: GUEST_ID,
-				participants: [PARTICIPANT_CLAIMED]
-			})
+				participants: [PARTICIPANT_CLAIMED],
+			}),
 		);
 
 		expect(result).toEqual<IdentityResolution>({
 			participant: null,
 			identity: null,
-			claimedByAuth: true
+			claimedByAuth: true,
 		});
 	});
 
@@ -127,14 +127,14 @@ describe("resolveCurrentIdentity", () => {
 			makeInput({
 				isLoggedIn: true,
 				pbUser: PB_USER,
-				participants: [PARTICIPANT_WITH_USER_ID]
-			})
+				participants: [PARTICIPANT_WITH_USER_ID],
+			}),
 		);
 
 		expect(result).toEqual<IdentityResolution>({
 			participant: PARTICIPANT_WITH_USER_ID,
 			identity: { id: "participant-1", name: "Alice", email: "alice@test.com" },
-			claimedByAuth: false
+			claimedByAuth: false,
 		});
 	});
 
@@ -146,8 +146,8 @@ describe("resolveCurrentIdentity", () => {
 			makeInput({
 				isLoggedIn: true,
 				pbUser: PB_USER,
-				participants: [PARTICIPANT_GUEST_CLAIMED]
-			})
+				participants: [PARTICIPANT_GUEST_CLAIMED],
+			}),
 		);
 
 		const currentUserId = result.identity?.id;
@@ -162,8 +162,8 @@ describe("resolveCurrentIdentity", () => {
 			makeInput({
 				isLoggedIn: true,
 				pbUser: PB_USER,
-				participants: [PARTICIPANT_GUEST_CLAIMED]
-			})
+				participants: [PARTICIPANT_GUEST_CLAIMED],
+			}),
 		);
 
 		const responses = [{ participantId: "guest-1", response: "present", tasks: [] }];
@@ -177,14 +177,14 @@ describe("resolveCurrentIdentity", () => {
 			makeInput({
 				isLoggedIn: true,
 				pbUser: PB_USER,
-				participants: [PARTICIPANT_GUEST]
-			})
+				participants: [PARTICIPANT_GUEST],
+			}),
 		);
 
 		expect(result).toEqual<IdentityResolution>({
 			participant: null,
 			identity: PB_USER,
-			claimedByAuth: false
+			claimedByAuth: false,
 		});
 	});
 
@@ -196,14 +196,14 @@ describe("resolveCurrentIdentity", () => {
 				isLoggedIn: true,
 				pbUser: null,
 				guestIdentity: GUEST_ID,
-				participants: [PARTICIPANT_GUEST]
-			})
+				participants: [PARTICIPANT_GUEST],
+			}),
 		);
 
 		expect(result).toEqual<IdentityResolution>({
 			participant: null,
 			identity: null,
-			claimedByAuth: false
+			claimedByAuth: false,
 		});
 	});
 
@@ -211,14 +211,14 @@ describe("resolveCurrentIdentity", () => {
 		const result = resolveCurrentIdentity(
 			makeInput({
 				isLoggedIn: true,
-				pbUser: PB_USER
-			})
+				pbUser: PB_USER,
+			}),
 		);
 
 		expect(result).toEqual<IdentityResolution>({
 			participant: null,
 			identity: PB_USER,
-			claimedByAuth: false
+			claimedByAuth: false,
 		});
 	});
 
@@ -227,13 +227,13 @@ describe("resolveCurrentIdentity", () => {
 		// a un userId, c'est claimedByAuth (cross-device).
 		const claimedMatch: Participant = {
 			...PARTICIPANT_GUEST,
-			userId: "pb-remote"
+			userId: "pb-remote",
 		};
 		const result = resolveCurrentIdentity(
 			makeInput({
 				guestIdentity: GUEST_ID,
-				participants: [claimedMatch]
-			})
+				participants: [claimedMatch],
+			}),
 		);
 
 		expect(result.claimedByAuth).toBe(true);

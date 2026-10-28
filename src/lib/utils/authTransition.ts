@@ -97,7 +97,7 @@ export interface AuthTransitionResult {
  */
 export async function runAuthTransition(
 	ctx: AuthTransitionContext,
-	deps: AuthTransitionDeps
+	deps: AuthTransitionDeps,
 ): Promise<AuthTransitionResult> {
 	const { currentToken, activeMasterId, savedPlannings } = ctx;
 	const {
@@ -107,7 +107,7 @@ export async function runAuthTransition(
 		claimPlannings,
 		syncAuthData,
 		commentStateService,
-		db
+		db,
 	} = deps;
 
 	// 1. Réactiver le liveQuery global alimentant #allMasters (sidebar + homepage)
@@ -137,8 +137,8 @@ export async function runAuthTransition(
 					{
 						id: activeMasterId,
 						participantToken: activeMaster.participantToken,
-						adminToken: activeMaster.adminToken
-					}
+						adminToken: activeMaster.adminToken,
+					},
 				]);
 			} catch (err) {
 				console.error("Claim failed (non-blocking):", err);
@@ -156,7 +156,7 @@ export async function runAuthTransition(
 		? {
 				masterId: activeMasterId,
 				participantId: guestIdentity.id,
-				name: guestIdentity.name
+				name: guestIdentity.name,
 			}
 		: null;
 

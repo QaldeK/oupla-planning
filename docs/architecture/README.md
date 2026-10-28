@@ -44,15 +44,15 @@ Trois invariants structurent l'ensemble :
 
 ## Index
 
-| Document | Sujet |
-| --- | --- |
-| `auth-identity.md` | Deux natures d'utilisateur, résolution d'identité, transition guest → auth, revendication, fin de session |
-| `stores.md` | Règle de couche et boucles acceptées, propriété des tables Dexie, `userStore`, `guestStateStore`, `planningStore` (activation et cache) |
-| `offline-sync.md` | Offline-first, fenêtre de re-sync, merge serveur, `_version`, retry |
-| `network-realtime.md` | `networkStore` (détection, debounce, retour au premier plan), souscriptions realtime |
-| `admin-lock.md` | Verrou d'édition admin : collection, routes, TTL, cycle de vie UI |
-| `push-notifications.md` | File d'événements, canaux, détecteurs, préférences, appareils abonnés |
-| `pwa.md` | Service worker, détection de mise à jour, installation, toast |
+| Document                | Sujet                                                                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth-identity.md`      | Deux natures d'utilisateur, résolution d'identité, transition guest → auth, revendication, fin de session                               |
+| `stores.md`             | Règle de couche et boucles acceptées, propriété des tables Dexie, `userStore`, `guestStateStore`, `planningStore` (activation et cache) |
+| `offline-sync.md`       | Offline-first, fenêtre de re-sync, merge serveur, `_version`, retry                                                                     |
+| `network-realtime.md`   | `networkStore` (détection, debounce, retour au premier plan), souscriptions realtime                                                    |
+| `admin-lock.md`         | Verrou d'édition admin : collection, routes, TTL, cycle de vie UI                                                                       |
+| `push-notifications.md` | File d'événements, canaux, détecteurs, préférences, appareils abonnés                                                                   |
+| `pwa.md`                | Service worker, détection de mise à jour, installation, toast                                                                           |
 
 ## Conventions
 
@@ -64,8 +64,8 @@ Trois invariants structurent l'ensemble :
 - Diagrammes Mermaid : le type (`flowchart TD`, `sequenceDiagram`, `erDiagram`) est la
   **première ligne** du bloc ; les directives `%%{init: …}%%` viennent en dessous. Un
   commentaire en tête masque le type et route le bloc vers le mauvais parseur.
-- Pas d'historique de chantier (« fichiers supprimés », « avant, on faisait… »). Le *pourquoi*
-  durable appartient aux ADR ; le *quoi* changeant ne survit pas.
+- Pas d'historique de chantier (« fichiers supprimés », « avant, on faisait… »). Le _pourquoi_
+  durable appartient aux ADR ; le _quoi_ changeant ne survit pas.
 
 Le détail des règles de maintenance documentaire (où écrire, qui met à jour quoi) est dans
 `AGENTS.md`, qui les porte aussi pour les agents.

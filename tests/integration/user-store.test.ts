@@ -41,7 +41,7 @@ import {
 	clearTrackedIds,
 	seedPlanning,
 	seedUser,
-	trackIds
+	trackIds,
 } from "./seed";
 
 const USER_EMAIL = "userstore-test@test.com";
@@ -91,7 +91,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			const identity: PlanningIdentity = {
 				id: "guest123",
 				name: "Alice",
-				email: "alice@test.com"
+				email: "alice@test.com",
 			};
 			await guestStateStore.setGuestIdentity(master.id, identity);
 
@@ -111,7 +111,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 		it("retourne null pour un planning sans identite", async () => {
 			// === SEED : master en Dexie mais pas d'identite dans localMeta ===
 			const { master, participantToken: _participantToken } = await seedPlanning({
-				title: "No Identity"
+				title: "No Identity",
 			});
 
 			// === VERIFICATION ===
@@ -123,7 +123,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			const { master } = await seedPlanning({ title: "Auth Identity" });
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User", {
-				masterIds: [master.id]
+				masterIds: [master.id],
 			});
 			trackIds("users", user.id);
 
@@ -136,7 +136,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 				isLoggedIn: true,
 				pbUser: userStore.pbUser,
 				guestIdentity: guestStateStore.getGuestIdentity(master.id),
-				participants: []
+				participants: [],
 			});
 			expect(result.identity).not.toBeNull();
 			expect(result.identity!.id).toBe(user.id);
@@ -161,7 +161,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 
 			// Puis simuler un login
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User", {
-				masterIds: [master.id]
+				masterIds: [master.id],
 			});
 			trackIds("users", user.id);
 
@@ -174,7 +174,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 				isLoggedIn: true,
 				pbUser: userStore.pbUser,
 				guestIdentity: guestStateStore.getGuestIdentity(master.id),
-				participants: []
+				participants: [],
 			});
 			expect(result.identity!.id).toBe(user.id);
 			expect(result.identity!.name).toBe("Auth User");
@@ -191,7 +191,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			const identity1: PlanningIdentity = {
 				id: "guest1",
 				name: "Alice",
-				email: "alice@test.com"
+				email: "alice@test.com",
 			};
 			await guestStateStore.setGuestIdentity(master.id, identity1);
 
@@ -199,7 +199,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			const identity2: PlanningIdentity = {
 				id: "guest1",
 				name: "Alice Updated",
-				email: "alice@test.com"
+				email: "alice@test.com",
 			};
 			await guestStateStore.setGuestIdentity(master.id, identity2);
 
@@ -241,7 +241,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 				isLoggedIn: true,
 				pbUser: userStore.pbUser,
 				guestIdentity: guestStateStore.getGuestIdentity(master.id),
-				participants: []
+				participants: [],
 			});
 			expect(result.identity).not.toBeNull();
 			expect(result.identity!.id).toBe(user.id);
@@ -289,7 +289,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			// === SEED ===
 			const { master, participantToken } = await seedPlanning({
 				title: "Transition Test",
-				occurrenceCount: 2
+				occurrenceCount: 2,
 			});
 
 			// User SANS masterIds — c'est /api/sync-plannings qui doit le peupler
@@ -320,7 +320,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 					expect(dexieMaster).toBeDefined();
 					expect(dexieMaster!.title).toBe("Transition Test");
 				},
-				{ timeout: 5000 }
+				{ timeout: 5000 },
 			);
 
 			// === VERIFICATION DEXIE ===
@@ -380,7 +380,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			// === SEED ===
 			const { master } = await seedPlanning({
 				title: "Homepage Login",
-				occurrenceCount: 2
+				occurrenceCount: 2,
 			});
 
 			// User SANS masterIds
@@ -443,7 +443,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			await guestStateStore.setGuestIdentity(master.id, {
 				id: "guest1",
 				name: "Guest",
-				email: ""
+				email: "",
 			});
 
 			// === AUTH ===
@@ -459,7 +459,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 					const dexieMaster = await db.masters.get(master.id);
 					expect(dexieMaster).toBeDefined();
 				},
-				{ timeout: 5000 }
+				{ timeout: 5000 },
 			);
 
 			// === VERIFICATION : localMeta est vidé par runAuthTransition (étape 5) ===
@@ -478,7 +478,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 				isLoggedIn: true,
 				pbUser: userStore.pbUser,
 				guestIdentity: guestStateStore.getGuestIdentity(master.id),
-				participants: []
+				participants: [],
 			});
 			expect(result.identity).not.toBeNull();
 			expect(result.identity!.id).toBe(user.id);
@@ -507,7 +507,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			await guestStateStore.setGuestIdentity(master.id, {
 				id: "guest-cursor",
 				name: "Cursor Guest",
-				email: ""
+				email: "",
 			});
 
 			// === AUTH + TRANSITION ===
@@ -521,7 +521,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 					const dexieMaster = await db.masters.get(master.id);
 					expect(dexieMaster).toBeDefined();
 				},
-				{ timeout: 5000 }
+				{ timeout: 5000 },
 			);
 
 			// === VERIFICATION 1 : l'identité guest a été effacée par la transition ===
@@ -575,7 +575,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			// Simule un compte qui reconnecte (pas un guest qui claim).
 			const { master } = await seedPlanning({ title: "Re-Login Master" });
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Re-Login User", {
-				masterIds: [master.id]
+				masterIds: [master.id],
 			});
 			trackIds("users", user.id);
 
@@ -602,7 +602,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 					expect(dexieMaster).toBeDefined();
 					expect(dexieMaster!.title).toBe("Re-Login Master");
 				},
-				{ timeout: 5000 }
+				{ timeout: 5000 },
 			);
 
 			// === VERIFICATION STORE (le bug) ===
@@ -615,7 +615,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 					expect(planningStore.activeMasters[0].id).toBe(master.id);
 					expect(planningStore.activeMasters[0].title).toBe("Re-Login Master");
 				},
-				{ timeout: 5000 }
+				{ timeout: 5000 },
 			);
 
 			// === VERIFICATION POCKETBASE (cohérence croisée) ===
@@ -643,7 +643,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			await guestStateStore.setGuestIdentity(master.id, {
 				id: "guest1",
 				name: "Guest",
-				email: ""
+				email: "",
 			});
 
 			// Master en Dexie
@@ -696,7 +696,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			// === ACTION ===
 			await refreshSessionSilently({
 				authRefresh: () => pb.collection("users").authRefresh(),
-				clearAuth: () => pb.authStore.clear()
+				clearAuth: () => pb.authStore.clear(),
 			});
 
 			// === VERIFICATION ===
@@ -715,7 +715,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			// === ACTION ===
 			await refreshSessionSilently({
 				authRefresh: () => pb.collection("users").authRefresh(),
-				clearAuth: () => pb.authStore.clear()
+				clearAuth: () => pb.authStore.clear(),
 			});
 
 			// === VERIFICATION ===

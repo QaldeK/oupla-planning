@@ -12,7 +12,7 @@ import type {
 	OccurrenceTarget,
 	RecurrenceConfig,
 	RecurrenceType,
-	TimeSlot
+	TimeSlot,
 } from "$lib/types/planning.types";
 import { generateRecurrenceDates } from "./recurrence";
 import { formatSlotKey } from "./slots";
@@ -75,7 +75,7 @@ function computeGeneratedDates(
 	lastDate: string,
 	monthlyByDayOccurrences: number[] | undefined,
 	monthlyByDateMode: RecurrenceConfig["monthlyByDateMode"],
-	todayStr: string
+	todayStr: string,
 ): string[] {
 	if (recurrenceType === "CUSTOM") return [];
 	if (!firstDate || !lastDate || !recurrenceType) return [];
@@ -86,7 +86,7 @@ function computeGeneratedDates(
 		lastDate,
 		monthlyByDayOccurrences:
 			recurrenceType === "MONTHLY_BY_DAY" ? monthlyByDayOccurrences : undefined,
-		monthlyByDateMode: recurrenceType === "MONTHLY_BY_DATE" ? monthlyByDateMode : undefined
+		monthlyByDateMode: recurrenceType === "MONTHLY_BY_DATE" ? monthlyByDateMode : undefined,
 	});
 
 	// On ne retient que les dates futures (inutiles au rendu), sans tronquer à 100 :
@@ -99,7 +99,7 @@ function computeGeneratedDates(
 function computeArbitraryDates(
 	recurrenceType: RecurrenceType,
 	allGeneratedDates: string[],
-	manualDates: string[]
+	manualDates: string[],
 ): string[] {
 	if (recurrenceType === "CUSTOM") return [];
 	const generatedSet = new Set(allGeneratedDates);
@@ -109,7 +109,7 @@ function computeArbitraryDates(
 function computeDatesToDisplay(
 	recurrenceType: RecurrenceType,
 	allGeneratedDates: string[],
-	manualDates: string[]
+	manualDates: string[],
 ): string[] {
 	if (recurrenceType === "CUSTOM") {
 		return manualDates;
@@ -125,7 +125,7 @@ function computeAllDateSlots(allDatesToDisplay: string[], timeSlots: TimeSlot[])
 				date,
 				startTime: slot.startTime,
 				endTime: slot.endTime,
-				slotId: slot.id
+				slotId: slot.id,
 			});
 		}
 	}
@@ -135,7 +135,7 @@ function computeAllDateSlots(allDatesToDisplay: string[], timeSlots: TimeSlot[])
 function computeOccurrenceTargets(
 	allDateSlots: DateSlot[],
 	disabledSlotKeys: Set<string>,
-	seededOccurrences: Map<string, OccurrenceTarget>
+	seededOccurrences: Map<string, OccurrenceTarget>,
 ): OccurrenceTarget[] {
 	const result: OccurrenceTarget[] = [];
 	for (const ds of allDateSlots) {
@@ -147,8 +147,8 @@ function computeOccurrenceTargets(
 				date: ds.date,
 				startTime: ds.startTime,
 				endTime: ds.endTime,
-				slotId: ds.slotId
-			}
+				slotId: ds.slotId,
+			},
 		);
 	}
 	return result;
@@ -160,7 +160,7 @@ function computeActiveDateSlots(occurrenceTargets: OccurrenceTarget[]): DateSlot
 			date: t.date,
 			startTime: t.startTime,
 			endTime: t.endTime,
-			slotId: t.slotId
+			slotId: t.slotId,
 		}))
 		.sort(compareDateSlots);
 }
@@ -188,7 +188,7 @@ function computeFutureActiveCount(activeDateSlots: DateSlot[], todayStr: string)
  */
 export function computeDateSlotSelection(
 	input: DateSlotSelectionInput,
-	state: DateSlotSelectionState
+	state: DateSlotSelectionState,
 ): DateSlotSelectionViews {
 	const {
 		recurrenceType,
@@ -198,7 +198,7 @@ export function computeDateSlotSelection(
 		monthlyByDateMode,
 		manualDates,
 		timeSlots,
-		todayStr
+		todayStr,
 	} = input;
 	const { disabledSlotKeys, seededOccurrences } = state;
 
@@ -208,7 +208,7 @@ export function computeDateSlotSelection(
 		lastDate,
 		monthlyByDayOccurrences,
 		monthlyByDateMode,
-		todayStr
+		todayStr,
 	);
 
 	const arbitraryDates = computeArbitraryDates(recurrenceType, allGeneratedDates, manualDates);
@@ -220,7 +220,7 @@ export function computeDateSlotSelection(
 	const occurrenceTargets = computeOccurrenceTargets(
 		allDateSlots,
 		disabledSlotKeys,
-		seededOccurrences
+		seededOccurrences,
 	);
 
 	const activeDateSlots = computeActiveDateSlots(occurrenceTargets);
@@ -247,7 +247,7 @@ export function computeDateSlotSelection(
 		displayedDateSlots,
 		hiddenPastDateCount,
 		futureActiveDateSlotCount,
-		maxManualDatesForLimit
+		maxManualDatesForLimit,
 	};
 }
 
@@ -265,7 +265,7 @@ export function seedFromOccurrences(
 		startTime: string;
 		endTime: string;
 	}>,
-	generatedDates: Set<string>
+	generatedDates: Set<string>,
 ): SeedingResult {
 	const disabledKeys = new Set<string>();
 	const seeded = new Map<string, OccurrenceTarget>();
@@ -282,7 +282,7 @@ export function seedFromOccurrences(
 				date: d,
 				startTime: occ.startTime,
 				endTime: occ.endTime,
-				slotId: occ.slotId
+				slotId: occ.slotId,
 			});
 			if (!generatedDates.has(d)) manualAdded.add(d);
 		}
@@ -291,6 +291,6 @@ export function seedFromOccurrences(
 	return {
 		disabledKeys,
 		seeded,
-		manualDatesToAdd: [...manualAdded]
+		manualDatesToAdd: [...manualAdded],
 	};
 }

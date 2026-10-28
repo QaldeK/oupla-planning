@@ -28,7 +28,7 @@ import {
 	cleanupTrackedRecords,
 	cleanupUsers,
 	clearTrackedIds,
-	seedPlanning
+	seedPlanning,
 } from "./seed";
 
 const PB_URL = process.env.VITE_PLANNING_PB_URL || "http://127.0.0.1:8090";
@@ -62,7 +62,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 				masterId: [],
 				adminOf: {},
 				emailVisibility: true,
-				verified: true
+				verified: true,
 			});
 			userAId = u.id;
 		}
@@ -81,7 +81,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 				masterId: [],
 				adminOf: {},
 				emailVisibility: true,
-				verified: true
+				verified: true,
 			});
 			userBId = u.id;
 		}
@@ -115,7 +115,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 
 	async function setupUserAWithMaster(
 		masterId: string,
-		opts?: { adminOf?: string }
+		opts?: { adminOf?: string },
 	): Promise<void> {
 		const update: Record<string, unknown> = { masterId: [masterId] };
 		if (opts?.adminOf) {
@@ -129,7 +129,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 	async function setupUserBWithMaster(masterId: string): Promise<void> {
 		await adminPb.collection("users").update(userBId, {
 			masterId: [masterId],
-			adminOf: {}
+			adminOf: {},
 		});
 	}
 
@@ -162,7 +162,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 
 		it("guest avec _token=participantToken ne voit PAS adminToken", async () => {
 			const { master, participantToken } = await seedPlanning({
-				title: "Guest Participant Token"
+				title: "Guest Participant Token",
 			});
 
 			const pbMaster = await guestPb
@@ -210,13 +210,13 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 		it("onRecordEnrich ne s applique pas aux occurrences (plus de champ adminToken)", async () => {
 			const { occurrences, participantToken } = await seedPlanning({
 				title: "Occurrence Enrich",
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 
 			const pbOcc = await guestPb
 				.collection("planning_occurrences")
 				.getOne<PlanningOccurrence>(occurrences[0].id, {
-					query: { _token: participantToken }
+					query: { _token: participantToken },
 				});
 
 			// Les occurrences n ont plus de champ adminToken
@@ -234,7 +234,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			const { master, participantToken } = await seedPlanning({ title: "Guest List" });
 
 			const list = await guestPb.collection("planning_masters").getFullList({
-				query: { _token: participantToken }
+				query: { _token: participantToken },
 			});
 
 			expect(list.some((m) => m.id === master.id)).toBe(true);
@@ -260,13 +260,13 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			await setupUserAWithMaster(master.id);
 
 			await expect(
-				userPbA.collection("planning_masters").update(master.id, { title: "Should Fail" })
+				userPbA.collection("planning_masters").update(master.id, { title: "Should Fail" }),
 			).rejects.toMatchObject({ status: 401 });
 		});
 
 		it("deleteRule superusers only — aucun delete HTTP possible (403), master intact", async () => {
 			const { master, participantToken, adminToken } = await seedPlanning({
-				title: "Delete Rule"
+				title: "Delete Rule",
 			});
 			await setupUserAWithMaster(master.id);
 
@@ -275,21 +275,21 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			// deleteRule = null : seul un superuser peut hard-deleter. User auth,
 			// guest participant et adminToken reçoivent tous 403.
 			await expect(userPbA.collection("planning_masters").delete(master.id)).rejects.toMatchObject({
-				status: 403
+				status: 403,
 			});
 
 			await expect(
 				guestPb.collection("planning_masters").delete(master.id, {
-					query: { _token: participantToken }
-				})
+					query: { _token: participantToken },
+				}),
 			).rejects.toMatchObject({ status: 403 });
 
 			// Même l'adminToken ne peut plus hard-deleter via l'API : deleteRule = null
 			// (superusers only) protège la fenêtre de grâce et la notification des participants.
 			await expect(
 				guestPb.collection("planning_masters").delete(master.id, {
-					query: { _token: adminToken }
-				})
+					query: { _token: adminToken },
+				}),
 			).rejects.toMatchObject({ status: 403 });
 
 			// Le master existe toujours — la fin de vie passe par le soft-delete + cron de purge.
@@ -300,24 +300,24 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 		it("auth user avec masterId mais SANS _token ne peut PAS update occurrence (401 from hook)", async () => {
 			const { master, occurrences } = await seedPlanning({
 				title: "Occ Auth Update",
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 			await setupUserAWithMaster(master.id);
 
 			await expect(
-				userPbA.collection("planning_occurrences").update(occurrences[0].id, { isConfirmed: true })
+				userPbA.collection("planning_occurrences").update(occurrences[0].id, { isConfirmed: true }),
 			).rejects.toMatchObject({ status: 401 });
 		});
 
 		it("auth user SANS _token ne peut PAS update occurrence (401 from occurrence hook)", async () => {
 			const { master, occurrences, adminToken } = await seedPlanning({
 				title: "Occ Auth AdminOf Update",
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 			await setupUserAWithMaster(master.id, { adminOf: adminToken });
 
 			await expect(
-				userPbA.collection("planning_occurrences").update(occurrences[0].id, { isConfirmed: true })
+				userPbA.collection("planning_occurrences").update(occurrences[0].id, { isConfirmed: true }),
 			).rejects.toMatchObject({ status: 401 });
 		});
 	});
@@ -335,12 +335,12 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			await adminPb.collection("planning_participants").create({
 				planning: master.id,
 				user: userAId,
-				push: true
+				push: true,
 			});
 			await adminPb.collection("planning_participants").create({
 				planning: master.id,
 				user: userBId,
-				push: false
+				push: false,
 			});
 
 			const listA = await userPbA.collection("planning_participants").getFullList();
@@ -360,7 +360,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 				planning: master.id,
 				user: userAId,
 				push: true,
-				email: false
+				email: false,
 			});
 
 			const updated = await userPbA
@@ -378,11 +378,11 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			const ppRecord = await adminPb.collection("planning_participants").create({
 				planning: master.id,
 				user: userBId,
-				push: true
+				push: true,
 			});
 
 			await expect(
-				userPbA.collection("planning_participants").update(ppRecord.id, { push: false })
+				userPbA.collection("planning_participants").update(ppRecord.id, { push: false }),
 			).rejects.toMatchObject({ status: 404 });
 		});
 
@@ -392,11 +392,11 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 
 			const ppRecord = await adminPb.collection("planning_participants").create({
 				planning: master.id,
-				user: userAId
+				user: userAId,
 			});
 
 			await expect(
-				userPbA.collection("planning_participants").delete(ppRecord.id)
+				userPbA.collection("planning_participants").delete(ppRecord.id),
 			).rejects.toMatchObject({ status: 403 });
 		});
 
@@ -407,7 +407,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			const created = await userPbA.collection("planning_participants").create({
 				planning: master.id,
 				user: userAId,
-				push: false
+				push: false,
 			});
 
 			expect(created.id).toBeDefined();
@@ -425,7 +425,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 
 			await userPbA.send("/api/claim-admin", {
 				method: "POST",
-				body: { token: adminToken }
+				body: { token: adminToken },
 			});
 
 			const user = await adminPb.collection("users").getOne(userAId);
@@ -439,8 +439,8 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			await expect(
 				userPbA.send("/api/claim-admin", {
 					method: "POST",
-					body: { token: "0".repeat(64) }
-				})
+					body: { token: "0".repeat(64) },
+				}),
 			).rejects.toMatchObject({ status: 403 });
 		});
 
@@ -448,8 +448,8 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			await expect(
 				guestPb.send("/api/claim-admin", {
 					method: "POST",
-					body: { token: "0".repeat(64) }
-				})
+					body: { token: "0".repeat(64) },
+				}),
 			).rejects.toMatchObject({ status: 401 });
 		});
 
@@ -459,12 +459,12 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 
 			await userPbA.send("/api/claim-admin", {
 				method: "POST",
-				body: { token: adminToken }
+				body: { token: adminToken },
 			});
 
 			await userPbA.send("/api/claim-admin", {
 				method: "POST",
-				body: { token: adminToken }
+				body: { token: adminToken },
 			});
 
 			const user = await adminPb.collection("users").getOne(userAId);
@@ -484,8 +484,8 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			const result = await userPbA.send("/api/sync-plannings", {
 				method: "POST",
 				body: {
-					tokens: [{ masterId: master.id, participantToken }]
-				}
+					tokens: [{ masterId: master.id, participantToken }],
+				},
 			});
 
 			expect(result.syncedIds).toContain(master.id);
@@ -500,8 +500,8 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			await userPbA.send("/api/sync-plannings", {
 				method: "POST",
 				body: {
-					tokens: [{ masterId: master.id, adminToken }]
-				}
+					tokens: [{ masterId: master.id, adminToken }],
+				},
 			});
 
 			const user = await adminPb.collection("users").getOne(userAId);
@@ -517,8 +517,8 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			await userPbA.send("/api/sync-plannings", {
 				method: "POST",
 				body: {
-					tokens: [{ masterId: master.id, participantToken: "0".repeat(32) }]
-				}
+					tokens: [{ masterId: master.id, participantToken: "0".repeat(32) }],
+				},
 			});
 
 			const user = await adminPb.collection("users").getOne(userAId);
@@ -532,8 +532,8 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			const result = await userPbA.send("/api/sync-plannings", {
 				method: "POST",
 				body: {
-					tokens: [{ masterId: master.id, participantToken }]
-				}
+					tokens: [{ masterId: master.id, participantToken }],
+				},
 			});
 
 			expect(result.syncedIds).toContain(master.id);
@@ -543,8 +543,8 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			await expect(
 				guestPb.send("/api/sync-plannings", {
 					method: "POST",
-					body: { tokens: [] }
-				})
+					body: { tokens: [] },
+				}),
 			).rejects.toMatchObject({ status: 401 });
 		});
 	});
@@ -559,7 +559,7 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 			await setupUserAWithMaster(master.id);
 
 			await expect(
-				userPbA.collection("planning_masters").update(master.id, { title: "Should Fail" })
+				userPbA.collection("planning_masters").update(master.id, { title: "Should Fail" }),
 			).rejects.toMatchObject({ status: 401 });
 		});
 
@@ -572,9 +572,9 @@ describe("Securite — onRecordEnrich, API Rules, endpoints", () => {
 					master.id,
 					{ title: "Updated via Token" },
 					{
-						query: { _token: participantToken }
-					}
-				)
+						query: { _token: participantToken },
+					},
+				),
 			).rejects.toMatchObject({ status: 403 });
 		});
 	});

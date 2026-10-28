@@ -27,7 +27,7 @@ import {
 	cleanupTrackedRecords,
 	clearTrackedIds,
 	seedPlanning,
-	seedUser
+	seedUser,
 } from "./seed";
 
 const PB_URL = process.env.VITE_PLANNING_PB_URL || "http://127.0.0.1:8090";
@@ -49,7 +49,7 @@ describe("F2 — Restriction des champs scalaire d'occurrence par rôle", () => 
 	it("rejette l'annulation d'une occurrence par un participant (isCanceled)", async () => {
 		const { occurrences, participantToken } = await seedPlanning({
 			title: "F2 isCanceled by participant",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const occ = occurrences[0];
 
@@ -77,7 +77,7 @@ describe("F2 — Restriction des champs scalaire d'occurrence par rôle", () => 
 	it("rejette la reprogrammation d'une occurrence par un participant (date/startTime)", async () => {
 		const { occurrences, participantToken } = await seedPlanning({
 			title: "F2 reschedule by participant",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const occ = occurrences[0];
 
@@ -89,7 +89,7 @@ describe("F2 — Restriction des champs scalaire d'occurrence par rôle", () => 
 				.update(
 					occ.id,
 					{ date: "2099-12-31", startTime: "23:59" },
-					{ query: { _token: participantToken } }
+					{ query: { _token: participantToken } },
 				);
 		} catch (err) {
 			caught = err;
@@ -102,7 +102,7 @@ describe("F2 — Restriction des champs scalaire d'occurrence par rôle", () => 
 	it("rejette la modification du slotId par un participant", async () => {
 		const { occurrences, participantToken } = await seedPlanning({
 			title: "F2 slotId by participant",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const occ = occurrences[0];
 
@@ -123,7 +123,7 @@ describe("F2 — Restriction des champs scalaire d'occurrence par rôle", () => 
 	it("autorise un participant à mettre à jour responses/comments (non-régression)", async () => {
 		const { occurrences, participantToken } = await seedPlanning({
 			title: "F2 participant allowed fields",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const occ = occurrences[0];
 
@@ -136,11 +136,11 @@ describe("F2 — Restriction des champs scalaire d'occurrence par rôle", () => 
 						participantId: "p1",
 						response: "present",
 						tasks: [],
-						respondedAt: "2026-01-01T00:00:00Z"
-					}
-				]
+						respondedAt: "2026-01-01T00:00:00Z",
+					},
+				],
 			},
-			{ query: { _token: participantToken } }
+			{ query: { _token: participantToken } },
 		);
 
 		expect(updated.responses).toHaveLength(1);
@@ -150,7 +150,7 @@ describe("F2 — Restriction des champs scalaire d'occurrence par rôle", () => 
 	it("autorise un admin (adminToken) à annuler une occurrence", async () => {
 		const { occurrences, adminToken } = await seedPlanning({
 			title: "F2 admin can cancel",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const occ = occurrences[0];
 
@@ -174,14 +174,14 @@ describe("F5 — lastModifiedBy forgé côté serveur (anti-spoofing)", () => {
 	it("ignore le lastModifiedBy envoyé par un user auth et forge depuis e.auth.id", async () => {
 		const { occurrences, master, participantToken } = await seedPlanning({
 			title: "F5 auth lastModifiedBy forging",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const occ = occurrences[0];
 
 		// User auth membre du planning (pour que l'updateRule passe via la branche auth).
 		const victim = await seedUser("victim-f5@example.com", "password123", "Victim");
 		const attacker = await seedUser("attacker-f5@example.com", "password123", "Attacker", {
-			masterIds: [master.id]
+			masterIds: [master.id],
 		});
 
 		// Client authentifié en tant qu'attaquant.
@@ -197,12 +197,12 @@ describe("F5 — lastModifiedBy forgé côté serveur (anti-spoofing)", () => {
 						participantId: "p1",
 						response: "present",
 						tasks: [],
-						respondedAt: "2026-01-01T00:00:00Z"
-					}
+						respondedAt: "2026-01-01T00:00:00Z",
+					},
 				],
-				lastModifiedBy: victim.id // spoof
+				lastModifiedBy: victim.id, // spoof
 			},
-			{ query: { _token: participantToken } }
+			{ query: { _token: participantToken } },
 		);
 
 		// La valeur persistée doit être l'id de l'attaquant (e.auth.id), PAS celle de la victime.
@@ -213,7 +213,7 @@ describe("F5 — lastModifiedBy forgé côté serveur (anti-spoofing)", () => {
 	it("forge lastModifiedBy à vide pour un guest (token-only, e.auth null)", async () => {
 		const { occurrences, participantToken } = await seedPlanning({
 			title: "F5 guest lastModifiedBy forging",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const occ = occurrences[0];
 
@@ -226,12 +226,12 @@ describe("F5 — lastModifiedBy forgé côté serveur (anti-spoofing)", () => {
 						participantId: "p1",
 						response: "absent",
 						tasks: [],
-						respondedAt: "2026-01-01T00:00:00Z"
-					}
+						respondedAt: "2026-01-01T00:00:00Z",
+					},
 				],
-				lastModifiedBy: "spoofed-victim-id" // spoof par guest
+				lastModifiedBy: "spoofed-victim-id", // spoof par guest
 			},
-			{ query: { _token: participantToken } }
+			{ query: { _token: participantToken } },
 		);
 
 		// Aucun auth → lastModifiedBy vidé, la valeur spoofée est ignorée.

@@ -41,13 +41,13 @@ par Dexie et pb-sync, en parallèle, sans dépendre du cache du SW.
 directives de référence de type en tête (`no-default-lib`, `esnext`, `webworker`,
 `@sveltejs/kit`) et importe `build`, `files` et `version` depuis `$service-worker`.
 
-| Cycle | Comportement |
-| --- | --- |
-| Cache | nommé `cache-${version}` — le hash de build change à chaque déploiement, donc chaque déploiement a son cache |
-| `install` | pré-cache de `[...build, ...files]` |
-| `activate` | `clients.claim()` **avant** la suppression des anciens caches |
-| `message` | `skipWaiting()` sur demande du client |
-| `fetch` | assets en cache-first, reste en network-first avec repli sur le cache, `/api/*` exclue |
+| Cycle      | Comportement                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------ |
+| Cache      | nommé `cache-${version}` — le hash de build change à chaque déploiement, donc chaque déploiement a son cache |
+| `install`  | pré-cache de `[...build, ...files]`                                                                          |
+| `activate` | `clients.claim()` **avant** la suppression des anciens caches                                                |
+| `message`  | `skipWaiting()` sur demande du client                                                                        |
+| `fetch`    | assets en cache-first, reste en network-first avec repli sur le cache, `/api/*` exclue                       |
 
 **L'ordre du `activate` n'est pas cosmétique.** Supprimer les anciens caches avant le
 `claim` laisse un instant où l'ancien contrôleur sert des requêtes contre un cache en cours
@@ -70,10 +70,10 @@ Le même fichier gère les événements `push` (affichage de la notification) et
 
 `pwaStore.svelte.ts` combine deux moitiés, et chacune est nécessaire :
 
-| Moitié | Rôle | Sans elle |
-| --- | --- | --- |
-| Réactive | `updatefound` puis `statechange` sur l'installation, `reg.waiting` au démarrage | le toast ignore qu'une mise à jour existe |
-| Proactive | `reg.update()` sur les signaux de retour d'activité | en SPA, `updatefound` ne se déclenche jamais — aucune navigation serveur n'a lieu pendant la session |
+| Moitié    | Rôle                                                                            | Sans elle                                                                                            |
+| --------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Réactive  | `updatefound` puis `statechange` sur l'installation, `reg.waiting` au démarrage | le toast ignore qu'une mise à jour existe                                                            |
+| Proactive | `reg.update()` sur les signaux de retour d'activité                             | en SPA, `updatefound` ne se déclenche jamais — aucune navigation serveur n'a lieu pendant la session |
 
 **Le problème de la moitié proactive** : SvelteKit navigue côté client, donc le navigateur ne
 revérifie jamais le service worker spontanément. Un utilisateur qui enchaîne les pages
@@ -82,11 +82,11 @@ donne la fausse impression d'une mise à jour déjà appliquée.
 
 Trois déclencheurs, throttlés à un par minute (limite de spec) :
 
-| Signal | Cas couvert |
-| --- | --- |
-| `visibilitychange` (visible) | retour d'onglet ou d'application, cas dominant en PWA mobile |
+| Signal                            | Cas couvert                                                                |
+| --------------------------------- | -------------------------------------------------------------------------- |
+| `visibilitychange` (visible)      | retour d'onglet ou d'application, cas dominant en PWA mobile               |
 | `pageshow` avec `event.persisted` | restauration depuis le bfcache — la SPA n'a fait aucune navigation serveur |
-| minuterie d'une heure | session longue, onglet jamais quitté |
+| minuterie d'une heure             | session longue, onglet jamais quitté                                       |
 
 Pas de vérification au démarrage : le navigateur la fait au chargement, et le contrôle de
 `reg.waiting` couvre la mise à jour laissée en attente par une session précédente.
@@ -113,13 +113,13 @@ suivant.
 
 `pwaStore` porte aussi l'état d'installation :
 
-| Membre | Rôle |
-| --- | --- |
-| `isInstalled` | `display-mode: standalone` ou `navigator.standalone` (Safari), suivi dans le temps |
-| `canInstall` / `deferredPrompt` | `beforeinstallprompt` intercepté — l'écouteur est posé dès la construction du store, l'événement pouvant précéder le `onMount` du layout |
-| `showNativeHint` | mobile non-Chromium : ni installé ni promptable, on oriente vers le menu du navigateur |
-| `hasSeenWelcome` / `markWelcomeSeen()` | accueil d'installation vu une fois |
-| `install()` | déclenche le prompt différé |
+| Membre                                 | Rôle                                                                                                                                     |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `isInstalled`                          | `display-mode: standalone` ou `navigator.standalone` (Safari), suivi dans le temps                                                       |
+| `canInstall` / `deferredPrompt`        | `beforeinstallprompt` intercepté — l'écouteur est posé dès la construction du store, l'événement pouvant précéder le `onMount` du layout |
+| `showNativeHint`                       | mobile non-Chromium : ni installé ni promptable, on oriente vers le menu du navigateur                                                   |
+| `hasSeenWelcome` / `markWelcomeSeen()` | accueil d'installation vu une fois                                                                                                       |
+| `install()`                            | déclenche le prompt différé                                                                                                              |
 
 L'événement `appinstalled` marque l'installation côté PocketBase
 (`users.pwa_installed`, seulement si une session est valide) — un repère d'adoption, sans
@@ -133,19 +133,19 @@ lieu d'être dupliqué.
 
 ## Pièges
 
-| Piège | Conséquence |
-| --- | --- |
-| Cacher `/api/*` (REST ou SSE) dans le SW | 200 périmé sans erreur réseau → données désynchronisées en silence |
-| `skipWaiting()` automatique à l'`install` | rechargement en pleine saisie |
-| Pas de `clients.claim()` à l'`activate` | le premier service worker n'est actif qu'au rechargement suivant |
-| Pas de drapeau de première prise de contrôle | rechargement intempestif au premier install, ou absence de rechargement sur une vraie mise à jour |
-| `reg.update()` au démarrage | requête redondante |
-| Pas de throttle sur `reg.update()` | trafic inutile (limite de spec : 1 par minute) |
-| `pageshow` sans `event.persisted` | vérification inutile à chaque navigation client |
-| `visibilitychange` sans test `=== 'visible'` | vérification au moment où l'onglet devient caché |
-| Pas de `.catch()` sur `reg.update()` | rejet non traité si hors ligne |
-| Toast sans identifiant fixe, ou à durée finie | doublons, ou toast qui disparaît avant l'action |
-| Manifest sans icône `maskable` | icône écrasée sur Android |
+| Piège                                         | Conséquence                                                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Cacher `/api/*` (REST ou SSE) dans le SW      | 200 périmé sans erreur réseau → données désynchronisées en silence                                |
+| `skipWaiting()` automatique à l'`install`     | rechargement en pleine saisie                                                                     |
+| Pas de `clients.claim()` à l'`activate`       | le premier service worker n'est actif qu'au rechargement suivant                                  |
+| Pas de drapeau de première prise de contrôle  | rechargement intempestif au premier install, ou absence de rechargement sur une vraie mise à jour |
+| `reg.update()` au démarrage                   | requête redondante                                                                                |
+| Pas de throttle sur `reg.update()`            | trafic inutile (limite de spec : 1 par minute)                                                    |
+| `pageshow` sans `event.persisted`             | vérification inutile à chaque navigation client                                                   |
+| `visibilitychange` sans test `=== 'visible'`  | vérification au moment où l'onglet devient caché                                                  |
+| Pas de `.catch()` sur `reg.update()`          | rejet non traité si hors ligne                                                                    |
+| Toast sans identifiant fixe, ou à durée finie | doublons, ou toast qui disparaît avant l'action                                                   |
+| Manifest sans icône `maskable`                | icône écrasée sur Android                                                                         |
 
 ## Tests manuels
 

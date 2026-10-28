@@ -78,7 +78,7 @@ export function resolveCurrentIdentity(input: IdentityInput): IdentityResolution
 			identity: participant
 				? { id: participant.id, name: participant.name, email: pbUser.email }
 				: pbUser,
-			claimedByAuth: false
+			claimedByAuth: false,
 		};
 	}
 
@@ -89,7 +89,7 @@ export function resolveCurrentIdentity(input: IdentityInput): IdentityResolution
 			return {
 				participant: null,
 				identity: null,
-				claimedByAuth: true
+				claimedByAuth: true,
 			};
 		}
 	}
@@ -100,7 +100,7 @@ export function resolveCurrentIdentity(input: IdentityInput): IdentityResolution
 		return {
 			participant,
 			identity: guestIdentity,
-			claimedByAuth: false
+			claimedByAuth: false,
 		};
 	}
 
@@ -108,7 +108,7 @@ export function resolveCurrentIdentity(input: IdentityInput): IdentityResolution
 	return {
 		participant: null,
 		identity: null,
-		claimedByAuth: false
+		claimedByAuth: false,
 	};
 }
 

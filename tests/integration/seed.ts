@@ -89,7 +89,7 @@ const trackedIds = {
 	planning_occurrences: new Set<string>(),
 	planning_participants: new Set<string>(),
 	users: new Set<string>(),
-	contact_messages: new Set<string>()
+	contact_messages: new Set<string>(),
 };
 
 /**
@@ -185,7 +185,7 @@ export async function seedPlanning(
 		occurrenceDate?: string;
 		/** Dates ISO explicites (mix passé/futur possible). Si fourni, occurrenceCount est ignoré. */
 		occurrenceDates?: string[];
-	}
+	},
 ): Promise<SeedPlanningResult> {
 	const pb = await authenticateAdmin();
 
@@ -199,7 +199,7 @@ export async function seedPlanning(
 		defaultStartTime: overrides?.defaultStartTime || "09:00",
 		defaultEndTime: overrides?.defaultEndTime || "17:00",
 		recurrence: overrides?.recurrence || {
-			type: "CUSTOM" as const
+			type: "CUSTOM" as const,
 		},
 		tasks: overrides?.tasks || [],
 		participants: overrides?.participants || [],
@@ -209,7 +209,7 @@ export async function seedPlanning(
 		availableResponseTypes: overrides?.availableResponseTypes || ["present", "absent"],
 		adminToken,
 		participantToken,
-		lastModifiedBy: ""
+		lastModifiedBy: "",
 	};
 
 	const master = await pb.collection("planning_masters").create<PlanningMaster>(masterData);
@@ -241,7 +241,7 @@ export async function seedPlanning(
 			tasks: [],
 			isConfirmed: false,
 			isCanceled: false,
-			lastModifiedBy: ""
+			lastModifiedBy: "",
 		});
 		occurrences.push(occ);
 		trackedIds.planning_occurrences.add(occ.id);
@@ -258,7 +258,7 @@ export async function seedUser(
 		masterIds?: string[];
 		adminOf?: Record<string, string>;
 		locale?: "fr" | "en";
-	}
+	},
 ) {
 	const pb = await authenticateAdmin();
 
@@ -272,7 +272,7 @@ export async function seedUser(
 			adminOf: options?.adminOf || {},
 			...(options?.locale ? { locale: options.locale } : {}),
 			emailVisibility: true,
-			verified: true
+			verified: true,
 		});
 		trackedIds.users.add(user.id);
 		return user;
@@ -329,7 +329,7 @@ export async function cleanupUsers(emails: string[]) {
 	for (const email of emails) {
 		try {
 			const users = await adminPb.collection("users").getFullList({
-				filter: `email = "${email}"`
+				filter: `email = "${email}"`,
 			});
 			for (const user of users) {
 				await adminPb.collection("users").delete(user.id);
@@ -354,7 +354,7 @@ export interface SeedParticipantPrefsOptions {
 export async function seedParticipantPrefs(
 	planningId: string,
 	userId: string,
-	options?: SeedParticipantPrefsOptions
+	options?: SeedParticipantPrefsOptions,
 ) {
 	const pb = await authenticateAdmin();
 
@@ -366,7 +366,7 @@ export async function seedParticipantPrefs(
 		reminderDays: options?.reminderDays ?? [],
 		missingParticipantsDays: options?.missingParticipantsDays ?? [],
 		onCancellation: options?.onCancellation ?? false,
-		onTimeChange: options?.onTimeChange ?? false
+		onTimeChange: options?.onTimeChange ?? false,
 	});
 	trackedIds.planning_participants.add(record.id);
 	return record;

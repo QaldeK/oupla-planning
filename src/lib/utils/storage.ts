@@ -132,5 +132,5 @@ export const storage = {
 
 		localStorage.clear();
 		sessionStorage.clear();
-	}
+	},
 };

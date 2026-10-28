@@ -35,7 +35,7 @@ const VALID_PAYLOAD = {
 	email: "visitor@example.com",
 	name: "Alice Visitor",
 	subject: "Question RGPD",
-	message: "Bonjour, je souhaite exercer mon droit d'accès aux données que vous détenez sur moi."
+	message: "Bonjour, je souhaite exercer mon droit d'accès aux données que vous détenez sur moi.",
 };
 
 /** Compte les records `contact_messages` liés à cet email (via client admin). */
@@ -109,7 +109,7 @@ describe("POST /api/contact — formulaire de contact public", () => {
 		const pb = guestClient();
 		const { email: _omit, ...withoutEmail } = VALID_PAYLOAD;
 		await expect(
-			pb.send("/api/contact", { method: "POST", body: withoutEmail })
+			pb.send("/api/contact", { method: "POST", body: withoutEmail }),
 		).rejects.toMatchObject({ status: 400 });
 
 		expect(await adminCountMessages(VALID_PAYLOAD.email)).toBe(0);
@@ -120,8 +120,8 @@ describe("POST /api/contact — formulaire de contact public", () => {
 		await expect(
 			pb.send("/api/contact", {
 				method: "POST",
-				body: { ...VALID_PAYLOAD, email: "not-an-email" }
-			})
+				body: { ...VALID_PAYLOAD, email: "not-an-email" },
+			}),
 		).rejects.toMatchObject({ status: 400 });
 
 		expect(await adminCountMessages(VALID_PAYLOAD.email)).toBe(0);
@@ -132,8 +132,8 @@ describe("POST /api/contact — formulaire de contact public", () => {
 		await expect(
 			pb.send("/api/contact", {
 				method: "POST",
-				body: { ...VALID_PAYLOAD, message: "court" }
-			})
+				body: { ...VALID_PAYLOAD, message: "court" },
+			}),
 		).rejects.toMatchObject({ status: 400 });
 
 		expect(await adminCountMessages(VALID_PAYLOAD.email)).toBe(0);
@@ -143,8 +143,8 @@ describe("POST /api/contact — formulaire de contact public", () => {
 		await expect(
 			pb.send("/api/contact", {
 				method: "POST",
-				body: { ...VALID_PAYLOAD, message: "x".repeat(5001) }
-			})
+				body: { ...VALID_PAYLOAD, message: "x".repeat(5001) },
+			}),
 		).rejects.toMatchObject({ status: 400 });
 
 		expect(await adminCountMessages(VALID_PAYLOAD.email)).toBe(0);
@@ -154,7 +154,7 @@ describe("POST /api/contact — formulaire de contact public", () => {
 		const pb = guestClient();
 		const response = await pb.send("/api/contact", {
 			method: "POST",
-			body: { ...VALID_PAYLOAD, website: "https://spam.example" }
+			body: { ...VALID_PAYLOAD, website: "https://spam.example" },
 		});
 
 		// Silencieux : le bot ne doit pas apprendre qu'il a été détecté.
@@ -166,7 +166,7 @@ describe("POST /api/contact — formulaire de contact public", () => {
 		const pb = guestClient();
 		const response = await pb.send("/api/contact", {
 			method: "POST",
-			body: { email: "minimal@example.com", message: "Un message suffisamment long." }
+			body: { email: "minimal@example.com", message: "Un message suffisamment long." },
 		});
 
 		expect(response).toEqual({ success: true });
@@ -179,7 +179,7 @@ describe("POST /api/contact — formulaire de contact public", () => {
 	it("collection inaccessible en lecture publique (rule null → 403)", async () => {
 		const pb = guestClient();
 		await expect(pb.collection("contact_messages").getFullList()).rejects.toMatchObject({
-			status: 403
+			status: 403,
 		});
 	});
 
@@ -188,8 +188,8 @@ describe("POST /api/contact — formulaire de contact public", () => {
 		await expect(
 			pb.collection("contact_messages").create({
 				email: "direct@example.com",
-				message: "tentative d'écriture directe"
-			})
+				message: "tentative d'écriture directe",
+			}),
 		).rejects.toMatchObject({ status: 403 });
 	});
 });

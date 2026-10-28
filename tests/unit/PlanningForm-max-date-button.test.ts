@@ -32,9 +32,9 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 		// DAILY 2026-08-01 → 2026-12-31 = 153 dates futures > 100.
 		renderForm({
 			master: makeMaster({
-				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-12-31" }
+				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-12-31" },
 			}),
-			occurrences: []
+			occurrences: [],
 		});
 
 		// Alerte présente
@@ -55,8 +55,8 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 		for (let i = 0; i < 120; i++) {
 			futureDates.push(
 				`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(
-					cur.getDate()
-				).padStart(2, "0")}`
+					cur.getDate(),
+				).padStart(2, "0")}`,
 			);
 			cur.setDate(cur.getDate() + 1);
 		}
@@ -65,9 +65,9 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 		renderForm({
 			master: makeMaster({
 				recurrence: { type: "CUSTOM" },
-				timeSlots: [{ id: "s1", startTime: "14:00", endTime: "18:00" }]
+				timeSlots: [{ id: "s1", startTime: "14:00", endTime: "18:00" }],
 			}),
-			occurrences
+			occurrences,
 		});
 
 		// L'alerte CUSTOM est bien affichée (limite dépassée).
@@ -81,9 +81,9 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 		// WEEKLY 2026-08-05 → 2026-09-30 = ~9 dates < 100.
 		renderForm({
 			master: makeMaster({
-				recurrence: { type: "WEEKLY", firstDate: "2026-08-05", lastDate: "2026-09-30" }
+				recurrence: { type: "WEEKLY", firstDate: "2026-08-05", lastDate: "2026-09-30" },
 			}),
-			occurrences: []
+			occurrences: [],
 		});
 
 		// Ni alerte, ni bouton.
@@ -94,9 +94,9 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 	it("au clic : lastDate est mise à jour et l'alerte disparaît", async () => {
 		const { user } = renderForm({
 			master: makeMaster({
-				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-12-31" }
+				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-12-31" },
 			}),
-			occurrences: []
+			occurrences: [],
 		});
 
 		// État initial : lastDate = 2026-12-31, alerte présente.
@@ -119,9 +119,9 @@ describe("Bouton « Ajuster au ... » dans l'alerte de limite", () => {
 	it("le libellé contient la date calculée au format « d MMM yyyy »", () => {
 		renderForm({
 			master: makeMaster({
-				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-12-31" }
+				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-12-31" },
 			}),
-			occurrences: []
+			occurrences: [],
 		});
 
 		const button = screen.getByRole("button", { name: /adjust to/i });

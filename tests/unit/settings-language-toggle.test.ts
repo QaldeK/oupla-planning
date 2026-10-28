@@ -19,7 +19,7 @@ const { getLocaleMock, setLocaleMock, setAppLocaleMock, gotoMock } = vi.hoisted(
 	getLocaleMock: vi.fn<() => "fr" | "en">(),
 	setLocaleMock: vi.fn<() => Promise<void>>(),
 	setAppLocaleMock: vi.fn(),
-	gotoMock: vi.fn()
+	gotoMock: vi.fn(),
 }));
 
 vi.mock("$lib/paraglide/runtime", async (importOriginal) => {
@@ -27,12 +27,12 @@ vi.mock("$lib/paraglide/runtime", async (importOriginal) => {
 	return {
 		...actual,
 		getLocale: getLocaleMock,
-		setLocale: setLocaleMock
+		setLocale: setLocaleMock,
 	};
 });
 
 vi.mock("$app/navigation", () => ({
-	goto: gotoMock
+	goto: gotoMock,
 }));
 
 vi.mock("$lib/stores/userStore.svelte", () => ({
@@ -41,8 +41,8 @@ vi.mock("$lib/stores/userStore.svelte", () => ({
 			return true;
 		},
 		pbUser: { id: "u1", name: "Test", email: "test@example.com" },
-		setAppLocale: setAppLocaleMock
-	}
+		setAppLocale: setAppLocaleMock,
+	},
 }));
 
 // Import après les mocks

@@ -2,7 +2,7 @@ import { pb } from "$lib/pocketbase/pb";
 import type { RecurrenceType } from "$lib/types/planning.types";
 import type {
 	PlanningParticipantsMissingDaysOptions,
-	PlanningParticipantsReminderDaysOptions
+	PlanningParticipantsReminderDaysOptions,
 } from "$lib/types/pocketbase-types";
 import { storage } from "$lib/utils/storage";
 
@@ -42,7 +42,7 @@ const baseDefaultPlanningPrefs: Omit<
 	push: false,
 	email: true,
 	onOccurrenceChange: true,
-	onConfirmationNeeded: false
+	onConfirmationNeeded: false,
 };
 
 /**
@@ -57,7 +57,7 @@ const RECURRENCE_DEFAULTS: Record<
 	MONTHLY_BY_DATE: { reminderDays: ["1", "3", "7"], missingDays: ["1", "3", "7"] },
 	MONTHLY_BY_DAY: { reminderDays: ["1", "3", "7"], missingDays: ["1", "3", "7"] },
 	DAILY: { reminderDays: ["1"], missingDays: ["1"] },
-	CUSTOM: { reminderDays: ["1", "3", "7"], missingDays: ["1", "3", "7", "15"] }
+	CUSTOM: { reminderDays: ["1", "3", "7"], missingDays: ["1", "3", "7", "15"] },
 };
 
 /**
@@ -70,12 +70,12 @@ const RECURRENCE_DEFAULTS: Record<
  */
 export function getDefaultPlanningPrefs(
 	recurrenceType: RecurrenceType,
-	isAdmin = false
+	isAdmin = false,
 ): PlanningParticipantPrefs {
 	return {
 		...baseDefaultPlanningPrefs,
 		...RECURRENCE_DEFAULTS[recurrenceType],
-		newCommentScope: isAdmin ? "all" : "concerned"
+		newCommentScope: isAdmin ? "all" : "concerned",
 	};
 }
 
@@ -99,7 +99,7 @@ async function getServiceWorkerWithTimeout(): Promise<ServiceWorkerRegistration 
 	try {
 		return await Promise.race([
 			navigator.serviceWorker.ready,
-			new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))
+			new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
 		]);
 	} catch {
 		return null;
@@ -127,8 +127,8 @@ async function upsertSubscription(sub: PushSubscription): Promise<void> {
 		method: "POST",
 		body: {
 			subscription: sub.toJSON(),
-			userAgent: navigator.userAgent
-		}
+			userAgent: navigator.userAgent,
+		},
 	});
 }
 
@@ -148,7 +148,7 @@ async function upsertSubscription(sub: PushSubscription): Promise<void> {
  * @returns true si une subscription est enregistrée côté serveur.
  */
 export async function syncPushSubscription(
-	options: { requestPermission?: boolean } = {}
+	options: { requestPermission?: boolean } = {},
 ): Promise<boolean> {
 	if (!pb.authStore.isValid || !pb.authStore.record) return false;
 	if (await isPushOptOut()) {
@@ -182,8 +182,8 @@ export async function syncPushSubscription(
 				.collection("planning_participants")
 				.getList(1, 1, {
 					filter: pb.filter(`user = {:userId} && push = true`, {
-						userId: pb.authStore.record.id
-					})
+						userId: pb.authStore.record.id,
+					}),
 				})
 				.then((r) => r.totalItems > 0)
 				.catch(() => false);
@@ -199,7 +199,7 @@ export async function syncPushSubscription(
 			}
 			sub = await reg.pushManager.subscribe({
 				userVisibleOnly: true,
-				applicationServerKey: urlBase64ToUint8Array(vapidKey)
+				applicationServerKey: urlBase64ToUint8Array(vapidKey),
 			});
 		}
 
@@ -227,7 +227,7 @@ export async function detachCurrentDeviceFromAccount(): Promise<void> {
 
 		await pb.send("/api/push-subscription", {
 			method: "DELETE",
-			body: { endpoint: sub.endpoint }
+			body: { endpoint: sub.endpoint },
 		});
 	} catch (error) {
 		console.error("Erreur lors du détachement de l'appareil push", error);
@@ -254,7 +254,7 @@ export async function removeCurrentDevice(): Promise<void> {
 
 		await pb.send("/api/push-subscription", {
 			method: "DELETE",
-			body: { endpoint: sub.endpoint }
+			body: { endpoint: sub.endpoint },
 		});
 		await sub.unsubscribe();
 	} catch (error) {

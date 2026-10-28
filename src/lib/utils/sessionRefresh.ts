@@ -55,7 +55,7 @@ export async function refreshSessionSilently(deps: SessionRefreshDeps): Promise<
 		} else {
 			console.warn(
 				"[sessionRefresh] refresh ignoré (état local conservé):",
-				err instanceof ClientResponseError ? err.message : err
+				err instanceof ClientResponseError ? err.message : err,
 			);
 		}
 	}

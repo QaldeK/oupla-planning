@@ -14,7 +14,7 @@ import type {
 	Participant,
 	PlanningIdentity,
 	ThemeType,
-	ViewType
+	ViewType,
 } from "$lib/types/planning.types";
 import { refreshSessionSilently } from "$lib/utils/sessionRefresh";
 import { storage } from "$lib/utils/storage";
@@ -36,7 +36,7 @@ export class UserStore {
 	authModal = $state<AuthModalState>({ open: false });
 	appPreferences = $state<AppPreferences>({
 		theme: "my",
-		occurrenceView: "compact"
+		occurrenceView: "compact",
 	});
 	isReady = $state(false);
 	isLoggedIn = $state();
@@ -84,13 +84,13 @@ export class UserStore {
 		if (savedPrefs) {
 			this.appPreferences = {
 				theme: savedPrefs.theme || defaultTheme,
-				occurrenceView: savedPrefs.occurrenceView || (mediaQuery.isMobile ? "minimal" : "compact")
+				occurrenceView: savedPrefs.occurrenceView || (mediaQuery.isMobile ? "minimal" : "compact"),
 			};
 		} else {
 			// Valeurs par défaut intelligentes par device + OS theme
 			this.appPreferences = {
 				theme: defaultTheme,
-				occurrenceView: mediaQuery.isMobile ? "minimal" : "compact"
+				occurrenceView: mediaQuery.isMobile ? "minimal" : "compact",
 			};
 		}
 
@@ -105,7 +105,7 @@ export class UserStore {
 			// Fire-and-forget — ne bloque jamais le boot (offline-first).
 			void refreshSessionSilently({
 				authRefresh: () => pb.collection("users").authRefresh(),
-				clearAuth: () => pb.authStore.clear()
+				clearAuth: () => pb.authStore.clear(),
 			});
 
 			void this.#subscribeAuth();
@@ -126,7 +126,7 @@ export class UserStore {
 	async markAuthSynced(): Promise<void> {
 		this.lastAuthSyncAt = new Date();
 		await storage.setItem(AUTH_SYNC_AT_KEY, this.lastAuthSyncAt.toISOString(), {
-			persist: true
+			persist: true,
 		});
 	}
 	async #subscribeAuth() {
@@ -174,7 +174,7 @@ export class UserStore {
 
 	private async saveAppPreferences() {
 		await storage.setItem(APP_PREFS_KEY, this.appPreferences, {
-			persist: true
+			persist: true,
 		});
 	}
 
@@ -300,7 +300,7 @@ export class UserStore {
 		return {
 			id: record.id,
 			name: (record.name as string | undefined) ?? "",
-			email: (record.email as string | undefined) ?? ""
+			email: (record.email as string | undefined) ?? "",
 		};
 	}
 }

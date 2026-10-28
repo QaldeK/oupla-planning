@@ -36,20 +36,20 @@ Object.defineProperty(globalThis, "matchMedia", {
 		removeListener: () => {},
 		addEventListener: () => {},
 		removeEventListener: () => {},
-		dispatchEvent: () => false
-	})
+		dispatchEvent: () => false,
+	}),
 });
 
 // Mock $app/navigation (SvelteKit)
 vi.mock("$app/navigation", () => ({
-	goto: vi.fn()
+	goto: vi.fn(),
 }));
 
 // Mock $app/environment (browser = false en test)
 vi.mock("$app/environment", () => ({
 	browser: false,
 	dev: false,
-	building: false
+	building: false,
 }));
 
 // Paraglide résout la locale via `preferredLanguage` en lisant `navigator.languages`.
@@ -59,10 +59,10 @@ vi.mock("$app/environment", () => ({
 Object.defineProperty(globalThis.navigator, "language", {
 	value: "fr",
 	configurable: true,
-	writable: true
+	writable: true,
 });
 Object.defineProperty(globalThis.navigator, "languages", {
 	value: ["fr"],
 	configurable: true,
-	writable: true
+	writable: true,
 });

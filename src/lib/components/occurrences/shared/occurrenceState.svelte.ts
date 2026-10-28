@@ -7,14 +7,14 @@ import type {
 	PlanningMaster,
 	PlanningOccurrence,
 	ResponseType,
-	Task
+	Task,
 } from "$lib/types/planning.types";
 import { classifyError } from "$lib/utils/errorHandler";
 import {
 	buildParticipantResponse,
 	createOccurrenceResponseWorkflow,
 	type PendingResponseChange,
-	resolveTaskToggleOutcome
+	resolveTaskToggleOutcome,
 } from "./occurrenceResponseWorkflow.svelte";
 
 interface OccurrenceStateOptions {
@@ -70,17 +70,17 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 	let isSubmitting = $state(false);
 
 	const currentResponse = $derived(
-		options.occurrence.responses.find((r) => r.participantId === options.currentUserId)
+		options.occurrence.responses.find((r) => r.participantId === options.currentUserId),
 	);
 
 	const activeParticipants = $derived(options.master.participants.filter((p) => !p.hasQuit));
 
 	const quitParticipantIds = $derived(
-		new Set(options.master.participants.filter((p) => p.hasQuit).map((p) => p.id))
+		new Set(options.master.participants.filter((p) => p.hasQuit).map((p) => p.id)),
 	);
 
 	const activeResponses = $derived(
-		options.occurrence.responses.filter((r) => !quitParticipantIds.has(r.participantId))
+		options.occurrence.responses.filter((r) => !quitParticipantIds.has(r.participantId)),
 	);
 
 	const stats = $derived({
@@ -88,7 +88,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		ifNeeded: activeResponses.filter((r) => r.response === "if_needed").length,
 		maybe: activeResponses.filter((r) => r.response === "maybe").length,
 		absent: activeResponses.filter((r) => r.response === "absent").length,
-		noResponse: activeParticipants.length - activeResponses.length
+		noResponse: activeParticipants.length - activeResponses.length,
 	});
 
 	const inherited = $derived.by(() => {
@@ -99,7 +99,8 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			place: options.occurrence.place || options.master.place,
 			description: options.occurrence.description || options.master.description,
 			tasks: useMasterTasks ? options.master.tasks || [] : occTasks,
-			minPresentRequired: options.occurrence.minPresentRequired || options.master.minPresentRequired
+			minPresentRequired:
+				options.occurrence.minPresentRequired || options.master.minPresentRequired,
 		};
 	});
 
@@ -109,8 +110,8 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			"present",
 			"if_needed",
 			"maybe",
-			"absent"
-		]
+			"absent",
+		],
 	}));
 
 	const isNetworkUnavailable = $derived(!networkStore.isNetworkOk);
@@ -127,7 +128,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			selectedResponse = change.response;
 			selectedTasks = [...change.tasks];
 			return handleSubmitResponse();
-		}
+		},
 	}));
 
 	$effect(() => {
@@ -162,7 +163,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		const response = buildParticipantResponse({
 			participantId: options.currentUserId,
 			response: selectedResponse || "present",
-			tasks: selectedTasks
+			tasks: selectedTasks,
 		});
 
 		isSubmitting = true;
@@ -219,7 +220,7 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 			task,
 			currentResponse: selectedResponse,
 			allowResponses: masterConfig.allowResponses,
-			isAdding
+			isAdding,
 		});
 		if (outcome.kind === "refuse") {
 			toast.error(m.occurrence_must_be_present());
@@ -285,6 +286,6 @@ export function createOccurrenceState(getOptions: () => OccurrenceStateOptions):
 		confirmResponseChange,
 		cancelResponseChange,
 		toggleTask,
-		getParticipantName
+		getParticipantName,
 	};
 }

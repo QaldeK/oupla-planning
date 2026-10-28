@@ -32,7 +32,7 @@ function makeEventTarget() {
 			// l'event factice doit donc porter ces propriétés.
 			const e = { ...event, type, target: this };
 			for (const cb of [...(listeners.get(type) ?? [])]) cb(e);
-		}
+		},
 	};
 }
 
@@ -42,7 +42,7 @@ function makeRegistration() {
 		// « un waiting existe, un check doit quand même partir ».
 		waiting: { postMessage: vi.fn() },
 		update: vi.fn(() => Promise.resolve()),
-		...makeEventTarget()
+		...makeEventTarget(),
 	};
 }
 
@@ -50,12 +50,12 @@ const fakeWindow = {
 	...makeEventTarget(),
 	navigator: { standalone: false },
 	matchMedia: vi.fn(() => ({ matches: false, ...makeEventTarget() })),
-	location: { reload: vi.fn() }
+	location: { reload: vi.fn() },
 };
 
 const fakeDocument = {
 	...makeEventTarget(),
-	visibilityState: "visible"
+	visibilityState: "visible",
 };
 
 const serviceWorker = {
@@ -64,7 +64,7 @@ const serviceWorker = {
 	// doit exister pour refléter le cas réel.
 	controller: {},
 	...makeEventTarget(),
-	getRegistration: vi.fn()
+	getRegistration: vi.fn(),
 };
 
 let reg: ReturnType<typeof makeRegistration>;

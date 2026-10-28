@@ -32,7 +32,7 @@ import {
 	clearTrackedIds,
 	dateInDays,
 	seedUser,
-	trackIds
+	trackIds,
 } from "./seed";
 
 const execFileAsync = promisify(execFile);
@@ -50,8 +50,8 @@ const VALID_SUBSCRIPTION = {
 	expirationTime: null,
 	keys: {
 		p256dh: "p256dh-key-base64url",
-		auth: "auth-key-base64url"
-	}
+		auth: "auth-key-base64url",
+	},
 };
 
 /** Row push_subscriptions via admin (contourne les API Rules pour semer). */
@@ -62,7 +62,7 @@ async function seedSubscription(userId: string, overrides?: Record<string, unkno
 		endpoint: `https://push.example.com/${Math.random().toString(36).slice(2)}`,
 		p256dh: "seeded-p256dh",
 		auth: "seeded-auth",
-		...overrides
+		...overrides,
 	});
 }
 
@@ -97,12 +97,12 @@ describe("push_subscriptions — règles API (capability URL)", () => {
 
 		// viewRule : B ne peut pas voir la row de A directement (404)
 		await expect(pbB.collection("push_subscriptions").getOne(rowA.id)).rejects.toMatchObject({
-			status: 404
+			status: 404,
 		});
 
 		// deleteRule : B ne peut pas supprimer la row de A (404 — pas de fuite d'existence)
 		await expect(pbB.collection("push_subscriptions").delete(rowA.id)).rejects.toMatchObject({
-			status: 404
+			status: 404,
 		});
 
 		// A liste et supprime ses rows
@@ -126,8 +126,8 @@ describe("push_subscriptions — règles API (capability URL)", () => {
 				user: userA.id,
 				endpoint: "https://push.example.com/forge",
 				p256dh: "k",
-				auth: "k"
-			})
+				auth: "k",
+			}),
 		).rejects.toMatchObject({ status: 400 });
 
 		// B peut créer pour lui-même
@@ -135,7 +135,7 @@ describe("push_subscriptions — règles API (capability URL)", () => {
 			user: userB.id,
 			endpoint: "https://push.example.com/own",
 			p256dh: "k",
-			auth: "k"
+			auth: "k",
 		});
 		expect(own.user).toBe(userB.id);
 	});
@@ -199,7 +199,7 @@ describe("POST/DELETE /api/push-subscription — upsert et retrait", () => {
 	function postSubscription(client: PocketBase, subscription: unknown, userAgent?: string) {
 		return client.send<{ record: { id: string } }>("/api/push-subscription", {
 			method: "POST",
-			body: { subscription, userAgent }
+			body: { subscription, userAgent },
 		});
 	}
 
@@ -207,7 +207,7 @@ describe("POST/DELETE /api/push-subscription — upsert et retrait", () => {
 	function deleteSubscription(client: PocketBase, endpoint: string) {
 		return client.send<{ success: boolean }>("/api/push-subscription", {
 			method: "DELETE",
-			body: { endpoint }
+			body: { endpoint },
 		});
 	}
 
@@ -220,7 +220,7 @@ describe("POST/DELETE /api/push-subscription — upsert et retrait", () => {
 		const res = await postSubscription(
 			pbA,
 			{ ...VALID_SUBSCRIPTION, endpoint },
-			"Chrome sur Android"
+			"Chrome sur Android",
 		);
 
 		const rows = await adminListSubscriptions(`endpoint = "${endpoint}"`);
@@ -242,7 +242,7 @@ describe("POST/DELETE /api/push-subscription — upsert et retrait", () => {
 		await postSubscription(pbA, {
 			...VALID_SUBSCRIPTION,
 			endpoint,
-			keys: { p256dh: "key-1", auth: "auth-1" }
+			keys: { p256dh: "key-1", auth: "auth-1" },
 		});
 
 		// Vieillir refreshed_at via admin : deux POST dans la même milliseconde
@@ -251,13 +251,13 @@ describe("POST/DELETE /api/push-subscription — upsert et retrait", () => {
 		const seeded = await adminListSubscriptions(`endpoint = "${endpoint}"`);
 		expect(seeded).toHaveLength(1);
 		await adminPb.collection("push_subscriptions").update(seeded[0].id, {
-			refreshed_at: "2020-01-01 00:00:00.000Z"
+			refreshed_at: "2020-01-01 00:00:00.000Z",
 		});
 
 		await postSubscription(
 			pbA,
 			{ ...VALID_SUBSCRIPTION, endpoint, keys: { p256dh: "key-2", auth: "auth-2" } },
-			"Firefox sur Linux"
+			"Firefox sur Linux",
 		);
 
 		const rows = await adminListSubscriptions(`endpoint = "${endpoint}"`);
@@ -295,13 +295,13 @@ describe("POST/DELETE /api/push-subscription — upsert et retrait", () => {
 
 		const base = { ...VALID_SUBSCRIPTION, endpoint: "https://push.example.com/endpoint-invalid" };
 		await expect(postSubscription(pbA, { ...base, endpoint: undefined })).rejects.toMatchObject({
-			status: 400
+			status: 400,
 		});
 		await expect(postSubscription(pbA, { ...base, keys: { auth: "a" } })).rejects.toMatchObject({
-			status: 400
+			status: 400,
 		});
 		await expect(postSubscription(pbA, { ...base, keys: { p256dh: "p" } })).rejects.toMatchObject({
-			status: 400
+			status: 400,
 		});
 		await expect(postSubscription(pbA, undefined)).rejects.toMatchObject({ status: 400 });
 
@@ -311,10 +311,10 @@ describe("POST/DELETE /api/push-subscription — upsert et retrait", () => {
 	it("POST et DELETE sans auth → 401", async () => {
 		const guest = guestClient();
 		await expect(postSubscription(guest, VALID_SUBSCRIPTION)).rejects.toMatchObject({
-			status: 401
+			status: 401,
 		});
 		await expect(
-			deleteSubscription(guest, "https://push.example.com/endpoint-noauth")
+			deleteSubscription(guest, "https://push.example.com/endpoint-noauth"),
 		).rejects.toMatchObject({ status: 401 });
 	});
 
@@ -343,7 +343,7 @@ describe("POST/DELETE /api/push-subscription — upsert et retrait", () => {
 
 		await expect(deleteSubscription(pbB, endpoint)).rejects.toMatchObject({ status: 404 });
 		await expect(
-			deleteSubscription(pbB, "https://push.example.com/endpoint-unknown")
+			deleteSubscription(pbB, "https://push.example.com/endpoint-unknown"),
 		).rejects.toMatchObject({ status: 404 });
 
 		const rows = await adminListSubscriptions(`endpoint = "${endpoint}"`);
@@ -411,7 +411,7 @@ function startNotifyStub(): Promise<NotifyStub> {
 				auth: sub.keys?.auth ?? "",
 				title: payload.title ?? "",
 				body: payload.body ?? "",
-				url: payload.url ?? ""
+				url: payload.url ?? "",
 			});
 			const status = sub.endpoint && goneEndpoints.has(sub.endpoint) ? 410 : 200;
 			res.writeHead(status, { "Content-Type": "application/json" });
@@ -430,7 +430,7 @@ function startNotifyStub(): Promise<NotifyStub> {
 				notifyUrl: `http://127.0.0.1:${addr.port}/notify`,
 				requests,
 				goneEndpoints,
-				close: () => new Promise<void>((r) => server.close(() => r()))
+				close: () => new Promise<void>((r) => server.close(() => r())),
 			});
 		});
 	});
@@ -487,7 +487,7 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 			"--dir",
 			pbDataDir,
 			"--migrationsDir",
-			MIGRATIONS_DIR
+			MIGRATIONS_DIR,
 		]);
 		await execFileAsync(PB_BIN, [
 			"superuser",
@@ -495,7 +495,7 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 			"test@example.com",
 			"testpassword",
 			"--dir",
-			pbDataDir
+			pbDataDir,
 		]);
 
 		pbChild = spawn(
@@ -510,12 +510,12 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 				MIGRATIONS_DIR,
 				"--hooksDir",
 				HOOKS_DIR,
-				"--hooksWatch=false"
+				"--hooksWatch=false",
 			],
 			{
 				env: { ...process.env, NOTIFY_SERVICE_URL: stub.notifyUrl },
-				stdio: ["ignore", "ignore", "pipe"]
-			}
+				stdio: ["ignore", "ignore", "pipe"],
+			},
 		);
 		// stderr visible pour diagnostiquer un échec de démarrage de l'instance.
 		pbChild.stderr?.on("data", (d) => process.stderr.write(`[pb-jetable] ${d}`));
@@ -562,7 +562,7 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 			passwordConfirm: "password123",
 			name: "Push Loop",
 			emailVisibility: true,
-			verified: true
+			verified: true,
 		});
 		const participant = {
 			id: `p-pushloop-${suffix}`,
@@ -570,13 +570,13 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 			email,
 			isAdmin: true,
 			createdAt: new Date().toISOString(),
-			userId: user.id
+			userId: user.id,
 		};
 		const adminToken = Array.from({ length: 64 }, () =>
-			Math.floor(Math.random() * 16).toString(16)
+			Math.floor(Math.random() * 16).toString(16),
 		).join("");
 		const participantToken = Array.from({ length: 32 }, () =>
-			Math.floor(Math.random() * 16).toString(16)
+			Math.floor(Math.random() * 16).toString(16),
 		).join("");
 		const master = await admin.collection("planning_masters").create({
 			title: `Push Loop ${suffix}`,
@@ -591,7 +591,7 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 			availableResponseTypes: ["present", "absent"],
 			adminToken,
 			participantToken,
-			lastModifiedBy: ""
+			lastModifiedBy: "",
 		});
 		const occ = await admin.collection("planning_occurrences").create({
 			master: master.id,
@@ -603,14 +603,14 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 					participantId: participant.id,
 					response: "present",
 					tasks: [],
-					respondedAt: new Date().toISOString()
-				}
+					respondedAt: new Date().toISOString(),
+				},
 			],
 			comments: [],
 			tasks: [],
 			isConfirmed: false,
 			isCanceled: false,
-			lastModifiedBy: ""
+			lastModifiedBy: "",
 		});
 		await admin.collection("planning_participants").create({
 			planning: master.id,
@@ -619,7 +619,7 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 			push: true,
 			reminderDays: [],
 			missingDays: [],
-			onOccurrenceChange: true
+			onOccurrenceChange: true,
 		});
 		for (const row of pushRows) {
 			await admin.collection("push_subscriptions").create({ user: user.id, ...row });
@@ -640,13 +640,13 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 			{
 				endpoint: "https://push.example.com/loop-dev1",
 				p256dh: "p256dh-loop-dev1",
-				auth: "auth-loop-dev1"
+				auth: "auth-loop-dev1",
 			},
 			{
 				endpoint: "https://push.example.com/loop-dev2",
 				p256dh: "p256dh-loop-dev2",
-				auth: "auth-loop-dev2"
-			}
+				auth: "auth-loop-dev2",
+			},
 		];
 		const { user, occ, participantToken } = await seedPushLoopScenario(rows);
 		await triggerScheduleChangePush(occ.id);
@@ -672,12 +672,12 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 		const gone = {
 			endpoint: "https://push.example.com/loop-gone",
 			p256dh: "p256dh-loop-gone",
-			auth: "auth-loop-gone"
+			auth: "auth-loop-gone",
 		};
 		const alive = {
 			endpoint: "https://push.example.com/loop-alive",
 			p256dh: "p256dh-loop-alive",
-			auth: "auth-loop-alive"
+			auth: "auth-loop-alive",
 		};
 		const { user, occ } = await seedPushLoopScenario([gone, alive]);
 		stub.goneEndpoints.add(gone.endpoint);
@@ -686,7 +686,7 @@ describe("push_subscriptions — boucle d'envoi multi-appareils", () => {
 		// L'échec d'une row n'interrompt pas l'envoi aux autres appareils
 		expect(stub.requests).toHaveLength(2);
 		expect(stub.requests.map((r) => r.endpoint).sort()).toEqual(
-			[alive.endpoint, gone.endpoint].sort()
+			[alive.endpoint, gone.endpoint].sort(),
 		);
 
 		const remaining = await admin

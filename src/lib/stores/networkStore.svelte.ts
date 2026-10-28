@@ -17,7 +17,7 @@ const status = $state<NetworkStatus>({
 	realtimeConnected: true,
 	hasActiveSubscription: false,
 	lastError: null,
-	lastSyncAt: null
+	lastSyncAt: null,
 });
 
 /**
@@ -207,5 +207,5 @@ export const networkStore = {
 	setHasActiveSubscription(value: boolean) {
 		status.hasActiveSubscription = value;
 		if (value) setRealtimeConnected(true);
-	}
+	},
 };

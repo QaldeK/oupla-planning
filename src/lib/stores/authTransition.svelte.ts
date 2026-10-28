@@ -60,13 +60,13 @@ class AuthTransitionWrapper {
 				// son moment appartient à syncAuthData.
 				syncAuthData: () => syncAuthData(() => userStore.markAuthSynced()),
 				commentStateService,
-				db
+				db,
 			};
 
 			const ctx = {
 				currentToken: planningStore.currentToken,
 				activeMasterId: planningStore.activeMasterId,
-				savedPlannings: guestStateStore.guestStates
+				savedPlannings: guestStateStore.guestStates,
 			};
 
 			const result: AuthTransitionResult = await runAuthTransition(ctx, deps);

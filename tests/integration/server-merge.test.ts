@@ -32,7 +32,7 @@ import type {
 	Participant,
 	ParticipantResponse,
 	PlanningMaster,
-	PlanningOccurrence
+	PlanningOccurrence,
 } from "$lib/types/planning.types";
 import { authenticateAdmin, cleanupTrackedRecords, clearTrackedIds, seedPlanning } from "./seed";
 
@@ -61,13 +61,13 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			id: "p1",
 			name: "Alice",
 			isAdmin: false,
-			createdAt: "2026-01-01"
+			createdAt: "2026-01-01",
 		};
 
 		// État initial serveur : master avec [p1]
 		const { master, adminToken, participantToken } = await seedPlanning({
 			title: "R5.2 Concurrent Participants",
-			participants: [p1]
+			participants: [p1],
 		});
 
 		// Client A (admin) ajoute p2 — body basé sur l'état vu par A : [p1, p2]
@@ -76,14 +76,14 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			id: "p2",
 			name: "Bob",
 			isAdmin: false,
-			createdAt: "2026-01-01"
+			createdAt: "2026-01-01",
 		};
 		await clientA.collection("planning_masters").update(
 			master.id,
 			{ participants: [p1, p2] },
 			{
-				query: { _token: adminToken }
-			}
+				query: { _token: adminToken },
+			},
 		);
 
 		// Client B (participant) ajoute p3 — body basé sur l'état STALE vu par B : [p1, p3]
@@ -93,14 +93,14 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			id: "p3",
 			name: "Charlie",
 			isAdmin: false,
-			createdAt: "2026-01-01"
+			createdAt: "2026-01-01",
 		};
 		await clientB.collection("planning_masters").update(
 			master.id,
 			{ participants: [p1, p3] },
 			{
-				query: { _token: participantToken }
-			}
+				query: { _token: participantToken },
+			},
 		);
 
 		// Vérification via fetch admin indépendant : les 3 participants doivent être là
@@ -118,7 +118,7 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 	it("préserve les additions concurrentes de responses et comments sur une occurrence", async () => {
 		const { occurrences, participantToken } = await seedPlanning({
 			title: "R5.2 Concurrent Occurrence",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const occ = occurrences[0];
 
@@ -127,13 +127,13 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			participantId: "a",
 			response: "present",
 			tasks: [],
-			respondedAt: "2026-01-01T00:00:00Z"
+			respondedAt: "2026-01-01T00:00:00Z",
 		};
 		const respB: ParticipantResponse = {
 			participantId: "b",
 			response: "absent",
 			tasks: [],
-			respondedAt: "2026-01-01T00:00:00Z"
+			respondedAt: "2026-01-01T00:00:00Z",
 		};
 
 		// Client A envoie sa réponse seul (état initial vide vu par A)
@@ -142,8 +142,8 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			occ.id,
 			{ responses: [respA] },
 			{
-				query: { _token: participantToken }
-			}
+				query: { _token: participantToken },
+			},
 		);
 
 		// Client B envoie sa réponse seul (ne connaît pas respA — stale)
@@ -152,8 +152,8 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			occ.id,
 			{ responses: [respB] },
 			{
-				query: { _token: participantToken }
-			}
+				query: { _token: participantToken },
+			},
 		);
 
 		// Même pattern sur les comments (clé id)
@@ -161,27 +161,27 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			id: "c1",
 			participantId: "a",
 			content: "Commentaire A",
-			createdAt: "2026-01-01T00:00:00Z"
+			createdAt: "2026-01-01T00:00:00Z",
 		};
 		const commentB: OccurrenceComment = {
 			id: "c2",
 			participantId: "b",
 			content: "Commentaire B",
-			createdAt: "2026-01-01T00:00:00Z"
+			createdAt: "2026-01-01T00:00:00Z",
 		};
 		await clientA.collection("planning_occurrences").update(
 			occ.id,
 			{ comments: [commentA] },
 			{
-				query: { _token: participantToken }
-			}
+				query: { _token: participantToken },
+			},
 		);
 		await clientB.collection("planning_occurrences").update(
 			occ.id,
 			{ comments: [commentB] },
 			{
-				query: { _token: participantToken }
-			}
+				query: { _token: participantToken },
+			},
 		);
 
 		// Vérification : les deux responses et les deux comments sont présents
@@ -204,12 +204,12 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			id: "p1",
 			name: "Alice",
 			isAdmin: false,
-			createdAt: "2026-01-01"
+			createdAt: "2026-01-01",
 		};
 
 		const { master, adminToken } = await seedPlanning({
 			title: "R5.2 LWW",
-			participants: [p1]
+			participants: [p1],
 		});
 
 		// Client A modifie le nom de p1
@@ -242,7 +242,7 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 	// ---------------------------------------------------------------------------
 	it("renvoie 409 sur un update scalaire avec _version stale", async () => {
 		const { master, adminToken } = await seedPlanning({
-			title: "R5.2 Version Conflict"
+			title: "R5.2 Version Conflict",
 		});
 
 		const client = tokenClient(adminToken);
@@ -253,7 +253,7 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 				.update(
 					master.id,
 					{ title: "Titre modifié" },
-					{ query: { _token: adminToken, _version: "2000-01-01 00:00:00.000Z" } }
+					{ query: { _token: adminToken, _version: "2000-01-01 00:00:00.000Z" } },
 				);
 		} catch (err) {
 			caught = err;
@@ -271,12 +271,12 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			id: "p1",
 			name: "Alice",
 			isAdmin: false,
-			createdAt: "2026-01-01"
+			createdAt: "2026-01-01",
 		};
 
 		const { master, adminToken } = await seedPlanning({
 			title: "R5.2 Simple Update",
-			participants: [p1]
+			participants: [p1],
 		});
 
 		// Ajout simple : on renvoie [p1, p2] en connaissant l'état complet
@@ -284,7 +284,7 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			id: "p2",
 			name: "Bob",
 			isAdmin: false,
-			createdAt: "2026-01-01"
+			createdAt: "2026-01-01",
 		};
 		const client = tokenClient(adminToken);
 		const updated = await client
@@ -292,7 +292,7 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			.update<PlanningMaster>(
 				master.id,
 				{ participants: [p1, p2] },
-				{ query: { _token: adminToken } }
+				{ query: { _token: adminToken } },
 			);
 
 		// Le body merge ne doit pas casser le cas normal
@@ -318,19 +318,19 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			id: "p1",
 			name: "Alice",
 			isAdmin: false,
-			createdAt: "2026-01-01"
+			createdAt: "2026-01-01",
 		};
 		const p2: Participant = {
 			id: "p2",
 			name: "Bob",
 			isAdmin: false,
-			createdAt: "2026-01-01"
+			createdAt: "2026-01-01",
 		};
 
 		// État initial serveur : [p1, p2]. Le client a fetch cet état (Dexie = [p1, p2]).
 		const { master, adminToken } = await seedPlanning({
 			title: "R5.2 Stale Client + Server Add",
-			participants: [p1, p2]
+			participants: [p1, p2],
 		});
 
 		// Ajout serveur CONCURRENT par l'admin (superuser → bypass le hook, body brut).
@@ -340,7 +340,7 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			id: "p3",
 			name: "Charlie",
 			isAdmin: false,
-			createdAt: "2026-01-01"
+			createdAt: "2026-01-01",
 		};
 		await adminPb.collection("planning_masters").update(master.id, { participants: [p1, p2, p3] });
 
@@ -378,18 +378,18 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			id: "t1",
 			name: "Task A",
 			requiredVolunteers: 1,
-			type: "custom"
+			type: "custom",
 		};
 		const taskB = {
 			id: "t2",
 			name: "Task B",
 			requiredVolunteers: 2,
-			type: "custom"
+			type: "custom",
 		};
 
 		const { master, adminToken } = await seedPlanning({
 			title: "R5.2 Tasks Merge",
-			tasks: []
+			tasks: [],
 		});
 
 		// Client A ajoute t1
@@ -398,8 +398,8 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			master.id,
 			{ tasks: [taskA] },
 			{
-				query: { _token: adminToken }
-			}
+				query: { _token: adminToken },
+			},
 		);
 
 		// Client B (stale) ajoute t2 sans connaître t1
@@ -408,8 +408,8 @@ describe("R5.2 — Merge serveur atomique des champs additifs", () => {
 			master.id,
 			{ tasks: [taskB] },
 			{
-				query: { _token: adminToken }
-			}
+				query: { _token: adminToken },
+			},
 		);
 
 		const adminPb = await authenticateAdmin();

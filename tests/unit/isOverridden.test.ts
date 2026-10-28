@@ -34,7 +34,7 @@ function makeOcc(overrides: Partial<PlanningOccurrence> = {}): PlanningOccurrenc
 		isCanceled: false,
 		created: "2026-06-28T00:00:00.000Z",
 		updated: "2026-06-28T00:00:00.000Z",
-		...overrides
+		...overrides,
 	};
 }
 
@@ -42,7 +42,7 @@ function masterWithSlots(timeSlots: TimeSlot[]): MasterLike {
 	return {
 		defaultStartTime: "08:00",
 		defaultEndTime: "12:00",
-		timeSlots
+		timeSlots,
 	};
 }
 
@@ -90,7 +90,7 @@ describe("isOverridden — modèle dérivé de l'override", () => {
 			// UX pencil/apply) — on valide ici que la dérivation est cohérente.
 			const occ = makeOcc({ slotId: "slot-a", startTime: "08:00", endTime: "12:00" });
 			const targetMaster = masterWithSlots([
-				{ id: "slot-a", startTime: "09:00", endTime: "12:00" }
+				{ id: "slot-a", startTime: "09:00", endTime: "12:00" },
 			]);
 			expect(isOverridden(occ, targetMaster)).toBe(true);
 		});
@@ -100,7 +100,7 @@ describe("isOverridden — modèle dérivé de l'override", () => {
 			const occ = makeOcc({ slotId: "s1", startTime: "08:00", endTime: "12:00" });
 			const legacyMaster: MasterLike = {
 				defaultStartTime: "08:00",
-				defaultEndTime: "12:00"
+				defaultEndTime: "12:00",
 			};
 			expect(isOverridden(occ, legacyMaster)).toBe(false);
 		});
@@ -109,7 +109,7 @@ describe("isOverridden — modèle dérivé de l'override", () => {
 			const occ = makeOcc({ slotId: "s1", startTime: "09:00", endTime: "12:00" });
 			const legacyMaster: MasterLike = {
 				defaultStartTime: "08:00",
-				defaultEndTime: "12:00"
+				defaultEndTime: "12:00",
 			};
 			expect(isOverridden(occ, legacyMaster)).toBe(true);
 		});

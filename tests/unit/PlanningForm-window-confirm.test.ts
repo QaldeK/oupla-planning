@@ -51,7 +51,7 @@ function makeMaster(overrides: Partial<PlanningMaster> = {}): PlanningMaster {
 		participants: [],
 		created: new Date().toISOString(),
 		updated: new Date().toISOString(),
-		...overrides
+		...overrides,
 	};
 }
 
@@ -83,13 +83,13 @@ describe("PlanningForm — retrait du window.confirm au submit (ticket 03)", () 
 			props: {
 				master: makeMaster(),
 				onSubmit: onSubmit as (data: PlanningFormData) => Promise<void>,
-				datesWithData: [targetDate]
-			}
+				datesWithData: [targetDate],
+			},
 		});
 
 		// 1. Ouvre le popover de la DateSlot pour `targetDate`.
 		const dateSlotButton = screen.getByRole("button", {
-			name: new RegExp(formatBadgeDate(targetDate), "i")
+			name: new RegExp(formatBadgeDate(targetDate), "i"),
 		});
 		await user.click(dateSlotButton);
 
@@ -120,8 +120,8 @@ describe("PlanningForm — retrait du window.confirm au submit (ticket 03)", () 
 			props: {
 				master: makeMaster(),
 				onSubmit: onSubmit as (data: PlanningFormData) => Promise<void>,
-				datesWithData: [initialFirstDate]
-			}
+				datesWithData: [initialFirstDate],
+			},
 		});
 
 		// 1. Change la borne `Du` (firstDate) via l'input date. Le nouvel intervalle
@@ -154,8 +154,8 @@ describe("PlanningForm — retrait du window.confirm au submit (ticket 03)", () 
 			props: {
 				master: makeMaster(),
 				onSubmit: onSubmit as (data: PlanningFormData) => Promise<void>,
-				datesWithData: ["2024-01-15"] // date passée, hors cycle hebdo
-			}
+				datesWithData: ["2024-01-15"], // date passée, hors cycle hebdo
+			},
 		});
 
 		await user.click(screen.getByRole("button", { name: /save changes/i }));

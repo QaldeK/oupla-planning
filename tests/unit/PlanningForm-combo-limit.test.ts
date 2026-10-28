@@ -15,7 +15,7 @@ import {
 	getSubmitButton,
 	makeMaster,
 	makeOccurrence,
-	renderForm
+	renderForm,
 } from "./_helpers/planningForm.js";
 
 vi.mock("svelte-sonner", () => ({
@@ -27,8 +27,8 @@ vi.mock("svelte-sonner", () => ({
 		warning: vi.fn(),
 		loading: vi.fn(),
 		promise: vi.fn(),
-		custom: vi.fn()
-	}
+		custom: vi.fn(),
+	},
 }));
 
 /**
@@ -43,8 +43,8 @@ function makeFutureDates(count: number, start = "2026-08-01"): string[] {
 	for (let i = 0; i < count; i++) {
 		out.push(
 			`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(
-				cur.getDate()
-			).padStart(2, "0")}`
+				cur.getDate(),
+			).padStart(2, "0")}`,
 		);
 		cur.setDate(cur.getDate() + 1);
 	}
@@ -72,9 +72,9 @@ describe("A — Génération pure (cycle non tronqué)", () => {
 		// alimente `displayedDateSlots` → les badges sont rendus.
 		const { container } = renderForm({
 			master: makeMaster({
-				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-11-30" }
+				recurrence: { type: "DAILY", firstDate: "2026-08-01", lastDate: "2026-11-30" },
 			}),
-			occurrences: []
+			occurrences: [],
 		});
 
 		// Section de sélection rendue (mode récurrent avec cycle futur).
@@ -108,18 +108,18 @@ describe("B — Alerte DateSlots en multi-slot", () => {
 				date: d,
 				slotId: "s1",
 				startTime: "14:00",
-				endTime: "18:00"
-			})
+				endTime: "18:00",
+			}),
 		);
 		const { container } = renderForm({
 			master: makeMaster({
 				recurrence: { type: "CUSTOM" },
 				timeSlots: [
 					{ id: "s1", startTime: "14:00", endTime: "18:00" },
-					{ id: "s2", startTime: "18:00", endTime: "22:00" }
-				]
+					{ id: "s2", startTime: "18:00", endTime: "22:00" },
+				],
 			}),
-			occurrences
+			occurrences,
 		});
 
 		// Section CUSTOM rendue — titre avec compteurs, pour le distinguer de
@@ -142,17 +142,17 @@ describe("C — Submit bloqué > 100 DateSlots futurs", () => {
 	it('2 slots × 60 dates → toast "Trop de créneaux planifiés" et onSubmit non appelé', async () => {
 		const futureDates = makeFutureDates(60);
 		const occurrences = futureDates.map((d, i) =>
-			makeOccurrence({ id: `occ-${i}`, date: d, slotId: "s1" })
+			makeOccurrence({ id: `occ-${i}`, date: d, slotId: "s1" }),
 		);
 		const { user, onSubmit } = renderForm({
 			master: makeMaster({
 				recurrence: { type: "CUSTOM" },
 				timeSlots: [
 					{ id: "s1", startTime: "14:00", endTime: "18:00" },
-					{ id: "s2", startTime: "18:00", endTime: "22:00" }
-				]
+					{ id: "s2", startTime: "18:00", endTime: "22:00" },
+				],
 			}),
-			occurrences
+			occurrences,
 		});
 
 		await user.click(getSubmitButton());
@@ -162,8 +162,8 @@ describe("C — Submit bloqué > 100 DateSlots futurs", () => {
 		expect(toast.error).toHaveBeenCalledWith(
 			"Too many planned slots",
 			expect.objectContaining({
-				description: expect.stringContaining("120 future date×slot combinations")
-			})
+				description: expect.stringContaining("120 future date×slot combinations"),
+			}),
 		);
 		expect(onSubmit).not.toHaveBeenCalled();
 	});
@@ -180,17 +180,17 @@ describe("D — Picker : maxSelection dynamique", () => {
 		// Clic 2 (23 juil) → refusé par maxSelection=50, badge count inchangé.
 		const futureDates = makeFutureDates(49);
 		const seededOccurrences = futureDates.map((d, i) =>
-			makeOccurrence({ id: `occ-${i}`, date: d, slotId: "s1" })
+			makeOccurrence({ id: `occ-${i}`, date: d, slotId: "s1" }),
 		);
 		const { user, container } = renderForm({
 			master: makeMaster({
 				recurrence: { type: "CUSTOM" },
 				timeSlots: [
 					{ id: "s1", startTime: "14:00", endTime: "18:00" },
-					{ id: "s2", startTime: "18:00", endTime: "22:00" }
-				]
+					{ id: "s2", startTime: "18:00", endTime: "22:00" },
+				],
 			}),
-			occurrences: seededOccurrences
+			occurrences: seededOccurrences,
 		});
 
 		// 49 dates × 2 slots = 98 badges.
@@ -217,14 +217,14 @@ describe("D — Picker : maxSelection dynamique", () => {
 		// Clic 2 (23 juil) → refusé par maxSelection=100.
 		const futureDates = makeFutureDates(99);
 		const seededOccurrences = futureDates.map((d, i) =>
-			makeOccurrence({ id: `occ-${i}`, date: d, slotId: "s1" })
+			makeOccurrence({ id: `occ-${i}`, date: d, slotId: "s1" }),
 		);
 		const { user, container } = renderForm({
 			master: makeMaster({
 				recurrence: { type: "CUSTOM" },
-				timeSlots: [{ id: "s1", startTime: "14:00", endTime: "18:00" }]
+				timeSlots: [{ id: "s1", startTime: "14:00", endTime: "18:00" }],
 			}),
-			occurrences: seededOccurrences
+			occurrences: seededOccurrences,
 		});
 
 		// 99 dates × 1 slot = 99 badges.

@@ -3,7 +3,7 @@ import type {
 	CommentState,
 	PlanningMaster,
 	PlanningOccurrence,
-	SavedPlanning
+	SavedPlanning,
 } from "$lib/types/planning.types";
 
 /**
@@ -25,19 +25,19 @@ export class AppDB extends Dexie {
 		super(APP_DB_NAME);
 		this.version(1).stores({
 			masters: "id, updated, participantToken, adminToken, deleted",
-			occurrences: "id, updated, master, deleted"
+			occurrences: "id, updated, master, deleted",
 		});
 		this.version(2).stores({
 			masters: "id, updated, participantToken, adminToken, deleted",
-			occurrences: "id, updated, master, date, deleted"
+			occurrences: "id, updated, master, date, deleted",
 		});
 		this.version(3).stores({
 			masters: "id, updated, participantToken, adminToken, deleted",
 			occurrences: "id, updated, master, date, deleted",
-			localMeta: "masterId"
+			localMeta: "masterId",
 		});
 		this.version(4).stores({
-			commentState: "occurrenceId, masterId, isUserInConversation, lastReadAt"
+			commentState: "occurrenceId, masterId, isUserInConversation, lastReadAt",
 		});
 		this.version(5).upgrade((tx) => {
 			return tx
@@ -77,16 +77,16 @@ function applyProxyStripper(db: AppDB) {
 								req = {
 									...req,
 									values: req.values.map((v: unknown) =>
-										JSON.parse(JSON.stringify(v as Record<string, unknown>))
-									)
+										JSON.parse(JSON.stringify(v as Record<string, unknown>)),
+									),
 								};
 							}
 							return table.mutate(req);
-						}
+						},
 					};
-				}
+				},
 			};
-		}
+		},
 	});
 }
 
@@ -162,7 +162,7 @@ export async function openAppDB(): Promise<AppDB> {
  */
 export async function upsertLocalMeta(
 	masterId: string,
-	patch: Partial<SavedPlanning>
+	patch: Partial<SavedPlanning>,
 ): Promise<void> {
 	const existing = await db.localMeta.get(masterId);
 	if (existing) {
@@ -185,7 +185,7 @@ export async function upsertLocalMeta(
  */
 export async function upsertRecord<T extends { id: string }>(
 	table: Table<T, string>,
-	record: T
+	record: T,
 ): Promise<void> {
 	const existing = await table.get(record.id);
 	if (existing) {

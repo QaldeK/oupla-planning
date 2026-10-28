@@ -43,7 +43,7 @@ import {
 	clearTrackedIds,
 	dateInDays,
 	seedPlanning,
-	trackIds
+	trackIds,
 } from "./seed";
 
 // Helper : genere des tokens uniques pour eviter les conflits d index unique PB
@@ -78,8 +78,8 @@ describe("pb-sync — CRUD et merge strategies", () => {
 		it("cree un master dans PB et Dexie simultanement", async () => {
 			const collection = createSyncCollection<PlanningMaster>(pb, db.masters, "planning_masters", {
 				mergeStrategies: {
-					participants: mergeByKey<Participant>("id")
-				}
+					participants: mergeByKey<Participant>("id"),
+				},
 			});
 
 			const { adminToken, participantToken } = generateUniqueTokens();
@@ -94,9 +94,9 @@ describe("pb-sync — CRUD et merge strategies", () => {
 					participants: [],
 					tasks: [],
 					minPresentRequired: 1,
-					allowResponses: true
+					allowResponses: true,
 				},
-				{ query: { _token: adminToken } }
+				{ query: { _token: adminToken } },
 			);
 
 			trackIds("planning_masters", master.id);
@@ -135,7 +135,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			const updated = await collection.update(
 				master.id,
 				{ title: "Modifie" },
-				{ query: { _token: adminToken } }
+				{ query: { _token: adminToken } },
 			);
 
 			expect(updated.title).toBe("Modifie");
@@ -160,24 +160,24 @@ describe("pb-sync — CRUD et merge strategies", () => {
 				id: "bbb",
 				name: "Bob Modifie",
 				isAdmin: true,
-				createdAt: "2026-01-01"
+				createdAt: "2026-01-01",
 			};
 			const p3: Participant = {
 				id: "ccc",
 				name: "Charlie",
 				isAdmin: false,
-				createdAt: "2026-01-01"
+				createdAt: "2026-01-01",
 			};
 
 			const { master, adminToken } = await seedPlanning({
 				title: "Merge Test",
-				participants: [p1, p2]
+				participants: [p1, p2],
 			});
 
 			const collection = createSyncCollection<PlanningMaster>(pb, db.masters, "planning_masters", {
 				mergeStrategies: {
-					participants: mergeByKey<Participant>("id")
-				}
+					participants: mergeByKey<Participant>("id"),
+				},
 			});
 
 			// Charger dans Dexie via initialFetch (flux realiste guest)
@@ -186,14 +186,14 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			// Simuler un changement concurrent : quelqu'un d'autre ajoute p3 sur le serveur
 			const adminPb = await authenticateAdmin();
 			await adminPb.collection("planning_masters").update(master.id, {
-				participants: [p1, p2, p3]
+				participants: [p1, p2, p3],
 			});
 
 			// Update local avec [p1, p2Updated] (on ne connait pas p3)
 			const updated = await collection.update(
 				master.id,
 				{ participants: [p1, p2Updated] },
-				{ query: { _token: adminToken } }
+				{ query: { _token: adminToken } },
 			);
 
 			// Verification merge : p1, p2Updated (local), p3 (remote)
@@ -251,7 +251,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			const { master, adminToken } = await seedPlanning({ title: "A Supprimer Pour De Vrai" });
 
 			const collection = createSyncCollection<PlanningMaster>(pb, db.masters, "planning_masters", {
-				softDelete: false
+				softDelete: false,
 			});
 
 			// Charger dans Dexie via initialFetch
@@ -260,7 +260,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			// Le serveur bloque le DELETE API (deleteRule superusers only, fenêtre de grâce) : l'erreur remonte,
 			// le rollback pb-sync restaure le snapshot local.
 			await expect(
-				collection.remove(master.id, { query: { _token: adminToken } })
+				collection.remove(master.id, { query: { _token: adminToken } }),
 			).rejects.toMatchObject({ status: 403 });
 
 			// Verification Dexie : record toujours présent (rollback)
@@ -316,7 +316,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			// Fetch avec filtre sur un seul master
 			await collection.initialFetch({
 				filter: ["id = {:masterId}", { masterId: m1.id }],
-				query: { _token: adminToken }
+				query: { _token: adminToken },
 			});
 
 			const dexieMasters = await db.masters.toArray();
@@ -331,14 +331,14 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			const collection = createSyncCollection<PlanningOccurrence>(
 				pb,
 				db.occurrences,
-				"planning_occurrences"
+				"planning_occurrences",
 			);
 
 			// 5 occurrences passées à dates distinctes (J-5 … J-1)
 			const dates = [-5, -4, -3, -2, -1].map((d) => dateInDays(d));
 			const { participantToken } = await seedPlanning({
 				title: "P sort limit",
-				occurrenceDates: dates
+				occurrenceDates: dates,
 			});
 
 			await db.occurrences.clear();
@@ -348,14 +348,14 @@ describe("pb-sync — CRUD et merge strategies", () => {
 				query: { _token: participantToken },
 				since: "2000-01-01 00:00:00",
 				sort: "-date",
-				limit: 3
+				limit: 3,
 			});
 
 			const local = await db.occurrences.toArray();
 			expect(local.length).toBe(3);
 			// Les 3 plus récentes du passé : J-1, J-2, J-3 (dates normalisées PB)
 			expect(local.map((o) => o.date.slice(0, 10)).sort()).toEqual(
-				[dateInDays(-1), dateInDays(-2), dateInDays(-3)].sort()
+				[dateInDays(-1), dateInDays(-2), dateInDays(-3)].sort(),
 			);
 		});
 
@@ -363,13 +363,13 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			const collection = createSyncCollection<PlanningOccurrence>(
 				pb,
 				db.occurrences,
-				"planning_occurrences"
+				"planning_occurrences",
 			);
 
 			const dates = [-5, -4, -3, -2, -1].map((d) => dateInDays(d));
 			const { participantToken } = await seedPlanning({
 				title: "P full list",
-				occurrenceDates: dates
+				occurrenceDates: dates,
 			});
 
 			await db.occurrences.clear();
@@ -377,7 +377,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			await collection.initialFetch({
 				filter: ["date != ''", {}],
 				query: { _token: participantToken },
-				since: "2000-01-01 00:00:00"
+				since: "2000-01-01 00:00:00",
 			});
 
 			expect(await db.occurrences.count()).toBe(5);
@@ -397,13 +397,13 @@ describe("pb-sync — CRUD et merge strategies", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(
-				collection.update(master.id, { title: "Modified" }, { query: { _token: adminToken } })
+				collection.update(master.id, { title: "Modified" }, { query: { _token: adminToken } }),
 			).rejects.toThrow();
 		});
 
 		it("throw si le record n'est pas dans Dexie lors d'un remove", async () => {
 			const collection = createSyncCollection<PlanningMaster>(pb, db.masters, "planning_masters", {
-				softDelete: false
+				softDelete: false,
 			});
 
 			// === SEED ===
@@ -414,7 +414,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(
-				collection.remove(master.id, { query: { _token: adminToken } })
+				collection.remove(master.id, { query: { _token: adminToken } }),
 			).rejects.toThrow();
 		});
 
@@ -436,9 +436,9 @@ describe("pb-sync — CRUD et merge strategies", () => {
 					participants: [],
 					tasks: [],
 					minPresentRequired: 1,
-					allowResponses: true
+					allowResponses: true,
 				},
-				{ query: { _token: "invalid-token-should-fail" } }
+				{ query: { _token: "invalid-token-should-fail" } },
 			);
 
 			trackIds("planning_masters", master.id);
@@ -458,7 +458,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 		async function dropTombstoneCollection() {
 			const adminPb = await authenticateAdmin();
 			const leftovers = await adminPb.collections.getFullList({
-				filter: `name = "${TOMBSTONE_COLLECTION}"`
+				filter: `name = "${TOMBSTONE_COLLECTION}"`,
 			});
 			for (const collection of leftovers) await adminPb.collections.delete(collection.id);
 		}
@@ -473,10 +473,10 @@ describe("pb-sync — CRUD et merge strategies", () => {
 				fields: [
 					{ name: "collection", type: "text", required: true },
 					{ name: "recordId", type: "text", required: true },
-					{ name: "deletedAt", type: "date", required: true }
+					{ name: "deletedAt", type: "date", required: true },
 				],
 				// L'app lit les tombstones sans token : la règle de liste reste publique.
-				listRule: ""
+				listRule: "",
 			} as unknown as CollectionModel);
 		}
 
@@ -499,7 +499,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 		it("supprime localement le record tombstone, sans localTrash", async () => {
 			const { master, participantToken } = await seedPlanning({ title: "Tombstone remove" });
 			const collection = createSyncCollection<PlanningMaster>(pb, db.masters, "planning_masters", {
-				tombstoneCollection: TOMBSTONE_COLLECTION
+				tombstoneCollection: TOMBSTONE_COLLECTION,
 			});
 
 			await collection.initialFetch({ query: { _token: participantToken } });
@@ -519,7 +519,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			const { master, participantToken } = await seedPlanning({ title: "Tombstone trash" });
 			const collection = createSyncCollection<PlanningMaster>(pb, db.masters, "planning_masters", {
 				tombstoneCollection: TOMBSTONE_COLLECTION,
-				localTrash: true
+				localTrash: true,
 			});
 
 			await collection.initialFetch({ query: { _token: participantToken } });
@@ -544,7 +544,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 		it("garde les elements locaux non presents dans remote", () => {
 			const local = [
 				{ id: "a", name: "Local A" },
-				{ id: "b", name: "Local B" }
+				{ id: "b", name: "Local B" },
 			];
 			const remote = [{ id: "a", name: "Remote A" }];
 
@@ -560,7 +560,7 @@ describe("pb-sync — CRUD et merge strategies", () => {
 			const local = [{ id: "a", name: "Local A" }];
 			const remote = [
 				{ id: "a", name: "Remote A" },
-				{ id: "c", name: "Remote C" }
+				{ id: "c", name: "Remote C" },
 			];
 
 			const merge = mergeByKey<{ id: string; name: string }>("id");

@@ -18,12 +18,12 @@ Lecture depuis Dexie, écriture vers PocketBase puis miroir local. Dexie est un 
 technique jetable** : la source de vérité est le serveur, et une base locale corrompue ou
 incohérente se règle par un drop, jamais par une réparation manuelle.
 
-| Table Dexie | Contenu |
-| --- | --- |
-| `masters` | plannings, indexés par token participant et admin |
-| `occurrences` | occurrences, indexées par master et par date |
-| `localMeta` | état guest par planning et marqueur de fraîcheur (voir `stores.md`) |
-| `commentState` | état de lecture des commentaires |
+| Table Dexie    | Contenu                                                             |
+| -------------- | ------------------------------------------------------------------- |
+| `masters`      | plannings, indexés par token participant et admin                   |
+| `occurrences`  | occurrences, indexées par master et par date                        |
+| `localMeta`    | état guest par planning et marqueur de fraîcheur (voir `stores.md`) |
+| `commentState` | état de lecture des commentaires                                    |
 
 L'instance est ouverte par `ensureDbReady()`, mémoïsé, avec reset automatique si une
 migration échoue — sans cette garde, une base locale héritée d'une version antérieure
@@ -46,11 +46,11 @@ flowchart LR
   B -.->|"re-sync de routine"| D
 ```
 
-| Opération | Borne | Module |
-| --- | --- | --- |
-| Masters | aucun filtre `date` (un record par planning) | `fetchAllMasters()` |
-| Occurrences actives | `date >= J-2`, scope per-master ou global | `syncActiveOccurrences()` |
-| Archive | `date < J+1`, tri `-date`, limit 100 | `fetchRecentPastOccurrences()` |
+| Opération           | Borne                                        | Module                         |
+| ------------------- | -------------------------------------------- | ------------------------------ |
+| Masters             | aucun filtre `date` (un record par planning) | `fetchAllMasters()`            |
+| Occurrences actives | `date >= J-2`, scope per-master ou global    | `syncActiveOccurrences()`      |
+| Archive             | `date < J+1`, tri `-date`, limit 100         | `fetchRecentPastOccurrences()` |
 
 `src/lib/data/planningSync.ts` est le **point de passage obligé** : l'invariant « pas de
 curseur client » y vit structurellement, puisque personne ne doit appeler `initialFetch`
@@ -123,11 +123,11 @@ concerné (il compare le body à `original()`, pas à `updated`).
 `src/lib/pb-sync/retry.utils.ts` exporte un wrapper générique, sans référence métier —
 utilisable tel quel quand pb-sync sera extrait dans son propre dépôt.
 
-| Catégorie | Retry |
-| --- | --- |
-| `status >= 500`, `status === 0`, `TypeError` de fetch, timeout, abort | oui |
-| 4xx (400, 401, 403, 404, 409) | non |
-| `RecordDeletedError` | non |
+| Catégorie                                                             | Retry |
+| --------------------------------------------------------------------- | ----- |
+| `status >= 500`, `status === 0`, `TypeError` de fetch, timeout, abort | oui   |
+| 4xx (400, 401, 403, 404, 409)                                         | non   |
+| `RecordDeletedError`                                                  | non   |
 
 Backoff exponentiel avec **full jitter** : `delay = random() * min(cap, base * 2^attempt)`.
 Le jitter répartit les retries sur la fenêtre exponentielle, ce qui évite que tous les
@@ -146,13 +146,13 @@ se déclenche qu'à l'échec final.
 
 ## Déclencheurs de re-sync
 
-| Moment | Chemin |
-| --- | --- |
-| Boot d'un Compte | `userStore.#subscribeAuth()`, via `syncAuthData` |
-| Transition guest → auth | `runAuthTransition()` étape 6, via `syncAuthData` (`auth-identity.md`) |
-| Reconnexion réseau | `networkStore` → `syncService.sync()` (Compte) ou `planningStore.refreshActive()` (Guest) |
-| Activation d'un planning | `planningStore.#activatePlanning()` étape 4 |
-| Entrée sur l'archive | `planningStore.refreshArchiveOccurrences()` |
+| Moment                   | Chemin                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| Boot d'un Compte         | `userStore.#subscribeAuth()`, via `syncAuthData`                                          |
+| Transition guest → auth  | `runAuthTransition()` étape 6, via `syncAuthData` (`auth-identity.md`)                    |
+| Reconnexion réseau       | `networkStore` → `syncService.sync()` (Compte) ou `planningStore.refreshActive()` (Guest) |
+| Activation d'un planning | `planningStore.#activatePlanning()` étape 4                                               |
+| Entrée sur l'archive     | `planningStore.refreshArchiveOccurrences()`                                               |
 
 `syncService.sync()` (mode Compte) est protégé par un mutex : deux appels concurrents ne
 déclenchent qu'une seule passe. Il revendique d'abord les plannings connus localement via

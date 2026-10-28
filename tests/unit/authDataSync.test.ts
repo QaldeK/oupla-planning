@@ -14,7 +14,7 @@ function createFetchDeps(order: string[]) {
 		}),
 		fetchOccurrences: vi.fn(async () => {
 			order.push("occurrences");
-		})
+		}),
 	};
 }
 

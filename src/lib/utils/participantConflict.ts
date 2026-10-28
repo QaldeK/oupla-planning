@@ -17,7 +17,7 @@ import type { Participant } from "$lib/types/planning.types";
 export function hasNameConflict(
 	participants: Participant[],
 	name: string,
-	currentUserId: string
+	currentUserId: string,
 ): boolean {
 	const normalized = name.trim().toLowerCase();
 	if (!normalized) return false;
@@ -26,6 +26,6 @@ export function hasNameConflict(
 			!p.hasQuit &&
 			p.userId !== currentUserId &&
 			p.id !== currentUserId &&
-			p.name.toLowerCase() === normalized
+			p.name.toLowerCase() === normalized,
 	);
 }

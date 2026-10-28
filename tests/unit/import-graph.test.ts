@@ -42,7 +42,7 @@ const ACCEPTED_EDGES = [
 	"src/lib/stores/planningStore.svelte.ts -> src/lib/stores/userStore.svelte.ts",
 	"src/lib/stores/userStore.svelte.ts -> src/lib/stores/authTransition.svelte.ts",
 	"src/lib/stores/authTransition.svelte.ts -> src/lib/stores/userStore.svelte.ts",
-	"src/lib/stores/authTransition.svelte.ts -> src/lib/stores/planningStore.svelte.ts"
+	"src/lib/stores/authTransition.svelte.ts -> src/lib/stores/planningStore.svelte.ts",
 ];
 
 const rel = (file: string) => relative(ROOT, file);
@@ -71,7 +71,7 @@ function scriptSources(file: string): string[] {
 /** Spécificateurs importés — statiques, dynamiques, side-effect, `export … from`. */
 function specifiersOf(file: string): string[] {
 	return scriptSources(file).flatMap((script) =>
-		ts.preProcessFile(script, true, true).importedFiles.map((imported) => imported.fileName)
+		ts.preProcessFile(script, true, true).importedFiles.map((imported) => imported.fileName),
 	);
 }
 
@@ -92,10 +92,10 @@ function resolveSpecifier(fromFile: string, specifier: string): string | null {
 		base.replace(/\.js$/, ".ts"),
 		base.replace(/\.js$/, ".svelte.ts"),
 		join(base, "index.ts"),
-		join(base, "index.svelte")
+		join(base, "index.svelte"),
 	];
 	const found = candidates.find(
-		(candidate) => existsSync(candidate) && statSync(candidate).isFile()
+		(candidate) => existsSync(candidate) && statSync(candidate).isFile(),
 	);
 	return found ?? null;
 }
@@ -178,7 +178,7 @@ function internalEdges(): Edge[] {
 describe("graphe d'imports de src/", () => {
 	it("déclare nommément chaque arête interne à une boucle", () => {
 		const undeclared = internalEdges().filter(
-			(edge) => !ACCEPTED_EDGES.includes(`${edge.from} -> ${edge.to}`)
+			(edge) => !ACCEPTED_EDGES.includes(`${edge.from} -> ${edge.to}`),
 		);
 
 		const report = [
@@ -190,30 +190,30 @@ describe("graphe d'imports de src/", () => {
 			"",
 			"Une arête `import type` se casse en sortant le type de l'un des deux modules.",
 			"Si l'arête est assumée, la déclarer nommément dans ACCEPTED_EDGES :",
-			...undeclared.map((edge) => `  "${edge.from} -> ${edge.to}",`)
+			...undeclared.map((edge) => `  "${edge.from} -> ${edge.to}",`),
 		].join("\n");
 
 		expect(
 			undeclared.map((edge) => `${edge.from} -> ${edge.to}`),
-			report
+			report,
 		).toEqual([]);
 	});
 
 	it("ne laisse ni data/ ni pb-sync/ dépendre d'un store", () => {
 		const offenders = FILES.filter((file) =>
-			STORE_FREE_DIRS.some((dir) => file.startsWith(`${dir}/`))
+			STORE_FREE_DIRS.some((dir) => file.startsWith(`${dir}/`)),
 		).flatMap((file) =>
 			specifiersOf(file)
 				.filter((specifier) => {
 					const target = resolveSpecifier(file, specifier);
 					return target ? target.startsWith(`${STORES_DIR}/`) : specifier.includes("/stores/");
 				})
-				.map((specifier) => `${rel(file)} -> ${specifier}`)
+				.map((specifier) => `${rel(file)} -> ${specifier}`),
 		);
 
 		expect(
 			offenders,
-			"`data/` et `pb-sync/` sont importés par toute la couche haute : un store en dépendance les rendrait indissociables de lui."
+			"`data/` et `pb-sync/` sont importés par toute la couche haute : un store en dépendance les rendrait indissociables de lui.",
 		).toEqual([]);
 	});
 });

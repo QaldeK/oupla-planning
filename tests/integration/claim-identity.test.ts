@@ -40,7 +40,7 @@ import {
 	clearTrackedIds,
 	seedPlanning,
 	seedUser,
-	trackIds
+	trackIds,
 } from "./seed";
 
 const USER_EMAIL = "claim-test@test.com";
@@ -49,7 +49,7 @@ const USER_PWD = "password123";
 // Helpers locaux pour mettre à jour directement les occurrences via admin
 async function adminUpdateOccurrence(
 	occId: string,
-	patch: { responses?: ParticipantResponse[]; comments?: any[] }
+	patch: { responses?: ParticipantResponse[]; comments?: any[] },
 ) {
 	const adminPb = await authenticateAdmin();
 	return await adminPb.collection("planning_occurrences").update(occId, patch);
@@ -104,12 +104,12 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-alice-1",
 				name: "Alice",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const { master, occurrences, participantToken } = await seedPlanning({
 				title: "Claim Test B",
 				participants: [guestParticipant],
-				occurrenceCount: 2
+				occurrenceCount: 2,
 			});
 
 			// Guest a répondu à l'occurrence 0
@@ -117,7 +117,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				participantId: "guest-alice-1",
 				response: "present",
 				tasks: [],
-				respondedAt: new Date().toISOString()
+				respondedAt: new Date().toISOString(),
 			};
 			await adminUpdateOccurrence(occurrences[0].id, { responses: [guestResponse] });
 
@@ -163,12 +163,12 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-bob",
 				name: "Bob",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const { master, occurrences, participantToken } = await seedPlanning({
 				title: "Comments Test",
 				participants: [guestParticipant],
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 
 			// Guest a commenté
@@ -176,7 +176,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "comment-1",
 				participantId: "guest-bob",
 				content: "Hello world",
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			await adminUpdateOccurrence(occurrences[0].id, { comments: [guestComment] });
 
@@ -215,19 +215,19 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-alice",
 				name: "Alice",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const authParticipant: Participant = {
 				id: "pbuser-auth", // différent de pbUser.id pour bien tester
 				name: "alice06",
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
-				userId: "will-be-replaced" // placeholder, mis à jour après seedUser
+				userId: "will-be-replaced", // placeholder, mis à jour après seedUser
 			};
 			const { master, occurrences, participantToken } = await seedPlanning({
 				title: "Conflict Test",
 				participants: [guestParticipant, authParticipant],
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 
 			// Les deux ont répondu différemment
@@ -237,15 +237,15 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 						participantId: "guest-alice",
 						response: "present",
 						tasks: [],
-						respondedAt: new Date().toISOString()
+						respondedAt: new Date().toISOString(),
 					},
 					{
 						participantId: "pbuser-auth",
 						response: "absent",
 						tasks: [],
-						respondedAt: new Date().toISOString()
-					}
-				]
+						respondedAt: new Date().toISOString(),
+					},
+				],
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
@@ -290,19 +290,19 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-eve",
 				name: "Eve",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const authParticipant: Participant = {
 				id: "pbuser-eve",
 				name: "eve88",
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
-				userId: "placeholder"
+				userId: "placeholder",
 			};
 			const { master, occurrences, participantToken } = await seedPlanning({
 				title: "Identical Test",
 				participants: [guestParticipant, authParticipant],
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 
 			// Les deux ont répondu present
@@ -312,21 +312,21 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 						participantId: "guest-eve",
 						response: "present",
 						tasks: [],
-						respondedAt: new Date().toISOString()
+						respondedAt: new Date().toISOString(),
 					},
 					{
 						participantId: "pbuser-eve",
 						response: "present",
 						tasks: [],
-						respondedAt: new Date().toISOString()
-					}
-				]
+						respondedAt: new Date().toISOString(),
+					},
+				],
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
 			trackIds("users", user.id);
 			await adminUpdateMaster(master.id, {
-				participants: [guestParticipant, { ...authParticipant, userId: user.id }]
+				participants: [guestParticipant, { ...authParticipant, userId: user.id }],
 			});
 
 			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -352,19 +352,19 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-mallory",
 				name: "Mallory",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const authParticipant: Participant = {
 				id: "pbuser-mallory",
 				name: "mal42",
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
-				userId: "placeholder"
+				userId: "placeholder",
 			};
 			const { master, occurrences, participantToken } = await seedPlanning({
 				title: "Migrate Test",
 				participants: [guestParticipant, authParticipant],
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 
 			// Seul guest a répondu
@@ -374,15 +374,15 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 						participantId: "guest-mallory",
 						response: "present",
 						tasks: [],
-						respondedAt: new Date().toISOString()
-					}
-				]
+						respondedAt: new Date().toISOString(),
+					},
+				],
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
 			trackIds("users", user.id);
 			await adminUpdateMaster(master.id, {
-				participants: [guestParticipant, { ...authParticipant, userId: user.id }]
+				participants: [guestParticipant, { ...authParticipant, userId: user.id }],
 			});
 
 			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -406,19 +406,19 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-carol",
 				name: "Carol",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const authParticipant: Participant = {
 				id: "pbuser-carol",
 				name: "carol99",
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
-				userId: "placeholder"
+				userId: "placeholder",
 			};
 			const { master, occurrences, participantToken } = await seedPlanning({
 				title: "Comments Merge Test",
 				participants: [guestParticipant, authParticipant],
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 
 			// Les deux ont commenté
@@ -428,21 +428,21 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 						id: "c-guest",
 						participantId: "guest-carol",
 						content: "Guest comment",
-						createdAt: new Date().toISOString()
+						createdAt: new Date().toISOString(),
 					},
 					{
 						id: "c-auth",
 						participantId: "pbuser-carol",
 						content: "Auth comment",
-						createdAt: new Date().toISOString()
-					}
-				]
+						createdAt: new Date().toISOString(),
+					},
+				],
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
 			trackIds("users", user.id);
 			await adminUpdateMaster(master.id, {
-				participants: [guestParticipant, { ...authParticipant, userId: user.id }]
+				participants: [guestParticipant, { ...authParticipant, userId: user.id }],
 			});
 
 			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -478,12 +478,12 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				name: "Quit User",
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
-				hasQuit: true
+				hasQuit: true,
 			};
 			const { master, participantToken } = await seedPlanning({
 				title: "HasQuit Test",
 				participants: [guestParticipant],
-				occurrenceCount: 0
+				occurrenceCount: 0,
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
@@ -493,7 +493,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(claimAs(master.id, "guest-quit", participantToken)).rejects.toMatchObject({
-				status: 409
+				status: 409,
 			});
 		});
 
@@ -506,12 +506,12 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				name: "Already Claimed",
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
-				userId: "other-user-id" // déjà claimé par quelqu'un d'autre
+				userId: "other-user-id", // déjà claimé par quelqu'un d'autre
 			};
 			const { master, participantToken } = await seedPlanning({
 				title: "Already Claimed Test",
 				participants: [claimedByOther],
-				occurrenceCount: 0
+				occurrenceCount: 0,
 			});
 
 			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -519,7 +519,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(claimAs(master.id, "guest-claimed", participantToken)).rejects.toMatchObject({
-				status: 409
+				status: 409,
 			});
 		});
 
@@ -527,7 +527,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			const { master, participantToken } = await seedPlanning({
 				title: "Not Found Test",
 				participants: [],
-				occurrenceCount: 0
+				occurrenceCount: 0,
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
@@ -537,7 +537,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(claimAs(master.id, "inexistant-id", participantToken)).rejects.toMatchObject({
-				status: 404
+				status: 404,
 			});
 		});
 
@@ -546,12 +546,12 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-token",
 				name: "Token Test",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const { master } = await seedPlanning({
 				title: "Token Invalid Test",
 				participants: [guestParticipant],
-				occurrenceCount: 0
+				occurrenceCount: 0,
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
@@ -561,7 +561,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(
-				claimAs(master.id, "guest-token", "invalid-token-not-matching")
+				claimAs(master.id, "guest-token", "invalid-token-not-matching"),
 			).rejects.toMatchObject({ status: 403 });
 		});
 
@@ -570,19 +570,19 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-noauth",
 				name: "NoAuth Test",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const { master, participantToken } = await seedPlanning({
 				title: "NoAuth Test",
 				participants: [guestParticipant],
-				occurrenceCount: 0
+				occurrenceCount: 0,
 			});
 
 			// Pas d'auth dans le singleton pb
 
 			// === ACTION + VERIFICATION ===
 			await expect(claimAs(master.id, "guest-noauth", participantToken)).rejects.toMatchObject({
-				status: 401
+				status: 401,
 			});
 		});
 
@@ -599,25 +599,25 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				name: "Auth Dup 1",
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
-				userId: user.id
+				userId: user.id,
 			};
 			const authParticipant2: Participant = {
 				id: "auth-dup-2",
 				name: "Auth Dup 2",
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
-				userId: user.id
+				userId: user.id,
 			};
 			const guestParticipant: Participant = {
 				id: "guest-target",
 				name: "Guest Target",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const { master, participantToken } = await seedPlanning({
 				title: "Dup UserId Test",
 				participants: [authParticipant1, authParticipant2, guestParticipant],
-				occurrenceCount: 0
+				occurrenceCount: 0,
 			});
 
 			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -625,7 +625,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 
 			// === ACTION + VERIFICATION ===
 			await expect(claimAs(master.id, "guest-target", participantToken)).rejects.toMatchObject({
-				status: 409
+				status: 409,
 			});
 		});
 
@@ -642,7 +642,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
 				userId: user.id,
-				hasQuit: true
+				hasQuit: true,
 			};
 			const activeParticipant: Participant = {
 				id: "auth-active",
@@ -650,18 +650,18 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
 				userId: user.id,
-				claimedAt: new Date().toISOString() // déjà revendiqué → doit déclencher le guard claimedAt
+				claimedAt: new Date().toISOString(), // déjà revendiqué → doit déclencher le guard claimedAt
 			};
 			const guestParticipant: Participant = {
 				id: "guest-new",
 				name: "Guest New",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const { master, participantToken } = await seedPlanning({
 				title: "HasQuit Filter Test",
 				participants: [quitParticipant, activeParticipant, guestParticipant],
-				occurrenceCount: 0
+				occurrenceCount: 0,
 			});
 
 			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -673,7 +673,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			// (avec claimedAt) ne serait jamais vérifié. Avec le filtre, on détecte
 			// bien l'actif et son claimedAt → 409.
 			await expect(claimAs(master.id, "guest-new", participantToken)).rejects.toMatchObject({
-				status: 409
+				status: 409,
 			});
 		});
 	});
@@ -689,25 +689,25 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-multi",
 				name: "Multi Guest",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const authParticipant: Participant = {
 				id: "pbuser-multi",
 				name: "Multi Auth",
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
-				userId: "placeholder"
+				userId: "placeholder",
 			};
 			const { master, occurrences, participantToken } = await seedPlanning({
 				title: "Multi Test",
 				participants: [guestParticipant, authParticipant],
-				occurrenceCount: 3
+				occurrenceCount: 3,
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
 			trackIds("users", user.id);
 			await adminUpdateMaster(master.id, {
-				participants: [guestParticipant, { ...authParticipant, userId: user.id }]
+				participants: [guestParticipant, { ...authParticipant, userId: user.id }],
 			});
 
 			// Occ 0 : conflit (present vs absent)
@@ -717,15 +717,15 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 						participantId: "guest-multi",
 						response: "present",
 						tasks: [],
-						respondedAt: new Date().toISOString()
+						respondedAt: new Date().toISOString(),
 					},
 					{
 						participantId: "pbuser-multi",
 						response: "absent",
 						tasks: [],
-						respondedAt: new Date().toISOString()
-					}
-				]
+						respondedAt: new Date().toISOString(),
+					},
+				],
 			});
 
 			// Occ 1 : identical (present partout)
@@ -735,15 +735,15 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 						participantId: "guest-multi",
 						response: "present",
 						tasks: [],
-						respondedAt: new Date().toISOString()
+						respondedAt: new Date().toISOString(),
 					},
 					{
 						participantId: "pbuser-multi",
 						response: "present",
 						tasks: [],
-						respondedAt: new Date().toISOString()
-					}
-				]
+						respondedAt: new Date().toISOString(),
+					},
+				],
 			});
 
 			// Occ 2 : seul guest a répondu
@@ -753,9 +753,9 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 						participantId: "guest-multi",
 						response: "maybe",
 						tasks: [],
-						respondedAt: new Date().toISOString()
-					}
-				]
+						respondedAt: new Date().toISOString(),
+					},
+				],
 			});
 
 			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
@@ -810,12 +810,12 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-alice-claimed",
 				name: "Alice",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const { master, participantToken } = await seedPlanning({
 				title: "ClaimedAt Test",
 				participants: [guestParticipant],
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
@@ -838,12 +838,12 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			// === SEED : 2 guests (Alice + Bob) ===
 			const guests: Participant[] = [
 				{ id: "guest-alice-2", name: "Alice", isAdmin: false, createdAt: new Date().toISOString() },
-				{ id: "guest-bob-2", name: "Bob", isAdmin: false, createdAt: new Date().toISOString() }
+				{ id: "guest-bob-2", name: "Bob", isAdmin: false, createdAt: new Date().toISOString() },
 			];
 			const { master, participantToken } = await seedPlanning({
 				title: "Multi Claim Test",
 				participants: guests,
-				occurrenceCount: 0
+				occurrenceCount: 0,
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
@@ -858,7 +858,7 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 			// Alice a maintenant userId + claimedAt ; Bob est toujours non-lié
 			// === 2e revendication : Bob (doit échouer — l'auth a déjà claimedAt) ===
 			await expect(claimAs(master.id, "guest-bob-2", participantToken)).rejects.toMatchObject({
-				status: 409
+				status: 409,
 			});
 
 			// Bob n'a pas été claimé (toujours pas de userId)
@@ -876,12 +876,12 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				id: "guest-alice-c",
 				name: "Alice",
 				isAdmin: false,
-				createdAt: new Date().toISOString()
+				createdAt: new Date().toISOString(),
 			};
 			const { master, participantToken } = await seedPlanning({
 				title: "CAS C Valid Claim",
 				participants: [guestParticipant],
-				occurrenceCount: 0
+				occurrenceCount: 0,
 			});
 
 			const user = await seedUser(USER_EMAIL, USER_PWD, "Auth User");
@@ -895,11 +895,11 @@ describe("claimParticipantIdentity — migration guest → auth", () => {
 				name: "Auth User",
 				isAdmin: false,
 				createdAt: new Date().toISOString(),
-				userId: user.id
+				userId: user.id,
 				// PAS de claimedAt → l'auth peut encore revendiquer
 			};
 			await adminUpdateMaster(master.id, {
-				participants: [guestParticipant, authParticipant]
+				participants: [guestParticipant, authParticipant],
 			});
 
 			// === Revendication de Alice : doit réussir (le guard ne bloque pas) ===

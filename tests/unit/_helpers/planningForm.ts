@@ -33,7 +33,7 @@ export function makeMaster(overrides: Partial<PlanningMaster> = {}): PlanningMas
 		participants: [],
 		created: "2025-01-01T00:00:00Z",
 		updated: "2025-01-01T00:00:00Z",
-		...overrides
+		...overrides,
 	};
 }
 
@@ -52,7 +52,7 @@ export function makeOccurrence(overrides: Partial<PlanningOccurrence> = {}): Pla
 		isCanceled: false,
 		created: "2025-01-01T00:00:00Z",
 		updated: "2025-01-01T00:00:00Z",
-		...overrides
+		...overrides,
 	};
 }
 

@@ -102,8 +102,8 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 			{
 				method: "POST",
 				body: { lockedBy: "userA", lockedByName: "Alice" },
-				query: { _token: adminToken }
-			}
+				query: { _token: adminToken },
+			},
 		);
 
 		expect(res.lockedBy).toBe("userA");
@@ -124,7 +124,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		const first = await pb.send<{ lockedAt: string }>(`/api/lock/${master.id}`, {
 			method: "POST",
 			body: { lockedBy: "userA" },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 
 		// Force un delta visible (l'autodate a une précision ms)
@@ -133,7 +133,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		const second = await pb.send<{ lockedAt: string }>(`/api/lock/${master.id}`, {
 			method: "POST",
 			body: { lockedBy: "userA" },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 
 		expect(new Date(second.lockedAt).getTime()).toBeGreaterThan(new Date(first.lockedAt).getTime());
@@ -150,7 +150,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		await pb.send(`/api/lock/${master.id}`, {
 			method: "POST",
 			body: { lockedBy: "userA", lockedByName: "Alice" },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 
 		// userB tente → 409
@@ -159,7 +159,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 			await pb.send(`/api/lock/${master.id}`, {
 				method: "POST",
 				body: { lockedBy: "userB" },
-				query: { _token: adminToken }
+				query: { _token: adminToken },
 			});
 		} catch (err: any) {
 			caught = err;
@@ -183,7 +183,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		await pb.send(`/api/lock/${master.id}`, {
 			method: "POST",
 			body: { lockedBy: "userA" },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 
 		// Simule l'expiration : on vieillit lockedAt de 6 min (TTL = 5 min) directement
@@ -194,7 +194,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		const res = await pb.send<{ lockedBy: string }>(`/api/lock/${master.id}`, {
 			method: "POST",
 			body: { lockedBy: "userB" },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 
 		expect(res.lockedBy).toBe("userB");
@@ -210,13 +210,13 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		await pb.send(`/api/lock/${master.id}`, {
 			method: "POST",
 			body: { lockedBy: "userA" },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 
 		const res = await pb.send<{ released: boolean }>(`/api/unlock/${master.id}`, {
 			method: "POST",
 			body: { lockedBy: "userA" },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 
 		expect(res.released).toBe(true);
@@ -237,7 +237,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		await pb.send(`/api/lock/${master.id}`, {
 			method: "POST",
 			body: { lockedBy: "userA" },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 
 		let caught: any;
@@ -245,7 +245,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 			await pb.send(`/api/unlock/${master.id}`, {
 				method: "POST",
 				body: { lockedBy: "userB" },
-				query: { _token: adminToken }
+				query: { _token: adminToken },
 			});
 		} catch (err: any) {
 			caught = err;
@@ -271,7 +271,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 			await pb.send(`/api/lock/${master.id}`, {
 				method: "POST",
 				body: { lockedBy: "userA" },
-				query: { _token: "wrongtoken" }
+				query: { _token: "wrongtoken" },
 			});
 		} catch (err: any) {
 			caught = err;
@@ -293,7 +293,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 			await pb.send(`/api/lock/${master.id}`, {
 				method: "POST",
 				body: { lockedByName: "NoUser" },
-				query: { _token: adminToken }
+				query: { _token: adminToken },
 			});
 		} catch (err: any) {
 			caught = err;
@@ -313,7 +313,7 @@ describe("R5.3 — Verrouillage d édition admin (routes /api/lock, /api/unlock)
 		const res = await pb.send<{ released: boolean }>(`/api/unlock/${master.id}`, {
 			method: "POST",
 			body: { lockedBy: "userA" },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 
 		expect(res.released).toBe(true);

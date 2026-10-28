@@ -210,13 +210,13 @@ flowchart LR
 
 ## Modules
 
-| File                       | Purpose                                                     |
-| -------------------------- | ----------------------------------------------------------- |
-| `collection.ts`            | `createSyncCollection()` — main bridge API                  |
-| `types.ts`                 | Shared TypeScript types                                     |
-| `db.ts`                    | Dexie database schema (`appDB`)                             |
+| File                       | Purpose                                                                                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `collection.ts`            | `createSyncCollection()` — main bridge API                                                                                                                       |
+| `types.ts`                 | Shared TypeScript types                                                                                                                                          |
+| `db.ts`                    | Dexie database schema (`appDB`)                                                                                                                                  |
 | `batch.ts`                 | Standalone `executeMultiCollectionBatch()` for multi-collection operations: atomic PB batch, Dexie reconcile from confirmed responses (non-optimistic, ADR-0018) |
-| `use-live-query.svelte.ts` | Svelte 5 reactive wrapper around Dexie `liveQuery`          |
+| `use-live-query.svelte.ts` | Svelte 5 reactive wrapper around Dexie `liveQuery`                                                                                                               |
 
 ---
 
@@ -259,12 +259,12 @@ client-side strategy runs into.
 
 #### Lifecycle
 
-| Method           | Signature                                                  | Description                                                                                                                                      |
-| ---------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `initialFetch`   | `(params?: InitialFetchOptions) => Promise<void>`               | Incremental sync: fetches records updated since the last local `updated` watermark (or an explicit `since`), then reconciles server-side deletions via `tombstoneCollection`. |
-| `subscribe`      | `(params?: PbSubscribeOptions) => SubscriptionRef`         | Opens a PocketBase realtime subscription. Events are applied to Dexie. Returns a `SubscriptionRef` for later unsubscription.                     |
-| `unsubscribe`    | `(subRefOrId: SubscriptionRef \| string) => Promise<void>` | Closes one subscription (its own listener), leaving the collection's other subscriptions attached.                                                                                                         |
-| `unsubscribeAll` | `() => Promise<void>`                                      | Closes all active realtime subscriptions for this collection.                                                                                    |
+| Method           | Signature                                                  | Description                                                                                                                                                                   |
+| ---------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initialFetch`   | `(params?: InitialFetchOptions) => Promise<void>`          | Incremental sync: fetches records updated since the last local `updated` watermark (or an explicit `since`), then reconciles server-side deletions via `tombstoneCollection`. |
+| `subscribe`      | `(params?: PbSubscribeOptions) => SubscriptionRef`         | Opens a PocketBase realtime subscription. Events are applied to Dexie. Returns a `SubscriptionRef` for later unsubscription.                                                  |
+| `unsubscribe`    | `(subRefOrId: SubscriptionRef \| string) => Promise<void>` | Closes one subscription (its own listener), leaving the collection's other subscriptions attached.                                                                            |
+| `unsubscribeAll` | `() => Promise<void>`                                      | Closes all active realtime subscriptions for this collection.                                                                                                                 |
 
 #### Realtime Semantics (PocketBase SDK)
 
@@ -326,7 +326,7 @@ Factory that creates a merge strategy for array fields. Merges local and remote 
 ```ts
 // Example: merge participants by 'id'
 mergeStrategies: {
-	participants: mergeByKey<Participant>('id');
+	participants: mergeByKey<Participant>("id");
 }
 ```
 
@@ -339,7 +339,7 @@ Svelte 5 reactive wrapper. Must be called from a component `<script>` block (req
 ```ts
 const query = useLiveQuery(
 	() => db.masters.get(masterId),
-	() => [masterId] // optional reactive deps
+	() => [masterId], // optional reactive deps
 );
 
 // query.current  — latest value
@@ -412,15 +412,15 @@ anywhere — stores and services both consume them, without a cycle.
 export const mastersCollection = createSyncCollection<PlanningMaster>(
 	pb,
 	db.masters,
-	'planning_masters',
-	{ onSubscriptionChange: notifySubscriptionChange }
+	"planning_masters",
+	{ onSubscriptionChange: notifySubscriptionChange },
 );
 
 export const occurrencesCollection = createSyncCollection<PlanningOccurrence>(
 	pb,
 	db.occurrences,
-	'planning_occurrences',
-	{ onSubscriptionChange: notifySubscriptionChange }
+	"planning_occurrences",
+	{ onSubscriptionChange: notifySubscriptionChange },
 );
 ```
 
@@ -445,8 +445,8 @@ await syncActiveOccurrences({ masterId: master.id, token });
 // 4b. Guest branch: individual realtime subscribe
 mastersCollection.subscribe({ record: master.id, query: { _token: token } });
 occurrencesCollection.subscribe({
-	filter: ['master = {:masterId}', { masterId: master.id }],
-	query: { _token: token }
+	filter: ["master = {:masterId}", { masterId: master.id }],
+	query: { _token: token },
 });
 ```
 
@@ -458,7 +458,7 @@ Both auth and guest branches subscribe to Dexie `liveQuery` for reactive UI upda
 this.#masterSub = liveQuery(() => db.masters.get(masterId)).subscribe({
 	next: (val) => {
 		this.#master = val ?? null;
-	}
+	},
 });
 ```
 
@@ -489,7 +489,7 @@ Components use `useLiveQuery` for local Dexie tables that aren't covered by the 
 ```ts
 const commentStateQuery = useLiveQuery(
 	() => db.commentState.get(occurrence.id),
-	() => [occurrence.id]
+	() => [occurrence.id],
 );
 ```
 
@@ -508,10 +508,10 @@ occurrencesCollection.unsubscribeAll();
 
 ```ts
 // Dexie tables (appDB)
-masters: 'id, updated, participantToken, adminToken, deleted';
-occurrences: 'id, updated, master, date, deleted';
-localMeta: 'masterId';
-commentState: 'occurrenceId, masterId, isUserInConversation, lastReadAt';
+masters: "id, updated, participantToken, adminToken, deleted";
+occurrences: "id, updated, master, date, deleted";
+localMeta: "masterId";
+commentState: "occurrenceId, masterId, isUserInConversation, lastReadAt";
 ```
 
 A `dbcore` middleware strips Svelte 5 `$state` Proxy objects before Dexie writes (IndexedDB `structuredClone` cannot handle Proxies).

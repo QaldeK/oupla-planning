@@ -46,25 +46,25 @@ hook, compter côté cron) appartient à l'appelant.
 
 ## Canaux
 
-| | Email | Push |
-| --- | --- | --- |
-| Émetteur | `MailerMessage` (SMTP PocketBase) | service Docker `notify-service`, `POST /notify` |
-| Granularité | 1 email par (utilisateur, planning), multipart HTML + texte | 1 push par événement, non agrégé |
-| Préférence | `email` | `push`, plus `onOccurrenceChange` / `onConfirmationNeeded` selon le type |
+|             | Email                                                       | Push                                                                     |
+| ----------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Émetteur    | `MailerMessage` (SMTP PocketBase)                           | service Docker `notify-service`, `POST /notify`                          |
+| Granularité | 1 email par (utilisateur, planning), multipart HTML + texte | 1 push par événement, non agrégé                                         |
+| Préférence  | `email`                                                     | `push`, plus `onOccurrenceChange` / `onConfirmationNeeded` selon le type |
 
 Les canaux sont **indépendants** : un participant peut recevoir l'un sans l'autre. Le
 service de push est externe (ADR-0005) ; il vit hors de ce dépôt.
 
 ## Table `notification_events`
 
-| Champ | Type | Rôle |
-| --- | --- | --- |
-| `type` | text | voir la liste ci-dessous |
-| `master` / `occurrence` | relation | cible |
-| `reminderValue` | number | J-X ; `0` pour les change events |
-| `changedBy` | text | userId de l'auteur, pour les change events |
-| `payload` | json | contexte (avant/après pour un changement d'horaire, compteurs pour les missings) |
-| `processedAt` | datetime | état terminal (consommé ou mort) ; vide = attente de retry email |
+| Champ                   | Type     | Rôle                                                                             |
+| ----------------------- | -------- | -------------------------------------------------------------------------------- |
+| `type`                  | text     | voir la liste ci-dessous                                                         |
+| `master` / `occurrence` | relation | cible                                                                            |
+| `reminderValue`         | number   | J-X ; `0` pour les change events                                                 |
+| `changedBy`             | text     | userId de l'auteur, pour les change events                                       |
+| `payload`               | json     | contexte (avant/après pour un changement d'horaire, compteurs pour les missings) |
+| `processedAt`           | datetime | état terminal (consommé ou mort) ; vide = attente de retry email                 |
 
 Types : `reminder`, `quorum_missing`, `task_unassigned`, `confirmation_needed`,
 `status_canceled`, `status_deleted`, `schedule_change`, `status_confirmed`, `new_comment`.
@@ -77,12 +77,12 @@ canaux — un email qui échoue (même pour un seul destinataire d'un agrégat)
 n'affecte ni le push, ni les autres destinataires — et garantit exactement un
 email par (event, user), quelle que soit la cause d'échec.
 
-| Champ | Rôle |
-| --- | --- |
-| `event` / `user` | relation en cascade (purge des events, suppression de compte) |
-| `master` | dénormalisé pour le bucketing agrégé |
+| Champ                           | Rôle                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `event` / `user`                | relation en cascade (purge des events, suppression de compte)                                           |
+| `master`                        | dénormalisé pour le bucketing agrégé                                                                    |
 | `emailSentAt` / `emailWaivedAt` | email : `''` = dû ; sinon envoyé ou renoncé (opt-out `email`, déjà lu, départ durable, clôture de mort) |
-| `pushSentAt` / `pushWaivedAt` | push : `''` = dû ; sinon envoyé ou renoncé (pref `push` off, type non-J-X, départ durable, clôture) |
+| `pushSentAt` / `pushWaivedAt`   | push : `''` = dû ; sinon envoyé ou renoncé (pref `push` off, type non-J-X, départ durable, clôture)     |
 
 Index unique `(event, user)` ; API Rules toutes verrouillées (table interne,
 écrite uniquement par le cron). `notification-deliveries.cjs` est la porte
@@ -104,12 +104,12 @@ Cron `0 0 * * *` (00h UTC).
 **Phase 1 — détection J-X.** Parcourt les occurrences de `[aujourd'hui, aujourd'hui+20j]`
 et insère les événements dus :
 
-| Type | Condition |
-| --- | --- |
-| `reminder` | J-X dans les `reminderDays` d'un participant, occurrence avec au moins une présence ou une tâche assignée |
-| `quorum_missing` | J-X dans les `missingDays` d'un participant, présents < `minPresentRequired` |
-| `task_unassigned` | J-X dans les `missingDays` d'un participant, une tâche a moins d'inscrits que `requiredVolunteers` |
-| `confirmation_needed` | master à `toConfirm`, occurrence non confirmée |
+| Type                  | Condition                                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| `reminder`            | J-X dans les `reminderDays` d'un participant, occurrence avec au moins une présence ou une tâche assignée |
+| `quorum_missing`      | J-X dans les `missingDays` d'un participant, présents < `minPresentRequired`                              |
+| `task_unassigned`     | J-X dans les `missingDays` d'un participant, une tâche a moins d'inscrits que `requiredVolunteers`        |
+| `confirmation_needed` | master à `toConfirm`, occurrence non confirmée                                                            |
 
 **Phase 2 — consommation via le registre.** Consomme les lignes non traitées
 dans l'ordre : clôture résiduelle (delivery due sur un event qui n'est plus
@@ -177,13 +177,13 @@ abonnés l'apprennent.
 participants actifs authentifiés (`userId` défini, `hasQuit !== true`), puis la préférence
 métier du type d'événement, puis le filtre de réponse.
 
-| Type | Réponses retenues |
-| --- | --- |
-| `schedule_change`, `status_canceled`, `status_deleted`, `status_confirmed` | non-absent |
-| `reminder` | présent, ou inscrit à au moins une tâche |
-| `quorum_missing`, `task_unassigned` | non-absent, sans-réponse inclus |
-| `confirmation_needed` | tous (filtrés ensuite par `onConfirmationNeeded`) |
-| `new_comment` | **dynamic** — dépend de `newCommentScope` du participant : `concerned` → sa réaction ou une tâche, `all` → tout le planning |
+| Type                                                                       | Réponses retenues                                                                                                           |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `schedule_change`, `status_canceled`, `status_deleted`, `status_confirmed` | non-absent                                                                                                                  |
+| `reminder`                                                                 | présent, ou inscrit à au moins une tâche                                                                                    |
+| `quorum_missing`, `task_unassigned`                                        | non-absent, sans-réponse inclus                                                                                             |
+| `confirmation_needed`                                                      | tous (filtrés ensuite par `onConfirmationNeeded`)                                                                           |
+| `new_comment`                                                              | **dynamic** — dépend de `newCommentScope` du participant : `concerned` → sa réaction ou une tâche, `all` → tout le planning |
 
 Le filtre par canal (`email`, `push`) est appliqué au point d'usage, pas dans
 `computeRecipients`.
@@ -193,14 +193,14 @@ Le filtre par canal (`email`, `push`) est appliqué au point d'usage, pas dans
 Elles vivent sur `planning_participants` — une ligne par (utilisateur, planning) — et non
 sur le compte : on peut vouloir les rappels sur un planning et pas sur un autre.
 
-| Champ | Défaut |
-| --- | --- |
-| `push` | false — le prompt de permission reste un geste utilisateur explicite |
-| `email` | true |
-| `onOccurrenceChange` | true |
-| `onConfirmationNeeded` | false |
-| `reminderDays` / `missingDays` | dérivés du `recurrenceType` du master |
-| `newCommentScope` | `all` pour un admin, `concerned` sinon |
+| Champ                          | Défaut                                                               |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `push`                         | false — le prompt de permission reste un geste utilisateur explicite |
+| `email`                        | true                                                                 |
+| `onOccurrenceChange`           | true                                                                 |
+| `onConfirmationNeeded`         | false                                                                |
+| `reminderDays` / `missingDays` | dérivés du `recurrenceType` du master                                |
+| `newCommentScope`              | `all` pour un admin, `concerned` sinon                               |
 
 `getDefaultPlanningPrefs()` n'est appelé **qu'à la création** d'un participant : une
 promotion en admin ne réécrit pas une préférence déjà exprimée (ADR-0011).
@@ -218,13 +218,13 @@ unique, `p256dh`, `auth`, `user_agent`, `refreshed_at` (ADR-0014).
 jamais aux souscriptions : confondre les deux désabonnait l'utilisateur de tous ses
 plannings.
 
-| Fonction (`src/lib/services/push.ts`) | Rôle |
-| --- | --- |
+| Fonction (`src/lib/services/push.ts`)          | Rôle                                                                                                                                                                                                                                         |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `syncPushSubscription({ requestPermission? })` | idempotente et silencieuse : opt-out local ou non authentifié → no-op ; permission non accordée → no-op (jamais de prompt implicite) ; souscription existante → upsert serveur ; sinon, souscription VAPID seulement si un planning a `push` |
-| `detachCurrentDeviceFromAccount()` | logout : retire la ligne serveur **sans** détruire la souscription navigateur |
-| `removeCurrentDevice()` | retrait depuis les settings ; pose aussi un opt-out local persistant, sans quoi le prochain sync recréerait la ligne |
-| `removeRemoteDevice(id)` | retrait d'un autre appareil |
-| `clearPushOptOut()` | lève l'opt-out à une réactivation explicite |
+| `detachCurrentDeviceFromAccount()`             | logout : retire la ligne serveur **sans** détruire la souscription navigateur                                                                                                                                                                |
+| `removeCurrentDevice()`                        | retrait depuis les settings ; pose aussi un opt-out local persistant, sans quoi le prochain sync recréerait la ligne                                                                                                                         |
+| `removeRemoteDevice(id)`                       | retrait d'un autre appareil                                                                                                                                                                                                                  |
+| `clearPushOptOut()`                            | lève l'opt-out à une réactivation explicite                                                                                                                                                                                                  |
 
 `syncPushSubscription` est appelé à la connexion et à chaque visite déjà authentifiée :
 c'est ce qui rattrape une rotation des clés du navigateur.

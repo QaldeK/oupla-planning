@@ -10,7 +10,7 @@ import {
 	ARCHIVE_FETCH_LIMIT,
 	archiveOccurrencesFilter,
 	recentOccurrencesFilter,
-	UNBOUNDED_SINCE
+	UNBOUNDED_SINCE,
 } from "$lib/utils/syncWindow";
 import { mastersCollection, occurrencesCollection } from "./collections";
 
@@ -35,7 +35,7 @@ export async function syncActiveOccurrences(options?: SyncActiveOccurrencesOptio
 	await occurrencesCollection.initialFetch({
 		filter: recentOccurrencesFilter(options?.masterId),
 		...(options?.token ? { query: { _token: options.token } } : {}),
-		since: UNBOUNDED_SINCE
+		since: UNBOUNDED_SINCE,
 	});
 }
 
@@ -49,6 +49,6 @@ export async function fetchRecentPastOccurrences(masterId: string, token: string
 		query: { _token: token },
 		since: UNBOUNDED_SINCE,
 		sort: "-date",
-		limit: ARCHIVE_FETCH_LIMIT
+		limit: ARCHIVE_FETCH_LIMIT,
 	});
 }

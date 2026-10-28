@@ -3,7 +3,7 @@ import {
 	startOfWeek as dateFnsStartOfWeek,
 	format,
 	isValid,
-	parse
+	parse,
 } from "date-fns";
 import { enUS, fr } from "date-fns/locale";
 import { getLocale } from "$lib/paraglide/runtime.js";

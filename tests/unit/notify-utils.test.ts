@@ -7,7 +7,7 @@ function mockLogger() {
 	return {
 		info: vi.fn(),
 		error: vi.fn(),
-		warn: vi.fn()
+		warn: vi.fn(),
 	};
 }
 
@@ -19,12 +19,12 @@ function mockApp(overrides: Record<string, any> = {}) {
 		settings: vi.fn(() => ({
 			meta: {
 				senderAddress: "noreply@oupla.net",
-				senderName: "Oupla Planning"
-			}
+				senderName: "Oupla Planning",
+			},
 		})),
 		newMailClient: vi.fn(() => ({ send: vi.fn() })),
 		_logger: logger,
-		...overrides
+		...overrides,
 	};
 }
 
@@ -33,7 +33,7 @@ function mockUser(overrides: { id?: string; email?: string } = {}) {
 		get: vi.fn((key: string) => (key === "id" ? (overrides.id ?? "user-1") : undefined)),
 		getId: vi.fn(() => overrides.id ?? "user-1"),
 		email: vi.fn(() => overrides.email ?? "user@test.com"),
-		set: vi.fn()
+		set: vi.fn(),
 	};
 }
 
@@ -42,15 +42,15 @@ function mockUser(overrides: { id?: string; email?: string } = {}) {
  * comme en JSVM.
  */
 function mockSubscriptionRow(
-	overrides: { endpoint?: string; p256dh?: string; auth?: string } = {}
+	overrides: { endpoint?: string; p256dh?: string; auth?: string } = {},
 ) {
 	const data = {
 		endpoint: overrides.endpoint ?? "https://push.example/abc",
 		p256dh: overrides.p256dh ?? "key-p256dh",
-		auth: overrides.auth ?? "key-auth"
+		auth: overrides.auth ?? "key-auth",
 	};
 	return {
-		getString: vi.fn((key: string) => data[key as keyof typeof data])
+		getString: vi.fn((key: string) => data[key as keyof typeof data]),
 	};
 }
 
@@ -133,7 +133,7 @@ describe("sendPushNotification", () => {
 
 		const rows = [
 			mockSubscriptionRow({ endpoint: "https://push.example/abc" }),
-			mockSubscriptionRow({ endpoint: "https://push.example/def" })
+			mockSubscriptionRow({ endpoint: "https://push.example/def" }),
 		];
 		app.findRecordsByFilter = vi.fn(() => rows);
 
@@ -157,7 +157,7 @@ describe("sendPushNotification", () => {
 		const send = vi.fn(() => ({ statusCode: 200 }));
 		(globalThis as any).$http = { send };
 		(globalThis as any).$os = {
-			getenv: vi.fn((k: string) => (k === "PUBLIC_BASE_URL" ? "http://localhost:5173/" : ""))
+			getenv: vi.fn((k: string) => (k === "PUBLIC_BASE_URL" ? "http://localhost:5173/" : "")),
 		};
 		app.findRecordsByFilter = vi.fn(() => [mockSubscriptionRow()]);
 
@@ -172,7 +172,7 @@ describe("sendPushNotification", () => {
 		const deadRow = mockSubscriptionRow({ endpoint: "https://push.example/gone" });
 		const aliveRow = mockSubscriptionRow({ endpoint: "https://push.example/ok" });
 		const send = vi.fn(({ body }: { body: string }) => ({
-			statusCode: body.includes("gone") ? 410 : 200
+			statusCode: body.includes("gone") ? 410 : 200,
 		}));
 		(globalThis as any).$http = { send };
 
@@ -219,7 +219,7 @@ describe("sendPushNotification", () => {
 			"userId",
 			"u1",
 			"endpoint",
-			"https://push.example/abc"
+			"https://push.example/abc",
 		);
 	});
 
@@ -239,7 +239,7 @@ describe("sendPushNotification", () => {
 			"userId",
 			"u1",
 			"url",
-			"/p/x"
+			"/p/x",
 		);
 	});
 });
@@ -277,7 +277,7 @@ describe("sendIndividualEmail", () => {
 		expect(calls).toHaveLength(1);
 		expect(calls[0].from).toEqual({
 			address: "noreply@oupla.net",
-			name: "Oupla Planning"
+			name: "Oupla Planning",
 		});
 		expect(calls[0].to).toEqual([{ address: "alice@test.com" }]);
 		expect(calls[0].subject).toBe("Subject");
@@ -291,7 +291,7 @@ describe("sendIndividualEmail", () => {
 		const user = mockUser({ id: "u1", email: "alice@test.com" });
 		const headers = {
 			"Reply-To": "support@oupla.net",
-			"X-Entity-Ref-ID": "master-m1-" + Date.now()
+			"X-Entity-Ref-ID": "master-m1-" + Date.now(),
 		};
 
 		sendIndividualEmail(app, user, "Subject", "<p>HTML</p>", "TEXT body", { headers });
@@ -309,7 +309,7 @@ describe("sendIndividualEmail", () => {
 			"userId",
 			"u1",
 			"subject",
-			"Subject"
+			"Subject",
 		);
 	});
 
@@ -330,7 +330,7 @@ describe("sendIndividualEmail", () => {
 			"userId",
 			"u1",
 			"subject",
-			"Subject"
+			"Subject",
 		);
 	});
 });

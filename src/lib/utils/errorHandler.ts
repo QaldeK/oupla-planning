@@ -8,7 +8,7 @@ export function classifyError(err: unknown): {
 		return {
 			type: "offline",
 			message: "Vous êtes hors ligne - Vérifiez votre connexion",
-			shouldNotifyAdmin: false
+			shouldNotifyAdmin: false,
 		};
 	}
 
@@ -27,7 +27,7 @@ export function classifyError(err: unknown): {
 		return {
 			type: "server-down",
 			message: "Serveur momentanément indisponible - Réessayez dans un instant",
-			shouldNotifyAdmin: true
+			shouldNotifyAdmin: true,
 		};
 	}
 
@@ -36,7 +36,7 @@ export function classifyError(err: unknown): {
 		return {
 			type: "server-down",
 			message: "Serveur momentanément indisponible - Réessayez dans un instant",
-			shouldNotifyAdmin: true
+			shouldNotifyAdmin: true,
 		};
 	}
 
@@ -47,7 +47,7 @@ export function classifyError(err: unknown): {
 			return {
 				type: "business",
 				message: pbError.data.message,
-				shouldNotifyAdmin: false
+				shouldNotifyAdmin: false,
 			};
 		}
 	}
@@ -56,6 +56,6 @@ export function classifyError(err: unknown): {
 	return {
 		type: "unknown",
 		message: "Erreur inattendue - Réessayez plus tard",
-		shouldNotifyAdmin: true
+		shouldNotifyAdmin: true,
 	};
 }

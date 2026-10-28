@@ -36,7 +36,7 @@ export type MultiCollectionBatchOperation = {
  */
 export async function executeMultiCollectionBatch(
 	pb: PocketBase,
-	operations: MultiCollectionBatchOperation[]
+	operations: MultiCollectionBatchOperation[],
 ): Promise<void> {
 	if (operations.length === 0) return;
 

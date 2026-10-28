@@ -253,7 +253,7 @@
 	</div>
 
 	<!-- Section Langue -->
-	<div class="card card-compact bg-base-200 shadow-xl mb-6">
+	<div class="card card-compact bg-base-200 mb-6 shadow-xl">
 		<div class="card-body">
 			<h3 class="card-title text-base">{m.settings_language_title()}</h3>
 			<p class="mb-2 text-sm opacity-70">
@@ -261,7 +261,7 @@
 			</p>
 
 			<div class="flex gap-4">
-				<label class="flex items-center gap-2 cursor-pointer">
+				<label class="flex cursor-pointer items-center gap-2">
 					<input
 						type="radio"
 						name="locale"
@@ -271,7 +271,7 @@
 					/>
 					<span>{m.settings_language_french()}</span>
 				</label>
-				<label class="flex items-center gap-2 cursor-pointer">
+				<label class="flex cursor-pointer items-center gap-2">
 					<input
 						type="radio"
 						name="locale"
@@ -286,7 +286,7 @@
 	</div>
 
 	<!-- Section Profil -->
-	<div class="card card-compact bg-base-200 shadow-xl mb-6">
+	<div class="card card-compact bg-base-200 mb-6 shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-4">{m.settings_profile_title()}</h2>
 			<p class="mb-6 text-sm opacity-70">
@@ -351,7 +351,7 @@
 	</div>
 
 	<!-- Section Notifications -->
-	<div class="card card-compact bg-base-200 shadow-xl mb-6">
+	<div class="card card-compact bg-base-200 mb-6 shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-4">
 				<Bell size={18} />
@@ -373,7 +373,7 @@
 	</div>
 
 	<!-- Section Sécurité -->
-	<div class="card card-compact bg-base-200 shadow-xl mb-6">
+	<div class="card card-compact bg-base-200 mb-6 shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-4">{m.settings_security_title()}</h2>
 			<p class="mb-6 text-sm opacity-70">
@@ -417,9 +417,9 @@
 	</div>
 
 	<!-- Zone de danger -->
-	<div class="card card-compact bg-base-200 shadow-xl border-error/30">
+	<div class="card card-compact bg-base-200 border-error/30 shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-4 text-error">
+			<h2 class="card-title text-error mb-4">
 				<ShieldCheck size={18} />
 				{m.settings_danger_zone_title()}
 			</h2>
@@ -541,7 +541,7 @@
 	<div class="space-y-4">
 		<p class="text-sm font-semibold">{m.settings_delete_modal_irreversible()}</p>
 
-		<ul class="text-sm space-y-3">
+		<ul class="space-y-3 text-sm">
 			<li>
 				<p class="font-medium">{m.settings_delete_modal_plannings_kept_title()}</p>
 				<p class="opacity-80">{m.settings_delete_modal_plannings_kept_text()}</p>

@@ -51,7 +51,7 @@ function mkMaster(token = "abc123"): any {
 
 function mkMasterWithTitle(title: string, token = "abc123"): any {
 	return {
-		getString: (f: string) => (f === "participantToken" ? token : f === "title" ? title : "")
+		getString: (f: string) => (f === "participantToken" ? token : f === "title" ? title : ""),
 	};
 }
 
@@ -81,12 +81,12 @@ describe("dispatchPushForEvent", () => {
 			recipients: [
 				mkRecipient({ userId: "u1" }),
 				mkRecipient({ userId: "u2", push: false }),
-				mkRecipient({ userId: "u3" })
+				mkRecipient({ userId: "u3" }),
 			],
 			resolveUser: (uid: string) => mkUser(uid),
 			buildPushTitle: () => "Rappel — Planning",
 			buildPushBody: () => "body",
-			sendPushNotification: sent
+			sendPushNotification: sent,
 		});
 
 		expect(sent).toHaveBeenCalledTimes(2);
@@ -103,7 +103,7 @@ describe("dispatchPushForEvent", () => {
 			resolveUser: () => mkUser("u1"),
 			buildPushTitle: () => "T",
 			buildPushBody: () => "B",
-			sendPushNotification: sent
+			sendPushNotification: sent,
 		});
 
 		expect(sent).toHaveBeenCalledWith(expect.anything(), expect.anything(), "T", "B", "/p/XYZ789");
@@ -118,12 +118,12 @@ describe("dispatchPushForEvent", () => {
 			recipients: [
 				mkRecipient({ userId: "u1" }),
 				mkRecipient({ userId: "u_deleted" }),
-				mkRecipient({ userId: "u3" })
+				mkRecipient({ userId: "u3" }),
 			],
 			resolveUser: (uid: string) => (uid === "u_deleted" ? null : mkUser(uid)),
 			buildPushTitle: () => "T",
 			buildPushBody: () => "B",
-			sendPushNotification: sent
+			sendPushNotification: sent,
 		});
 
 		expect(sent).toHaveBeenCalledTimes(2);
@@ -146,7 +146,7 @@ describe("dispatchPushForEvent", () => {
 			resolveUser: (uid: string) => mkUser(uid),
 			buildPushTitle: () => "T",
 			buildPushBody: () => "B",
-			sendPushNotification: sent
+			sendPushNotification: sent,
 		});
 
 		// Le premier envoi échoue (non compté), le second réussit (comté).
@@ -166,14 +166,14 @@ describe("dispatchPushForEvent", () => {
 			resolveUser: () => mkUser("u1"),
 			buildPushTitle: () => "T",
 			buildPushBody: bodyFn,
-			sendPushNotification: vi.fn()
+			sendPushNotification: vi.fn(),
 		});
 
 		expect(bodyFn).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.anything(),
 			expect.anything(),
-			tasks
+			tasks,
 		);
 	});
 
@@ -185,12 +185,12 @@ describe("dispatchPushForEvent", () => {
 			occ: mkOcc(),
 			recipients: [
 				mkRecipient({ userId: "u1", push: false }),
-				mkRecipient({ userId: "u2", push: false })
+				mkRecipient({ userId: "u2", push: false }),
 			],
 			resolveUser: () => mkUser("x"),
 			buildPushTitle: () => "T",
 			buildPushBody: () => "B",
-			sendPushNotification: sent
+			sendPushNotification: sent,
 		});
 
 		expect(sent).not.toHaveBeenCalled();
@@ -209,7 +209,7 @@ describe("dispatchPushForEvent", () => {
 			resolveUser: () => mkUser("u1"),
 			buildPushTitle: () => "T",
 			buildPushBody: () => "B",
-			sendPushNotification: sent
+			sendPushNotification: sent,
 		});
 
 		expect(sent.mock.calls[0][0]).toBe(fakeApp);
@@ -232,7 +232,7 @@ describe("buildPushTitle / buildPushBody — new_comment", () => {
 			{ type: "new_comment", payload: { authorName: "Alice", contentPreview: "On se voit à 19h" } },
 			mkOcc(),
 			{} as any,
-			[]
+			[],
 		);
 		expect(body).toBe("Alice : On se voit à 19h");
 	});
@@ -242,7 +242,7 @@ describe("buildPushTitle / buildPushBody — new_comment", () => {
 			{ type: "new_comment", payload: { authorName: "", contentPreview: "Message anonyme" } },
 			mkOcc(),
 			{} as any,
-			[]
+			[],
 		);
 		expect(body).toBe("Message anonyme");
 	});
@@ -253,7 +253,7 @@ describe("buildPushTitle / buildPushBody — new_comment", () => {
 			{ type: "new_comment", payload: { authorName: "Bob", contentPreview: long } },
 			mkOcc(),
 			{} as any,
-			[]
+			[],
 		);
 		expect(body).toBe(`Bob : ${"x".repeat(MAX_CONTENT_PREVIEW)}…`);
 	});
@@ -263,7 +263,7 @@ describe("buildPushTitle / buildPushBody — new_comment", () => {
 			{ type: "new_comment", payload: { authorName: "Bob", contentPreview: "ligne1\nligne2" } },
 			mkOcc(),
 			{} as any,
-			[]
+			[],
 		);
 		expect(body).toBe("Bob : ligne1 ligne2");
 	});

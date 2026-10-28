@@ -15,7 +15,7 @@ function getDateInputs() {
 	const au = screen.getByRole("group", { name: /^To$/ });
 	return {
 		firstDate: du.querySelector("input") as HTMLInputElement,
-		lastDate: au.querySelector("input") as HTMLInputElement
+		lastDate: au.querySelector("input") as HTMLInputElement,
 	};
 }
 
@@ -27,7 +27,7 @@ function getRecurrenceSelect() {
 async function setDate(
 	user: ReturnType<typeof userEvent.setup>,
 	input: HTMLInputElement,
-	value: string
+	value: string,
 ) {
 	await user.clear(input);
 	await user.type(input, value);
@@ -139,8 +139,8 @@ describe("Édition : seeding du mode", () => {
 				type: "MONTHLY_BY_DATE",
 				firstDate: "2026-07-31",
 				lastDate: "2026-12-31",
-				monthlyByDateMode: "last-day"
-			}
+				monthlyByDateMode: "last-day",
+			},
 		});
 		renderForm({ master });
 
@@ -155,8 +155,8 @@ describe("Édition : seeding du mode", () => {
 			recurrence: {
 				type: "MONTHLY_BY_DATE",
 				firstDate: "2026-07-31",
-				lastDate: "2026-12-31"
-			}
+				lastDate: "2026-12-31",
+			},
 		});
 		renderForm({ master });
 
@@ -187,7 +187,7 @@ describe("Préservation implicite du mode", () => {
 		// Toggle caché
 		expect(screen.queryByRole("radio", { name: /the 15 of each month/i })).not.toBeInTheDocument();
 		expect(
-			screen.queryByRole("radio", { name: /the last day of each month/i })
+			screen.queryByRole("radio", { name: /the last day of each month/i }),
 		).not.toBeInTheDocument();
 	});
 

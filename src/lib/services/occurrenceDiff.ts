@@ -31,7 +31,7 @@ export interface OccurrenceDiffOps {
  */
 export function diffPlanningOccurrences(
 	targets: OccurrenceTarget[],
-	existing: PlanningOccurrence[]
+	existing: PlanningOccurrence[],
 ): OccurrenceDiffOps {
 	// Index des existantes par id ET par clé date|slotId (fallback pour les cibles sans id).
 	const existingById = new Map<string, PlanningOccurrence>();

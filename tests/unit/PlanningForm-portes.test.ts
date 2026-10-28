@@ -23,8 +23,8 @@ vi.mock("svelte-sonner", () => ({
 		warning: vi.fn(),
 		loading: vi.fn(),
 		promise: vi.fn(),
-		custom: vi.fn()
-	}
+		custom: vi.fn(),
+	},
 }));
 
 /** Bouton « Edit slot times » (pencil) : toujours rendu, 1 par slot. */
@@ -62,12 +62,12 @@ describe("PlanningForm — Porte 5 (removeTimeSlot)", () => {
 			master: makeMaster({
 				timeSlots: [
 					{ id: "s1", startTime: "14:00", endTime: "18:00" },
-					{ id: "s2", startTime: "08:00", endTime: "12:00" }
+					{ id: "s2", startTime: "08:00", endTime: "12:00" },
 				],
 				// Cycle entièrement passé par rapport au today fake (2026-07-01) :
 				// toutes les dates du cycle sont filtrées par `d >= today` → `count === 0`.
-				recurrence: { type: "WEEKLY", firstDate: "2026-01-07", lastDate: "2026-06-30" }
-			})
+				recurrence: { type: "WEEKLY", firstDate: "2026-01-07", lastDate: "2026-06-30" },
+			}),
 			// occurrences: [] — aucune occurrence persistée
 		});
 
@@ -96,15 +96,15 @@ describe("PlanningForm — Porte 5 (removeTimeSlot)", () => {
 			master: makeMaster({
 				timeSlots: [
 					{ id: "s1", startTime: "14:00", endTime: "18:00" },
-					{ id: "s2", startTime: "08:00", endTime: "12:00" }
+					{ id: "s2", startTime: "08:00", endTime: "12:00" },
 				],
-				recurrence: { type: "WEEKLY", firstDate: "2026-01-07", lastDate: "2026-01-21" }
+				recurrence: { type: "WEEKLY", firstDate: "2026-01-07", lastDate: "2026-01-21" },
 			}),
 			occurrences: [
 				makeOccurrence({ id: "o1", date: "2026-01-07", slotId: "s1" }),
 				makeOccurrence({ id: "o2", date: "2026-01-14", slotId: "s1" }),
-				makeOccurrence({ id: "o3", date: "2026-01-21", slotId: "s1" })
-			]
+				makeOccurrence({ id: "o3", date: "2026-01-21", slotId: "s1" }),
+			],
 		});
 
 		// Gardien : 2 slots présents

@@ -19,7 +19,7 @@ class ModalStore {
 		localName: "",
 		remoteName: "",
 		onBackupAndReplace: async () => {},
-		onReplaceOnly: async () => {}
+		onReplaceOnly: async () => {},
 	});
 
 	// Navigation drawer (sidebar mobile)

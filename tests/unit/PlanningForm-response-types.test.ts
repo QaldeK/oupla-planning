@@ -22,8 +22,8 @@ vi.mock("svelte-sonner", () => ({
 		warning: vi.fn(),
 		loading: vi.fn(),
 		promise: vi.fn(),
-		custom: vi.fn()
-	}
+		custom: vi.fn(),
+	},
 }));
 
 import { toast } from "svelte-sonner";
@@ -109,8 +109,8 @@ describe("PlanningForm — availableResponseTypes behavior (ticket 04)", () => {
 				availableResponseTypes: ["present", "absent"],
 				tasks: [],
 				participants: [],
-				minPresentRequired: 1
-			} as any
+				minPresentRequired: 1,
+			} as any,
 		});
 
 		expect(getResponseTypeCheckbox("present").checked).toBe(true);

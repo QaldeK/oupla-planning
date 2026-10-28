@@ -15,7 +15,7 @@ import type {
 	OccurrenceComment,
 	Participant,
 	PlanningMaster,
-	PlanningOccurrence
+	PlanningOccurrence,
 } from "$lib/types/planning.types";
 
 const MASTER_ID = "m1";
@@ -26,7 +26,7 @@ const CLAIMED_PARTICIPANT: Participant = {
 	name: "Alice",
 	isAdmin: false,
 	createdAt: "2026-01-01T00:00:00Z",
-	userId: "pb-1"
+	userId: "pb-1",
 };
 
 /** Participant auto-ajouté (CAS C) : id = pbUser.id par construction. */
@@ -35,7 +35,7 @@ const AUTO_ADDED_PARTICIPANT: Participant = {
 	name: "Bob Auth",
 	isAdmin: false,
 	createdAt: "2026-01-01T00:00:00Z",
-	userId: "pb-2"
+	userId: "pb-2",
 };
 
 function makeMaster(participants: Participant[]): PlanningMaster {
@@ -45,7 +45,7 @@ function makeMaster(participants: Participant[]): PlanningMaster {
 		defaultStartTime: "20:00",
 		defaultEndTime: "23:00",
 		recurrence: { type: "WEEKLY" },
-		participants
+		participants,
 	} as unknown as PlanningMaster;
 }
 
@@ -57,7 +57,7 @@ function makeOccurrence(id: string, comments: OccurrenceComment[]): PlanningOccu
 		startTime: "20:00",
 		endTime: "23:00",
 		responses: [],
-		comments
+		comments,
 	} as unknown as PlanningOccurrence;
 }
 

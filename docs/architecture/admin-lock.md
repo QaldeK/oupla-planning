@@ -17,12 +17,12 @@ l'horodatage. Sur le master, chaque heartbeat déclencherait un événement real
 donc — avant le correctif de réactivité du formulaire — un remontage du formulaire d'édition
 et une perte des modifications en cours, pour tous les clients.
 
-| Champ | Type | Rôle |
-| --- | --- | --- |
-| `master` | relation → `planning_masters`, cascade, requise | une ligne par master, index unique |
-| `lockedBy` | texte, optionnel | détenteur ; vide signifie « libre » |
-| `lockedAt` | autodate | dernier acquire ou heartbeat |
-| `lockedByName` | texte, optionnel | nom affichable dans l'overlay des autres admins |
+| Champ          | Type                                            | Rôle                                            |
+| -------------- | ----------------------------------------------- | ----------------------------------------------- |
+| `master`       | relation → `planning_masters`, cascade, requise | une ligne par master, index unique              |
+| `lockedBy`     | texte, optionnel                                | détenteur ; vide signifie « libre »             |
+| `lockedAt`     | autodate                                        | dernier acquire ou heartbeat                    |
+| `lockedByName` | texte, optionnel                                | nom affichable dans l'overlay des autres admins |
 
 La ligne est **permanente** : libérer le verrou la vide (`lockedBy = ''`), elle n'est jamais
 supprimée. Cela évite de recréer la ligne à chaque cycle et rend la libération idempotente.
@@ -42,12 +42,12 @@ query parameter. La route vérifie que le token correspond à `master.adminToken
 
 Body `{ lockedBy, lockedByName? }`. Quatre cas, dans cet ordre :
 
-| Situation | Réponse | Effet |
-| --- | --- | --- |
-| aucune ligne | 200 | création à la volée |
-| même détenteur | 200 | heartbeat, `lockedAt` rafraîchi |
-| verrou expiré, détenu par un autre | 200 | ré-acquisition |
-| verrou frais, détenu par un autre | 409 | conflit, renvoie les informations du détenteur |
+| Situation                          | Réponse | Effet                                          |
+| ---------------------------------- | ------- | ---------------------------------------------- |
+| aucune ligne                       | 200     | création à la volée                            |
+| même détenteur                     | 200     | heartbeat, `lockedAt` rafraîchi                |
+| verrou expiré, détenu par un autre | 200     | ré-acquisition                                 |
+| verrou frais, détenu par un autre  | 409     | conflit, renvoie les informations du détenteur |
 
 Le heartbeat doit réécrire un champ explicitement : sans `set()`, l'autodate de mise à jour
 peut ne pas se déclencher et le verrou expirerait malgré le heartbeat.
@@ -55,8 +55,7 @@ peut ne pas se déclencher et le verrou expirerait malgré le heartbeat.
 ### `POST /api/unlock/{masterId}`
 
 Body `{ lockedBy }`. Vise la ligne et la vide. Autorisé pour le détenteur, pour une ligne
-déjà vide, ou pour un verrou expiré (zombie). Un verrou frais détenu par un autre renvoie
-403. Idempotent : 200 même sans ligne.
+déjà vide, ou pour un verrou expiré (zombie). Un verrou frais détenu par un autre renvoie 403. Idempotent : 200 même sans ligne.
 
 Un module partagé (`lock-utils.js`) porte `LOCK_TTL_MS`, `lockIsActive`, `lockExpiresAtMs`
 et `lockInfoPayload`. Il est requis parce qu'en JSVM **chaque handler de route a un scope
@@ -65,10 +64,10 @@ handler. Même convention que `merge-utils.js` et `notify-utils.cjs`.
 
 ## TTL et heartbeat
 
-| Paramètre | Valeur | Raison |
-| --- | --- | --- |
-| TTL | 5 min | marge confortable pour une pause sans perdre la main |
-| Heartbeat | 2 min | sous la moitié du TTL, pour absorber une perte de paquet ou un timer retardé en arrière-plan |
+| Paramètre | Valeur | Raison                                                                                       |
+| --------- | ------ | -------------------------------------------------------------------------------------------- |
+| TTL       | 5 min  | marge confortable pour une pause sans perdre la main                                         |
+| Heartbeat | 2 min  | sous la moitié du TTL, pour absorber une perte de paquet ou un timer retardé en arrière-plan |
 
 Premier arrivé gagne : il n'existe **pas de reprise de force**. Les autres attendent la
 libération naturelle, l'expiration, ou cliquent « Réessayer ».

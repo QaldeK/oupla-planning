@@ -44,7 +44,7 @@ export function buildParticipantResponse(input: {
 		participantId: input.participantId,
 		response: input.response,
 		tasks: input.tasks,
-		respondedAt: new Date().toISOString()
+		respondedAt: new Date().toISOString(),
 	};
 }
 
@@ -78,7 +78,7 @@ export function resolveTaskToggleOutcome(input: {
 export function deriveConfirmationMessage(
 	actor: ResponseActor,
 	taskNames: string[],
-	participantName?: string
+	participantName?: string,
 ): string {
 	const isPlural = taskNames.length > 1;
 	if (actor === "admin") {
@@ -87,14 +87,14 @@ export function deriveConfirmationMessage(
 			? m.occurrence_change_task_subscribed_multi({
 					name,
 					count: taskNames.length,
-					tasks: taskNames.join(", ")
+					tasks: taskNames.join(", "),
 				})
 			: m.occurrence_change_task_subscribed_single({ name, task: taskNames[0] });
 	}
 	return isPlural
 		? m.occurrence_response_change_subscribed_multi({
 				count: taskNames.length,
-				tasks: taskNames.join(", ")
+				tasks: taskNames.join(", "),
 			})
 		: m.occurrence_response_change_subscribed_single({ task: taskNames[0] });
 }
@@ -128,7 +128,7 @@ export interface OccurrenceResponseWorkflow {
  * `submitChange` — c'est ce qui permet de la tester sans DOM.
  */
 export function createOccurrenceResponseWorkflow(
-	getOptions: () => WorkflowOptions
+	getOptions: () => WorkflowOptions,
 ): OccurrenceResponseWorkflow {
 	const options = $derived(getOptions());
 
@@ -144,7 +144,7 @@ export function createOccurrenceResponseWorkflow(
 				participantId,
 				participantName: options.getDisplayName?.(participantId) ?? "",
 				targetResponse,
-				onEventTaskIds
+				onEventTaskIds,
 			};
 			return;
 		}
@@ -161,7 +161,7 @@ export function createOccurrenceResponseWorkflow(
 		void options.submitChange({
 			participantId: pending.participantId,
 			response: pending.targetResponse,
-			tasks: keptTasks
+			tasks: keptTasks,
 		});
 	}
 
@@ -188,6 +188,6 @@ export function createOccurrenceResponseWorkflow(
 		cancelResponseChange,
 		get confirmationMessage() {
 			return confirmationMessage;
-		}
+		},
 	};
 }

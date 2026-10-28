@@ -63,7 +63,7 @@ export async function acquireLock(
 	masterId: string,
 	adminToken: string,
 	userId: string,
-	lockedByName?: string
+	lockedByName?: string,
 ): Promise<LockInfo> {
 	return postLock(masterId, adminToken, userId, lockedByName);
 }
@@ -79,7 +79,7 @@ export async function heartbeatLock(
 	masterId: string,
 	adminToken: string,
 	userId: string,
-	lockedByName?: string
+	lockedByName?: string,
 ): Promise<LockInfo> {
 	return postLock(masterId, adminToken, userId, lockedByName);
 }
@@ -92,13 +92,13 @@ async function postLock(
 	masterId: string,
 	adminToken: string,
 	userId: string,
-	lockedByName?: string
+	lockedByName?: string,
 ): Promise<LockInfo> {
 	try {
 		return await pb.send(`/api/lock/${masterId}`, {
 			method: "POST",
 			body: { lockedBy: userId, lockedByName },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 	} catch (err: unknown) {
 		if (err instanceof ClientResponseError && err.status === 409 && err.response) {
@@ -106,7 +106,7 @@ async function postLock(
 				lockedBy: err.response.lockedBy,
 				lockedByName: err.response.lockedByName ?? "",
 				lockedAt: err.response.lockedAt,
-				expiresAt: err.response.expiresAt
+				expiresAt: err.response.expiresAt,
 			});
 		}
 		throw err;
@@ -128,13 +128,13 @@ async function postLock(
 export async function releaseLock(
 	masterId: string,
 	adminToken: string,
-	userId: string
+	userId: string,
 ): Promise<void> {
 	try {
 		await pb.send(`/api/unlock/${masterId}`, {
 			method: "POST",
 			body: { lockedBy: userId },
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 	} catch (err) {
 		console.error("[lockService] releaseLock failed:", err);
@@ -163,7 +163,7 @@ export async function getLock(masterId: string, adminToken: string): Promise<Loc
 	let record: { lockedBy?: string; lockedByName?: string; lockedAt?: string };
 	try {
 		record = await pb.collection("planning_locks").getFirstListItem(`master = "${masterId}"`, {
-			query: { _token: adminToken }
+			query: { _token: adminToken },
 		});
 	} catch (err: unknown) {
 		if (err instanceof ClientResponseError && err.status === 404) return null;
@@ -178,6 +178,6 @@ export async function getLock(masterId: string, adminToken: string): Promise<Loc
 		lockedBy: record.lockedBy,
 		lockedByName: record.lockedByName ?? "",
 		lockedAt: record.lockedAt ?? new Date().toISOString(),
-		expiresAt: new Date(lockedAtMs + LOCK_TTL_MS).toISOString()
+		expiresAt: new Date(lockedAtMs + LOCK_TTL_MS).toISOString(),
 	};
 }

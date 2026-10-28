@@ -25,7 +25,7 @@ import {
 	clearTrackedIds,
 	seedParticipantPrefs,
 	seedPlanning,
-	seedUser
+	seedUser,
 } from "./seed";
 
 const PB_URL = process.env.VITE_PLANNING_PB_URL || "http://127.0.0.1:8090";
@@ -86,7 +86,7 @@ function decodeMimeHeader(str: string): string {
 			const latin = text
 				.replace(/_/g, " ")
 				.replace(/=([0-9A-Fa-f]{2})/g, (_h: string, h: string) =>
-					String.fromCharCode(parseInt(h, 16))
+					String.fromCharCode(parseInt(h, 16)),
 				);
 			if (!isUtf8) return latin;
 			// Les octets UTF-8 multi-bytes (—, é…) arrivent comme chars latin-1 :
@@ -171,7 +171,7 @@ async function startSmtpStub(capture: SmtpCapture): Promise<net.Server> {
  */
 async function withSmtpStub<T>(
 	adminPb: PocketBase,
-	fn: (capture: SmtpCapture) => Promise<T>
+	fn: (capture: SmtpCapture) => Promise<T>,
 ): Promise<T> {
 	const capture: SmtpCapture = { count: 0, subjects: [], rcpts: [] };
 	const server = await startSmtpStub(capture);
@@ -188,8 +188,8 @@ async function withSmtpStub<T>(
 				password: "",
 				tls: false,
 				authMethod: "PLAIN",
-				localName: "localhost"
-			}
+				localName: "localhost",
+			},
 		});
 		return await fn(capture);
 	} finally {
@@ -215,7 +215,7 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 	it("soft-delete par adminToken forge deletedAt côté serveur ; participant bloqué (403)", async () => {
 		const { master, adminToken, participantToken } = await seedPlanning({
 			title: "Deletion SoftDelete Guard",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 
 		const client = tokenClient();
@@ -234,7 +234,7 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 		await expect403(() =>
 			client
 				.collection("planning_masters")
-				.update(master.id, { deleted: true }, { query: { _token: participantToken } })
+				.update(master.id, { deleted: true }, { query: { _token: participantToken } }),
 		);
 	});
 
@@ -252,9 +252,9 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 			participants: [
 				{ id: "p1", name: "Alice", isAdmin: true, createdAt: now, userId: userA.id },
 				{ id: "p2", name: "Bob", isAdmin: false, createdAt: now, userId: userB.id },
-				{ id: "g1", name: "Guest", isAdmin: false, createdAt: now }
+				{ id: "g1", name: "Guest", isAdmin: false, createdAt: now },
 			] as never,
-			occurrenceCount: 0
+			occurrenceCount: 0,
 		});
 		// Bob a coupé les emails — événement terminal, il doit quand même être notifié.
 		await seedParticipantPrefs(master.id, userB.id, { email: false });
@@ -305,7 +305,7 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 	it("master soft-deleté : occurrences et prefs en lecture seule, master figé sauf restauration", async () => {
 		const { master, occurrences, adminToken, participantToken } = await seedPlanning({
 			title: "Deletion Readonly",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const occ = occurrences[0];
 		const client = tokenClient();
@@ -317,7 +317,7 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 		await expect403(() =>
 			client
 				.collection("planning_occurrences")
-				.update(occ.id, { startTime: "10:00" }, { query: { _token: adminToken } })
+				.update(occ.id, { startTime: "10:00" }, { query: { _token: adminToken } }),
 		);
 		await expect403(() =>
 			client.collection("planning_occurrences").update(
@@ -328,12 +328,12 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 							participantId: "p1",
 							response: "present",
 							tasks: [],
-							respondedAt: new Date().toISOString()
-						}
-					]
+							respondedAt: new Date().toISOString(),
+						},
+					],
 				},
-				{ query: { _token: participantToken } }
-			)
+				{ query: { _token: participantToken } },
+			),
 		);
 
 		// Create d'occurrence par adminToken → 403.
@@ -343,10 +343,10 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 					master: master.id,
 					date: "2099-01-01",
 					startTime: "09:00",
-					endTime: "17:00"
+					endTime: "17:00",
 				},
-				{ query: { _token: adminToken } }
-			)
+				{ query: { _token: adminToken } },
+			),
 		);
 
 		// Prefs planning_participants par un user auth → create et update 403.
@@ -357,31 +357,31 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 		await authClient.collection("users").authWithPassword(email, "password123");
 
 		await expect403(() =>
-			authClient.collection("planning_participants").update(prefs.id, { email: true })
+			authClient.collection("planning_participants").update(prefs.id, { email: true }),
 		);
 		await expect403(() =>
 			authClient
 				.collection("planning_participants")
-				.create({ planning: master.id, user: user.id, email: true })
+				.create({ planning: master.id, user: user.id, email: true }),
 		);
 
 		// Master : update d'un champ autre que deleted par adminToken → 403.
 		await expect403(() =>
 			client
 				.collection("planning_masters")
-				.update(master.id, { title: "Hacked" }, { query: { _token: adminToken } })
+				.update(master.id, { title: "Hacked" }, { query: { _token: adminToken } }),
 		);
 	});
 
 	it("hard-delete API du master bloqué même avec l'adminToken (403), master intact", async () => {
 		const { master, adminToken } = await seedPlanning({
 			title: "Deletion HardDelete",
-			occurrenceCount: 0
+			occurrenceCount: 0,
 		});
 
 		const client = tokenClient();
 		await expect403(() =>
-			client.collection("planning_masters").delete(master.id, { query: { _token: adminToken } })
+			client.collection("planning_masters").delete(master.id, { query: { _token: adminToken } }),
 		);
 
 		const adminPb = await authenticateAdmin();
@@ -393,7 +393,7 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 		const adminPb = await authenticateAdmin();
 		const { master, occurrences, adminToken } = await seedPlanning({
 			title: "Deletion Purge",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 		const occ = occurrences[0];
 
@@ -401,7 +401,7 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 		const email = `purge-${suffix()}@test.com`;
 		const user = await seedUser(email, "password123", "Purge User", {
 			masterIds: [master.id],
-			adminOf: { [master.id]: adminToken }
+			adminOf: { [master.id]: adminToken },
 		});
 		// Row prefs + event de notification liés au master (couverts par la cascade).
 		const prefs = await seedParticipantPrefs(master.id, user.id);
@@ -415,9 +415,9 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 				commentId: "c-purge",
 				commentCreatedAt: new Date().toISOString(),
 				authorName: "Purge",
-				contentPreview: "hello"
+				contentPreview: "hello",
 			},
-			processedAt: ""
+			processedAt: "",
 		});
 
 		const client = tokenClient();
@@ -432,16 +432,16 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 
 		// Tout est purgé : master, occurrences, prefs, events.
 		await expect(adminPb.collection("planning_masters").getOne(master.id)).rejects.toMatchObject({
-			status: 404
+			status: 404,
 		});
 		await expect(adminPb.collection("planning_occurrences").getOne(occ.id)).rejects.toMatchObject({
-			status: 404
+			status: 404,
 		});
 		await expect(
-			adminPb.collection("planning_participants").getOne(prefs.id)
+			adminPb.collection("planning_participants").getOne(prefs.id),
 		).rejects.toMatchObject({ status: 404 });
 		await expect(adminPb.collection("notification_events").getOne(event.id)).rejects.toMatchObject({
-			status: 404
+			status: 404,
 		});
 
 		// Nettoyage des références d'identité du user.
@@ -454,8 +454,8 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 			tokenClient()
 				.collection("planning_masters")
 				.getOne(master.id, {
-					query: { _token: adminToken }
-				})
+					query: { _token: adminToken },
+				}),
 		).rejects.toMatchObject({ status: 404 });
 	});
 
@@ -463,7 +463,7 @@ describe("Planning deletion — soft-delete, fenêtre de grâce et purge", () =>
 		const adminPb = await authenticateAdmin();
 		const { master, adminToken } = await seedPlanning({
 			title: "Deletion Race",
-			occurrenceCount: 0
+			occurrenceCount: 0,
 		});
 
 		const client = tokenClient();

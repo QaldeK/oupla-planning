@@ -24,14 +24,14 @@ function makeSpies() {
 				onsuccess: null as (() => void) | null,
 				onerror: null as (() => void) | null,
 				onblocked: null as (() => void) | null,
-				error: null
+				error: null,
 			};
 			queueMicrotask(() => req.onsuccess?.());
 			return req;
 		}),
 		localClear: vi.fn(),
 		sessionClear: vi.fn(),
-		locationReplace: vi.fn()
+		locationReplace: vi.fn(),
 	};
 }
 
@@ -41,10 +41,10 @@ beforeEach(() => {
 	spies = makeSpies();
 	vi.stubGlobal("caches", {
 		keys: spies.cachesKeys,
-		delete: spies.cachesDelete
+		delete: spies.cachesDelete,
 	});
 	vi.stubGlobal("navigator", {
-		serviceWorker: { getRegistrations: spies.swGetRegistrations }
+		serviceWorker: { getRegistrations: spies.swGetRegistrations },
 	});
 	vi.stubGlobal("indexedDB", { deleteDatabase: spies.idbDeleteDatabase });
 	vi.stubGlobal("localStorage", { clear: spies.localClear });

@@ -31,13 +31,13 @@ import {
 	cleanupTrackedRecords,
 	clearTrackedIds,
 	seedUser,
-	trackIds
+	trackIds,
 } from "./seed";
 
 // Mock Paraglide setLocale to prevent page reload in test environment
 vi.mock("$lib/paraglide/runtime", () => ({
 	setLocale: vi.fn(() => Promise.resolve()),
-	getLocale: vi.fn(() => "fr")
+	getLocale: vi.fn(() => "fr"),
 }));
 
 describe("Language persistence — Seam 2", () => {
@@ -60,7 +60,7 @@ describe("Language persistence — Seam 2", () => {
 		it("persists users.locale to PB when user is authenticated", async () => {
 			// === SEED ===
 			const user = await seedUser("lang-auth@test.com", "password123", "Lang Auth User", {
-				locale: "fr"
+				locale: "fr",
 			});
 			trackIds("users", user.id);
 
@@ -96,7 +96,7 @@ describe("Language persistence — Seam 2", () => {
 		it("sets locale back to fr after setting en", async () => {
 			// === SEED ===
 			const user = await seedUser("lang-switch@test.com", "password123", "Lang Switch User", {
-				locale: "fr"
+				locale: "fr",
 			});
 			trackIds("users", user.id);
 
@@ -132,8 +132,8 @@ describe("Language persistence — Seam 2", () => {
 			vi.spyOn(pb, "collection").mockImplementation(
 				() =>
 					({
-						update: updateSpy
-					}) as any
+						update: updateSpy,
+					}) as any,
 			);
 
 			// === ACTION ===
@@ -158,8 +158,8 @@ describe("Language persistence — Seam 2", () => {
 			vi.spyOn(pb, "collection").mockImplementation(
 				() =>
 					({
-						update: updateSpy
-					}) as any
+						update: updateSpy,
+					}) as any,
 			);
 
 			// === ACTION ===
@@ -181,7 +181,7 @@ describe("Language persistence — Seam 2", () => {
 		it("persists to PB before calling setLocale for authenticated user", async () => {
 			// === SEED ===
 			const user = await seedUser("lang-order@test.com", "password123", "Lang Order User", {
-				locale: "fr"
+				locale: "fr",
 			});
 			trackIds("users", user.id);
 

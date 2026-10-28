@@ -40,7 +40,7 @@
 			body {
 				margin: 0;
 				padding: 1.5rem;
-		min-height: 100dvh;
+				min-height: 100dvh;
 				background: var(--bg);
 				color: var(--fg);
 				font-family:
@@ -48,9 +48,9 @@
 					system-ui,
 					-apple-system,
 					BlinkMacSystemFont,
-					'Segoe UI',
+					"Segoe UI",
 					Roboto,
-					'Helvetica Neue',
+					"Helvetica Neue",
 					Arial,
 					sans-serif;
 				display: flex;
@@ -182,15 +182,15 @@
 				// DB ('appDB') est aussi défini comme `APP_DB_NAME` dans `src/lib/pb-sync/db.ts`.
 				// Si tu modifies l'un, mets l'autre à jour (template statique → pas d'import).
 				const url = new URL(window.location.href);
-				if (url.searchParams.get('recover') === '1') {
+				if (url.searchParams.get("recover") === "1") {
 					Promise.allSettled([
 						(() => {
-							if ('caches' in window) {
+							if ("caches" in window) {
 								return caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
 							}
 						})(),
 						(() => {
-							if ('serviceWorker' in navigator) {
+							if ("serviceWorker" in navigator) {
 								return navigator.serviceWorker
 									.getRegistrations()
 									.then((regs) => Promise.all(regs.map((r) => r.unregister())));
@@ -198,7 +198,7 @@
 						})(),
 						new Promise((resolve) => {
 							// 'appDB' — mirror de APP_DB_NAME dans src/lib/pb-sync/db.ts
-							const req = indexedDB.deleteDatabase('appDB');
+							const req = indexedDB.deleteDatabase("appDB");
 							req.onsuccess = req.onerror = req.onblocked = () => resolve();
 						}),
 						new Promise((resolve) => {
@@ -209,10 +209,10 @@
 								console.warn(e);
 							}
 							resolve();
-						})
+						}),
 					]).then(() => {
 						// Hard redirect vers la racine sans le paramètre recover
-						window.location.replace('/');
+						window.location.replace("/");
 					});
 				}
 			}

@@ -12,7 +12,7 @@ import type { SavedPlanning } from "$lib/types/planning.types";
 import type {
 	AuthTransitionContext,
 	AuthTransitionDeps,
-	AuthTransitionResult
+	AuthTransitionResult,
 } from "$lib/utils/authTransition";
 import { runAuthTransition } from "$lib/utils/authTransition";
 
@@ -29,22 +29,22 @@ function createFakeDeps(callTracker?: { order: string[] }): AuthTransitionDeps {
 		planningStore: {
 			initGlobalSync: vi.fn().mockImplementation(() => track("initGlobalSync")),
 			invalidateActiveToken: vi.fn().mockImplementation(() => track("invalidateActiveToken")),
-			setActiveToken: vi.fn().mockImplementation(async () => track("setActiveToken"))
+			setActiveToken: vi.fn().mockImplementation(async () => track("setActiveToken")),
 		},
 		mastersCollection: {
 			unsubscribeAll: vi.fn().mockImplementation(() => track("mastersCollection.unsubscribeAll")),
-			subscribe: vi.fn().mockImplementation(() => track("mastersCollection.subscribe"))
+			subscribe: vi.fn().mockImplementation(() => track("mastersCollection.subscribe")),
 		},
 		occurrencesCollection: {
 			unsubscribeAll: vi
 				.fn()
 				.mockImplementation(() => track("occurrencesCollection.unsubscribeAll")),
-			subscribe: vi.fn().mockImplementation(() => track("occurrencesCollection.subscribe"))
+			subscribe: vi.fn().mockImplementation(() => track("occurrencesCollection.subscribe")),
 		},
 		claimPlannings: vi.fn().mockImplementation(async () => track("claimPlannings")),
 		syncAuthData: vi.fn().mockImplementation(async () => track("syncAuthData")),
 		commentStateService: {
-			syncCommentReadState: vi.fn().mockImplementation(async () => track("syncCommentReadState"))
+			syncCommentReadState: vi.fn().mockImplementation(async () => track("syncCommentReadState")),
 		},
 		db: {
 			masters: {
@@ -52,14 +52,14 @@ function createFakeDeps(callTracker?: { order: string[] }): AuthTransitionDeps {
 					track(`db.masters.get:${id}`);
 					return { participantToken: "tok-part", adminToken: "tok-admin" };
 				}),
-				clear: vi.fn().mockImplementation(async () => track("db.masters.clear"))
+				clear: vi.fn().mockImplementation(async () => track("db.masters.clear")),
 			},
 			occurrences: { clear: vi.fn().mockImplementation(async () => track("db.occurrences.clear")) },
 			commentState: {
-				clear: vi.fn().mockImplementation(async () => track("db.commentState.clear"))
+				clear: vi.fn().mockImplementation(async () => track("db.commentState.clear")),
 			},
-			localMeta: { clear: vi.fn().mockImplementation(async () => track("db.localMeta.clear")) }
-		}
+			localMeta: { clear: vi.fn().mockImplementation(async () => track("db.localMeta.clear")) },
+		},
 	};
 }
 
@@ -68,7 +68,7 @@ function createContext(overrides: Partial<AuthTransitionContext> = {}): AuthTran
 		currentToken: "token-123",
 		activeMasterId: "master-1",
 		savedPlannings: [],
-		...overrides
+		...overrides,
 	};
 }
 
@@ -81,8 +81,8 @@ describe("runAuthTransition", () => {
 		const savedPlannings: SavedPlanning[] = [
 			{
 				masterId: "master-1",
-				currentUser: { id: "guest-1", name: "Alice" }
-			}
+				currentUser: { id: "guest-1", name: "Alice" },
+			},
 		];
 		const deps = createFakeDeps();
 		const ctx = createContext({ savedPlannings });
@@ -94,8 +94,8 @@ describe("runAuthTransition", () => {
 			guestClaim: {
 				masterId: "master-1",
 				participantId: "guest-1",
-				name: "Alice"
-			}
+				name: "Alice",
+			},
 		});
 	});
 
@@ -109,7 +109,7 @@ describe("runAuthTransition", () => {
 		// Vérifier l'ordre : initGlobalSync → snapshot (pas d'appel) → unsubscribe AVANT le claim
 		const unsubscribeIndex = Math.min(
 			callTracker.order.indexOf("mastersCollection.unsubscribeAll"),
-			callTracker.order.indexOf("occurrencesCollection.unsubscribeAll")
+			callTracker.order.indexOf("occurrencesCollection.unsubscribeAll"),
 		);
 		const claimIndex = callTracker.order.indexOf("claimPlannings");
 
@@ -137,7 +137,7 @@ describe("runAuthTransition", () => {
 		await runAuthTransition(createContext(), deps);
 
 		expect(deps.claimPlannings).toHaveBeenCalledExactlyOnceWith([
-			{ id: "master-1", participantToken: "tok-part", adminToken: "tok-admin" }
+			{ id: "master-1", participantToken: "tok-part", adminToken: "tok-admin" },
 		]);
 	});
 
@@ -154,7 +154,7 @@ describe("runAuthTransition", () => {
 		const deps = createFakeDeps();
 		const ctx = createContext({
 			activeMasterId: "master-1",
-			savedPlannings: [{ masterId: "master-1" }] // pas de currentUser
+			savedPlannings: [{ masterId: "master-1" }], // pas de currentUser
 		});
 
 		const result = await runAuthTransition(ctx, deps);

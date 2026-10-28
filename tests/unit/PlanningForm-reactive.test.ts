@@ -18,7 +18,7 @@ function getDateInputs() {
 	const au = screen.getByRole("group", { name: /^To$/ });
 	return {
 		firstDate: du.querySelector("input") as HTMLInputElement,
-		lastDate: au.querySelector("input") as HTMLInputElement
+		lastDate: au.querySelector("input") as HTMLInputElement,
 	};
 }
 
@@ -33,7 +33,7 @@ function getRecurrenceSelect() {
 async function setDate(
 	user: ReturnType<typeof userEvent.setup>,
 	input: HTMLInputElement,
-	value: string
+	value: string,
 ) {
 	await user.clear(input);
 	await user.type(input, value);
@@ -135,7 +135,7 @@ describe("A — Auto-clear des erreurs de validation", () => {
 
 		// Décocher allowResponses → config invalide (0 tâche, 0 responses)
 		const allowCheckbox = screen.getByRole("checkbox", {
-			name: /enable attendance form/i
+			name: /enable attendance form/i,
 		});
 		await user.click(allowCheckbox);
 
@@ -182,7 +182,7 @@ describe("B — Auto-calc de lastDate", () => {
 		["WEEKLY", "2026-07-07"],
 		["BIWEEKLY", "2026-07-07"],
 		["MONTHLY_BY_DATE", "2027-01-07"],
-		["MONTHLY_BY_DAY", "2027-01-07"]
+		["MONTHLY_BY_DAY", "2027-01-07"],
 	])(
 		"en création, recurrenceType=%s auto-calc lastDate depuis firstDate=2026-01-07",
 		async (recType, expectedLastDate) => {
@@ -191,7 +191,7 @@ describe("B — Auto-calc de lastDate", () => {
 			const { firstDate, lastDate } = getDateInputs();
 			await setDate(user, firstDate, "2026-01-07");
 			expect(lastDate.value).toBe(expectedLastDate);
-		}
+		},
 	);
 
 	it("après édition manuelle de lastDate, changer firstDate ne re-déclenche pas l'auto-calc", async () => {
@@ -236,8 +236,8 @@ describe("B — Auto-calc de lastDate", () => {
 	it("en édition, l'auto-calc ne se déclenche jamais (préservation des bornes du master)", async () => {
 		const { user } = renderForm({
 			master: makeMaster({
-				recurrence: { type: "WEEKLY", firstDate: "2026-01-07", lastDate: "2026-06-30" }
-			})
+				recurrence: { type: "WEEKLY", firstDate: "2026-01-07", lastDate: "2026-06-30" },
+			}),
 		});
 		const { firstDate, lastDate } = getDateInputs();
 

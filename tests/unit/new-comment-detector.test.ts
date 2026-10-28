@@ -51,14 +51,14 @@ function mkRecord(data: Record<string, unknown>): any {
 		},
 		original() {
 			return mkRecord(this._originalData);
-		}
+		},
 	};
 }
 
 /** Construit une paire (record, original) où `record.original()` renvoie l'état pré-update. */
 function mkUpdatePair(
 	originalData: Record<string, unknown>,
-	updatedFields: Record<string, unknown>
+	updatedFields: Record<string, unknown>,
 ): any {
 	const newData = { ...originalData, ...updatedFields };
 	const rec = mkRecord(newData);
@@ -75,7 +75,7 @@ const BASE_OCC: Record<string, unknown> = {
 	id: "o1",
 	master: "m1",
 	comments: comments(),
-	lastModifiedBy: "user-author-1"
+	lastModifiedBy: "user-author-1",
 };
 
 // ============================================================================
@@ -85,7 +85,7 @@ const BASE_OCC: Record<string, unknown> = {
 describe("Ajout simple", () => {
 	it("1 nouveau commentaire → added contient 1 descripteur, removed vide", () => {
 		const rec = mkUpdatePair(BASE_OCC, {
-			comments: comments({ id: "c1", content: "Bonjour", createdAt: "2026-07-25T10:00:00.000Z" })
+			comments: comments({ id: "c1", content: "Bonjour", createdAt: "2026-07-25T10:00:00.000Z" }),
 		});
 		const res = detectCommentChanges(rec, rec.original());
 		expect(res.removed).toEqual([]);
@@ -97,7 +97,7 @@ describe("Ajout simple", () => {
 
 	it("authorName reflète lastModifiedBy (résolu en nom affichable par le hook)", () => {
 		const rec = mkUpdatePair(BASE_OCC, {
-			comments: comments({ id: "c1", content: "Hi", createdAt: "2026-07-25T10:00:00.000Z" })
+			comments: comments({ id: "c1", content: "Hi", createdAt: "2026-07-25T10:00:00.000Z" }),
 		});
 		const res = detectCommentChanges(rec, rec.original());
 		expect(res.added[0].authorName).toBe("user-author-1");
@@ -108,7 +108,7 @@ describe("Suppression simple", () => {
 	it("1 commentaire disparu → removed contient son ID, added vide", () => {
 		const before = {
 			...BASE_OCC,
-			comments: comments({ id: "c1", content: "Bonjour", createdAt: "2026-07-25T10:00:00.000Z" })
+			comments: comments({ id: "c1", content: "Bonjour", createdAt: "2026-07-25T10:00:00.000Z" }),
 		};
 		const rec = mkUpdatePair(before, { comments: comments() });
 		const res = detectCommentChanges(rec, rec.original());
@@ -123,8 +123,8 @@ describe("Ajout multiple (batch)", () => {
 			comments: comments(
 				{ id: "c1", content: "Un", createdAt: "2026-07-25T10:00:00.000Z" },
 				{ id: "c2", content: "Deux", createdAt: "2026-07-25T10:00:01.000Z" },
-				{ id: "c3", content: "Trois", createdAt: "2026-07-25T10:00:02.000Z" }
-			)
+				{ id: "c3", content: "Trois", createdAt: "2026-07-25T10:00:02.000Z" },
+			),
 		});
 		const res = detectCommentChanges(rec, rec.original());
 		expect(res.removed).toEqual([]);
@@ -138,15 +138,15 @@ describe("Ajout + suppression simultanés", () => {
 			...BASE_OCC,
 			comments: comments(
 				{ id: "old", content: "Ancien", createdAt: "2026-07-24T10:00:00.000Z" },
-				{ id: "kept", content: "Gardé", createdAt: "2026-07-24T10:00:01.000Z" }
-			)
+				{ id: "kept", content: "Gardé", createdAt: "2026-07-24T10:00:01.000Z" },
+			),
 		};
 		const rec = mkUpdatePair(before, {
 			comments: comments(
 				{ id: "kept", content: "Gardé", createdAt: "2026-07-24T10:00:01.000Z" },
 				{ id: "new1", content: "Nouveau 1", createdAt: "2026-07-25T10:00:00.000Z" },
-				{ id: "new2", content: "Nouveau 2", createdAt: "2026-07-25T10:00:01.000Z" }
-			)
+				{ id: "new2", content: "Nouveau 2", createdAt: "2026-07-25T10:00:01.000Z" },
+			),
 		});
 		const res = detectCommentChanges(rec, rec.original());
 		expect(res.removed).toEqual(["old"]);
@@ -158,10 +158,10 @@ describe("IDs stables avec content ≠ (pas de modified en v1)", () => {
 	it("un commentaire dont seul le content change n'est ni ajouté ni supprimé", () => {
 		const before = {
 			...BASE_OCC,
-			comments: comments({ id: "c1", content: "Avant", createdAt: "2026-07-25T10:00:00.000Z" })
+			comments: comments({ id: "c1", content: "Avant", createdAt: "2026-07-25T10:00:00.000Z" }),
 		};
 		const rec = mkUpdatePair(before, {
-			comments: comments({ id: "c1", content: "Après", createdAt: "2026-07-25T10:00:00.000Z" })
+			comments: comments({ id: "c1", content: "Après", createdAt: "2026-07-25T10:00:00.000Z" }),
 		});
 		const res = detectCommentChanges(rec, rec.original());
 		expect(res.added).toEqual([]);
@@ -173,10 +173,10 @@ describe("Pas de changement", () => {
 	it("comments identiques pré/post → tableaux vides", () => {
 		const before = {
 			...BASE_OCC,
-			comments: comments({ id: "c1", content: "X", createdAt: "2026-07-25T10:00:00.000Z" })
+			comments: comments({ id: "c1", content: "X", createdAt: "2026-07-25T10:00:00.000Z" }),
 		};
 		const rec = mkUpdatePair(before, {
-			comments: comments({ id: "c1", content: "X", createdAt: "2026-07-25T10:00:00.000Z" })
+			comments: comments({ id: "c1", content: "X", createdAt: "2026-07-25T10:00:00.000Z" }),
 		});
 		const res = detectCommentChanges(rec, rec.original());
 		expect(res.added).toEqual([]);
@@ -204,7 +204,7 @@ describe("contentPreview — troncature + strip \\n", () => {
 	it("l'aperçu d'un commentaire ajouté est tronqué + single-line", () => {
 		const long = "ligne1\nligne2\n" + "z".repeat(MAX_CONTENT_PREVIEW + 10);
 		const rec = mkUpdatePair(BASE_OCC, {
-			comments: comments({ id: "c1", content: long, createdAt: "2026-07-25T10:00:00.000Z" })
+			comments: comments({ id: "c1", content: long, createdAt: "2026-07-25T10:00:00.000Z" }),
 		});
 		const res = detectCommentChanges(rec, rec.original());
 		const preview = res.added[0].contentPreview;
@@ -219,7 +219,7 @@ describe("Robustesse", () => {
 	it("comments manquant / null → traité comme tableau vide", () => {
 		const before = { id: "o1", master: "m1", lastModifiedBy: "u1" };
 		const rec = mkUpdatePair(before, {
-			comments: comments({ id: "c1", content: "Hi", createdAt: "2026-07-25T10:00:00.000Z" })
+			comments: comments({ id: "c1", content: "Hi", createdAt: "2026-07-25T10:00:00.000Z" }),
 		});
 		const res = detectCommentChanges(rec, rec.original());
 		expect(res.added).toHaveLength(1);
@@ -228,7 +228,7 @@ describe("Robustesse", () => {
 
 	it("commentaire sans id ignoré", () => {
 		const rec = mkUpdatePair(BASE_OCC, {
-			comments: comments({ content: "pas id", createdAt: "2026-07-25T10:00:00.000Z" } as never)
+			comments: comments({ content: "pas id", createdAt: "2026-07-25T10:00:00.000Z" } as never),
 		});
 		const res = detectCommentChanges(rec, rec.original());
 		expect(res.added).toEqual([]);

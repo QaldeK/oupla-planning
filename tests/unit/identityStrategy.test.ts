@@ -20,7 +20,7 @@ function makeParticipant(overrides: Partial<Participant> = {}): Participant {
 		name: "Alice",
 		isAdmin: false,
 		createdAt: "2026-01-01T00:00:00.000Z",
-		...overrides
+		...overrides,
 	};
 }
 
@@ -37,7 +37,7 @@ function makeMaster(overrides: Partial<PlanningMaster> = {}): PlanningMaster {
 		participants: [],
 		created: "2026-01-01T00:00:00.000Z",
 		updated: "2026-01-01T00:00:00.000Z",
-		...overrides
+		...overrides,
 	};
 }
 
@@ -53,7 +53,7 @@ function makeInput(overrides: Partial<StrategyInput> = {}): StrategyInput {
 		pendingGuestClaim: null,
 		autoAddedMasterIds: new Set<string>(),
 		showClaimModal: false,
-		...overrides
+		...overrides,
 	};
 }
 
@@ -78,7 +78,7 @@ describe("resolveIdentityStrategy — gardes", () => {
 
 	it("hasQuitThisPlanning=true → block_quit (retour après quit)", () => {
 		const result = resolveIdentityStrategy(
-			makeInput({ hasQuitThisPlanning: true, isLoggedIn: true, pbUser: PB_USER })
+			makeInput({ hasQuitThisPlanning: true, isLoggedIn: true, pbUser: PB_USER }),
 		);
 		expect(result.action).toEqual({ type: "block_quit" });
 		expect(result.expirePendingClaim).toBe(false);
@@ -92,8 +92,8 @@ describe("resolveIdentityStrategy — gardes", () => {
 				hasQuitThisPlanning: true,
 				isLoggedIn: true,
 				pbUser: PB_USER,
-				myParticipant: makeParticipant({ userId: PB_USER.id })
-			})
+				myParticipant: makeParticipant({ userId: PB_USER.id }),
+			}),
 		);
 		expect(result.action.type).toBe("block_quit");
 	});
@@ -111,8 +111,8 @@ describe("resolveIdentityStrategy — CAS A (silent_sync)", () => {
 				isLoggedIn: true,
 				pbUser: PB_USER,
 				myParticipant: makeParticipant({ userId: PB_USER.id }),
-				pendingGuestClaim: { masterId: "m1", participantId: "p1", name: "Alice" }
-			})
+				pendingGuestClaim: { masterId: "m1", participantId: "p1", name: "Alice" },
+			}),
 		);
 		expect(result.action).toEqual({ type: "silent_sync" });
 		expect(result.expirePendingClaim).toBe(true);
@@ -123,8 +123,8 @@ describe("resolveIdentityStrategy — CAS A (silent_sync)", () => {
 			makeInput({
 				isLoggedIn: true,
 				pbUser: PB_USER,
-				myParticipant: makeParticipant({ userId: PB_USER.id })
-			})
+				myParticipant: makeParticipant({ userId: PB_USER.id }),
+			}),
 		);
 		expect(result.action).toEqual({ type: "silent_sync" });
 		expect(result.expirePendingClaim).toBe(true); // CAS A expire toujours (sécurité)
@@ -146,13 +146,13 @@ describe("resolveIdentityStrategy — suggestion pendingGuestClaim", () => {
 				pendingGuestClaim: {
 					masterId: "m1",
 					participantId: "p-guest",
-					name: "Guest Alice"
-				}
-			})
+					name: "Guest Alice",
+				},
+			}),
 		);
 		expect(result.action).toEqual({
 			type: "show_claim_suggestion",
-			participant: target
+			participant: target,
 		});
 		expect(result.expirePendingClaim).toBe(false);
 	});
@@ -167,9 +167,9 @@ describe("resolveIdentityStrategy — suggestion pendingGuestClaim", () => {
 				pendingGuestClaim: {
 					masterId: "autre-master",
 					participantId: "p-guest",
-					name: "Guest Alice"
-				}
-			})
+					name: "Guest Alice",
+				},
+			}),
 		);
 		// Pas de name match, pas de conflit → auto_add
 		expect(result.action.type).toBe("auto_add");
@@ -184,8 +184,8 @@ describe("resolveIdentityStrategy — suggestion pendingGuestClaim", () => {
 				master: makeMaster({ participants: [claimed] }),
 				isLoggedIn: true,
 				pbUser: PB_USER,
-				pendingGuestClaim: { masterId: "m1", participantId: "p-claimed", name: "X" }
-			})
+				pendingGuestClaim: { masterId: "m1", participantId: "p-claimed", name: "X" },
+			}),
 		);
 		// Pas de name match (PB_USER.name='Bob' ≠ 'Alice'), pas de conflit → auto_add
 		// mais pendingGuestClaim doit être expiré.
@@ -200,8 +200,8 @@ describe("resolveIdentityStrategy — suggestion pendingGuestClaim", () => {
 				master: makeMaster({ participants: [quit] }),
 				isLoggedIn: true,
 				pbUser: PB_USER,
-				pendingGuestClaim: { masterId: "m1", participantId: "p-quit", name: "X" }
-			})
+				pendingGuestClaim: { masterId: "m1", participantId: "p-quit", name: "X" },
+			}),
 		);
 		expect(result.action.type).toBe("auto_add");
 		expect(result.expirePendingClaim).toBe(true);
@@ -215,8 +215,8 @@ describe("resolveIdentityStrategy — suggestion pendingGuestClaim", () => {
 				isLoggedIn: true,
 				pbUser: PB_USER,
 				pendingGuestClaim: { masterId: "m1", participantId: "p-guest", name: "X" },
-				showClaimModal: true
-			})
+				showClaimModal: true,
+			}),
 		);
 		expect(result.action).toEqual({ type: "none" });
 		expect(result.expirePendingClaim).toBe(false);
@@ -234,12 +234,12 @@ describe("resolveIdentityStrategy — CAS B (name match)", () => {
 			makeInput({
 				master: makeMaster({ participants: [sameName] }),
 				isLoggedIn: true,
-				pbUser: PB_USER // name='Bob'
-			})
+				pbUser: PB_USER, // name='Bob'
+			}),
 		);
 		expect(result.action).toEqual({
 			type: "show_claim_modal",
-			suggestionParticipant: null
+			suggestionParticipant: null,
 		});
 		expect(result.expirePendingClaim).toBe(false);
 	});
@@ -252,8 +252,8 @@ describe("resolveIdentityStrategy — CAS B (name match)", () => {
 			makeInput({
 				master: makeMaster({ participants: [linkedToOther] }),
 				isLoggedIn: true,
-				pbUser: PB_USER
-			})
+				pbUser: PB_USER,
+			}),
 		);
 		expect(result.action.type).toBe("show_claim_modal");
 	});
@@ -264,8 +264,8 @@ describe("resolveIdentityStrategy — CAS B (name match)", () => {
 			makeInput({
 				master: makeMaster({ participants: [quit] }),
 				isLoggedIn: true,
-				pbUser: PB_USER
-			})
+				pbUser: PB_USER,
+			}),
 		);
 		// Pas de CAS B (hasQuit exclu). Pas de conflit (hasNameConflict exclut hasQuit).
 		expect(result.action.type).toBe("auto_add");
@@ -282,13 +282,13 @@ describe("resolveIdentityStrategy — CAS C (auto_add)", () => {
 			makeInput({
 				master: makeMaster({ participants: [] }),
 				isLoggedIn: true,
-				pbUser: PB_USER
-			})
+				pbUser: PB_USER,
+			}),
 		);
 		expect(result.action).toEqual({
 			type: "auto_add",
 			identity: { id: "u1", name: "Bob", email: "bob@example.com" },
-			additionalFields: { userId: "u1" }
+			additionalFields: { userId: "u1" },
 		});
 		expect(result.expirePendingClaim).toBe(false);
 	});
@@ -300,12 +300,12 @@ describe("resolveIdentityStrategy — CAS C (auto_add)", () => {
 			makeInput({
 				master: makeMaster({ participants: [conflict] }),
 				isLoggedIn: true,
-				pbUser: PB_USER
-			})
+				pbUser: PB_USER,
+			}),
 		);
 		expect(result.action).toEqual({
 			type: "show_claim_modal",
-			suggestionParticipant: null
+			suggestionParticipant: null,
 		});
 	});
 
@@ -316,8 +316,8 @@ describe("resolveIdentityStrategy — CAS C (auto_add)", () => {
 				master: makeMaster({ participants: [] }),
 				isLoggedIn: true,
 				pbUser: PB_USER,
-				autoAddedMasterIds: new Set(["m1"])
-			})
+				autoAddedMasterIds: new Set(["m1"]),
+			}),
 		);
 		expect(result.action).toEqual({ type: "none" });
 		expect(result.expirePendingClaim).toBe(false);
@@ -331,7 +331,7 @@ describe("resolveIdentityStrategy — CAS C (auto_add)", () => {
 describe("resolveIdentityStrategy — guest", () => {
 	it("guest sans identité locale → identify_as_guest", () => {
 		const result = resolveIdentityStrategy(
-			makeInput({ isLoggedIn: false, pbUser: null, guestIdentity: null })
+			makeInput({ isLoggedIn: false, pbUser: null, guestIdentity: null }),
 		);
 		expect(result.action).toEqual({ type: "identify_as_guest" });
 		expect(result.expirePendingClaim).toBe(false);
@@ -342,8 +342,8 @@ describe("resolveIdentityStrategy — guest", () => {
 			makeInput({
 				isLoggedIn: false,
 				pbUser: null,
-				guestIdentity: { id: "p-guest", name: "Alice" }
-			})
+				guestIdentity: { id: "p-guest", name: "Alice" },
+			}),
 		);
 		expect(result.action).toEqual({ type: "none" });
 		expect(result.expirePendingClaim).toBe(false);

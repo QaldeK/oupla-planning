@@ -29,8 +29,8 @@ export async function claimPlannings(masters: ClaimablePlanning[]): Promise<void
 			tokens: masters.map((master) => ({
 				masterId: master.id,
 				participantToken: master.participantToken,
-				adminToken: master.adminToken
-			}))
-		}
+				adminToken: master.adminToken,
+			})),
+		},
 	});
 }

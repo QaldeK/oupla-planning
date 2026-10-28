@@ -14,7 +14,7 @@ const TODAY = "2026-01-01";
 /** Formate une Date JS en YYYY-MM-DD (utilitaire de test). */
 function ymd(d: Date): string {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-		d.getDate()
+		d.getDate(),
 	).padStart(2, "0")}`;
 }
 
@@ -40,7 +40,7 @@ describe("computeMaxDateForLimit", () => {
 			manualDates: [],
 			timeSlots: [SLOT],
 			disabledSlotKeys: new Set(),
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBeNull();
 	});
@@ -55,7 +55,7 @@ describe("computeMaxDateForLimit", () => {
 			manualDates: [],
 			timeSlots: [SLOT],
 			disabledSlotKeys: new Set(),
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBe("2026-04-11");
 	});
@@ -70,7 +70,7 @@ describe("computeMaxDateForLimit", () => {
 			manualDates: [],
 			timeSlots: [SLOT, SLOT2],
 			disabledSlotKeys: new Set(),
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBe("2026-02-20");
 	});
@@ -85,14 +85,14 @@ describe("computeMaxDateForLimit", () => {
 			manualDates: [],
 			timeSlots: [SLOT],
 			disabledSlotKeys: new Set(),
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBe("2026-04-11");
 		// Le nouveau cycle [firstDate, result] doit contenir exactement 100 dates.
 		const regenerated = generateRecurrenceDates({
 			type: "DAILY",
 			firstDate: "2026-01-02",
-			lastDate: result!
+			lastDate: result!,
 		});
 		expect(regenerated).toHaveLength(100);
 		expect(regenerated[0]).toBe("2026-01-02");
@@ -114,7 +114,7 @@ describe("computeMaxDateForLimit", () => {
 			manualDates,
 			timeSlots: [SLOT],
 			disabledSlotKeys: new Set(),
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBe("2026-12-16");
 	});
@@ -132,7 +132,7 @@ describe("computeMaxDateForLimit", () => {
 			manualDates,
 			timeSlots: [SLOT],
 			disabledSlotKeys: new Set(),
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBe("2026-01-02");
 	});
@@ -149,7 +149,7 @@ describe("computeMaxDateForLimit", () => {
 			manualDates: [],
 			timeSlots: [SLOT, SLOT2],
 			disabledSlotKeys: new Set(),
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBe("2026-12-16");
 	});
@@ -162,7 +162,7 @@ describe("computeMaxDateForLimit", () => {
 		const cycle = generateRecurrenceDates({
 			type: "DAILY",
 			firstDate: "2026-01-02",
-			lastDate: "2026-06-30"
+			lastDate: "2026-06-30",
 		});
 		for (const d of cycle) disabled.add(`${d}|s2`);
 
@@ -173,7 +173,7 @@ describe("computeMaxDateForLimit", () => {
 			manualDates: [],
 			timeSlots: [SLOT, SLOT2],
 			disabledSlotKeys: disabled,
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBe("2026-04-11");
 	});
@@ -186,7 +186,7 @@ describe("computeMaxDateForLimit", () => {
 			manualDates: [],
 			timeSlots: [SLOT],
 			disabledSlotKeys: new Set(),
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBeNull();
 	});
@@ -199,7 +199,7 @@ describe("computeMaxDateForLimit", () => {
 			manualDates: [],
 			timeSlots: [SLOT],
 			disabledSlotKeys: new Set(),
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBeNull();
 	});
@@ -213,7 +213,7 @@ describe("computeMaxDateForLimit", () => {
 			manualDates: [],
 			timeSlots: [SLOT],
 			disabledSlotKeys: new Set(),
-			todayStr: TODAY
+			todayStr: TODAY,
 		});
 		expect(result).toBeNull();
 	});

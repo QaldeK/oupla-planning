@@ -10,13 +10,13 @@ compte).
 
 ## Deux natures d'utilisateur
 
-| | Guest | Compte |
-| --- | --- | --- |
-| Identité | locale à l'appareil, **scopée à un planning** | globale au compte PocketBase, cross-device |
-| Source de vérité | Dexie `localMeta.currentUser` | `pb.authStore.record` |
-| Nom affiché | par planning, indépendant du compte | idem — le nom du compte ne s'impose pas |
-| Realtime | souscription per-planning, scopée par token | souscription globale, filtrée par les API Rules |
-| Plannings dans la sidebar | non listés | listés |
+|                           | Guest                                         | Compte                                          |
+| ------------------------- | --------------------------------------------- | ----------------------------------------------- |
+| Identité                  | locale à l'appareil, **scopée à un planning** | globale au compte PocketBase, cross-device      |
+| Source de vérité          | Dexie `localMeta.currentUser`                 | `pb.authStore.record`                           |
+| Nom affiché               | par planning, indépendant du compte           | idem — le nom du compte ne s'impose pas         |
+| Realtime                  | souscription per-planning, scopée par token   | souscription globale, filtrée par les API Rules |
+| Plannings dans la sidebar | non listés                                    | listés                                          |
 
 Un Guest n'a **pas** de profil universel : le même appareil peut porter des noms
 différents sur deux plannings. C'est une invariant du modèle, pas un effet de bord.
@@ -45,13 +45,13 @@ flowchart TD
 Fonction pure `resolveCurrentIdentity` (`src/lib/utils/identityResolution.ts`) — aucun
 store, aucun `$state`. Elle arbitre auth > guest > identité revendiquée, dans cet ordre :
 
-| Cas | Condition | Résultat |
-| --- | --- | --- |
-| Auth lié | participant dont `userId === pbUser.id` | `identity = { id: participant.id, name: participant.name, email }` |
-| Auth non lié | aucun participant avec ce `userId` | `identity = pbUser` — **transitoire**, la stratégie CAS B/C enchaîne |
-| Guest revendiqué | participant trouvé, mais `participant.userId` posé | `identity = null`, `claimedByAuth: true` |
-| Guest identifié | participant trouvé par `id` | `identity = guestIdentity` |
-| Guest anonyme | pas d'identité locale | `identity = null` |
+| Cas              | Condition                                          | Résultat                                                             |
+| ---------------- | -------------------------------------------------- | -------------------------------------------------------------------- |
+| Auth lié         | participant dont `userId === pbUser.id`            | `identity = { id: participant.id, name: participant.name, email }`   |
+| Auth non lié     | aucun participant avec ce `userId`                 | `identity = pbUser` — **transitoire**, la stratégie CAS B/C enchaîne |
+| Guest revendiqué | participant trouvé, mais `participant.userId` posé | `identity = null`, `claimedByAuth: true`                             |
+| Guest identifié  | participant trouvé par `id`                        | `identity = guestIdentity`                                           |
+| Guest anonyme    | pas d'identité locale                              | `identity = null`                                                    |
 
 **Invariant central** : quand un participant est résolu, `identity.id = participant.id`.
 C'est la clé de toutes les données du planning — réponses, commentaires, quit. Après un
@@ -122,22 +122,22 @@ créerait un second participant, cassant l'affichage du participant courant.
 
 La stratégie vit dans `/p/[token]/+page.svelte`, par ordre de priorité strict :
 
-| Priorité | Cas | Condition | Action |
-| --- | --- | --- | --- |
-| 1 | CAS A | participant déjà lié (`userId`, `!hasQuit`) | sync silencieuse, aucun modal |
-| 2 | Suggestion | `pendingGuestClaim.masterId === master.id` et cible valide | auto-open du modal, étape suggestion |
-| 3 | CAS B | participant non lié de même nom (case-insensitive) | auto-open du modal, étape principale |
-| 4 | CAS C | aucun des cas précédents | si conflit de nom → modal ; sinon auto-add silencieux |
+| Priorité | Cas        | Condition                                                  | Action                                                |
+| -------- | ---------- | ---------------------------------------------------------- | ----------------------------------------------------- |
+| 1        | CAS A      | participant déjà lié (`userId`, `!hasQuit`)                | sync silencieuse, aucun modal                         |
+| 2        | Suggestion | `pendingGuestClaim.masterId === master.id` et cible valide | auto-open du modal, étape suggestion                  |
+| 3        | CAS B      | participant non lié de même nom (case-insensitive)         | auto-open du modal, étape principale                  |
+| 4        | CAS C      | aucun des cas précédents                                   | si conflit de nom → modal ; sinon auto-add silencieux |
 
 La suggestion prime sur B et C parce qu'elle porte une information **exacte** (l'UUID du
 participant guest de session), là où B est une heuristique par nom.
 
-| Élément | Rôle |
-| --- | --- |
-| `/api/claim-participant-identity` | migration atomique (`runInTransaction`) : réponses et commentaires ré-attribués au participant cible, `userId` posé sur le guest |
-| `Participant.userId` | string simple dans le JSON, **pas une relation PocketBase** — aucune contrainte d'intégrité serveur |
-| `Participant.claimedAt` | marqueur « une seule revendication par planning » : un Compte déjà porteur de `claimedAt` reçoit 409 |
-| `hasNameConflict(participants, name, currentUserId)` | garde d'unicité du nom, côté client uniquement |
+| Élément                                              | Rôle                                                                                                                             |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/claim-participant-identity`                    | migration atomique (`runInTransaction`) : réponses et commentaires ré-attribués au participant cible, `userId` posé sur le guest |
+| `Participant.userId`                                 | string simple dans le JSON, **pas une relation PocketBase** — aucune contrainte d'intégrité serveur                              |
+| `Participant.claimedAt`                              | marqueur « une seule revendication par planning » : un Compte déjà porteur de `claimedAt` reçoit 409                             |
+| `hasNameConflict(participants, name, currentUserId)` | garde d'unicité du nom, côté client uniquement                                                                                   |
 
 Règle de merge du endpoint, quand l'utilisateur avait déjà répondu sous les deux identités :
 en cas de valeurs divergentes, la réponse du Compte gagne ; tous les commentaires du
@@ -158,11 +158,11 @@ CAS A.
 
 ## Fin de session
 
-| Action | Redirige | Clear Dexie | Identités guest |
-| --- | --- | --- | --- |
-| `logout()` | oui, vers `/` | oui, `localMeta` inclus | perdues |
+| Action                           | Redirige                   | Clear Dexie             | Identités guest                  |
+| -------------------------------- | -------------------------- | ----------------------- | -------------------------------- |
+| `logout()`                       | oui, vers `/`              | oui, `localMeta` inclus | perdues                          |
 | `logoutAndStayOnPlanning(token)` | non, reste sur le planning | oui, `localMeta` inclus | perdues, la page rouvre le modal |
-| `deleteAccount()` (ADR-0013) | oui, après `logout()` | oui | — |
+| `deleteAccount()` (ADR-0013)     | oui, après `logout()`      | oui                     | —                                |
 
 `deleteAccount()` appelle `/api/delete-account` (transaction : participations marquées
 quittées, `userId` retiré, préférences supprimées, record `users` supprimé). Les plannings

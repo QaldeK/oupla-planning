@@ -45,7 +45,7 @@ import {
 	deletePlanning,
 	submitResponse,
 	updateParticipant,
-	updatePlanningWithOccurrences
+	updatePlanningWithOccurrences,
 } from "$lib/services/planningMutations";
 import { getPlanningByToken } from "$lib/services/planningReads";
 import type {
@@ -54,20 +54,20 @@ import type {
 	PlanningMaster,
 	PlanningOccurrence,
 	ResponseType,
-	Task
+	Task,
 } from "$lib/types/planning.types";
 import { sortTasks } from "$lib/utils/tasks";
 import {
 	generateAdminToken,
 	generateParticipantId,
-	generateParticipantToken
+	generateParticipantToken,
 } from "$lib/utils/tokens";
 import {
 	authenticateAdmin,
 	cleanupTrackedRecords,
 	clearTrackedIds,
 	seedPlanning,
-	trackIds
+	trackIds,
 } from "./seed";
 
 describe("planningActions — Pipeline CRUD complet", () => {
@@ -94,7 +94,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				recurrence: { type: "CUSTOM" },
 				minPresentRequired: 2,
 				allowResponses: true,
-				availableResponseTypes: ["present", "absent", "maybe"]
+				availableResponseTypes: ["present", "absent", "maybe"],
 			});
 
 			trackIds("planning_masters", master.id);
@@ -132,8 +132,8 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				availableResponseTypes: ["maybe", "present", "absent"],
 				tasks: [
 					{ id: "t2", name: "Apres", description: "", requiredVolunteers: 1, type: "afterEvent" },
-					{ id: "t1", name: "Pendant", description: "", requiredVolunteers: 2, type: "onEvent" }
-				]
+					{ id: "t1", name: "Pendant", description: "", requiredVolunteers: 2, type: "onEvent" },
+				],
 			});
 
 			trackIds("planning_masters", master.id);
@@ -155,10 +155,10 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				occurrenceTargets: [
 					{ date: "2026-06-01", startTime: "09:00", endTime: "17:00", slotId: "s1" },
 					{ date: "2026-06-08", startTime: "09:00", endTime: "17:00", slotId: "s1" },
-					{ date: "2026-06-15", startTime: "09:00", endTime: "17:00", slotId: "s1" }
+					{ date: "2026-06-15", startTime: "09:00", endTime: "17:00", slotId: "s1" },
 				],
 				minPresentRequired: 1,
-				allowResponses: true
+				allowResponses: true,
 			});
 
 			// Verification Dexie : master + occurrences (mis par pb-sync)
@@ -194,7 +194,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				defaultEndTime: "17:00",
 				recurrence: { type: "CUSTOM" },
 				minPresentRequired: 1,
-				allowResponses: true
+				allowResponses: true,
 			});
 
 			const dexieOccurrences = await db.occurrences.where("master").equals(master.id).toArray();
@@ -221,7 +221,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 		// `occurrenceTargets` est la source unique côté service : le diff create/update/
 		// soft-delete/un-soft-delete s'appuie dessus (clé de réconciliation `date|slotId`).
 		const buildData = (
-			targets: { date: string; startTime: string; endTime: string; slotId: string }[]
+			targets: { date: string; startTime: string; endTime: string; slotId: string }[],
 		) => ({
 			title: "Update diff",
 			defaultStartTime: "19:00",
@@ -231,21 +231,21 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			occurrenceTargets: targets,
 			minPresentRequired: 1,
 			allowResponses: true,
-			availableResponseTypes: ["present", "absent"] as ResponseType[]
+			availableResponseTypes: ["present", "absent"] as ResponseType[],
 		});
 
 		// Helper : crée un master CUSTOM + ses occs via pb-sync, et récupère les occs PB.
 		// Les assertions PB passent par un superuser (adminPb) pour voir les champs
 		// masqués côté API ; l'état Dexie se lit directement sur db.
 		async function createForUpdate(
-			targets: { date: string; startTime: string; endTime: string; slotId: string }[]
+			targets: { date: string; startTime: string; endTime: string; slotId: string }[],
 		) {
 			const adminToken = generateAdminToken();
 			const participantToken = generateParticipantToken();
 			const master = await createPlanningWithOccurrences(
 				buildData(targets),
 				adminToken,
-				participantToken
+				participantToken,
 			);
 			trackIds("planning_masters", master.id);
 			const adminPb = await authenticateAdmin();
@@ -267,7 +267,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const d1 = futureDate(7);
 			// Crée une occ dont les horaires (20:00-22:00) dévient du template s1 (19:00-21:00).
 			const { master, adminToken } = await createForUpdate([
-				{ date: d1, startTime: "20:00", endTime: "22:00", slotId: "s1" }
+				{ date: d1, startTime: "20:00", endTime: "22:00", slotId: "s1" },
 			]);
 			setActivePlanningToken(adminToken);
 
@@ -275,7 +275,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			// donc la target porte les horaires override (20:00-22:00). Save sans toucher.
 			await updatePlanningWithOccurrences(
 				master.id,
-				buildData([{ date: d1, startTime: "20:00", endTime: "22:00", slotId: "s1" }])
+				buildData([{ date: d1, startTime: "20:00", endTime: "22:00", slotId: "s1" }]),
 			);
 
 			const occs = await getOccs(master.id);
@@ -292,7 +292,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const {
 				master,
 				adminToken,
-				occs: initial
+				occs: initial,
 			} = await createForUpdate([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }]);
 			setActivePlanningToken(adminToken);
 			const occId = initial[0].id;
@@ -303,7 +303,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				participantId: "user001",
 				response: "present",
 				tasks: [],
-				respondedAt: new Date().toISOString()
+				respondedAt: new Date().toISOString(),
 			});
 			await addComment(occId, "user001", "Commentaire important");
 
@@ -314,7 +314,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			// ne seed pas les soft-deleted dans seededOccurrences) → match par clé `date|slotId`.
 			await updatePlanningWithOccurrences(
 				master.id,
-				buildData([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }])
+				buildData([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }]),
 			);
 
 			const occs = await getOccs(master.id);
@@ -331,14 +331,14 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const d2 = futureDate(14);
 			const { master, adminToken } = await createForUpdate([
 				{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" },
-				{ date: d2, startTime: "19:00", endTime: "21:00", slotId: "s1" }
+				{ date: d2, startTime: "19:00", endTime: "21:00", slotId: "s1" },
 			]);
 			setActivePlanningToken(adminToken);
 
 			// L'admin retire d2 (DateSlot désactivée → absente des targets).
 			await updatePlanningWithOccurrences(
 				master.id,
-				buildData([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }])
+				buildData([{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }]),
 			);
 
 			const occs = await getOccs(master.id);
@@ -353,7 +353,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const d1 = futureDate(7);
 			const d2 = futureDate(14);
 			const { master, adminToken } = await createForUpdate([
-				{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }
+				{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" },
 			]);
 			setActivePlanningToken(adminToken);
 			const existingIds = new Set((await getOccs(master.id)).map((o) => o.id));
@@ -363,8 +363,8 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				master.id,
 				buildData([
 					{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" },
-					{ date: d2, startTime: "19:00", endTime: "21:00", slotId: "s1" }
-				])
+					{ date: d2, startTime: "19:00", endTime: "21:00", slotId: "s1" },
+				]),
 			);
 
 			const after = await getOccs(master.id);
@@ -380,7 +380,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const d1 = futureDate(7);
 			const d2 = futureDate(14);
 			const { master, adminToken } = await createForUpdate([
-				{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" }
+				{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" },
 			]);
 			setActivePlanningToken(adminToken);
 
@@ -388,8 +388,8 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				master.id,
 				buildData([
 					{ date: d1, startTime: "19:00", endTime: "21:00", slotId: "s1" },
-					{ date: d2, startTime: "19:00", endTime: "21:00", slotId: "s1" }
-				])
+					{ date: d2, startTime: "19:00", endTime: "21:00", slotId: "s1" },
+				]),
 			);
 
 			// La row master locale porte la nouvelle version (le `_version` du save
@@ -414,7 +414,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				defaultEndTime: "17:00",
 				recurrence: { type: "CUSTOM" },
 				minPresentRequired: 1,
-				allowResponses: true
+				allowResponses: true,
 			});
 
 			trackIds("planning_masters", master.id);
@@ -435,9 +435,9 @@ describe("planningActions — Pipeline CRUD complet", () => {
 					defaultEndTime: "17:00",
 					recurrence: { type: "CUSTOM" },
 					minPresentRequired: 1,
-					allowResponses: true
+					allowResponses: true,
 				},
-				adminToken
+				adminToken,
 			);
 
 			trackIds("planning_masters", master.id);
@@ -483,13 +483,13 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const alice: Participant = { id: "aaa111", name: "Alice", isAdmin: false, createdAt: "" };
 			const { master, adminToken } = await createFullPlanning({
 				title: "Update Participant",
-				participants: [alice]
+				participants: [alice],
 			});
 			setActivePlanningToken(adminToken);
 
 			const updated = await updateParticipant(master.id, "aaa111", {
 				name: "Alice Updated",
-				isAdmin: true
+				isAdmin: true,
 			});
 
 			expect(updated.participants[0].name).toBe("Alice Updated");
@@ -512,14 +512,14 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const alice: Participant = { id: "aaa111", name: "Alice", isAdmin: false, createdAt: "" };
 			const { master, adminToken } = await createFullPlanning({
 				title: "No Duplicate",
-				participants: [alice]
+				participants: [alice],
 			});
 			setActivePlanningToken(adminToken);
 
 			const updated = await addParticipant(master.id, {
 				id: "aaa111",
 				name: "Alice Renamed",
-				isAdmin: true
+				isAdmin: true,
 			});
 
 			// L'ancien Alice est filtre, le nouveau est ajoute a la fin
@@ -539,7 +539,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const {
 				master: _master,
 				adminToken,
-				occId
+				occId,
 			} = await createFullPlanning({ occurrenceCount: 1 });
 			setActivePlanningToken(adminToken);
 			const participantId = "user001";
@@ -548,7 +548,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				participantId,
 				response: "present",
 				tasks: [],
-				respondedAt: new Date().toISOString()
+				respondedAt: new Date().toISOString(),
 			};
 			const updated = await submitResponse(occId, participantId, response);
 
@@ -573,7 +573,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const {
 				master: _master,
 				adminToken,
-				occId
+				occId,
 			} = await createFullPlanning({ occurrenceCount: 1 });
 			setActivePlanningToken(adminToken);
 			const participantId = "user001";
@@ -582,14 +582,14 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				participantId,
 				response: "present",
 				tasks: [],
-				respondedAt: new Date().toISOString()
+				respondedAt: new Date().toISOString(),
 			} as ParticipantResponse);
 
 			const updated = await submitResponse(occId, participantId, {
 				participantId,
 				response: "absent",
 				tasks: [],
-				respondedAt: new Date().toISOString()
+				respondedAt: new Date().toISOString(),
 			} as ParticipantResponse);
 
 			expect(updated.responses).toHaveLength(1);
@@ -609,19 +609,19 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				participantId: "u1",
 				response: "present",
 				tasks: [],
-				respondedAt: new Date().toISOString()
+				respondedAt: new Date().toISOString(),
 			} as ParticipantResponse);
 			await submitResponse(occId, "u2", {
 				participantId: "u2",
 				response: "absent",
 				tasks: [],
-				respondedAt: new Date().toISOString()
+				respondedAt: new Date().toISOString(),
 			} as ParticipantResponse);
 			await submitResponse(occId, "u3", {
 				participantId: "u3",
 				response: "if_needed",
 				tasks: [],
-				respondedAt: new Date().toISOString()
+				respondedAt: new Date().toISOString(),
 			} as ParticipantResponse);
 
 			const adminPb = await authenticateAdmin();
@@ -742,7 +742,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const tasks: Task[] = [
 				{ id: "t3", name: "C", description: "", requiredVolunteers: 1, type: "afterEvent" },
 				{ id: "t1", name: "A", description: "", requiredVolunteers: 1, type: "beforeEvent" },
-				{ id: "t2", name: "B", description: "", requiredVolunteers: 1, type: "onEvent" }
+				{ id: "t2", name: "B", description: "", requiredVolunteers: 1, type: "onEvent" },
 			];
 			const sorted = sortTasks(tasks);
 			expect(sorted).toHaveLength(3);
@@ -789,8 +789,8 @@ describe("planningActions — Pipeline CRUD complet", () => {
 					recurrence: { type: "CUSTOM" },
 					minPresentRequired: 1,
 					allowResponses: true,
-					occurrenceTargets: []
-				})
+					occurrenceTargets: [],
+				}),
 			).rejects.toThrow();
 
 			// Verifier que rien n'a change dans PB
@@ -847,7 +847,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 
 		it("rejecte les operations CRUD avec un token invalide", async () => {
 			const { master, adminToken: _adminToken } = await createFullPlanning({
-				title: "Invalid Token"
+				title: "Invalid Token",
 			});
 			const alice: Participant = { id: "aaa111", name: "Alice", isAdmin: false, createdAt: "" };
 
@@ -873,10 +873,10 @@ describe("planningActions — Pipeline CRUD complet", () => {
 			const {
 				master: _master,
 				adminToken,
-				occurrences
+				occurrences,
 			} = await seedPlanning({
 				title: "Occ Not In Dexie",
-				occurrenceCount: 1
+				occurrenceCount: 1,
 			});
 
 			// master ET occurrences sont dans PB mais PAS dans Dexie
@@ -887,7 +887,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
 				participantId: "user001",
 				response: "present",
 				tasks: [],
-				respondedAt: new Date().toISOString()
+				respondedAt: new Date().toISOString(),
 			};
 
 			setActivePlanningToken(adminToken);
@@ -902,7 +902,7 @@ describe("planningActions — Pipeline CRUD complet", () => {
  * Retourne { master, adminToken, occId }.
  */
 async function createFullPlanning(
-	opts: { title?: string; participants?: Participant[]; occurrenceCount?: number } = {}
+	opts: { title?: string; participants?: Participant[]; occurrenceCount?: number } = {},
 ) {
 	// Pre-generate le token car onRecordEnrich masque adminToken dans la reponse PB
 	const adminToken = generateAdminToken();
@@ -923,13 +923,13 @@ async function createFullPlanning(
 				date,
 				startTime: "09:00",
 				endTime: "17:00",
-				slotId: "s1"
+				slotId: "s1",
 			})),
 			minPresentRequired: 1,
 			allowResponses: true,
-			participants: opts.participants || []
+			participants: opts.participants || [],
 		},
-		adminToken
+		adminToken,
 	);
 
 	const occs = await db.occurrences.where("master").equals(master.id).toArray();

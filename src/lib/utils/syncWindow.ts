@@ -25,12 +25,12 @@ export const UNBOUNDED_SINCE = "2000-01-01 00:00:00";
  * Sans masterId : mode auth (les API Rules filtrent déjà par planning).
  */
 export function recentOccurrencesFilter(
-	masterId?: string
+	masterId?: string,
 ): [template: string, vars: Record<string, unknown>] {
 	return masterId
 		? [
 				"master = {:masterId} && date >= {:minDate}",
-				{ masterId, minDate: isoDateDaysAgo(-SYNC_RECENT_WINDOW_DAYS) }
+				{ masterId, minDate: isoDateDaysAgo(-SYNC_RECENT_WINDOW_DAYS) },
 			]
 		: ["date >= {:minDate}", { minDate: isoDateDaysAgo(-SYNC_RECENT_WINDOW_DAYS) }];
 }
@@ -41,7 +41,7 @@ export function recentOccurrencesFilter(
  * une borne `date <= J` en TEXT exclurait J lui-même).
  */
 export function archiveOccurrencesFilter(
-	masterId: string
+	masterId: string,
 ): [template: string, vars: Record<string, unknown>] {
 	return ["master = {:masterId} && date < {:maxDate}", { masterId, maxDate: isoDateDaysAgo(-1) }];
 }

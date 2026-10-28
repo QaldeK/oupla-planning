@@ -107,7 +107,7 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 		isTransitioning,
 		pendingGuestClaim,
 		autoAddedMasterIds,
-		showClaimModal
+		showClaimModal,
 	} = input;
 
 	// Garde 1 : page pas prête ou transition guest→auth en cours
@@ -139,12 +139,12 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 		// avant tout auto-add.
 		if (pendingGuestClaim?.masterId === master.id) {
 			const target = master.participants.find(
-				(p) => p.id === pendingGuestClaim.participantId && !p.userId && !p.hasQuit
+				(p) => p.id === pendingGuestClaim.participantId && !p.userId && !p.hasQuit,
 			);
 			if (target) {
 				return {
 					action: { type: "show_claim_suggestion", participant: target },
-					expirePendingClaim: false
+					expirePendingClaim: false,
 				};
 			}
 			// Sinon : snapshot invalide (claimé ailleurs, quitté, supprimé).
@@ -154,17 +154,17 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 		const isPendingClaimStale =
 			pendingGuestClaim?.masterId === master.id &&
 			!master.participants.some(
-				(p) => p.id === pendingGuestClaim.participantId && !p.userId && !p.hasQuit
+				(p) => p.id === pendingGuestClaim.participantId && !p.userId && !p.hasQuit,
 			);
 
 		// CAS B : name match case-insensitive avec un participant non-lié sans hasQuit
 		const nameMatch = master.participants.find(
-			(p) => !p.userId && !p.hasQuit && p.name.toLowerCase() === pbUser.name.toLowerCase()
+			(p) => !p.userId && !p.hasQuit && p.name.toLowerCase() === pbUser.name.toLowerCase(),
 		);
 		if (nameMatch) {
 			return {
 				action: { type: "show_claim_modal", suggestionParticipant: null },
-				expirePendingClaim: isPendingClaimStale
+				expirePendingClaim: isPendingClaimStale,
 			};
 		}
 
@@ -174,7 +174,7 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 		if (nameConflict) {
 			return {
 				action: { type: "show_claim_modal", suggestionParticipant: null },
-				expirePendingClaim: isPendingClaimStale
+				expirePendingClaim: isPendingClaimStale,
 			};
 		}
 
@@ -185,9 +185,9 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 				action: {
 					type: "auto_add",
 					identity: { id: pbUser.id, name: pbUser.name, email: pbUser.email },
-					additionalFields: { userId: pbUser.id }
+					additionalFields: { userId: pbUser.id },
 				},
-				expirePendingClaim: isPendingClaimStale
+				expirePendingClaim: isPendingClaimStale,
 			};
 		}
 

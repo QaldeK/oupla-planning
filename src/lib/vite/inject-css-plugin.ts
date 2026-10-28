@@ -41,6 +41,6 @@ export function injectRootCss(): Plugin {
 				writeFileSync(htmlPath, html, "utf-8");
 				console.log(`[inject-root-css] CSS injecté: ${rootCss}`);
 			}
-		}
+		},
 	};
 }

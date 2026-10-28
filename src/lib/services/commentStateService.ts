@@ -102,8 +102,8 @@ class CommentStateService {
 							occurrenceId: occId,
 							masterId,
 							isUserInConversation: occ.comments.some((c) => c.participantId === myParticipantId),
-							lastReadAt: readAt
-						})
+							lastReadAt: readAt,
+						}),
 					);
 				}
 			}
@@ -123,7 +123,7 @@ class CommentStateService {
 	async markConversationAsRead(
 		occurrenceId: string,
 		masterId: string,
-		inConversation = false
+		inConversation = false,
 	): Promise<void> {
 		const now = new Date().toISOString();
 
@@ -140,7 +140,7 @@ class CommentStateService {
 				occurrenceId,
 				masterId,
 				isUserInConversation: inConversation,
-				lastReadAt: now
+				lastReadAt: now,
 			});
 		}
 
@@ -166,7 +166,7 @@ class CommentStateService {
 			currentState[occId] = readAt;
 
 			await pb.collection("planning_participants").update(record.id, {
-				commentReadState: currentState
+				commentReadState: currentState,
 			});
 		} catch (err) {
 			console.error("Failed to sync read state to PB:", err);
@@ -238,8 +238,8 @@ class CommentStateService {
 					occurrenceId: occ.id,
 					masterId,
 					isUserInConversation: isParticipant,
-					lastReadAt: new Date().toISOString()
-				})
+					lastReadAt: new Date().toISOString(),
+				}),
 			);
 		}
 

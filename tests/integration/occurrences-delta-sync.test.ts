@@ -40,7 +40,7 @@ import {
 	clearTrackedIds,
 	seedPlanning,
 	seedUser,
-	trackIds
+	trackIds,
 } from "./seed";
 
 describe("initialFetch — paramètre since explicite", () => {
@@ -58,26 +58,26 @@ describe("initialFetch — paramètre since explicite", () => {
 		const collection = createSyncCollection<PlanningOccurrence>(
 			pb,
 			db.occurrences,
-			"planning_occurrences"
+			"planning_occurrences",
 		);
 
 		const { participantToken } = await seedPlanning({
 			title: "P since explicite",
-			occurrenceCount: 2
+			occurrenceCount: 2,
 		});
 
 		// since futur → ne doit rien récupérer
 		await collection.initialFetch({
 			filter: ['master != ""', {}],
 			query: { _token: participantToken },
-			since: "2030-01-01 00:00:00.000Z"
+			since: "2030-01-01 00:00:00.000Z",
 		});
 		expect(await db.occurrences.count()).toBe(0);
 
 		// since epoch → récupère tout
 		await collection.initialFetch({
 			query: { _token: participantToken },
-			since: "2000-01-01 00:00:00"
+			since: "2000-01-01 00:00:00",
 		});
 		expect(await db.occurrences.count()).toBe(2);
 	});
@@ -86,7 +86,7 @@ describe("initialFetch — paramètre since explicite", () => {
 		const collection = createSyncCollection<PlanningOccurrence>(
 			pb,
 			db.occurrences,
-			"planning_occurrences"
+			"planning_occurrences",
 		);
 
 		const { participantToken } = await seedPlanning({ title: "P sans since", occurrenceCount: 2 });
@@ -94,7 +94,7 @@ describe("initialFetch — paramètre since explicite", () => {
 		// Premier fetch (table Dexie vide → since = epoch par défaut)
 		await collection.initialFetch({
 			filter: ['master != ""', {}],
-			query: { _token: participantToken }
+			query: { _token: participantToken },
 		});
 		expect(await db.occurrences.count()).toBe(2);
 	});
@@ -122,14 +122,14 @@ describe("planningStore — delta sync per-master (bug original)", () => {
 		const {
 			master: m1,
 			occurrences: occs1,
-			participantToken: token1
+			participantToken: token1,
 		} = await seedPlanning({
 			title: "P1",
-			occurrenceCount: 3
+			occurrenceCount: 3,
 		});
 		const { master: m2, participantToken: token2 } = await seedPlanning({
 			title: "P2",
-			occurrenceCount: 3
+			occurrenceCount: 3,
 		});
 
 		// === SIMULATION cache partiel ===
@@ -137,7 +137,7 @@ describe("planningStore — delta sync per-master (bug original)", () => {
 		// Avant le fix : since global = 2030, appliqué à P2 → 0 occ récupérées (bug).
 		await db.occurrences.put({
 			...occs1[0],
-			updated: "2030-01-01 00:00:00.000Z"
+			updated: "2030-01-01 00:00:00.000Z",
 		} as PlanningOccurrence);
 
 		// === ACTION : naviguer vers P2 (jamais fetché → lastFetchAt[P2] absent → epoch) ===
@@ -146,7 +146,7 @@ describe("planningStore — delta sync per-master (bug original)", () => {
 			() => {
 				expect(planningStore.occurrences.length).toBe(3);
 			},
-			{ timeout: 3000 }
+			{ timeout: 3000 },
 		);
 
 		// === VÉRIFICATION : TOUTES les occ de P2 récupérées malgré l'occ 2030 de P1 en cache ===
@@ -163,7 +163,7 @@ describe("planningStore — delta sync per-master (bug original)", () => {
 			() => {
 				expect(planningStore.occurrences.length).toBe(3);
 			},
-			{ timeout: 3000 }
+			{ timeout: 3000 },
 		);
 
 		// === VÉRIFICATION : les 3 occ de P1 sont là (le cache partiel 2030 n a pas bloqué) ===
@@ -178,11 +178,11 @@ describe("planningStore — delta sync per-master (bug original)", () => {
 		// === SEED ===
 		const { participantToken: token1 } = await seedPlanning({
 			title: "P1 retour",
-			occurrenceCount: 3
+			occurrenceCount: 3,
 		});
 		const { master: m2, participantToken: token2 } = await seedPlanning({
 			title: "P2 retour",
-			occurrenceCount: 3
+			occurrenceCount: 3,
 		});
 
 		// === ÉTAPE 1 : charger P1 ===
@@ -206,7 +206,7 @@ describe("planningStore — delta sync per-master (bug original)", () => {
 	it("écrit lastFetchAt dans localMeta après un fetch", async () => {
 		const { master, participantToken } = await seedPlanning({
 			title: "P lastFetchAt",
-			occurrenceCount: 2
+			occurrenceCount: 2,
 		});
 
 		await planningStore.setActiveToken(participantToken);
@@ -227,7 +227,7 @@ describe("planningStore — delta sync per-master (bug original)", () => {
 		// setGuestIdentity écrit seulement localMeta.currentUser, pas lastFetchAt.
 		const { master, participantToken } = await seedPlanning({
 			title: "P régression I1",
-			occurrenceCount: 2
+			occurrenceCount: 2,
 		});
 
 		// === ÉTAPE 1 : guest active le planning → #markFetched écrit lastFetchAt ===
@@ -241,7 +241,7 @@ describe("planningStore — delta sync per-master (bug original)", () => {
 		// === ÉTAPE 2 : guest s'identifie (flux guest first-visit) ===
 		await guestStateStore.setGuestIdentity(master.id, {
 			id: "guest-1",
-			name: "Alice"
+			name: "Alice",
 		});
 
 		// === VÉRIFICATION : lastFetchAt PRÉSERVÉ (pas écrasé) ===
@@ -273,7 +273,7 @@ describe("planningStore — markFetched coexistence with guestStateStore (AC 03)
 		// === SEED : planning with 2 occurrences ===
 		const { master, participantToken } = await seedPlanning({
 			title: "P coexistence",
-			occurrenceCount: 2
+			occurrenceCount: 2,
 		});
 
 		// === ÉTAPE 1 : guest activates planning → lastFetchAt written via setActiveToken ===
@@ -283,7 +283,7 @@ describe("planningStore — markFetched coexistence with guestStateStore (AC 03)
 		// === ÉTAPE 2 : guest identifies → sets currentUser via guestStateStore ===
 		await guestStateStore.setGuestIdentity(master.id, {
 			id: "guest-coexist",
-			name: "Coexist User"
+			name: "Coexist User",
 		});
 
 		// === ÉTAPE 3 : guest marks quit ===
@@ -320,7 +320,7 @@ describe("planningStore — markFetched coexistence with guestStateStore (AC 03)
 		// stale values après markFetched car le .set() ne déclencherait rien).
 		const { master, participantToken } = await seedPlanning({
 			title: "P reactivité",
-			occurrenceCount: 1
+			occurrenceCount: 1,
 		});
 
 		// Avant activation : pas de valeur
@@ -370,10 +370,10 @@ describe("planningStore — #activatePlanning corrige le bug occCount === 0 (D4)
 		// === SEED : master avec 3 occ + user auth associé ===
 		const { master, occurrences, participantToken } = await seedPlanning({
 			title: "P auth D4",
-			occurrenceCount: 3
+			occurrenceCount: 3,
 		});
 		const user = await seedUser(USER_EMAIL, USER_PWD, "Auth D4", {
-			masterIds: [master.id]
+			masterIds: [master.id],
 		});
 		trackIds("users", user.id);
 
@@ -396,7 +396,7 @@ describe("planningStore — #activatePlanning corrige le bug occCount === 0 (D4)
 			() => {
 				expect(planningStore.occurrences.length).toBe(3);
 			},
-			{ timeout: 3000 }
+			{ timeout: 3000 },
 		);
 
 		// === VÉRIFICATION : toutes les occ récupérées (cache partiel complété) ===

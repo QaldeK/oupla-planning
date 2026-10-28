@@ -23,7 +23,7 @@ function mkOcc(overrides: Partial<PlanningOccurrence> & { id: string }): Plannin
 		isCanceled: false,
 		created: "2030-01-01 00:00:00.000Z",
 		updated: "2030-01-01 00:00:00.000Z",
-		...overrides
+		...overrides,
 	};
 }
 
@@ -73,7 +73,7 @@ describe("diffPlanningOccurrences", () => {
 	it("porte les horaires d'override de la cible tels quels", () => {
 		const existing = [mkOcc({ id: "o1", startTime: "18:00", endTime: "20:00" })];
 		const targets = [
-			mkTarget({ id: "o1", date: "2030-03-05", startTime: "08:30", endTime: "10:00" })
+			mkTarget({ id: "o1", date: "2030-03-05", startTime: "08:30", endTime: "10:00" }),
 		];
 
 		const ops = diffPlanningOccurrences(targets, existing);
@@ -135,7 +135,7 @@ describe("diffPlanningOccurrences", () => {
 		const existing = [mkOcc({ id: "o1" })];
 		const targets = [
 			mkTarget({ id: "o1", date: "2030-03-05" }),
-			mkTarget({ date: "2030-03-19", slotId: "s1" })
+			mkTarget({ date: "2030-03-19", slotId: "s1" }),
 		];
 
 		const ops = diffPlanningOccurrences(targets, existing);

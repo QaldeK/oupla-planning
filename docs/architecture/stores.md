@@ -38,13 +38,13 @@ L'invariant le plus utile à connaître avant de toucher un store : **plusieurs 
 écrivent la même table, chacun sur ses propres champs, en patch partiel**. Aucun ne
 réécrit le record entier (ADR-0009).
 
-| Table Dexie | Écrivains | Champs écrits |
-| --- | --- | --- |
-| `masters` | collections pb-sync, `upsertRecord` | record complet |
-| `occurrences` | collections pb-sync, `upsertRecord` | record complet |
-| `commentState` | `commentStateService` | `isUserInConversation`, `lastReadAt` |
-| `localMeta` | `guestStateStore` | `currentUser`, `hasQuit` |
-| `localMeta` | `planningStore` | `lastFetchAt` |
+| Table Dexie    | Écrivains                           | Champs écrits                        |
+| -------------- | ----------------------------------- | ------------------------------------ |
+| `masters`      | collections pb-sync, `upsertRecord` | record complet                       |
+| `occurrences`  | collections pb-sync, `upsertRecord` | record complet                       |
+| `commentState` | `commentStateService`               | `isUserInConversation`, `lastReadAt` |
+| `localMeta`    | `guestStateStore`                   | `currentUser`, `hasQuit`             |
+| `localMeta`    | `planningStore`                     | `lastFetchAt`                        |
 
 Les écrivains de `localMeta` passent par `upsertLocalMeta` (patch partiel). `guestStates`
 est un **miroir liveQuery** de cette table : `$state` alimenté par la subscription, aucun
@@ -55,21 +55,21 @@ vide `localMeta` (`runAuthTransition`, `userStore.#clearLocalDexie`).
 
 Compte authentifié, préférences et orchestration du boot.
 
-| Membre | Rôle |
-| --- | --- |
-| `isLoggedIn` | reflet de `pb.authStore.isValid`, maintenu par `authStore.onChange` |
-| `pbUser` | getter `{ id, name, email }` dérivé de `pb.authStore.record`, `null` sinon |
-| `appPreferences` | `{ theme, occurrenceView }` — persisté sous `app_preferences` |
-| `authModal` | état du modal d'identification (ouvert, contexte du planning) |
-| `isReady` | true après `init()` |
-| `lastAuthSyncAt` | date de la dernière sync globale auth, persistée sous `auth_sync_at`, pour la fraîcheur affichée par `NetworkAlert` |
-| `init()` | séquence de boot (ci-dessous) |
-| `markAuthSynced()` | écrivain du marqueur de fraîcheur (`logout()`/`clearAllLocalData()` le remettent à `null`) ; sa référence est passée à `syncAuthData`, qui décide du moment |
-| `setTheme` / `setOccurrenceView` / `setAppLocale` | préférences ; la locale s'écrit aussi sur le record `users` si connecté (ADR-0010) |
-| `logout()` / `clearUser()` | redirection `/`, clear authStore, clear Dexie, `planningStore.destroy()` |
-| `logoutAndStayOnPlanning(token)` | déconnexion sans quitter le planning (voir `auth-identity.md`) |
-| `deleteAccount()` | endpoint `/api/delete-account` puis `logout()` (ADR-0013) |
-| `clearAllLocalData()` | purge complète ; recharge la page si connecté |
+| Membre                                            | Rôle                                                                                                                                                        |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `isLoggedIn`                                      | reflet de `pb.authStore.isValid`, maintenu par `authStore.onChange`                                                                                         |
+| `pbUser`                                          | getter `{ id, name, email }` dérivé de `pb.authStore.record`, `null` sinon                                                                                  |
+| `appPreferences`                                  | `{ theme, occurrenceView }` — persisté sous `app_preferences`                                                                                               |
+| `authModal`                                       | état du modal d'identification (ouvert, contexte du planning)                                                                                               |
+| `isReady`                                         | true après `init()`                                                                                                                                         |
+| `lastAuthSyncAt`                                  | date de la dernière sync globale auth, persistée sous `auth_sync_at`, pour la fraîcheur affichée par `NetworkAlert`                                         |
+| `init()`                                          | séquence de boot (ci-dessous)                                                                                                                               |
+| `markAuthSynced()`                                | écrivain du marqueur de fraîcheur (`logout()`/`clearAllLocalData()` le remettent à `null`) ; sa référence est passée à `syncAuthData`, qui décide du moment |
+| `setTheme` / `setOccurrenceView` / `setAppLocale` | préférences ; la locale s'écrit aussi sur le record `users` si connecté (ADR-0010)                                                                          |
+| `logout()` / `clearUser()`                        | redirection `/`, clear authStore, clear Dexie, `planningStore.destroy()`                                                                                    |
+| `logoutAndStayOnPlanning(token)`                  | déconnexion sans quitter le planning (voir `auth-identity.md`)                                                                                              |
+| `deleteAccount()`                                 | endpoint `/api/delete-account` puis `logout()` (ADR-0013)                                                                                                   |
+| `clearAllLocalData()`                             | purge complète ; recharge la page si connecté                                                                                                               |
 
 Séquence de `init()` :
 
@@ -92,13 +92,13 @@ guest et la transition y ont été retirées — ADR-0009 pour la seconde.
 
 État guest par planning, adossé à Dexie `localMeta`.
 
-| Membre | Rôle |
-| --- | --- |
-| `guestStates` | miroir liveQuery de `localMeta` |
-| `loadGuestState()` | monte la subscription, idempotente, résout à la première émission |
-| `getGuestIdentity(masterId)` | identité guest du planning, ou `null` |
-| `setGuestIdentity(masterId, identity)` | écrit `currentUser` (patch partiel) |
-| `markGuestQuit(masterId)` / `getGuestQuitState(masterId)` | état « a quitté ce planning » |
+| Membre                                                    | Rôle                                                              |
+| --------------------------------------------------------- | ----------------------------------------------------------------- |
+| `guestStates`                                             | miroir liveQuery de `localMeta`                                   |
+| `loadGuestState()`                                        | monte la subscription, idempotente, résout à la première émission |
+| `getGuestIdentity(masterId)`                              | identité guest du planning, ou `null`                             |
+| `setGuestIdentity(masterId, identity)`                    | écrit `currentUser` (patch partiel)                               |
+| `markGuestQuit(masterId)` / `getGuestQuitState(masterId)` | état « a quitté ce planning »                                     |
 
 **Contrainte d'ordonnancement** : `loadGuestState()` doit être appelé au boot **avant**
 `userStore.init()`. Le liveQuery doit avoir émis au moins une fois, sinon la transition
@@ -116,16 +116,16 @@ le miroir réactif.
 
 ### État et getters
 
-| Membre | Rôle |
-| --- | --- |
-| `master` / `occurrences` | alimentés par liveQuery Dexie ; `occurrences` **exclut** les soft-deleted |
-| `futureOccurrences` | occurrences à partir d'aujourd'hui, soft-deleted **incluses** — source du formulaire d'édition admin |
-| `currentOccurrence` / `selectedOccurrenceId` | occurrence sélectionnée |
-| `activeMasterId` / `currentToken` | planning actif et token courant |
-| `isLoading` / `error` | `error` typé `network` / `not_found` / `deleted` |
-| `isDeleted` | le master actif est soft-deleted — consultation en lecture seule |
-| `activeMasters` / `deletedMasters` | liveQuery global, sidebar et homepage |
-| `lastFetchAtFor(masterId)` | marqueur de fraîcheur UI, jamais un curseur de fetch |
+| Membre                                       | Rôle                                                                                                 |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `master` / `occurrences`                     | alimentés par liveQuery Dexie ; `occurrences` **exclut** les soft-deleted                            |
+| `futureOccurrences`                          | occurrences à partir d'aujourd'hui, soft-deleted **incluses** — source du formulaire d'édition admin |
+| `currentOccurrence` / `selectedOccurrenceId` | occurrence sélectionnée                                                                              |
+| `activeMasterId` / `currentToken`            | planning actif et token courant                                                                      |
+| `isLoading` / `error`                        | `error` typé `network` / `not_found` / `deleted`                                                     |
+| `isDeleted`                                  | le master actif est soft-deleted — consultation en lecture seule                                     |
+| `activeMasters` / `deletedMasters`           | liveQuery global, sidebar et homepage                                                                |
+| `lastFetchAtFor(masterId)`                   | marqueur de fraîcheur UI, jamais un curseur de fetch                                                 |
 
 Le seuil `today` de `futureOccurrences` est figé au moment de la souscription : un
 changement de jour demande une navigation ou une réactivation.
@@ -136,14 +136,14 @@ changement de jour demande une navigation ou une réactivation.
 `page.params.token`. Il est idempotent : un token déjà actif ne repasse pas le cycle. Après
 guards et `ensureDbReady()`, il délègue à `#activatePlanning` :
 
-| Étape | Contenu |
-| --- | --- |
-| 1 | Résoudre le master : Dexie d'abord, sinon réseau via `getPlanningByToken` + `upsertRecord` |
-| 2 | Vérifier la suppression : locale, puis serveur si déjà en Dexie (`#refreshMasterFromServer`) |
-| 3 | Idempotence, puis `#activeMasterId` |
-| 4 | Sync des occurrences actives **toujours avec `_token`**, puis brancher les liveQuery page-scoped |
-| 5 | Branche Compte : `#attachMasterToUser` (claim), `#claimAdminAccess` si lien admin, backfill des commentaires si première visite |
-| 6 | Branche Guest : souscription realtime individuelle scopée token, backfill des commentaires |
+| Étape | Contenu                                                                                                                         |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Résoudre le master : Dexie d'abord, sinon réseau via `getPlanningByToken` + `upsertRecord`                                      |
+| 2     | Vérifier la suppression : locale, puis serveur si déjà en Dexie (`#refreshMasterFromServer`)                                    |
+| 3     | Idempotence, puis `#activeMasterId`                                                                                             |
+| 4     | Sync des occurrences actives **toujours avec `_token`**, puis brancher les liveQuery page-scoped                                |
+| 5     | Branche Compte : `#attachMasterToUser` (claim), `#claimAdminAccess` si lien admin, backfill des commentaires si première visite |
+| 6     | Branche Guest : souscription realtime individuelle scopée token, backfill des commentaires                                      |
 
 Le `_token` de l'étape 4 est requis même pour un utilisateur connecté : à ce stade,
 `user.masterId` n'est pas encore peuplé côté serveur, les API Rules refuseraient un appel
@@ -159,15 +159,15 @@ ne le peut qu'une fois `user.masterId` peuplé côté serveur. D'où le claim sy
 
 ### Actions et cycle de vie
 
-| Méthode | Rôle |
-| --- | --- |
-| `setSelectedOccurrenceId(id)` | sélection |
-| `markFetched(masterId)` | écrit `lastFetchAt` (marqueur de fraîcheur UI) |
-| `refreshActive()` | master puis occurrences actives — appelé à la reconnexion réseau |
-| `refreshArchiveOccurrences()` | fetch des occurrences passées, à la demande de la page archive |
-| `invalidateActiveToken()` | force le prochain `setActiveToken` à repasser un cycle complet |
-| `destroy()` | `#deactivate()` + liveQuery global |
-| `cleanDeletedPlannings()` | purge définitive des masters soft-deleted et de leurs `localMeta` |
+| Méthode                       | Rôle                                                              |
+| ----------------------------- | ----------------------------------------------------------------- |
+| `setSelectedOccurrenceId(id)` | sélection                                                         |
+| `markFetched(masterId)`       | écrit `lastFetchAt` (marqueur de fraîcheur UI)                    |
+| `refreshActive()`             | master puis occurrences actives — appelé à la reconnexion réseau  |
+| `refreshArchiveOccurrences()` | fetch des occurrences passées, à la demande de la page archive    |
+| `invalidateActiveToken()`     | force le prochain `setActiveToken` à repasser un cycle complet    |
+| `destroy()`                   | `#deactivate()` + liveQuery global                                |
+| `cleanDeletedPlannings()`     | purge définitive des masters soft-deleted et de leurs `localMeta` |
 
 ### Résolution et suppression
 
@@ -195,15 +195,15 @@ restauration d'un planning supprimé, ouverte depuis une page `/p` sous particip
 
 ## Autres stores
 
-| Store | Rôle | Doc |
-| --- | --- | --- |
-| `authTransition` | guards et snapshot de la transition guest → auth | `auth-identity.md` |
-| `networkStore` | statut réseau, re-sync à la reconnexion | `network-realtime.md` |
-| `commentStateStore` | badges de commentaires non lus | `offline-sync.md` |
-| `pwaStore` | détection de mise à jour du service worker | `pwa.md` |
-| `drawerStore` | tiroir latéral (occurrence courante, master) | — |
-| `modalStore` | modales génériques | — |
-| `mediaQuery` | media queries réactives (`isMobile`) | — |
+| Store               | Rôle                                             | Doc                   |
+| ------------------- | ------------------------------------------------ | --------------------- |
+| `authTransition`    | guards et snapshot de la transition guest → auth | `auth-identity.md`    |
+| `networkStore`      | statut réseau, re-sync à la reconnexion          | `network-realtime.md` |
+| `commentStateStore` | badges de commentaires non lus                   | `offline-sync.md`     |
+| `pwaStore`          | détection de mise à jour du service worker       | `pwa.md`              |
+| `drawerStore`       | tiroir latéral (occurrence courante, master)     | —                     |
+| `modalStore`        | modales génériques                               | —                     |
+| `mediaQuery`        | media queries réactives (`isMobile`)             | —                     |
 
 ## Pièges
 

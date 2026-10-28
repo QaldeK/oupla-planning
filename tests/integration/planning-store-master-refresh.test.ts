@@ -57,8 +57,8 @@ describe("PlanningStore — master refresh (anti-staleness participants)", () =>
 				id: crypto.randomUUID(),
 				name,
 				isAdmin: false,
-				createdAt: new Date().toISOString()
-			}
+				createdAt: new Date().toISOString(),
+			},
 		];
 		await pb.collection("planning_masters").update(masterId, { participants });
 	}
@@ -71,9 +71,9 @@ describe("PlanningStore — master refresh (anti-staleness participants)", () =>
 					id: crypto.randomUUID(),
 					name: "Alice",
 					isAdmin: false,
-					createdAt: new Date().toISOString()
-				}
-			]
+					createdAt: new Date().toISOString(),
+				},
+			],
 		});
 
 		// Première visite : master en Dexie.
@@ -106,7 +106,7 @@ describe("PlanningStore — master refresh (anti-staleness participants)", () =>
 	it("refreshActive après ajout serveur → le master local contient le nouveau participant", async () => {
 		const { master, participantToken } = await seedPlanning({
 			title: "Staleness Refresh",
-			participants: []
+			participants: [],
 		});
 
 		await planningStore.setActiveToken(participantToken);

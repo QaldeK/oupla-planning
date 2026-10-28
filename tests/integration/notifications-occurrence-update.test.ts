@@ -33,7 +33,7 @@ import {
 	clearTrackedIds,
 	dateInDays,
 	seedPlanning,
-	trackIds
+	trackIds,
 } from "./seed";
 
 const AUTHOR_ID = "user-test-author-0001";
@@ -43,11 +43,11 @@ const AUTHOR_ID = "user-test-author-0001";
  */
 async function listEventsForOcc(
 	pb: ReturnType<typeof authenticateAdmin> extends Promise<infer T> ? T : never,
-	occId: string
+	occId: string,
 ): Promise<NotificationEventsResponse[]> {
 	return pb.collection("notification_events").getFullList<NotificationEventsResponse>({
 		filter: `occurrence = "${occId}"`,
-		sort: "created"
+		sort: "created",
 	});
 }
 
@@ -63,7 +63,7 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 		// Les occs doivent être futures pour franchir le filtre temporel du hook C2.
 		const result = await seedPlanning({
 			occurrenceCount: 1,
-			occurrenceDate: dateInDays(7)
+			occurrenceDate: dateInDays(7),
 		});
 		master = result.master;
 		occurrences = result.occurrences;
@@ -89,7 +89,7 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 				.collection("planning_occurrences")
 				.update<PlanningOccurrence>(occ.id, {
 					startTime: "10:30",
-					lastModifiedBy: AUTHOR_ID
+					lastModifiedBy: AUTHOR_ID,
 				});
 
 			const events = await listEventsForOcc(adminPb, occ.id);
@@ -116,7 +116,7 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 			// seedPlanning ne propage pas `place` aux occs ; on la crée avec place
 			// explicite pour pouvoir tester la détection de changement.
 			const result2 = await seedPlanning({
-				occurrenceCount: 0
+				occurrenceCount: 0,
 			});
 			trackIds("planning_masters", result2.master.id);
 			const occ = await adminPb.collection("planning_occurrences").create({
@@ -130,13 +130,13 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 				tasks: [],
 				isConfirmed: false,
 				isCanceled: false,
-				lastModifiedBy: ""
+				lastModifiedBy: "",
 			});
 			trackIds("planning_occurrences", occ.id);
 
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				place: "Salle B",
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 
 			const events = await listEventsForOcc(adminPb, occ.id);
@@ -159,7 +159,7 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 			const occ = occurrences[0];
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				isCanceled: true,
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 
 			const events = await listEventsForOcc(adminPb, occ.id);
@@ -175,7 +175,7 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 			const occ = occurrences[0];
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				isConfirmed: true,
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 
 			const events = await listEventsForOcc(adminPb, occ.id);
@@ -188,7 +188,7 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 		it("update lastModifiedBy seul → 0 event", async () => {
 			const occ = occurrences[0];
 			await adminPb.collection("planning_occurrences").update(occ.id, {
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 
 			const events = await listEventsForOcc(adminPb, occ.id);
@@ -209,13 +209,13 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 				tasks: [],
 				isConfirmed: false,
 				isCanceled: false,
-				lastModifiedBy: ""
+				lastModifiedBy: "",
 			});
 			trackIds("planning_occurrences", pastOcc.id);
 
 			await adminPb.collection("planning_occurrences").update(pastOcc.id, {
 				startTime: "14:00",
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 
 			const events = await listEventsForOcc(adminPb, pastOcc.id);
@@ -235,12 +235,12 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 			// 1er update : cancel (génère 1 event)
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				isCanceled: true,
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 			// 2e update : un-cancel (ne doit PAS générer d'event)
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				isCanceled: false,
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 
 			const events = await listEventsForOcc(adminPb, occ.id);
@@ -255,7 +255,7 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 			const occ = occurrences[0];
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				isCanceled: true,
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 
 			const events = await listEventsForOcc(adminPb, occ.id);
@@ -266,7 +266,7 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 			const occ = occurrences[0];
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				isCanceled: true,
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 
 			const events = await listEventsForOcc(adminPb, occ.id);
@@ -277,7 +277,7 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 			const occ = occurrences[0];
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				isCanceled: true,
-				lastModifiedBy: ""
+				lastModifiedBy: "",
 			});
 
 			const events = await listEventsForOcc(adminPb, occ.id);
@@ -293,12 +293,12 @@ describe("Hook C2 — notify-on-occurrence-update (notification_events insertion
 			// Update 1 : startTime 09:00 → 10:00
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				startTime: "10:00",
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 			// Update 2 : startTime 10:00 → 11:00
 			await adminPb.collection("planning_occurrences").update(occ.id, {
 				startTime: "11:00",
-				lastModifiedBy: AUTHOR_ID
+				lastModifiedBy: AUTHOR_ID,
 			});
 
 			const events = await listEventsForOcc(adminPb, occ.id);
@@ -318,7 +318,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		adminPb = await authenticateAdmin();
 		const result = await seedPlanning({
 			occurrenceCount: 1,
-			occurrenceDate: dateInDays(7)
+			occurrenceDate: dateInDays(7),
 		});
 		master = result.master;
 		occurrences = result.occurrences;
@@ -337,7 +337,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 	function mkComment(
 		id: string,
 		content: string,
-		participantId = "p-author"
+		participantId = "p-author",
 	): {
 		id: string;
 		participantId: string;
@@ -352,7 +352,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		const comment = mkComment("c1", "On se voit à 19h");
 		await adminPb.collection("planning_occurrences").update(occ.id, {
 			comments: [comment],
-			lastModifiedBy: AUTHOR_ID
+			lastModifiedBy: AUTHOR_ID,
 		});
 
 		const events = await listEventsForOcc(adminPb, occ.id);
@@ -382,7 +382,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 			passwordConfirm: "password123",
 			name: "Alice Author",
 			emailVisibility: true,
-			verified: true
+			verified: true,
 		});
 		trackIds("users", author.id);
 
@@ -390,7 +390,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		const comment = mkComment("c1", "Hello");
 		await adminPb.collection("planning_occurrences").update(occ.id, {
 			comments: [comment],
-			lastModifiedBy: author.id
+			lastModifiedBy: author.id,
 		});
 
 		const events = await listEventsForOcc(adminPb, occ.id);
@@ -411,13 +411,13 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 			tasks: [],
 			isConfirmed: false,
 			isCanceled: false,
-			lastModifiedBy: ""
+			lastModifiedBy: "",
 		});
 		trackIds("planning_occurrences", pastOcc.id);
 
 		await adminPb.collection("planning_occurrences").update(pastOcc.id, {
 			comments: [mkComment("c1", "Message sur occ passée")],
-			lastModifiedBy: AUTHOR_ID
+			lastModifiedBy: AUTHOR_ID,
 		});
 
 		const events = await listEventsForOcc(adminPb, pastOcc.id);
@@ -435,7 +435,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		const occ = occurrences[0];
 		await adminPb.collection("planning_occurrences").update(occ.id, {
 			comments: [mkComment("c1", "Premier"), mkComment("c2", "Second")],
-			lastModifiedBy: AUTHOR_ID
+			lastModifiedBy: AUTHOR_ID,
 		});
 
 		const events = await listEventsForOcc(adminPb, occ.id);
@@ -450,7 +450,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		// 1. Ajoute un commentaire → 1 event new_comment pending.
 		await adminPb.collection("planning_occurrences").update(occ.id, {
 			comments: [mkComment("c1", "À supprimer")],
-			lastModifiedBy: AUTHOR_ID
+			lastModifiedBy: AUTHOR_ID,
 		});
 		let events = await listEventsForOcc(adminPb, occ.id);
 		expect(events).toHaveLength(1);
@@ -459,7 +459,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		// 2. Supprime le commentaire (superuser bypass le merge → comments=[]).
 		await adminPb.collection("planning_occurrences").update(occ.id, {
 			comments: [],
-			lastModifiedBy: AUTHOR_ID
+			lastModifiedBy: AUTHOR_ID,
 		});
 
 		// 3. L'event new_comment doit être marqué traité (cleanup sur suppression).
@@ -474,7 +474,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		// Ajoute c1 puis c2 en deux updates (2 events distincts).
 		await adminPb.collection("planning_occurrences").update(occ.id, {
 			comments: [mkComment("c1", "Un"), mkComment("c2", "Deux")],
-			lastModifiedBy: AUTHOR_ID
+			lastModifiedBy: AUTHOR_ID,
 		});
 		let events = await listEventsForOcc(adminPb, occ.id);
 		expect(events).toHaveLength(2);
@@ -483,12 +483,12 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		// Supprime uniquement c1.
 		await adminPb.collection("planning_occurrences").update(occ.id, {
 			comments: [mkComment("c2", "Deux")],
-			lastModifiedBy: AUTHOR_ID
+			lastModifiedBy: AUTHOR_ID,
 		});
 
 		events = await listEventsForOcc(adminPb, occ.id);
 		const byId = new Map(
-			events.map((e) => [(e.payload as Record<string, unknown>).commentId as string, e])
+			events.map((e) => [(e.payload as Record<string, unknown>).commentId as string, e]),
 		);
 		expect(byId.get("c1")!.processedAt as string).not.toBe("");
 		// c2 n'a pas été supprimé → son event reste pending.
@@ -500,7 +500,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		// Pré-existant c1.
 		await adminPb.collection("planning_occurrences").update(occ.id, {
 			comments: [mkComment("c1", "Avant")],
-			lastModifiedBy: AUTHOR_ID
+			lastModifiedBy: AUTHOR_ID,
 		});
 		// Cleanup des events du premier ajout pour repartir à zéro.
 		for (const ev of await listEventsForOcc(adminPb, occ.id)) {
@@ -510,7 +510,7 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 		// Update : c1 avec content modifié + c2 nouveau (pas de détection modified en v1).
 		await adminPb.collection("planning_occurrences").update(occ.id, {
 			comments: [mkComment("c1", "Après"), mkComment("c2", "Nouveau")],
-			lastModifiedBy: AUTHOR_ID
+			lastModifiedBy: AUTHOR_ID,
 		});
 
 		const events = await listEventsForOcc(adminPb, occ.id);
@@ -524,14 +524,14 @@ describe("Hook C2 — new_comment events (détection + push + cleanup)", () => {
 			// save programmatique atteint le hook model. Seule la gate `deleted`
 			// du résolveur de contexte empêche la production d'event.
 			await adminPb.collection("planning_masters").update<PlanningMaster>(master.id, {
-				deleted: true
+				deleted: true,
 			});
 
 			const updated = await adminPb
 				.collection("planning_occurrences")
 				.update<PlanningOccurrence>(occurrences[0].id, {
 					startTime: "11:45",
-					lastModifiedBy: AUTHOR_ID
+					lastModifiedBy: AUTHOR_ID,
 				});
 			// Sanity check : l'update programmatique passe bien (bypass gardes).
 			expect(updated.startTime).toBe("11:45");

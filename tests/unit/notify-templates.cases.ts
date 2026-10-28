@@ -37,7 +37,7 @@ export function mkRecord(data: Record<string, unknown>): MockRecord {
 		},
 		getFloat(field: string) {
 			return Number(data[field]) || 0;
-		}
+		},
 	};
 }
 
@@ -52,7 +52,7 @@ export const MASTER_BASE = {
 	participantToken: "abc123",
 	toConfirm: false,
 	minPresentRequired: 5,
-	recurrence: JSON.stringify({ type: "WEEKLY", daysOfWeek: [4] })
+	recurrence: JSON.stringify({ type: "WEEKLY", daysOfWeek: [4] }),
 };
 
 export const OCC_31_MARS = {
@@ -66,7 +66,7 @@ export const OCC_31_MARS = {
 	isCanceled: false,
 	minPresentRequired: 5,
 	responses: [{ participantId: "u1", response: "present" }],
-	tasks: []
+	tasks: [],
 };
 
 export const OCC_5_AVRIL = {
@@ -82,9 +82,9 @@ export const OCC_5_AVRIL = {
 	responses: [
 		{ participantId: "u1", response: "present" },
 		{ participantId: "u2", response: "present" },
-		{ participantId: "u3", response: "maybe" }
+		{ participantId: "u3", response: "maybe" },
 	],
-	tasks: []
+	tasks: [],
 };
 
 export const OCC_6_AVRIL = {
@@ -102,9 +102,9 @@ export const OCC_6_AVRIL = {
 		{
 			name: "Rangement",
 			type: "afterEvent",
-			signedUpParticipants: ["u1"]
-		}
-	]
+			signedUpParticipants: ["u1"],
+		},
+	],
 };
 
 export const USER_PRESENT = mkRecord({ id: "u1", name: "Sarah" });
@@ -116,10 +116,10 @@ export function buildCtx(master: any, occs: any[]) {
 		occCache,
 		userNamesById: new Map([
 			["u1", "Sarah"],
-			["u2", "Bob"]
+			["u2", "Bob"],
 		]),
 		master,
-		baseUrl: "https://planning.oupla.net"
+		baseUrl: "https://planning.oupla.net",
 	};
 }
 
@@ -151,9 +151,9 @@ export const CASES: TestCase[] = [
 				occurrence: "o1",
 				reminderValue: 1,
 				changedBy: "",
-				payload: { userResponse: "present", userTasks: [] }
-			}
-		]
+				payload: { userResponse: "present", userTasks: [] },
+			},
+		],
 	},
 	{
 		name: "Cas 2 — reminder avec tâches + occ non confirmée",
@@ -163,10 +163,10 @@ export const CASES: TestCase[] = [
 				...OCC_31_MARS,
 				tasks: [
 					{ name: "Préparer salle", type: "beforeEvent", signedUpParticipants: ["u1"] },
-					{ name: "Accueil", type: "onEvent", signedUpParticipants: ["u1"] }
+					{ name: "Accueil", type: "onEvent", signedUpParticipants: ["u1"] },
 				],
-				isConfirmed: false
-			}
+				isConfirmed: false,
+			},
 		],
 		user: USER_PRESENT,
 		events: [
@@ -177,10 +177,10 @@ export const CASES: TestCase[] = [
 				changedBy: "",
 				payload: {
 					userResponse: "present",
-					userTasks: ["Préparer salle (avant)", "Accueil (pendant)"]
-				}
-			}
-		]
+					userTasks: ["Préparer salle (avant)", "Accueil (pendant)"],
+				},
+			},
+		],
 	},
 	{
 		name: "Cas 3 — change (modification horaire)",
@@ -193,9 +193,9 @@ export const CASES: TestCase[] = [
 				occurrence: "o1",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: { oldStartTime: "19:00", newStartTime: "20:00" }
-			}
-		]
+				payload: { oldStartTime: "19:00", newStartTime: "20:00" },
+			},
+		],
 	},
 	{
 		name: "Cas 4 — cancel (annulation)",
@@ -208,9 +208,9 @@ export const CASES: TestCase[] = [
 				occurrence: "o1",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: {}
-			}
-		]
+				payload: {},
+			},
+		],
 	},
 	{
 		name: "Cas 5 — missings simple",
@@ -230,11 +230,11 @@ export const CASES: TestCase[] = [
 					minPresentRequired: 5,
 					tasksToFill: [
 						{ name: "Accueil", type: "onEvent", signedUp: 0, required: 2 },
-						{ name: "Rangement", type: "afterEvent", signedUp: 1, required: 3 }
-					]
-				}
-			}
-		]
+						{ name: "Rangement", type: "afterEvent", signedUp: 1, required: 3 },
+					],
+				},
+			},
+		],
 	},
 	{
 		name: "Cas 6 — confirmation (admin)",
@@ -247,9 +247,9 @@ export const CASES: TestCase[] = [
 				occurrence: "o2",
 				reminderValue: 3,
 				changedBy: "",
-				payload: {}
-			}
-		]
+				payload: {},
+			},
+		],
 	},
 	{
 		name: "Cas 7 — Multi-events même occ (admin présent + manque + à confirmer + J-3)",
@@ -257,8 +257,8 @@ export const CASES: TestCase[] = [
 		occs: [
 			{
 				...OCC_5_AVRIL,
-				tasks: [{ name: "Préparer salle", type: "beforeEvent", signedUpParticipants: ["u1"] }]
-			}
+				tasks: [{ name: "Préparer salle", type: "beforeEvent", signedUpParticipants: ["u1"] }],
+			},
 		],
 		user: USER_PRESENT,
 		events: [
@@ -267,14 +267,14 @@ export const CASES: TestCase[] = [
 				occurrence: "o2",
 				reminderValue: 3,
 				changedBy: "",
-				payload: {}
+				payload: {},
 			},
 			{
 				type: "quorum_missing",
 				occurrence: "o2",
 				reminderValue: 3,
 				changedBy: "",
-				payload: { presentCount: 2, ifNeededCount: 0, maybeCount: 1, minPresentRequired: 5 }
+				payload: { presentCount: 2, ifNeededCount: 0, maybeCount: 1, minPresentRequired: 5 },
 			},
 			{
 				type: "reminder",
@@ -283,10 +283,10 @@ export const CASES: TestCase[] = [
 				changedBy: "",
 				payload: {
 					userResponse: "present",
-					userTasks: ["Préparer salle (avant)"]
-				}
-			}
-		]
+					userTasks: ["Préparer salle (avant)"],
+				},
+			},
+		],
 	},
 	{
 		name: "Cas 8 — Multi-occ avec cancel/change/reminder",
@@ -294,7 +294,7 @@ export const CASES: TestCase[] = [
 		occs: [
 			{ ...OCC_31_MARS, isCanceled: true },
 			{ ...OCC_5_AVRIL, id: "o2b", place: "Gymnase" },
-			{ ...OCC_6_AVRIL }
+			{ ...OCC_6_AVRIL },
 		],
 		user: USER_PRESENT,
 		events: [
@@ -303,14 +303,14 @@ export const CASES: TestCase[] = [
 				occurrence: "o1",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: {}
+				payload: {},
 			},
 			{
 				type: "schedule_change",
 				occurrence: "o2b",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: { oldPlace: "Salle des fêtes", newPlace: "Gymnase" }
+				payload: { oldPlace: "Salle des fêtes", newPlace: "Gymnase" },
 			},
 			{
 				type: "reminder",
@@ -319,10 +319,10 @@ export const CASES: TestCase[] = [
 				changedBy: "",
 				payload: {
 					userResponse: "present",
-					userTasks: ["Rangement (après)"]
-				}
-			}
-		]
+					userTasks: ["Rangement (après)"],
+				},
+			},
+		],
 	},
 	{
 		name: "Cas 9 — Batch edit (5+ modifs même type)",
@@ -340,7 +340,7 @@ export const CASES: TestCase[] = [
 				isConfirmed: false,
 				minPresentRequired: 5,
 				responses: [],
-				tasks: []
+				tasks: [],
 			},
 			{
 				id: "b4",
@@ -352,7 +352,7 @@ export const CASES: TestCase[] = [
 				isConfirmed: false,
 				minPresentRequired: 5,
 				responses: [],
-				tasks: []
+				tasks: [],
 			},
 			{
 				id: "b5",
@@ -364,8 +364,8 @@ export const CASES: TestCase[] = [
 				isConfirmed: false,
 				minPresentRequired: 5,
 				responses: [],
-				tasks: []
-			}
+				tasks: [],
+			},
 		],
 		user: USER_PRESENT,
 		events: [
@@ -374,36 +374,36 @@ export const CASES: TestCase[] = [
 				occurrence: "b1",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: { oldStartTime: "19:00", newStartTime: "20:00" }
+				payload: { oldStartTime: "19:00", newStartTime: "20:00" },
 			},
 			{
 				type: "schedule_change",
 				occurrence: "b2",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: { oldPlace: "Salle des fêtes", newPlace: "Gymnase" }
+				payload: { oldPlace: "Salle des fêtes", newPlace: "Gymnase" },
 			},
 			{
 				type: "schedule_change",
 				occurrence: "b3",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: { oldStartTime: "19:00", newStartTime: "18:30" }
+				payload: { oldStartTime: "19:00", newStartTime: "18:30" },
 			},
 			{
 				type: "schedule_change",
 				occurrence: "b4",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: { oldStartTime: "19:00", newStartTime: "20:00" }
+				payload: { oldStartTime: "19:00", newStartTime: "20:00" },
 			},
 			{
 				type: "schedule_change",
 				occurrence: "b5",
 				reminderValue: 0,
 				changedBy: "u1",
-				payload: { oldStartTime: "19:00", newStartTime: "21:00" }
-			}
-		]
-	}
+				payload: { oldStartTime: "19:00", newStartTime: "21:00" },
+			},
+		],
+	},
 ];

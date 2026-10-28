@@ -11,17 +11,17 @@ const config = {
 			pages: "build",
 			assets: "build",
 			precompress: false,
-			strict: true
-		})
+			strict: true,
+		}),
 	},
 	vitePlugin: {
 		inspector: {
 			toggleKeyCombo: "alt-x",
 			showToggleButton: "always",
-			toggleButtonPos: "bottom-right"
-		}
+			toggleButtonPos: "bottom-right",
+		},
 	},
-	preprocess: vitePreprocess({ script: true })
+	preprocess: vitePreprocess({ script: true }),
 };
 
 export default config;

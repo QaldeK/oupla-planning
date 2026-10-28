@@ -14,7 +14,7 @@ import {
 	getSubmitButton,
 	makeMaster,
 	makeOccurrence,
-	renderForm
+	renderForm,
 } from "./_helpers/planningForm.js";
 
 vi.mock("svelte-sonner", () => ({
@@ -26,8 +26,8 @@ vi.mock("svelte-sonner", () => ({
 		warning: vi.fn(),
 		loading: vi.fn(),
 		promise: vi.fn(),
-		custom: vi.fn()
-	}
+		custom: vi.fn(),
+	},
 }));
 
 /** Bascule le <select> « Type de récurrence » sur la valeur donnée. */
@@ -96,8 +96,8 @@ describe("B — Badges passés masqués au rendu", () => {
 			master: makeMaster(),
 			occurrences: [
 				makeOccurrence({ id: "occ-past", date: "2025-12-25", slotId: "s1" }),
-				makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" })
-			]
+				makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" }),
+			],
 		});
 
 		// Section de sélection rendue (mode récurrent avec cycle futur).
@@ -122,8 +122,8 @@ describe("C — Indicateur dates passées masquées", () => {
 				makeOccurrence({ id: "occ-p1", date: "2025-10-15", slotId: "s1" }),
 				makeOccurrence({ id: "occ-p2", date: "2025-11-20", slotId: "s1" }),
 				makeOccurrence({ id: "occ-p3", date: "2025-12-25", slotId: "s1" }),
-				makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" })
-			]
+				makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" }),
+			],
 		});
 
 		// L'indicateur discret doit mentionner les 3 dates passées au pluriel.
@@ -135,8 +135,8 @@ describe("C — Indicateur dates passées masquées", () => {
 			master: makeMaster(),
 			occurrences: [
 				makeOccurrence({ id: "occ-past", date: "2025-12-25", slotId: "s1" }),
-				makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" })
-			]
+				makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" }),
+			],
 		});
 
 		expect(container.textContent).toContain("1 past date, viewable in the archives.");
@@ -145,7 +145,7 @@ describe("C — Indicateur dates passées masquées", () => {
 	it("aucune occurrence passée → l'indicateur n'est pas rendu", async () => {
 		const { container } = renderForm({
 			master: makeMaster(),
-			occurrences: [makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" })]
+			occurrences: [makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" })],
 		});
 
 		expect(container.textContent).not.toContain("viewable in the archives");
@@ -162,8 +162,8 @@ describe("D — Submit préserve les occurrences passées (pas de soft-delete)",
 			master: makeMaster(),
 			occurrences: [
 				makeOccurrence({ id: "occ-past", date: "2025-12-25", slotId: "s1" }),
-				makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" })
-			]
+				makeOccurrence({ id: "occ-fut", date: "2026-08-12", slotId: "s1" }),
+			],
 		});
 
 		// Soumettre sans interaction : la config master est déjà valide (titre,
@@ -178,7 +178,7 @@ describe("D — Submit préserve les occurrences passées (pas de soft-delete)",
 		// la date passée serait absente et le service la soft-deletterait au save.
 		const submittedData = onSubmit.mock.calls[0][0];
 		const submittedDates = (submittedData.occurrenceTargets as Array<{ date: string }>).map(
-			(t) => t.date
+			(t) => t.date,
 		);
 		expect(submittedDates).toContain("2025-12-25");
 		expect(submittedDates).toContain("2026-08-12");

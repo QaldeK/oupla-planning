@@ -78,7 +78,7 @@
 					4. Données personnelles, finalités et durées de conservation
 				</h2>
 				<div class="overflow-x-auto">
-					<table class="table table-sm text-sm">
+					<table class="table-sm table text-sm">
 						<thead>
 							<tr>
 								<th>Donnée</th>

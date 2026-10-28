@@ -25,21 +25,21 @@ describe("claimPlannings", () => {
 		expect(send).toHaveBeenCalledWith("/api/sync-plannings", {
 			method: "POST",
 			body: {
-				tokens: [{ masterId: "m1", participantToken: "part-32", adminToken: "admin-64" }]
-			}
+				tokens: [{ masterId: "m1", participantToken: "part-32", adminToken: "admin-64" }],
+			},
 		});
 	});
 
 	it("mappe tous les plannings fournis, dans l'ordre", async () => {
 		await claimPlannings([
 			{ id: "m1", participantToken: "p1" },
-			{ id: "m2", adminToken: "a2" }
+			{ id: "m2", adminToken: "a2" },
 		]);
 
 		expect(send).toHaveBeenCalledTimes(1);
 		expect(send.mock.calls[0][1].body.tokens).toEqual([
 			{ masterId: "m1", participantToken: "p1", adminToken: undefined },
-			{ masterId: "m2", participantToken: undefined, adminToken: "a2" }
+			{ masterId: "m2", participantToken: undefined, adminToken: "a2" },
 		]);
 	});
 
@@ -48,7 +48,7 @@ describe("claimPlannings", () => {
 
 		expect(send).toHaveBeenCalledWith("/api/sync-plannings", {
 			method: "POST",
-			body: { tokens: [] }
+			body: { tokens: [] },
 		});
 	});
 

@@ -20,7 +20,7 @@ function makeInput(overrides: Partial<DateSlotSelectionInput> = {}): DateSlotSel
 		manualDates: [],
 		timeSlots: [SLOT],
 		todayStr: TODAY,
-		...overrides
+		...overrides,
 	};
 }
 
@@ -28,7 +28,7 @@ function makeState(overrides: Partial<DateSlotSelectionState> = {}): DateSlotSel
 	return {
 		disabledSlotKeys: new Set(),
 		seededOccurrences: new Map(),
-		...overrides
+		...overrides,
 	};
 }
 
@@ -53,7 +53,7 @@ describe("computeDateSlotSelection", () => {
 
 	it("filtrage désactivées : une clé disabled retire le DateSlot de occurrenceTargets", () => {
 		const state = makeState({
-			disabledSlotKeys: new Set(["2026-01-07|s1"])
+			disabledSlotKeys: new Set(["2026-01-07|s1"]),
 		});
 		const views = computeDateSlotSelection(makeInput(), state);
 		expect(views.activeDateSlots).toHaveLength(11);
@@ -65,9 +65,9 @@ describe("computeDateSlotSelection", () => {
 			seededOccurrences: new Map([
 				[
 					"2026-01-07|s1",
-					{ id: "occ-1", date: "2026-01-07", startTime: "10:00", endTime: "12:00", slotId: "s1" }
-				]
-			])
+					{ id: "occ-1", date: "2026-01-07", startTime: "10:00", endTime: "12:00", slotId: "s1" },
+				],
+			]),
 		});
 		const views = computeDateSlotSelection(makeInput(), state);
 		const target = views.occurrenceTargets.find((t) => t.date === "2026-01-07");
@@ -85,9 +85,9 @@ describe("computeDateSlotSelection", () => {
 				recurrenceType: "DAILY",
 				firstDate: "2026-01-02",
 				lastDate: "2026-01-10",
-				todayStr: "2026-01-05"
+				todayStr: "2026-01-05",
 			}),
-			makeState()
+			makeState(),
 		);
 		// allDateSlots = 6 dates futures (Jan 5-10) × 1 slot = 6
 		expect(views.allDateSlots).toHaveLength(6);
@@ -105,9 +105,9 @@ describe("computeDateSlotSelection", () => {
 				firstDate: "2026-01-02",
 				lastDate: "2026-01-10",
 				manualDates: ["2026-01-03"],
-				todayStr: "2026-01-05"
+				todayStr: "2026-01-05",
 			}),
-			makeState()
+			makeState(),
 		);
 		// allDateSlots = 6 futures + 1 passée (Jan 3) = 7
 		expect(views.allDateSlots).toHaveLength(7);
@@ -123,11 +123,11 @@ describe("computeDateSlotSelection", () => {
 				recurrenceType: "DAILY",
 				firstDate: "2026-01-02",
 				lastDate: "2026-01-10",
-				todayStr: "2026-01-05"
+				todayStr: "2026-01-05",
 			}),
 			makeState({
-				disabledSlotKeys: new Set(["2026-01-05|s1"]) // désactive Jan 5
-			})
+				disabledSlotKeys: new Set(["2026-01-05|s1"]), // désactive Jan 5
+			}),
 		);
 		// 6 dates futures (Jan 5-10), mais Jan 5 désactivée → 5 actifs
 		expect(views.futureActiveDateSlotCount).toBe(5);
@@ -135,23 +135,24 @@ describe("computeDateSlotSelection", () => {
 
 	it("maxManualDatesForLimit : ⌊100/nbSlots⌋", () => {
 		expect(
-			computeDateSlotSelection(makeInput({ timeSlots: [SLOT] }), makeState()).maxManualDatesForLimit
+			computeDateSlotSelection(makeInput({ timeSlots: [SLOT] }), makeState())
+				.maxManualDatesForLimit,
 		).toBe(100);
 		expect(
 			computeDateSlotSelection(makeInput({ timeSlots: [SLOT, SLOT2] }), makeState())
-				.maxManualDatesForLimit
+				.maxManualDatesForLimit,
 		).toBe(50);
 		expect(
 			computeDateSlotSelection(
 				makeInput({ timeSlots: [SLOT, SLOT2, { id: "s3", startTime: "08:00", endTime: "12:00" }] }),
-				makeState()
-			).maxManualDatesForLimit
+				makeState(),
+			).maxManualDatesForLimit,
 		).toBe(33);
 	});
 
 	it("maxManualDatesForLimit : 0 slots → 100 (fallback)", () => {
 		expect(
-			computeDateSlotSelection(makeInput({ timeSlots: [] }), makeState()).maxManualDatesForLimit
+			computeDateSlotSelection(makeInput({ timeSlots: [] }), makeState()).maxManualDatesForLimit,
 		).toBe(100);
 	});
 
@@ -159,9 +160,9 @@ describe("computeDateSlotSelection", () => {
 		const views = computeDateSlotSelection(
 			makeInput({
 				recurrenceType: "CUSTOM",
-				manualDates: ["2026-01-05", "2026-01-10", "2026-01-15"]
+				manualDates: ["2026-01-05", "2026-01-10", "2026-01-15"],
 			}),
-			makeState()
+			makeState(),
 		);
 		expect(views.allGeneratedDates).toHaveLength(0);
 		expect(views.arbitraryDates).toHaveLength(0);
@@ -173,7 +174,7 @@ describe("computeDateSlotSelection", () => {
 		// WEEKLY Jan 7, Jan 14, Jan 21, ... On ajoute Jan 8 (hors cycle)
 		const views = computeDateSlotSelection(
 			makeInput({ manualDates: ["2026-01-07", "2026-01-08"] }),
-			makeState()
+			makeState(),
 		);
 		expect(views.arbitraryDates).toEqual(["2026-01-08"]);
 	});
@@ -182,9 +183,9 @@ describe("computeDateSlotSelection", () => {
 		// WEEKLY Jan 7 → Mar 31 = 12 dates. On ajoute Jan 8 (manuelle hors cycle).
 		const views = computeDateSlotSelection(
 			makeInput({
-				manualDates: ["2026-01-07", "2026-01-08"]
+				manualDates: ["2026-01-07", "2026-01-08"],
 			}),
-			makeState()
+			makeState(),
 		);
 		// 12 dates cycle + 1 manuelle = 13, triées
 		expect(views.allDatesToDisplay).toHaveLength(13);
@@ -195,7 +196,7 @@ describe("computeDateSlotSelection", () => {
 
 	it("activeDates : set des dates ayant au moins un slot actif", () => {
 		const state = makeState({
-			disabledSlotKeys: new Set(["2026-01-07|s1"])
+			disabledSlotKeys: new Set(["2026-01-07|s1"]),
 		});
 		const views = computeDateSlotSelection(makeInput(), state);
 		expect(views.activeDates.has("2026-01-07")).toBe(false);
@@ -205,7 +206,7 @@ describe("computeDateSlotSelection", () => {
 	it("cycle vide (CUSTOM sans dates) → tout est vide", () => {
 		const views = computeDateSlotSelection(
 			makeInput({ recurrenceType: "CUSTOM", manualDates: [] }),
-			makeState()
+			makeState(),
 		);
 		expect(views.allDateSlots).toHaveLength(0);
 		expect(views.occurrenceTargets).toHaveLength(0);
@@ -217,9 +218,9 @@ describe("computeDateSlotSelection", () => {
 			makeInput({
 				recurrenceType: "DAILY",
 				firstDate: "2026-01-02",
-				lastDate: "2026-06-30"
+				lastDate: "2026-06-30",
 			}),
-			makeState()
+			makeState(),
 		);
 		expect(views.allDateSlots).toHaveLength(180);
 	});
@@ -231,9 +232,9 @@ describe("computeDateSlotSelection", () => {
 				recurrenceType: "MONTHLY_BY_DAY",
 				firstDate: "2026-01-07",
 				lastDate: "2026-12-31",
-				monthlyByDayOccurrences: [1, 2, 3, 4, 5]
+				monthlyByDayOccurrences: [1, 2, 3, 4, 5],
 			}),
-			makeState()
+			makeState(),
 		);
 		// 52 mercredis en 2026
 		expect(views.allDateSlots).toHaveLength(52);
@@ -254,10 +255,10 @@ describe("seedFromOccurrences", () => {
 					slotId: "s1",
 					startTime: "14:00",
 					endTime: "18:00",
-					deleted: true
-				}
+					deleted: true,
+				},
 			],
-			new Set(["2026-01-07", "2026-01-14"])
+			new Set(["2026-01-07", "2026-01-14"]),
 		);
 		expect(result.disabledKeys.has("2026-01-07|s1")).toBe(true);
 		expect(result.seeded.size).toBe(0);
@@ -266,7 +267,7 @@ describe("seedFromOccurrences", () => {
 	it("occurrence active → seeded avec son id", () => {
 		const result = seedFromOccurrences(
 			[{ id: "occ-1", date: "2026-01-07", slotId: "s1", startTime: "10:00", endTime: "12:00" }],
-			new Set(["2026-01-07", "2026-01-14"])
+			new Set(["2026-01-07", "2026-01-14"]),
 		);
 		expect(result.seeded.size).toBe(1);
 		const seeded = result.seeded.get("2026-01-07|s1");
@@ -280,7 +281,7 @@ describe("seedFromOccurrences", () => {
 	it("occurrence active hors-cycle → manualDatesToAdd", () => {
 		const result = seedFromOccurrences(
 			[{ id: "occ-1", date: "2026-01-08", slotId: "s1", startTime: "14:00", endTime: "18:00" }],
-			new Set(["2026-01-07", "2026-01-14"]) // Jan 8 n'est pas dans le cycle
+			new Set(["2026-01-07", "2026-01-14"]), // Jan 8 n'est pas dans le cycle
 		);
 		expect(result.manualDatesToAdd).toEqual(["2026-01-08"]);
 	});
@@ -288,7 +289,7 @@ describe("seedFromOccurrences", () => {
 	it("occurrence active dans le cycle → pas dans manualDatesToAdd", () => {
 		const result = seedFromOccurrences(
 			[{ id: "occ-1", date: "2026-01-07", slotId: "s1", startTime: "14:00", endTime: "18:00" }],
-			new Set(["2026-01-07", "2026-01-14"])
+			new Set(["2026-01-07", "2026-01-14"]),
 		);
 		expect(result.manualDatesToAdd).toHaveLength(0);
 	});
@@ -302,12 +303,12 @@ describe("seedFromOccurrences", () => {
 					slotId: "s1",
 					startTime: "14:00",
 					endTime: "18:00",
-					deleted: true
+					deleted: true,
 				},
 				{ id: "occ-2", date: "2026-01-14", slotId: "s1", startTime: "14:00", endTime: "18:00" },
-				{ id: "occ-3", date: "2026-01-08", slotId: "s1", startTime: "14:00", endTime: "18:00" }
+				{ id: "occ-3", date: "2026-01-08", slotId: "s1", startTime: "14:00", endTime: "18:00" },
 			],
-			new Set(["2026-01-07", "2026-01-14"])
+			new Set(["2026-01-07", "2026-01-14"]),
 		);
 		expect(result.disabledKeys.has("2026-01-07|s1")).toBe(true);
 		expect(result.seeded.size).toBe(2); // occ-2 et occ-3
@@ -329,10 +330,10 @@ describe("seedFromOccurrences", () => {
 					date: "2026-01-07 14:00",
 					slotId: "s1",
 					startTime: "14:00",
-					endTime: "18:00"
-				}
+					endTime: "18:00",
+				},
 			],
-			new Set(["2026-01-07"])
+			new Set(["2026-01-07"]),
 		);
 		const seeded = result.seeded.get("2026-01-07|s1");
 		expect(seeded).toBeDefined();
@@ -342,7 +343,7 @@ describe("seedFromOccurrences", () => {
 	it("occurrence sans slotId → clé avec slotId vide", () => {
 		const result = seedFromOccurrences(
 			[{ id: "occ-1", date: "2026-01-07", startTime: "14:00", endTime: "18:00" }],
-			new Set(["2026-01-07"])
+			new Set(["2026-01-07"]),
 		);
 		const seeded = result.seeded.get("2026-01-07|");
 		expect(seeded).toBeDefined();

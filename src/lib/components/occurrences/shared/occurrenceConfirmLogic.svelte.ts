@@ -41,7 +41,7 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 		description: "",
 		confirmLabel: "",
 		variant: "info" as "danger" | "warning" | "info" | "success",
-		onConfirm: () => {}
+		onConfirm: () => {},
 	});
 
 	const missingPresences = $derived(
@@ -49,13 +49,13 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 			options.occState.inherited.minPresentRequired &&
 			options.occState.stats.present < options.occState.inherited.minPresentRequired
 			? options.occState.inherited.minPresentRequired - options.occState.stats.present
-			: 0
+			: 0,
 	);
 
 	const incompleteTasks = $derived.by(() => {
 		return options.occState.inherited.tasks.filter((task) => {
 			const volunteers = options.occurrence.responses.filter((r) =>
-				r.tasks?.includes(task.id)
+				r.tasks?.includes(task.id),
 			).length;
 			return volunteers < task.requiredVolunteers;
 		});
@@ -72,7 +72,7 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 				"Les participants ayant activé les notifications seront informés du rétablissement.",
 			confirmLabel: "Rétablir",
 			variant: "warning",
-			onConfirm: executeRestore
+			onConfirm: executeRestore,
 		};
 	}
 
@@ -81,7 +81,7 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 		try {
 			await updateOccurrence(options.occurrence.id, {
 				isCanceled: false,
-				isConfirmed: !options.toConfirm
+				isConfirmed: !options.toConfirm,
 			});
 			toast.success(m.occurrence_restored());
 		} catch (_error) {
@@ -117,7 +117,7 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 					? "Confirmer quand même"
 					: "Confirmer",
 			variant: isCurrentlyConfirmed ? "warning" : warnings.length > 0 ? "warning" : "success",
-			onConfirm: executeConfirm
+			onConfirm: executeConfirm,
 		};
 	}
 
@@ -126,7 +126,7 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 		try {
 			const updated = await updateOccurrence(options.occurrence.id, {
 				isConfirmed: !options.occurrence.isConfirmed,
-				isCanceled: false
+				isCanceled: false,
 			});
 			toast.success(updated.isConfirmed ? m.occurrence_confirmed() : m.occurrence_cancelled());
 		} catch (_error) {
@@ -149,6 +149,6 @@ export function createConfirmLogic(getOptions: () => ConfirmLogicOptions): Confi
 			return needsConfirmationWarning;
 		},
 		openRestoreModal,
-		toggleConfirm
+		toggleConfirm,
 	};
 }
