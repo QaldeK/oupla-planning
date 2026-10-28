@@ -9,12 +9,14 @@ import { storage } from "$lib/utils/storage";
  */
 class InstallStore {
 	isInstalled = $state(false);
-	canInstall = $state(false);
 	deferredPrompt: BeforeInstallPromptEvent | null = $state(null);
-	// true sur mobile non-Chrome : on ne peut pas déclencher beforeinstallprompt,
-	// mais on veut orienter l'utilisateur vers le menu natif du browser. Le scope
-	// mobile est décidé par la surface appelante (mediaQuery).
-	readonly showNativeHint = $derived(!this.isInstalled && !this.canInstall);
+	// Prompt natif disponible ⇔ un prompt différé est capté : un seul état de
+	// vérité, pas de synchro manuelle entre les deux.
+	readonly canInstall = $derived(this.deferredPrompt !== null);
+	// true quand rien ne permet d'installer via le navigateur (ni installé, ni
+	// promptable) : les surfaces orientent alors vers les instructions manuelles.
+	// Le scope mobile est décidé par la surface appelante (mediaQuery).
+	readonly needsManualInstructions = $derived(!this.isInstalled && !this.canInstall);
 
 	// Détection d'installation sur le terminal (getInstalledRelatedApps — Chromium
 	// Android 84+, desktop 140+ ; manifest auto-déclaré via related_applications).
@@ -41,7 +43,6 @@ class InstallStore {
 		if (typeof window !== "undefined") {
 			on(window, "beforeinstallprompt", (e) => {
 				e.preventDefault();
-				this.canInstall = true;
 				this.deferredPrompt = e as BeforeInstallPromptEvent;
 			});
 		}
@@ -64,7 +65,6 @@ class InstallStore {
 		// 2. appinstalled (analytics one-shot)
 		on(window, "appinstalled", () => {
 			this.isInstalled = true;
-			this.canInstall = false;
 			this.deferredPrompt = null;
 			void this.#recordInstallationToPB();
 		});
@@ -89,7 +89,6 @@ class InstallStore {
 		this.deferredPrompt.prompt();
 		const { outcome } = await this.deferredPrompt.userChoice;
 		if (outcome === "accepted") {
-			this.canInstall = false;
 			this.deferredPrompt = null;
 		}
 		return outcome;

@@ -127,7 +127,7 @@ instructions manuelles, invite post-installation).
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `isInstalled`                   | `display-mode: standalone` ou `navigator.standalone` (Safari), suivi dans le temps                                          |
 | `canInstall` / `deferredPrompt` | `beforeinstallprompt` intercepté — l'écouteur est posé dès la construction du store, l'événement pouvant précéder le `onMount` |
-| `showNativeHint`                | ni installé ni promptable : la surface appelante décide du scope mobile                                                     |
+| `needsManualInstructions`       | ni installé ni promptable : la surface appelante décide du scope mobile                                                     |
 | `installedOnDevice` / `installCheckPending` | détection terminal via `getInstalledRelatedApps()`                                                              |
 | `promptGateClear`               | gate commun aux surfaces d'invite : check fait, app absente du terminal                                                     |
 | `hasSeenPostInstallInvite`      | invite post-installation vue une fois                                                                                       |
@@ -144,7 +144,9 @@ pas de flash d'invite sur un appareil déjà équipé.
 Composants : `PwaInstallBanner` (les surfaces d'invite : plein format sur l'accueil,
 compact sur les plannings ; le footer du layout porte le bouton Chromium mobile, même
 gate), `PwaManualInstructions` (étapes par plateforme — partagé), `PwaManualInstallModal`
-(instructions manuelles, ouvert depuis la variante compacte non-Chromium). L'invite est
+(instructions manuelles, ouvert depuis la variante compacte non-Chromium).
+`PwaInstallBanner` est un identifiant code ; le vocabulaire utilisateur reste celui du
+glossaire (« invite d'installation »). L'invite est
 une alerte **permanente** : pas de fermeture, c'est une information, pas une interruption.
 Le contenu des alertes s'empile en colonne sur mobile.
 

@@ -2,11 +2,11 @@
 <script lang="ts">
 	import { EllipsisVerticalIcon, Share } from "@lucide/svelte";
 	import * as m from "$lib/paraglide/messages.js";
-	import { isIosDevice } from "$lib/utils/platform";
+	import { isIosClient } from "$lib/utils/platform";
 
 	// Détection iOS pour les instructions spécifiques (Safari = Partage → Écran
 	// d'accueil) ; Android non-Chromium = menu ⋮ → Installer.
-	let isIos = $derived(typeof navigator !== "undefined" && isIosDevice(navigator));
+	let isIos = $derived(isIosClient());
 </script>
 
 {#if isIos}

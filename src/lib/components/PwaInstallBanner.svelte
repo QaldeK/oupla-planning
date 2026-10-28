@@ -5,7 +5,7 @@
 	import { mediaQuery } from "$lib/stores/mediaQuery.svelte";
 	import { installStore } from "$lib/stores/installStore.svelte";
 	import PwaManualInstallModal from "./PwaManualInstallModal.svelte";
-	import { isIosDevice } from "$lib/utils/platform";
+	import { isIosClient } from "$lib/utils/platform";
 
 	interface Props {
 		/** Mode compact : banner une ligne, pour les pages de planning */
@@ -16,15 +16,15 @@
 	let showInstallModal = $state(false);
 
 	// Détection iOS pour la variante compacte (instructions Safari)
-	let isIos = $derived(typeof navigator !== "undefined" && isIosDevice(navigator));
+	let isIos = $derived(isIosClient());
 
 	// Afficher si le gate d'installation est levé (check terminal fait, app
 	// absente) et :
 	// - Chromium (canInstall) → bouton d'install natif
-	// - Non-Chrome mobile (showNativeHint + isMobile) → instructions manuelles
+	// - Non-Chrome mobile (needsManualInstructions + isMobile) → instructions manuelles
 	let showCard = $derived(
 		installStore.promptGateClear &&
-			(installStore.canInstall || (mediaQuery.isMobile && installStore.showNativeHint)),
+			(installStore.canInstall || (mediaQuery.isMobile && installStore.needsManualInstructions)),
 	);
 
 	async function handleInstall() {
@@ -104,7 +104,7 @@
 				{/if}
 
 				<button class="btn btn-info btn-sm" onclick={() => (showInstallModal = true)}>
-					{m.pwa_howto_open()}
+					{m.pwa_howto_install()}
 				</button>
 			</div>
 		{:else}

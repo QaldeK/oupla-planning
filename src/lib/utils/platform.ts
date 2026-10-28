@@ -15,3 +15,8 @@ export function isPlatformIos(userAgent: string, maxTouchPoints: number): boolea
 export function isIosDevice(nav: Navigator): boolean {
 	return isPlatformIos(nav.userAgent, nav.maxTouchPoints);
 }
+
+/** Variante réactive pour composants : garde SSR incluse. */
+export function isIosClient(): boolean {
+	return typeof navigator !== "undefined" && isIosDevice(navigator);
+}
