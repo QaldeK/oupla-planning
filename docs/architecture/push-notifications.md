@@ -7,7 +7,7 @@ d'événements, plus le cycle de vie des appareils abonnés au push. Vocabulaire
 Décisions associées : ADR-0005 (push via service externe — le JSVM ne peut pas produire de
 Web Push, faute de crypto VAPID native), ADR-0007 (extension `.cjs` pour les modules
 partagés entre hooks), ADR-0011 (notifications de nouveaux commentaires), ADR-0014
-(souscriptions push multi-appareils).
+(souscriptions push multi-appareils), ADR-0019 (créneau du cron quotidien — 08h UTC).
 
 ## Principe : producteur, file, consommateur
 

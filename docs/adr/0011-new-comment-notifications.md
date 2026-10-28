@@ -21,7 +21,7 @@ Le marketing (`FeaturesGrid.svelte`) promettait déjà "nouveaux messages" sans 
 - **Deux booléens `onNewCommentAll` / `onNewCommentConcerned`** : incohérent (`all` implique `concerné`), aurait nécessité synchronisation UI et invariant serveur.
 - **Lazy default serveur selon rôle** : introduit une double source de vérité (champ + rôle) et rend les transitions admin surprenantes.
 - **Hook séparé `notify-on-new-comment.pb.js`** : duplication du guard temporel et du pattern insert + dispatch.
-- **Email immédiat pour les messages** : anti-pattern messagerie (spam massif), on reste sur cron 00h UTC avec acceptation du délai.
+- **Email immédiat pour les messages** : anti-pattern messagerie (spam massif), on reste sur le cron quotidien avec acceptation du délai (créneau depuis déplacé à 08h UTC — voir [ADR-0019](0019-notification-cron-window.md)).
 - **Push coalescé/debouncé** : complexe en JSVM sans état partagé, YAGNI v1.
 
 ## Conséquences
