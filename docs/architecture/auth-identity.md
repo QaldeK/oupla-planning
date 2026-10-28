@@ -193,8 +193,10 @@ survivent par leurs tokens.
 guard, les `$effect` des pages réagiraient à l'état intermédiaire (auth vidé, planning pas
 encore réactivé).
 
-Dans l'app installée, `logout()` ramène au mur d'authentification — l'écran de
-déconnexion des settings l'annonce quand `installStore.isInstalled`.
+Dans l'app installée, `logout()` ramène au mur d'authentification. La déconnexion
+demande confirmation sur toutes ses surfaces (sidebar, settings) — l'action vide les
+données locales dans tous les contextes ; seule la ligne « mur » du confirm dépend de
+`installStore.isInstalled`.
 
 ## Pièges
 

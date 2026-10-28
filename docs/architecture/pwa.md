@@ -139,11 +139,10 @@ sans contournement. La condition est un ET de trois états réactifs — `instal
 vues participant et admin incluses, liens capturés compris. `isReady` empêche tout flash de mur
 pendant la restauration d'une session valide (rien ne s'affiche avant la fin d'init). Le login ou
 la création depuis le mur déclenche la transition auth existante (claim + fusion d'identité,
-voir `auth-identity.md`). Le navigateur reste exclu : parcours invités inchangés. C'est l'unique
-moment de conversion — l'ancienne invite post-installation fermable (état « vue », clé
-`pwa_post_install_invite_seen`) a été supprimée avec son stockage. Si l'URL est un lien
-participant, le mur affiche le titre du planning (`getPlanningTitleByToken`,
-`services/planningReads.ts`) ; échec de lecture → message générique.
+voir `auth-identity.md`). Le navigateur reste exclu : parcours invités inchangés. Le mur est
+l'unique moment de conversion de l'app installée. Si l'URL est un lien participant ou admin,
+le mur affiche le titre du planning (`getPlanningTitleByToken`,
+`services/planningReads.ts`) ; échec de lecture → pas de contexte affiché.
 
 **Gate terminal.** Le navigateur installateur peut redéclencher `beforeinstallprompt`
 dans son onglet même après installation (vérifié sur Brave Android). `getInstalledRelatedApps()`

@@ -97,5 +97,5 @@ _Avoid_: bulle d'installation, popup navigateur
 _Avoid_: guide iOS, tuto, modal d'aide
 
 **Mur d'authentification** :
-Écran plein écran, sans contournement, qui exige la connexion ou la création d'un Compte. Il ne s'affiche que dans l'app installée (mode standalone) sans session authentifiée — le navigateur, liens de participation inclus, reste sans friction compte. Il remplace l'ancienne invite post-installation.
+Écran plein écran, sans contournement, qui exige la connexion ou la création d'un Compte. Il ne s'affiche que dans l'app installée (mode standalone) sans session authentifiée — le navigateur, liens de participation inclus, reste sans friction compte.
 _Avoid_: invite post-installation, mur de connexion, compte obligatoire, onboarding forcé

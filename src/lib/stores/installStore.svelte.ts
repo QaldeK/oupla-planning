@@ -4,7 +4,7 @@ import { pb } from "$lib/pocketbase/pb";
 /**
  * Cycle de vie « adoption » : détection de l'installation, prompt natif différé,
  * détection terminal (getInstalledRelatedApps). La conversion post-installation
- * vit dans le mur d'authentification du layout racine, plus l'invite.
+ * vit dans le mur d'authentification du layout racine.
  * La mise à jour du service worker vit dans swUpdateStore.
  */
 class InstallStore {
