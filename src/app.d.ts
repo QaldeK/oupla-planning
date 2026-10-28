@@ -11,6 +11,23 @@ declare global {
 		userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 	}
 
+	/**
+	 * API getInstalledRelatedApps — Chromium uniquement (Android 84+, desktop
+	 * 140+), non standardisée W3C. Détecte une PWA installée sur le terminal
+	 * (manifest auto-déclaré via related_applications) pour masquer l'invite
+	 * d'installation dans l'onglet navigateur.
+	 */
+	interface RelatedApplication {
+		platform: string;
+		id?: string;
+		url?: string;
+		version?: string;
+	}
+
+	interface Navigator {
+		getInstalledRelatedApps?: () => Promise<RelatedApplication[]>;
+	}
+
 	namespace App {
 		interface Platform {
 			env: Env;

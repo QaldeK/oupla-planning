@@ -32,7 +32,8 @@
 	import { modalStore } from "$lib/stores/modalStore.svelte";
 	import { networkStore } from "$lib/stores/networkStore.svelte";
 	import { planningStore } from "$lib/stores/planningStore.svelte";
-	import { pwaStore } from "$lib/stores/pwaStore.svelte";
+	import { installStore } from "$lib/stores/installStore.svelte";
+	import { swUpdateStore } from "$lib/stores/swUpdateStore.svelte";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import { recoverAllData } from "$lib/utils/recover";
 	import { version } from "../../package.json" with { type: "json" };
@@ -61,7 +62,7 @@
 	});
 
 	let showAccountModal = $state(false);
-	let showWelcomeModal = $state(false);
+	let showPostInstallInvite = $state(false);
 	// Clé forçant la destruction/reconstruction du Drawer après navigation,
 	// pour éviter un drawer fantôme quand la librairie @abhivarde/svelte-drawer
 	// ne nettoie pas son état interne (visible non réactif).
@@ -99,7 +100,8 @@
 
 			userStore.init();
 			mediaQuery.init();
-			pwaStore.init();
+			installStore.init();
+			swUpdateStore.init();
 			commentStateStore.start();
 		})().catch((err) => console.error("[boot] échec séquence boot:", err));
 	});
@@ -108,28 +110,28 @@
 	// Toast persistant (duration: Infinity) en top-center ; l'utilisateur déclenche
 	// le reload via l'action. L'ID fixe évite tout doublon si l'$effect se rejoue.
 	$effect(() => {
-		if (!pwaStore.hasUpdate) return;
+		if (!swUpdateStore.hasUpdate) return;
 		toast(m.update_available(), {
 			id: "sw-update",
 			position: "top-center",
 			duration: Infinity,
 			action: {
 				label: m.update_action(),
-				onClick: () => pwaStore.applyUpdate(),
+				onClick: () => swUpdateStore.applyUpdate(),
 			},
 		});
 	});
 
-	// Ouvrir le modal de bienvenue au premier lancement PWA
+	// Ouvrir l'invite post-installation au premier lancement installé
 	$effect(() => {
 		if (
 			userStore.isReady &&
-			pwaStore.isInstalled &&
-			!pwaStore.hasSeenWelcome &&
+			installStore.isInstalled &&
+			!installStore.hasSeenPostInstallInvite &&
 			!userStore.isLoggedIn
 		) {
-			showWelcomeModal = true;
-			pwaStore.markWelcomeSeen();
+			showPostInstallInvite = true;
+			installStore.markPostInstallInviteSeen();
 		}
 	});
 
@@ -180,11 +182,11 @@
 		<!-- Footer -->
 		<footer class="border-base-300 mt-auto border-t py-4">
 			<div class="flex flex-col items-center justify-center gap-4">
-				<!-- Bouton d'installation PWA (mobile uniquement) -->
-				{#if !pwaStore.isInstalled && pwaStore.canInstall}
+				<!-- Bouton d'installation PWA (mobile uniquement) ; gate terminal inclus -->
+				{#if installStore.promptGateClear && installStore.canInstall}
 					<button
 						class="btn btn-soft btn-primary btn-sm lg:hidden"
-						onclick={() => pwaStore.install()}
+						onclick={() => installStore.install()}
 						aria-label={m.common_install_app()}
 					>
 						<Download size={16} />
@@ -393,10 +395,10 @@
 />
 
 <AccountModal
-	bind:open={showWelcomeModal}
-	onClose={() => (showWelcomeModal = false)}
+	bind:open={showPostInstallInvite}
+	onClose={() => (showPostInstallInvite = false)}
 	onSuccess={() => {
-		showWelcomeModal = false;
+		showPostInstallInvite = false;
 	}}
 	defaultMode="register"
 	welcomeMode

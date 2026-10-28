@@ -1,16 +1,11 @@
 import { on } from "svelte/events";
-import { pb } from "$lib/pocketbase/pb";
-import { storage } from "$lib/utils/storage";
 
-class PwaStore {
-	isInstalled = $state(false);
-	canInstall = $state(false);
-	deferredPrompt: BeforeInstallPromptEvent | null = $state(null);
-	// true sur mobile non-Chrome : on ne peut pas déclencher beforeinstallprompt,
-	// mais on veut orienter l'utilisateur vers le menu natif du browser
-	readonly showNativeHint = $derived(!this.isInstalled && !this.canInstall);
-	hasSeenWelcome = $state(false);
-
+/**
+ * Cycle de vie « maintenance » : détection d'un service worker en attente et
+ * activation différée à une action utilisateur. L'installation de l'app vit
+ * dans installStore.
+ */
+class SwUpdateStore {
 	// Détection de mise à jour du Service Worker.
 	// Vrai quand un nouveau SW est installé et en attente d'activation (waiting).
 	// Le passage à true déclenche le toast de MAJ côté layout ; l'utilisateur
@@ -30,74 +25,13 @@ class PwaStore {
 
 	#initialized = false;
 
-	constructor() {
-		// beforeinstallprompt peut se déclencher avant onMount → écoute immédiate
-		if (typeof window !== "undefined") {
-			on(window, "beforeinstallprompt", (e) => {
-				e.preventDefault();
-				this.canInstall = true;
-				this.deferredPrompt = e as BeforeInstallPromptEvent;
-			});
-		}
-	}
-
 	async init() {
 		if (typeof window === "undefined") return;
 		// Garde de réentrance : init peut être appelé plusieurs fois
 		if (this.#initialized) return;
 		this.#initialized = true;
 
-		// 1. Détection client (display-mode, navigator.standalone)
-		this.isInstalled =
-			window.matchMedia("(display-mode: standalone)").matches ||
-			window.navigator.standalone === true;
-
-		// 2. appinstalled (analytics one-shot)
-		on(window, "appinstalled", () => {
-			this.isInstalled = true;
-			this.canInstall = false;
-			this.deferredPrompt = null;
-			void this.#recordInstallationToPB();
-		});
-
-		// 3. Changements display-mode
-		on(window.matchMedia("(display-mode: standalone)"), "change", (e) => {
-			this.isInstalled = e.matches;
-		});
-
-		// 4. Charger le flag de bienvenue
-		this.hasSeenWelcome = (await storage.getItem<boolean>("pwa_welcome_seen")) ?? false;
-
-		// 5. Détection des mises à jour du Service Worker
 		this.#initServiceWorkerUpdateDetection();
-	}
-
-	markWelcomeSeen() {
-		this.hasSeenWelcome = true;
-		storage.setItem("pwa_welcome_seen", true, { persist: true });
-	}
-
-	async install(): Promise<"accepted" | "dismissed" | null> {
-		if (!this.deferredPrompt) return null;
-		this.deferredPrompt.prompt();
-		const { outcome } = await this.deferredPrompt.userChoice;
-		if (outcome === "accepted") {
-			this.canInstall = false;
-			this.deferredPrompt = null;
-		}
-		return outcome;
-	}
-
-	async #recordInstallationToPB() {
-		const record = pb.authStore.record;
-		if (!record) return;
-		try {
-			await pb.collection("users").update(record.id, {
-				pwa_installed: true,
-			});
-		} catch (e) {
-			console.error("Failed to record PWA installation:", e);
-		}
 	}
 
 	/**
@@ -231,4 +165,4 @@ class PwaStore {
 	}
 }
 
-export const pwaStore = new PwaStore();
+export const swUpdateStore = new SwUpdateStore();

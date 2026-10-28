@@ -33,7 +33,7 @@
 	import ViewTabs from "$lib/components/occurrences/ViewTabs.svelte";
 	import ParticipantFAB from "$lib/components/ParticipantFAB.svelte";
 	import PlanningErrorStates from "$lib/components/PlanningErrorStates.svelte";
-	import PwaInstallCard from "$lib/components/PwaInstallCard.svelte";
+	import PwaInstallBanner from "$lib/components/PwaInstallBanner.svelte";
 	import QuitReturnModal from "$lib/components/QuitReturnModal.svelte";
 	import RenameParticipantModal from "$lib/components/RenameParticipantModal.svelte";
 	import ShareSection from "$lib/components/ShareSection.svelte";
@@ -625,7 +625,7 @@
 			{/if}
 
 			<!-- Installation PWA (compact) -->
-			<PwaInstallCard compact />
+			<PwaInstallBanner compact />
 
 			<!-- Description du planning (hors card, fait suite au header) -->
 			{#if master.description}

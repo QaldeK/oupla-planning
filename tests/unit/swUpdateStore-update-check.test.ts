@@ -1,5 +1,5 @@
 /**
- * Tests unitaires — pwaStore : throttle des checks de MAJ du Service Worker.
+ * Tests unitaires — swUpdateStore : throttle des checks de MAJ du Service Worker.
  *
  * Invariant : `reg.update()` est throttlé à 1/min (spec browser), mais ne doit
  * JAMAIS être court-circuité par la présence d'un `reg.waiting` — un second
@@ -14,7 +14,7 @@
  * heure distincte (> 60 s du check précédent) pour neutraliser l'état partagé.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { pwaStore } from "$lib/stores/pwaStore.svelte";
+import { swUpdateStore } from "$lib/stores/swUpdateStore.svelte";
 
 function makeEventTarget() {
 	const listeners = new Map<string, Set<(event: unknown) => void>>();
@@ -79,7 +79,7 @@ function ensureInit() {
 		ready = (async () => {
 			reg = makeRegistration();
 			serviceWorker.getRegistration.mockResolvedValue(reg);
-			await pwaStore.init();
+			await swUpdateStore.init();
 			await flushMicrotasks();
 		})();
 	}
@@ -109,7 +109,7 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-describe("pwaStore — throttle des checks de MAJ SW", () => {
+describe("swUpdateStore — throttle des checks de MAJ SW", () => {
 	it("check même quand un SW est déjà en waiting (découverte d'un second déploiement)", async () => {
 		await ensureInit();
 		const before = reg.update.mock.calls.length;

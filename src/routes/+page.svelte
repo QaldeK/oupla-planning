@@ -5,12 +5,12 @@
 	import BenefitsBanner from "$lib/components/homepage/BenefitsBanner.svelte";
 	import FeaturesGrid from "$lib/components/homepage/FeaturesGrid.svelte";
 	import HowItWorks from "$lib/components/homepage/HowItWorks.svelte";
-	import PwaInstallCard from "$lib/components/PwaInstallCard.svelte";
+	import PwaInstallBanner from "$lib/components/PwaInstallBanner.svelte";
 	import * as m from "$lib/paraglide/messages.js";
 	import { getLocale } from "$lib/paraglide/runtime.js";
 	import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
 	import { planningStore } from "$lib/stores/planningStore.svelte";
-	import { pwaStore } from "$lib/stores/pwaStore.svelte";
+	import { installStore } from "$lib/stores/installStore.svelte";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import { version } from "../../package.json" with { type: "json" };
 
@@ -147,11 +147,11 @@
 		</div>
 	{/if}
 
-	<!-- PWA Installation Card (always visible, handles own display logic) -->
-	<div class="mb-8"><PwaInstallCard /></div>
+	<!-- Invite d'installation PWA (toujours rendue, gère sa propre visibilité) -->
+	<div class="mb-8"><PwaInstallBanner /></div>
 
 	<!-- Auth Section en haut pour PWA + guest -->
-	{#if pwaStore.isInstalled && !userStore.isLoggedIn}
+	{#if installStore.isInstalled && !userStore.isLoggedIn}
 		<div class="mb-8"><AuthSection /></div>
 	{/if}
 
@@ -162,7 +162,7 @@
 	<BenefitsBanner />
 
 	<!-- Auth Section en bas uniquement pour web non-PWA -->
-	{#if !userStore.isLoggedIn && !pwaStore.isInstalled}
+	{#if !userStore.isLoggedIn && !installStore.isInstalled}
 		<AuthSection />
 	{/if}
 </div>
