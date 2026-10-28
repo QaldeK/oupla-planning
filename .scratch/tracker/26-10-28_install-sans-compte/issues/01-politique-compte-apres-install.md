@@ -49,3 +49,11 @@ navigateur. Politique retenue : mur d'authentification dur, scopé à l'app inst
 (standalone), y compris sur les liens capturés ; invite post-installation supprimée ; mur
 direct sans grâce pour la base existante ; Tauri et canal notificatif invités hors
 périmètre. Tout est consigné dans la spec.
+
+28-10-2026 — Implémentation livrée puis reviewée (deux axes). Amendements actés par le
+mainteneur : contexte planning du mur au libellé neutre pour tout type de lien
+(participant et admin — un admin ouvrant son lien dans la PWA ne doit pas lire
+« invité·e »), le message générique d'échec est abandonné (pas de titre résolu → pas de
+contexte affiché) ; confirmation de déconnexion inconditionnelle (destructrice dans tous
+les contextes), la mention du retour au mur restant conditionnée à `isInstalled`. Le
+portage multi-plannings au login reste au backlog (`backlog/26-10-28_debt_portage-multi-plannings-login.md`).
