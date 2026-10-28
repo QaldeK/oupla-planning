@@ -2,7 +2,7 @@
 // ⚠️ AVANT toute modif : skill pocketbase-jsvm + doc Context7.
 
 /**
- * Cron notifications — cron quotidien 00h UTC.
+ * Cron notifications — cron quotidien 08h UTC (9h à 10h à Paris selon la saison).
  *
  * Phase 1 — Calcul et insertion des events J-X (rappels, missings, confirmation).
  *   Parcourt les occurrences dans la fenêtre à venir (today → today+20 jours) et
@@ -41,7 +41,7 @@
 	 * les callbacks JSVM (scope isolé — voir skill pocketbase-jsvm § "Fonctions locales inaccessibles").
  */
 
-cronAdd('notifications-daily', '0 0 * * *', () => {
+cronAdd('notifications-daily', '0 8 * * *', () => {
 	const { detectJxEvents } = require(`${__hooks}/notification-jx-detector.js`);
 	const { computeRecipients } = require(`${__hooks}/notification-recipients.js`);
 	const cronUtils = require(`${__hooks}/notification-cron-utils.js`);

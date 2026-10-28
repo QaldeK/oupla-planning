@@ -14,10 +14,11 @@
  *    exclusivement par le cron de purge, pour garantir la fenêtre de grâce.
  *  - Détection des transitions deleted false↔true (hook model) : envoie
  *    l'email terminal à tous les participants identifiés, best-effort.
- *  - Cron `planning-purge` (01h00 UTC, après notifications-daily à 00h) :
- *    supprime les masters dont la fenêtre de grâce est échue, après nettoyage
- *    des références d'identité non couvertes par la cascade (users.masterId,
- *    users.adminOf).
+ *  - Cron `planning-purge` (01h00 UTC) : supprime les masters dont la
+ *    fenêtre de grâce est échue, après nettoyage des références d'identité
+ *    non couvertes par la cascade (users.masterId, users.adminOf). Ordre
+ *    libre vis-à-vis de `notifications-daily` : un master supprimé ne produit
+ *    aucune notification (le résolveur de contexte rend null).
  *
  * Ce fichier se charge après main.pb.js (ordre alphabétique) : les hooks update
  * s'enchaînent derrière les validations token/allowlist existantes ; un throw

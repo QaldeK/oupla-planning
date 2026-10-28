@@ -13,7 +13,7 @@ partagés entre hooks), ADR-0011 (notifications de nouveaux commentaires), ADR-0
 
 ```mermaid
 flowchart TD
-  CRON["Cron 00h UTC<br/>cron-notifications.pb.js"]
+  CRON["Cron 08h UTC<br/>cron-notifications.pb.js"]
   HOOK["Hook occurrence-update<br/>notify-on-occurrence-update.pb.js"]
   DEL["Suppression de planning<br/>planning-deletion.pb.js"]
   EVENTS[("notification_events<br/>file d'attente")]
@@ -99,7 +99,8 @@ l'erreur loggée signale l'adresse à l'admin.
 
 ### Cron quotidien — `cron-notifications.pb.js`
 
-Cron `0 0 * * *` (00h UTC).
+Cron `0 8 * * *` (08h UTC — 9h à 10h à Paris selon la saison : le calcul J-X
+est indexé sur le jour UTC, l'heure du run ne le décale pas).
 
 **Phase 1 — détection J-X.** Parcourt les occurrences de `[aujourd'hui, aujourd'hui+20j]`
 et insère les événements dus :
@@ -283,7 +284,7 @@ occurrence future. La notification reçue doit s'ouvrir sur
 
 - **Ne jamais importer `web-push` dans un hook.** Le JSVM n'a pas la crypto VAPID (ADR-0005).
 - **Le cron n'est pas déclenchable à la demande** et n'a aucune personnalisation horaire :
-  les événements J-X du jour partent une fois par jour à 00h UTC. Le hook
+  les événements J-X du jour partent une fois par jour à 08h UTC. Le hook
   occurrence-update est le déclencheur de test pratique.
 - **`insertEvent()` jette.** L'avaler sans logger côté hook perd l'email de secours ; ne
   pas laisser l'exception remonter casse la réponse de l'écriture d'occurrence.
@@ -313,7 +314,7 @@ occurrence future. La notification reçue doit s'ouvrir sur
 
 ## Fichiers clés
 
-- `pocketbase/pb_hooks/cron-notifications.pb.js` — cron 00h UTC (phases 1 et 2) et purge
+- `pocketbase/pb_hooks/cron-notifications.pb.js` — cron 08h UTC (phases 1 et 2) et purge
 - `pocketbase/pb_hooks/notify-on-occurrence-update.pb.js` — hook de changement d'occurrence et de commentaire
 - `pocketbase/pb_hooks/notification-events.cjs` — `insertEvent`, résolveur de contexte master
 - `pocketbase/pb_hooks/notification-deliveries.cjs` — porte d'écriture du registre de livraison (upsert, réglage des canaux)
