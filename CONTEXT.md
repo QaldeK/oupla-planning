@@ -96,6 +96,6 @@ _Avoid_: bulle d'installation, popup navigateur
 Étapes d'installation décrites à l'utilisateur quand le prompt natif n'existe pas (Safari, Firefox). Le contenu est spécifique à la plateforme.
 _Avoid_: guide iOS, tuto, modal d'aide
 
-**Invite post-installation** :
-Invitation unique à créer un Compte, au premier lancement qui suit l'installation. Distincte de l'invite d'installation : elle porte sur le Compte, pas sur l'installation.
-_Avoid_: welcome modal, écran de bienvenue, onboarding
+**Mur d'authentification** :
+Écran plein écran, sans contournement, qui exige la connexion ou la création d'un Compte. Il ne s'affiche que dans l'app installée (mode standalone) sans session authentifiée — le navigateur, liens de participation inclus, reste sans friction compte. Il remplace l'ancienne invite post-installation.
+_Avoid_: invite post-installation, mur de connexion, compte obligatoire, onboarding forcé

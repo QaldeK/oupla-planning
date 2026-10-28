@@ -21,6 +21,27 @@ compte).
 Un Guest n'a **pas** de profil universel : le même appareil peut porter des noms
 différents sur deux plannings. C'est une invariant du modèle, pas un effet de bord.
 
+## Mur d'authentification (app installée)
+
+Dans l'app installée (mode standalone), un Guest n'a pas accès à l'application :
+sans session authentifiée, le layout racine rend un mur plein écran
+(`AuthWall.svelte`) à la place de toute surface — connexion ou création de Compte,
+sans contournement. Justification : les deux canaux de notification (push, email)
+ne servent que des Comptes ; une app installée sans Compte serait structurellement
+muette, incapable de tenir la promesse d'alertes qui motive l'installation.
+
+- **Condition** (layout racine, aucun guard par route) : `installStore.isInstalled &&
+userStore.isReady && !userStore.isLoggedIn`. Le gate `isReady` empêche tout flash
+  de mur pendant la restauration d'une session valide au boot.
+- **Le navigateur est hors du mur** : création de planning sans compte, identification
+  par planning et liens de participation restent sans friction (ADR-0002 inchangé).
+- **Migration** : login ou création depuis le mur déclenche la transition auth
+  standard, qui ne réclame que le planning actif — le portage de l'ensemble des
+  plannings locaux au login reste une décision ouverte (terminaux partagés, vol
+  d'identité : edge cases non tranchés).
+- **iOS** isole le stockage Home Screen : le mur y demande une reconnexion même si la
+  session vit dans Safari — friction plateforme, pas un défaut du mur.
+
 ```mermaid
 flowchart TD
   subgraph Local["État local (appareil)"]
@@ -172,6 +193,9 @@ survivent par leurs tokens.
 guard, les `$effect` des pages réagiraient à l'état intermédiaire (auth vidé, planning pas
 encore réactivé).
 
+Dans l'app installée, `logout()` ramène au mur d'authentification — l'écran de
+déconnexion des settings l'annonce quand `installStore.isInstalled`.
+
 ## Pièges
 
 - **`pbUser.id` n'est jamais l'identité opérationnelle** d'un participant réclamé. Toute
@@ -194,6 +218,7 @@ encore réactivé).
 - `src/lib/stores/guestStateStore.svelte.ts` — état guest par planning (voir `stores.md`)
 - `src/lib/utils/participantConflict.ts` — garde d'unicité du nom
 - `src/lib/components/IdentifyModal.svelte` — identification guest (primo-identification et switch)
+- `src/lib/components/auth/AuthWall.svelte` — mur d'authentification de l'app installée (voir `pwa.md`)
 - `src/lib/components/IdentityClaimModal.svelte` — revendication et migration pour les Comptes
 - `src/lib/components/RenameParticipantModal.svelte` — renommage local, distinct du changement d'identité
 - `src/lib/services/planningParticipants.ts` — `addParticipant`, `updateParticipant`, `claimParticipantIdentity`

@@ -117,21 +117,33 @@ suivant.
 ## 4. Installation et UX
 
 Deux stores séparés portent les deux cycles de vie : `installStore.svelte.ts` (adoption :
-détection, prompt, invite post-installation) et `swUpdateStore.svelte.ts` (maintenance :
+détection, prompt, gate terminal) et `swUpdateStore.svelte.ts` (maintenance :
 mise à jour, § 3). Vocabulaire : voir `CONTEXT.md` (invite d'installation, prompt natif,
-instructions manuelles, invite post-installation).
+instructions manuelles, mur d'authentification).
 
 État d'installation dans `installStore` :
 
-| Membre                          | Rôle                                                                                                                        |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `isInstalled`                   | `display-mode: standalone` ou `navigator.standalone` (Safari), suivi dans le temps                                          |
-| `canInstall` / `deferredPrompt` | `beforeinstallprompt` intercepté — l'écouteur est posé dès la construction du store, l'événement pouvant précéder le `onMount` |
-| `needsManualInstructions`       | ni installé ni promptable : la surface appelante décide du scope mobile                                                     |
-| `installedOnDevice` / `installCheckPending` | détection terminal via `getInstalledRelatedApps()`                                                              |
-| `promptGateClear`               | gate commun aux surfaces d'invite : check fait, app absente du terminal                                                     |
-| `hasSeenPostInstallInvite`      | invite post-installation vue une fois                                                                                       |
-| `install()`                     | déclenche le prompt différé                                                                                                 |
+| Membre                                      | Rôle                                                                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `isInstalled`                               | `display-mode: standalone` ou `navigator.standalone` (Safari), suivi dans le temps                                             |
+| `canInstall` / `deferredPrompt`             | `beforeinstallprompt` intercepté — l'écouteur est posé dès la construction du store, l'événement pouvant précéder le `onMount` |
+| `needsManualInstructions`                   | ni installé ni promptable : la surface appelante décide du scope mobile                                                        |
+| `installedOnDevice` / `installCheckPending` | détection terminal via `getInstalledRelatedApps()`                                                                             |
+| `promptGateClear`                           | gate commun aux surfaces d'invite : check fait, app absente du terminal                                                        |
+| `install()`                                 | déclenche le prompt différé                                                                                                    |
+
+**Mur d'authentification.** L'app installée (standalone) sans session authentifiée
+n'affiche plus aucune surface d'app : `+layout.svelte` rend `AuthWall.svelte` à la place,
+sans contournement. La condition est un ET de trois états réactifs — `installStore.isInstalled`,
+`userStore.isReady`, `!userStore.isLoggedIn` — dans le layout racine, aucun guard par route :
+vues participant et admin incluses, liens capturés compris. `isReady` empêche tout flash de mur
+pendant la restauration d'une session valide (rien ne s'affiche avant la fin d'init). Le login ou
+la création depuis le mur déclenche la transition auth existante (claim + fusion d'identité,
+voir `auth-identity.md`). Le navigateur reste exclu : parcours invités inchangés. C'est l'unique
+moment de conversion — l'ancienne invite post-installation fermable (état « vue », clé
+`pwa_post_install_invite_seen`) a été supprimée avec son stockage. Si l'URL est un lien
+participant, le mur affiche le titre du planning (`getPlanningTitleByToken`,
+`services/planningReads.ts`) ; échec de lecture → message générique.
 
 **Gate terminal.** Le navigateur installateur peut redéclencher `beforeinstallprompt`
 dans son onglet même après installation (vérifié sur Brave Android). `getInstalledRelatedApps()`
@@ -167,21 +179,22 @@ si l'effet se rejoue, le toast existant est mis à jour au lieu d'être dupliqu�
 
 ## Pièges
 
-| Piège                                         | Conséquence                                                                                       |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Cacher `/api/*` (REST ou SSE) dans le SW      | 200 périmé sans erreur réseau → données désynchronisées en silence                                |
-| `skipWaiting()` automatique à l'`install`     | rechargement en pleine saisie                                                                     |
-| Pas de `clients.claim()` à l'`activate`       | le premier service worker n'est actif qu'au rechargement suivant                                  |
-| Pas de drapeau de première prise de contrôle  | rechargement intempestif au premier install, ou absence de rechargement sur une vraie mise à jour |
-| `reg.update()` au démarrage                   | requête redondante                                                                                |
-| Pas de throttle sur `reg.update()`            | trafic inutile (limite de spec : 1 par minute)                                                    |
-| `pageshow` sans `event.persisted`             | vérification inutile à chaque navigation client                                                   |
-| `visibilitychange` sans test `=== 'visible'`  | vérification au moment où l'onglet devient caché                                                  |
-| Pas de `.catch()` sur `reg.update()`          | rejet non traité si hors ligne                                                                    |
-| Toast sans identifiant fixe, ou à durée finie | doublons, ou toast qui disparaît avant l'action                                                   |
-| Manifest sans icône `maskable`                | icône écrasée sur Android                                                                         |
-| Afficher l'invite sans attendre le check terminal | flash d'invite sur un appareil où l'app est déjà installée (`installCheckPending`)            |
-| Test user-agent seul pour iOS                 | iPadOS 13+ rapporte un user-agent Macintosh → iPad sur instructions Android ; ajouter `maxTouchPoints` (`isPlatformIos`) |
+| Piège                                             | Conséquence                                                                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Cacher `/api/*` (REST ou SSE) dans le SW          | 200 périmé sans erreur réseau → données désynchronisées en silence                                                       |
+| `skipWaiting()` automatique à l'`install`         | rechargement en pleine saisie                                                                                            |
+| Pas de `clients.claim()` à l'`activate`           | le premier service worker n'est actif qu'au rechargement suivant                                                         |
+| Pas de drapeau de première prise de contrôle      | rechargement intempestif au premier install, ou absence de rechargement sur une vraie mise à jour                        |
+| `reg.update()` au démarrage                       | requête redondante                                                                                                       |
+| Pas de throttle sur `reg.update()`                | trafic inutile (limite de spec : 1 par minute)                                                                           |
+| `pageshow` sans `event.persisted`                 | vérification inutile à chaque navigation client                                                                          |
+| `visibilitychange` sans test `=== 'visible'`      | vérification au moment où l'onglet devient caché                                                                         |
+| Pas de `.catch()` sur `reg.update()`              | rejet non traité si hors ligne                                                                                           |
+| Toast sans identifiant fixe, ou à durée finie     | doublons, ou toast qui disparaît avant l'action                                                                          |
+| Manifest sans icône `maskable`                    | icône écrasée sur Android                                                                                                |
+| Afficher l'invite sans attendre le check terminal | flash d'invite sur un appareil où l'app est déjà installée (`installCheckPending`)                                       |
+| Mur sans gate `userStore.isReady`                 | flash de mur pendant la restauration d'une session valide au boot                                                        |
+| Test user-agent seul pour iOS                     | iPadOS 13+ rapporte un user-agent Macintosh → iPad sur instructions Android ; ajouter `maxTouchPoints` (`isPlatformIos`) |
 
 ## Tests manuels
 
@@ -211,10 +224,15 @@ de build.
 - `static/manifest.webmanifest`, `static/icon-{192,512}.png` — manifest et icônes
 - `src/service-worker.ts` — cache, cycle de vie, push
 - `src/lib/stores/installStore.svelte.ts` — installation : détection, prompt, gate
-  terminal, invite post-installation
+  terminal
 - `src/lib/stores/swUpdateStore.svelte.ts` — détection de mise à jour et activation
+- `src/lib/components/auth/AuthWall.svelte` — mur d'authentification de l'app installée
+  (contexte planning via `getPlanningTitleByToken`)
+- `src/lib/components/auth/AuthPanel.svelte` — formulaire + bascule connexion/création,
+  partagé entre AccountModal et AuthWall
 - `src/lib/components/PwaInstallBanner.svelte` — surfaces d'invite (plein, compact)
 - `src/lib/components/PwaManualInstructions.svelte` — étapes par plateforme
 - `src/lib/components/PwaManualInstallModal.svelte` — modal d'instructions manuelles
 - `src/lib/utils/platform.ts` — détection iOS pure (user-agent + multi-touch)
-- `src/routes/+layout.svelte` — toast de mise à jour, boot des stores, bouton footer
+- `src/routes/+layout.svelte` — toast de mise à jour, boot des stores, bouton footer,
+  condition du mur d'authentification
