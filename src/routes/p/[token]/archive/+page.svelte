@@ -52,7 +52,7 @@
 </svelte:head>
 
 <div class="bg-base-200 min-h-screen px-4 py-8 sm:px-6 lg:px-8">
-	<div class="mx-auto max-w-4xl">
+	<div class="mx-auto">
 		{#if isDeleted && master}
 			<div class="alert alert-warning alert-soft mb-6" role="alert">
 				<Trash2 size={24} class="shrink-0" />
