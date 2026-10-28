@@ -1,6 +1,6 @@
 # Politique compte utilisateur après installation PWA
 
-Status: needs-triage
+Status: resolved (design instruit — spec publiée : [../spec.md](../spec.md), ready-for-agent)
 Type: design (grilling)
 
 ## Problème
@@ -38,3 +38,14 @@ mesurer l'impact sur ce parcours.
 ## Prochain pas
 
 Session `/grill-with-docs` dédiée après vérification du point 1.
+
+## Comments
+
+28-10-2026 — Grill réalisé. Point 1 instruit dans le code : les invités ne reçoivent ni
+push ni email (double verrou : sync de souscription en no-op sans session ; destinataires
+filtrés sur `userId`), la migration invité → compte est déjà outillée (claim des plannings
++ fusion d'identité), et la création de planning sans compte reste possible dans le
+navigateur. Politique retenue : mur d'authentification dur, scopé à l'app installée
+(standalone), y compris sur les liens capturés ; invite post-installation supprimée ; mur
+direct sans grâce pour la base existante ; Tauri et canal notificatif invités hors
+périmètre. Tout est consigné dans la spec.
