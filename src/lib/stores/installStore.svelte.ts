@@ -35,8 +35,17 @@ class InstallStore {
 
 	#initialized = false;
 	constructor() {
-		// beforeinstallprompt peut se déclencher avant onMount → écoute immédiate
 		if (typeof window !== "undefined") {
+			// Détection client (display-mode, navigator.standalone) posée ici et
+			// non dans init() : le mur d'authentification dépend de isInstalled,
+			// et init() n'arrive qu'après des await au boot (état guest, userStore).
+			// Calculée plus tard, l'app installée s'afficherait un instant avant
+			// le mur — c'est exactement ce que le mur doit empêcher.
+			this.isInstalled =
+				window.matchMedia("(display-mode: standalone)").matches ||
+				window.navigator.standalone === true;
+
+			// beforeinstallprompt peut se déclencher avant onMount → écoute immédiate
 			on(window, "beforeinstallprompt", (e) => {
 				e.preventDefault();
 				this.deferredPrompt = e as BeforeInstallPromptEvent;
@@ -50,12 +59,7 @@ class InstallStore {
 		if (this.#initialized) return;
 		this.#initialized = true;
 
-		// 1. Détection client (display-mode, navigator.standalone)
-		this.isInstalled =
-			window.matchMedia("(display-mode: standalone)").matches ||
-			window.navigator.standalone === true;
-
-		// 1bis. Détection terminal : app déjà installée sur l'appareil → gate.
+		// 1. Détection terminal : app déjà installée sur l'appareil → gate.
 		void this.#detectInstalledOnDevice();
 
 		// 2. appinstalled (analytics one-shot)
@@ -72,13 +76,25 @@ class InstallStore {
 	}
 
 	async install(): Promise<"accepted" | "dismissed" | null> {
-		if (!this.deferredPrompt) return null;
-		this.deferredPrompt.prompt();
-		const { outcome } = await this.deferredPrompt.userChoice;
-		if (outcome === "accepted") {
-			this.deferredPrompt = null;
+		// Le prompt natif est à usage unique : l'événement est consommé dès
+		// l'appel, qu'il soit accepté ou refusé. Le conserver rendrait
+		// `canInstall` vrai et le bouton rappellerait prompt() sur un événement
+		// mort (InvalidStateError).
+		const prompt = this.deferredPrompt;
+		if (!prompt) return null;
+		this.deferredPrompt = null;
+
+		try {
+			prompt.prompt();
+			const { outcome } = await prompt.userChoice;
+			// `appinstalled` peut tarder ou ne jamais venir (navigateur qui ne
+			// l'émet pas) : l'acceptation suffit à retirer les invites.
+			if (outcome === "accepted") this.isInstalled = true;
+			return outcome;
+		} catch (e) {
+			console.debug("install prompt failed:", e);
+			return null;
 		}
-		return outcome;
 	}
 
 	/**

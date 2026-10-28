@@ -10,7 +10,6 @@
 	import { getLocale } from "$lib/paraglide/runtime.js";
 	import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
 	import { planningStore } from "$lib/stores/planningStore.svelte";
-	import { installStore } from "$lib/stores/installStore.svelte";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import { version } from "../../package.json" with { type: "json" };
 
@@ -150,19 +149,15 @@
 	<!-- Invite d'installation PWA (toujours rendue, gère sa propre visibilité) -->
 	<div class="mb-8"><PwaInstallBanner /></div>
 
-	<!-- Auth Section en haut pour PWA + guest -->
-	{#if installStore.isInstalled && !userStore.isLoggedIn}
-		<div class="mb-8"><AuthSection /></div>
-	{/if}
-
 	<!-- SEO Content Sections -->
 	<HowItWorks />
 	<FeaturesGrid />
 	<!-- <UseCases /> -->
 	<BenefitsBanner />
 
-	<!-- Auth Section en bas uniquement pour web non-PWA -->
-	{#if !userStore.isLoggedIn && !installStore.isInstalled}
+	<!-- Auth Section : une app installée sans session est arrêtée par le mur du
+	     layout, cette section ne sert donc qu'au web. -->
+	{#if !userStore.isLoggedIn}
 		<AuthSection />
 	{/if}
 </div>

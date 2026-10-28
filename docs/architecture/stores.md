@@ -200,7 +200,8 @@ restauration d'un planning supprimé, ouverte depuis une page `/p` sous particip
 | `authTransition`    | guards et snapshot de la transition guest → auth | `auth-identity.md`    |
 | `networkStore`      | statut réseau, re-sync à la reconnexion          | `network-realtime.md` |
 | `commentStateStore` | badges de commentaires non lus                   | `offline-sync.md`     |
-| `pwaStore`          | détection de mise à jour du service worker       | `pwa.md`              |
+| `swUpdateStore`     | détection de mise à jour du service worker       | `pwa.md`              |
+| `installStore`      | détection d'installation, prompt natif différé   | `pwa.md`              |
 | `drawerStore`       | tiroir latéral (occurrence courante, master)     | —                     |
 | `modalStore`        | modales génériques                               | —                     |
 | `mediaQuery`        | media queries réactives (`isMobile`)             | —                     |

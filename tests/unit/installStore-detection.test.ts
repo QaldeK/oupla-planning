@@ -60,14 +60,17 @@ interface Harness {
 	window: ReturnType<typeof makeEventTarget>;
 }
 
-async function freshStore(relatedApps?: () => Promise<Array<{ platform: string }>>) {
+async function freshStore(
+	relatedApps?: () => Promise<Array<{ platform: string }>>,
+	opts: { standalone?: boolean; init?: boolean } = {},
+) {
 	vi.resetModules();
 
 	// Fenêtre fraîche par scénario : chaque init pose ses listeners dessus, un
 	// objet partagé les accumulerait et un dispatch toucherait tous les stores.
 	const mql = new Map<string, Mql>();
 	const window = Object.assign(makeEventTarget(), {
-		navigator: { standalone: false },
+		navigator: { standalone: opts.standalone ?? false },
 		matchMedia: vi.fn((query: string) => {
 			if (!mql.has(query)) mql.set(query, { matches: false, ...makeEventTarget() });
 			return mql.get(query)!;
@@ -75,15 +78,20 @@ async function freshStore(relatedApps?: () => Promise<Array<{ platform: string }
 		location: { reload: vi.fn() },
 	});
 
-	const navigatorObj: Record<string, unknown> = { standalone: false, maxTouchPoints: 0 };
+	const navigatorObj: Record<string, unknown> = {
+		standalone: opts.standalone ?? false,
+		maxTouchPoints: 0,
+	};
 	if (relatedApps) navigatorObj.getInstalledRelatedApps = vi.fn(relatedApps);
 
 	vi.stubGlobal("window", window);
 	vi.stubGlobal("navigator", navigatorObj);
 
 	const mod = await import("$lib/stores/installStore.svelte");
-	await mod.installStore.init();
-	await flushMicrotasks();
+	if (opts.init !== false) {
+		await mod.installStore.init();
+		await flushMicrotasks();
+	}
 	return { store: mod.installStore, mql, window } satisfies Harness;
 }
 
@@ -161,5 +169,59 @@ describe("installStore — cycle du prompt natif", () => {
 		const { store, mql } = await freshStore();
 		mql.get("(display-mode: standalone)")!.dispatch("change", { matches: true });
 		expect(store.isInstalled).toBe(true);
+	});
+
+	it("isInstalled est posé dès la construction, avant init()", async () => {
+		// Le mur d'authentification lit isInstalled ; init() n'arrive qu'après
+		// des await au boot. Calculé là, il laisserait l'app installée
+		// s'afficher un instant avant le mur.
+		const { store } = await freshStore(undefined, { standalone: true, init: false });
+		expect(store.isInstalled).toBe(true);
+	});
+
+	it("refus (dismissed) : le prompt est consommé, pas de second appel possible", async () => {
+		const { store, window } = await freshStore();
+		const prompt = vi.fn();
+		window.dispatch("beforeinstallprompt", {
+			preventDefault: vi.fn(),
+			prompt,
+			userChoice: Promise.resolve({ outcome: "dismissed" }),
+		});
+
+		const outcome = await store.install();
+		expect(outcome).toBe("dismissed");
+		// L'événement natif est à usage unique : le garder laisserait un bouton
+		// mort qui rappellerait prompt() sur un événement consommé.
+		expect(store.canInstall).toBe(false);
+		expect(await store.install()).toBeNull();
+		expect(prompt).toHaveBeenCalledTimes(1);
+	});
+
+	it("acceptation : isInstalled passe à vrai sans attendre appinstalled", async () => {
+		const { store, window } = await freshStore();
+		window.dispatch("beforeinstallprompt", {
+			preventDefault: vi.fn(),
+			prompt: vi.fn(),
+			userChoice: Promise.resolve({ outcome: "accepted" }),
+		});
+
+		await store.install();
+		expect(store.isInstalled).toBe(true);
+	});
+
+	it("prompt() qui jette : issue null, pas de rejet non géré", async () => {
+		const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+		const { store, window } = await freshStore();
+		window.dispatch("beforeinstallprompt", {
+			preventDefault: vi.fn(),
+			prompt: vi.fn(() => {
+				throw new Error("InvalidStateError");
+			}),
+			userChoice: Promise.resolve({ outcome: "accepted" }),
+		});
+
+		await expect(store.install()).resolves.toBeNull();
+		expect(store.canInstall).toBe(false);
+		debugSpy.mockRestore();
 	});
 });

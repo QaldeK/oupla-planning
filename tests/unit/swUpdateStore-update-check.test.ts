@@ -170,3 +170,34 @@ describe("swUpdateStore — throttle des checks de MAJ SW", () => {
 		expect(reg.update.mock.calls.length).toBe(before + 1);
 	});
 });
+
+/**
+ * Le singleton est partagé dans ce fichier : ces deux cas sont ordonnés —
+ * le premier constate l'absence de demande locale, le second en pose une.
+ */
+describe("swUpdateStore — reload au controllerchange", () => {
+	it("controllerchange venu d'un autre onglet : pas de reload, MAJ signalée", async () => {
+		await ensureInit();
+		swUpdateStore.hasUpdate = false;
+		const reload = fakeWindow.location.reload as ReturnType<typeof vi.fn>;
+		const before = reload.mock.calls.length;
+
+		serviceWorker.dispatch("controllerchange");
+
+		expect(reload.mock.calls.length).toBe(before);
+		expect(swUpdateStore.hasUpdate).toBe(true);
+	});
+
+	it("après applyUpdate, controllerchange recharge l'onglet demandeur", async () => {
+		await ensureInit();
+		await swUpdateStore.applyUpdate();
+		expect(reg.waiting.postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING" });
+
+		const reload = fakeWindow.location.reload as ReturnType<typeof vi.fn>;
+		const before = reload.mock.calls.length;
+
+		serviceWorker.dispatch("controllerchange");
+
+		expect(reload.mock.calls.length).toBe(before + 1);
+	});
+});

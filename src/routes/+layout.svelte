@@ -51,6 +51,13 @@
 		networkStore.setHasActiveSubscription(hasActiveSubscription),
 	);
 
+	// Mur d'authentification : app installée (standalone) sans session. isReady
+	// évite tout flash de mur pendant la restauration d'une session valide au
+	// boot — rien ne s'affiche tant que l'initialisation n'est pas terminée.
+	const authWallActive = $derived(
+		installStore.isInstalled && userStore.isReady && !userStore.isLoggedIn,
+	);
+
 	// Layout-driven : observer page.params.token pour activer/désactiver le planning
 	$effect(() => {
 		const token = page.params.token as string | undefined;
@@ -58,6 +65,16 @@
 		// Détecter si on est sur la page archive pour passer le bon dateFilter
 		const isArchivePage = page.url.pathname.includes("/archive");
 		const dateFilter = isArchivePage ? "past" : "future";
+
+		// Derrière le mur, aucune surface n'est montée : activer un planning y
+		// ouvrirait des souscriptions realtime et écrirait en localMeta pour un
+		// utilisateur encore sans session. La dérivation est réactive : l'effet
+		// rejoue quand le mur se lève.
+		if (authWallActive) {
+			setActivePlanningToken(undefined);
+			planningStore.setActiveToken(undefined, dateFilter);
+			return;
+		}
 
 		setActivePlanningToken(token);
 		planningStore.setActiveToken(token, dateFilter);
@@ -100,17 +117,43 @@
 		// guest. loadGuestState() résout à la première émission du liveQuery Dexie,
 		// garantissant que guestStates est peuplé avant qu'un onChange puisse fire.
 		// Pour les auth users, on skip le chargement (pas d'état guest à charger).
+		//
+		// Chaque étape est isolée : un store qui échoue ne doit pas empêcher les
+		// autres de s'initialiser. `userStore.isReady` gate le mur
+		// d'authentification — un init interrompu le laisserait indéfini, et
+		// l'app installée s'ouvrirait sans mur. Il est donc posé même en échec,
+		// et l'utilisateur voit une erreur plutôt qu'une app à moitié initialisée.
 		(async () => {
-			if (!pb.authStore.isValid) {
-				await guestStateStore.loadGuestState();
+			let bootFailed = false;
+
+			try {
+				if (!pb.authStore.isValid) {
+					await guestStateStore.loadGuestState();
+				}
+			} catch (err) {
+				bootFailed = true;
+				console.error("[boot] loadGuestState failed:", err);
 			}
 
-			userStore.init();
-			mediaQuery.init();
-			installStore.init();
-			swUpdateStore.init();
-			commentStateStore.start();
-		})().catch((err) => console.error("[boot] échec séquence boot:", err));
+			const steps: Array<[string, () => unknown]> = [
+				["userStore", () => userStore.init()],
+				["mediaQuery", () => mediaQuery.init()],
+				["installStore", () => installStore.init()],
+				["swUpdateStore", () => swUpdateStore.init()],
+				["commentStateStore", () => commentStateStore.start()],
+			];
+			for (const [name, run] of steps) {
+				try {
+					await run();
+				} catch (err) {
+					bootFailed = true;
+					console.error(`[boot] ${name} init failed:`, err);
+					if (name === "userStore") userStore.isReady = true;
+				}
+			}
+
+			if (bootFailed) toast.error(m.error_description_500());
+		})();
 	});
 
 	// Notification de mise à jour de la PWA (Service Worker en attente d'activation).
@@ -128,13 +171,6 @@
 			},
 		});
 	});
-
-	// Mur d'authentification : app installée (standalone) sans session. isReady
-	// évite tout flash de mur pendant la restauration d'une session valide au
-	// boot — rien ne s'affiche tant que l'initialisation n'est pas terminée.
-	const authWallActive = $derived(
-		installStore.isInstalled && userStore.isReady && !userStore.isLoggedIn,
-	);
 
 	// Fermer le drawer des commentaires lors des changements de route ;
 	// la clé drawerKey force le Drawer à être détruit/reconstruit, ce qui

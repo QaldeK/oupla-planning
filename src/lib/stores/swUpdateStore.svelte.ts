@@ -19,6 +19,12 @@ class SwUpdateStore {
 	// redéclenche pas.
 	#refreshing = false;
 
+	// Vrai seulement dans l'onglet qui a demandé la mise à jour. Un
+	// `controllerchange` peut venir d'un autre onglet qui a activé le nouveau
+	// SW : cet onglet ne doit pas être rechargé sans consentement (saisie en
+	// cours perdue).
+	#reloadRequested = false;
+
 	// Throttle partagé des checks de MAJ SW proactifs (visibilitychange, BFCache,
 	// polling 1h). Spec browser : max 1 `reg.update()` / minute.
 	#lastUpdateCheckAt = 0;
@@ -90,6 +96,12 @@ class SwUpdateStore {
 				firstClaimDone = true;
 				return; // premier install : pas de reload
 			}
+			// Un autre onglet a pu activer la MAJ : signaler la disponibilité
+			// sans recharger cette page (consentement local uniquement).
+			if (!this.#reloadRequested) {
+				this.hasUpdate = true;
+				return;
+			}
 			// Garde de réentrance d'event : le reload remet le contexte à zéro
 			if (this.#refreshing) return;
 			this.#refreshing = true;
@@ -156,6 +168,8 @@ class SwUpdateStore {
 		});
 		const waiting = reg?.waiting;
 		if (waiting) {
+			// Autorise le reload de CET onglet au prochain `controllerchange`.
+			this.#reloadRequested = true;
 			waiting.postMessage({ type: "SKIP_WAITING" });
 		} else {
 			// État incohérent : hasUpdate était true mais aucun waiting n'est disponible.

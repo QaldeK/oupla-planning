@@ -21,10 +21,15 @@
 	// Afficher si le gate d'installation est levé (check terminal fait, app
 	// absente) et :
 	// - Chromium (canInstall) → bouton d'install natif
-	// - Non-Chrome mobile (needsManualInstructions + isMobile) → instructions manuelles
+	// - appareil tactile sans prompt natif (needsManualInstructions) → instructions
+	//   manuelles. La porte est le format de l'appareil, pas la largeur seule :
+	//   un iPad (810 px) ou un iPhone en paysage est en `isTablet`/`isDesktop`
+	//   tout en restant un appareil où l'installation passe par le menu.
 	let showCard = $derived(
 		installStore.promptGateClear &&
-			(installStore.canInstall || (mediaQuery.isMobile && installStore.needsManualInstructions)),
+			(installStore.canInstall ||
+				((mediaQuery.isMobile || mediaQuery.isTablet || isIos) &&
+					installStore.needsManualInstructions)),
 	);
 
 	async function handleInstall() {

@@ -104,6 +104,12 @@ L'activation (`applyUpdate()`) envoie `SKIP_WAITING` au service worker en attent
 rechargement est déclenché par l'écouteur `controllerchange`, posé au démarrage. À défaut
 d'attente (état incohérent), un simple `reload()` suffit.
 
+**Le rechargement reste local à l'onglet demandeur.** Un `controllerchange` peut venir d'un
+autre onglet qui a activé la mise à jour ; sans drapeau de consentement, tous les onglets
+contrôlés se rechargeraient et perdraient une saisie en cours. Seul l'onglet où
+`applyUpdate()` a été appelé recharge ; les autres signalent la mise à jour (`hasUpdate`,
+toast) sans se recharger.
+
 ### Le piège de la première prise de contrôle
 
 `clients.claim()` déclenche `controllerchange` même au premier install, sans qu'aucune mise
