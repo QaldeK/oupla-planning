@@ -100,10 +100,18 @@ bun install
 bun run dev
 
 # Terminal 2 — PocketBase (http://127.0.0.1:8090)
-cd pocketbase && ./pocketbase serve --dev
+bun run dev:pb
 ```
 
 `--dev` recharge les hooks (`pb_hooks/`) à chaud et active le logging verbeux.
+
+### Migrations PocketBase
+
+```bash
+bun run migrate:new mon_nom  # template de migration (pb_migrations/)
+bun run migrate:up           # applique sur la base dev + régénère pocketbase-types.ts
+bun run migrate:down 1       # revert (itération locale uniquement)
+```
 
 ### Tester les notifications push (3ᵉ terminal)
 

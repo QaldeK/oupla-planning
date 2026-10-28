@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
+		"dev:pb": "cd pocketbase && ./pocketbase serve --dev",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
@@ -13,6 +14,9 @@
 		"format": "bun fmt .",
 		"format:check": "bun fmt --check .",
 		"generate-types": "pocketbase-typegen --db pocketbase/pb_data/data.db --out src/lib/types/pocketbase-types.ts",
+		"migrate:new": "cd pocketbase && echo y | ./pocketbase migrate create",
+		"migrate:up": "cd pocketbase && ./pocketbase migrate up && bun run generate-types",
+		"migrate:down": "cd pocketbase && ./pocketbase migrate down",
 		"gen": "wrangler types",
 		"test:unit": "vitest run --config vitest.unit.config.ts",
 		"test:integration": "vitest run --config vitest.integration.config.ts",
