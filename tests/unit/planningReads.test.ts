@@ -12,12 +12,10 @@ import { getPlanningTitleByToken } from "$lib/services/planningReads";
 
 describe("getPlanningTitleByToken", () => {
 	it("retourne le titre quand le planning est résolu", async () => {
-		const fetcher = vi
-			.fn()
-			.mockResolvedValue({
-				master: { id: "m1", title: "Entraînement de vendredi" },
-				isAdmin: false,
-			});
+		const fetcher = vi.fn().mockResolvedValue({
+			master: { id: "m1", title: "Entraînement de vendredi" },
+			isAdmin: false,
+		});
 
 		await expect(getPlanningTitleByToken("tok", fetcher)).resolves.toBe("Entraînement de vendredi");
 		expect(fetcher).toHaveBeenCalledWith("tok");

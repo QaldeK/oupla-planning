@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"dev:pb": "cd pocketbase && ./pocketbase serve --dev",
+		"dev:pb": "cd pocketbase && PB_TYPEGEN=1 ./pocketbase serve --dev",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",

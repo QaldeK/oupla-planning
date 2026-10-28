@@ -163,8 +163,10 @@ contre une instance jetable (données séparées, SMTP désactivé, port 8091) :
 
 ```bash
 cd pocketbase && ./dev-test-server.sh start
-# depuis la racine :
-VITE_PLANNING_PB_URL=http://127.0.0.1:8091 bun run test:integration
+# depuis la racine (les DEUX variables sont requises — le script affiche le chemin exact) :
+VITE_PLANNING_PB_URL=http://127.0.0.1:8091 \
+IT_PB_DATA=<DATA_DIR affiché par le script>/data.db \
+	bun run test:integration
 cd pocketbase && ./dev-test-server.sh stop
 ```
 

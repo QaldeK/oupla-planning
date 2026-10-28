@@ -9,6 +9,7 @@ sortTailwindcss = true
 # .gitignore couvre déjà le reste).
 ignorePatterns = [
 	".serena/",
+	".scratch/",
 	"messages/",
 	"project.inlang/",
 	"pocketbase/pb_hooks/",

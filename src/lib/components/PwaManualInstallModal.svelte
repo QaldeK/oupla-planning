@@ -12,7 +12,7 @@
 	let { open, onClose }: Props = $props();
 </script>
 
-<Modal {open} onClose={onClose} title={m.pwa_install_title()} size="sm">
+<Modal {open} {onClose} title={m.pwa_install_title()} size="sm">
 	<div class="space-y-3">
 		<p class="text-sm opacity-80">
 			{m.pwa_why_install()}
