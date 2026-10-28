@@ -21,6 +21,7 @@
 	import IdentifyModal from "$lib/components/IdentifyModal.svelte";
 	import MobileHeader from "$lib/components/MobileHeader.svelte";
 	import NetworkIndicator from "$lib/components/NetworkIndicator.svelte";
+	import Modal from "$lib/components/ui/Modal.svelte";
 	import { setSubscriptionObserver } from "$lib/data/collections";
 	import { m } from "$lib/paraglide/messages.js";
 	import { getLocale } from "$lib/paraglide/runtime.js";
@@ -63,6 +64,12 @@
 	});
 
 	let showAccountModal = $state(false);
+	let showLogoutConfirm = $state(false);
+
+	async function confirmLogout() {
+		showLogoutConfirm = false;
+		await userStore.logout();
+	}
 	// Clé forçant la destruction/reconstruction du Drawer après navigation,
 	// pour éviter un drawer fantôme quand la librairie @abhivarde/svelte-drawer
 	// ne nettoie pas son état interne (visible non réactif).
@@ -350,7 +357,7 @@
 
 							<button
 								class="btn btn-square btn-ghost"
-								onclick={() => userStore.logout()}
+								onclick={() => (showLogoutConfirm = true)}
 								aria-label={m.nav_logout()}
 							>
 								<LogOut size={18} />
@@ -392,6 +399,33 @@
 		}}
 		defaultMode="register"
 	/>
+
+	<!-- Confirmation de déconnexion : l'action est destructrice dans tous les
+	     contextes (données locales vidées) ; la ligne mur n'apparaît que dans
+	     l'app installée, où la déconnexion ramène à l'authentification. -->
+	<Modal
+		open={showLogoutConfirm}
+		onClose={() => (showLogoutConfirm = false)}
+		title={m.common_logout_confirm_title()}
+		size="sm"
+	>
+		<div class="space-y-6">
+			<div class="space-y-2 text-sm">
+				<p>{m.common_logout_confirm_body()}</p>
+				{#if installStore.isInstalled}
+					<p class="text-warning">{m.settings_logout_wall_hint()}</p>
+				{/if}
+			</div>
+			<div class="flex justify-end gap-2">
+				<button class="btn btn-ghost" onclick={() => (showLogoutConfirm = false)}>
+					{m.common_cancel()}
+				</button>
+				<button class="btn btn-error" onclick={confirmLogout}>
+					{m.nav_logout()}
+				</button>
+			</div>
+		</div>
+	</Modal>
 
 	<!-- Drawer Global pour les Commentaires -->
 	{#key drawerKey}

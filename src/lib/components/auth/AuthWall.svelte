@@ -5,10 +5,10 @@
 	import { getPlanningTitleByToken } from "$lib/services/planningReads";
 	import AuthPanel from "./AuthPanel.svelte";
 
-	// Titre du planning derrière un lien capturé : string = résolu,
-	// null = introuvable/injoignable (message générique), undefined = pas de
-	// lien participant dans l'URL ou résolution en cours.
-	let planningTitle: string | null | undefined = $state(undefined);
+	// Titre du planning derrière un lien capturé (participant ou admin) :
+	// undefined tant que non résolu ou sans lien dans l'URL — le bloc de
+	// contexte ne s'affiche que lorsqu'un titre a été trouvé.
+	let planningTitle = $state<string | undefined>(undefined);
 
 	let mode = $state<"register" | "login">("register");
 
@@ -18,7 +18,7 @@
 		if (!token) return;
 		let alive = true;
 		void getPlanningTitleByToken(token).then((title) => {
-			if (alive) planningTitle = title;
+			if (alive && title) planningTitle = title;
 		});
 		return () => {
 			alive = false;
@@ -54,11 +54,9 @@
 				</li>
 			</ul>
 
-			{#if page.params.token && planningTitle !== undefined}
+			{#if planningTitle !== undefined}
 				<div class="alert alert-info alert-soft text-sm">
-					{planningTitle
-						? m.auth_wall_context_title({ title: planningTitle })
-						: m.auth_wall_context_fallback()}
+					{m.auth_wall_context_title({ title: planningTitle })}
 				</div>
 			{/if}
 
