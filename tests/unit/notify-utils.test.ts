@@ -122,9 +122,11 @@ describe("sendPushNotification", () => {
 		app.findRecordsByFilter = vi.fn(() => []);
 
 		const user = mockUser({ id: "u1" });
-		sendPushNotification(app, user, "title", "body", "/p/abc");
+		const outcome = sendPushNotification(app, user, "title", "body", "/p/abc");
 
 		expect(send).not.toHaveBeenCalled();
+		// Aucun appareil : rien à livrer, et ce n'est pas un échec de livraison.
+		expect(outcome).toEqual({ attempted: 0, sent: 0, lookupFailed: false });
 	});
 
 	it("sends to every device of the user with reconstructed subscription", () => {
@@ -138,9 +140,10 @@ describe("sendPushNotification", () => {
 		app.findRecordsByFilter = vi.fn(() => rows);
 
 		const user = mockUser({ id: "u1" });
-		sendPushNotification(app, user, "title", "body", "/p/abc");
+		const outcome = sendPushNotification(app, user, "title", "body", "/p/abc");
 
 		expect(send).toHaveBeenCalledTimes(2);
+		expect(outcome).toEqual({ attempted: 2, sent: 2, lookupFailed: false });
 		const firstCall = send.mock.calls[0][0] as { method: string; body: string };
 		expect(firstCall.method).toBe("POST");
 		expect(firstCall.body).toContain('"title":"title"');
@@ -180,11 +183,39 @@ describe("sendPushNotification", () => {
 		app.delete = vi.fn();
 
 		const user = mockUser({ id: "u1" });
-		sendPushNotification(app, user, "t", "b", "/p/x");
+		const outcome = sendPushNotification(app, user, "t", "b", "/p/x");
 
 		expect(send).toHaveBeenCalledTimes(2);
 		expect(app.delete).toHaveBeenCalledTimes(1);
 		expect(app.delete).toHaveBeenCalledWith(deadRow);
+		// Un appareil mort n'est pas une livraison : attempted compte les deux,
+		// sent seulement le vivant.
+		expect(outcome).toEqual({ attempted: 2, sent: 1, lookupFailed: false });
+	});
+
+	it("rend sent=0 quand le service répond en erreur", () => {
+		const send = vi.fn(() => ({ statusCode: 500 }));
+		(globalThis as any).$http = { send };
+		app.findRecordsByFilter = vi.fn(() => [mockSubscriptionRow()]);
+
+		const user = mockUser({ id: "u1" });
+		const outcome = sendPushNotification(app, user, "t", "b", "/p/x");
+
+		expect(outcome).toEqual({ attempted: 1, sent: 0, lookupFailed: false });
+	});
+
+	it("signale lookupFailed quand la lecture des abonnements échoue", () => {
+		const send = vi.fn();
+		(globalThis as any).$http = { send };
+		app.findRecordsByFilter = vi.fn(() => {
+			throw new Error("db unavailable");
+		});
+
+		const user = mockUser({ id: "u1" });
+		const outcome = sendPushNotification(app, user, "t", "b", "/p/x");
+
+		expect(send).not.toHaveBeenCalled();
+		expect(outcome).toEqual({ attempted: 0, sent: 0, lookupFailed: true });
 	});
 
 	it("deletes the dead row on HTTP 404", () => {

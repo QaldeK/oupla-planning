@@ -73,7 +73,7 @@ function mkUser(id: string): any {
 
 describe("dispatchPushForEvent", () => {
 	it("envoie un push à chaque destinataire push=true et retourne le compte", () => {
-		const sent = vi.fn();
+		const sent = vi.fn(() => ({ attempted: 1, sent: 1 }));
 		const result = dispatchPushForEvent({} as any, {
 			event: { type: "reminder", reminderValue: 3 },
 			master: mkMaster("tok"),
@@ -94,7 +94,7 @@ describe("dispatchPushForEvent", () => {
 	});
 
 	it("passe l'url construite depuis participantToken à sendPushNotification", () => {
-		const sent = vi.fn();
+		const sent = vi.fn(() => ({ attempted: 1, sent: 1 }));
 		dispatchPushForEvent({} as any, {
 			event: { type: "reminder", reminderValue: 1 },
 			master: mkMaster("XYZ789"),
@@ -110,7 +110,7 @@ describe("dispatchPushForEvent", () => {
 	});
 
 	it("saute les destinataires dont resolveUser retourne null", () => {
-		const sent = vi.fn();
+		const sent = vi.fn(() => ({ attempted: 1, sent: 1 }));
 		const result = dispatchPushForEvent({} as any, {
 			event: { type: "reminder", reminderValue: 1 },
 			master: mkMaster(),
@@ -136,7 +136,7 @@ describe("dispatchPushForEvent", () => {
 			.mockImplementationOnce(() => {
 				throw new Error("HTTP timeout");
 			})
-			.mockImplementationOnce(() => undefined);
+			.mockImplementationOnce(() => ({ attempted: 1, sent: 1 }));
 
 		const result = dispatchPushForEvent({} as any, {
 			event: { type: "reminder", reminderValue: 1 },
@@ -178,7 +178,7 @@ describe("dispatchPushForEvent", () => {
 	});
 
 	it("retourne 0 si aucun destinataire n'a push=true", () => {
-		const sent = vi.fn();
+		const sent = vi.fn(() => ({ attempted: 1, sent: 1 }));
 		const result = dispatchPushForEvent({} as any, {
 			event: { type: "reminder", reminderValue: 1 },
 			master: mkMaster(),
@@ -198,7 +198,7 @@ describe("dispatchPushForEvent", () => {
 	});
 
 	it("passe l'app reçu en paramètre à sendPushNotification", () => {
-		const sent = vi.fn();
+		const sent = vi.fn(() => ({ attempted: 1, sent: 1 }));
 		const fakeApp = { id: "pocketbase-instance" };
 
 		dispatchPushForEvent(fakeApp as any, {
@@ -213,6 +213,77 @@ describe("dispatchPushForEvent", () => {
 		});
 
 		expect(sent.mock.calls[0][0]).toBe(fakeApp);
+	});
+
+	it("ne compte pas comme envoyé un appel sans appareil (attempted=0)", () => {
+		const results: Array<[string, boolean, string]> = [];
+		const result = dispatchPushForEvent({} as any, {
+			event: { type: "reminder", reminderValue: 1 },
+			master: mkMaster(),
+			occ: mkOcc(),
+			recipients: [mkRecipient({ userId: "u1" })],
+			resolveUser: () => mkUser("u1"),
+			buildPushTitle: () => "T",
+			buildPushBody: () => "B",
+			sendPushNotification: () => ({ attempted: 0, sent: 0, lookupFailed: false }),
+			onResult: (userId: string, ok: boolean, reason: string) => results.push([userId, ok, reason]),
+		});
+
+		expect(result).toBe(0);
+		expect(results).toEqual([["u1", false, "no_device"]]);
+	});
+
+	it("ne compte pas comme envoyé un échec de tous les appareils", () => {
+		const results: Array<[string, boolean, string]> = [];
+		const result = dispatchPushForEvent({} as any, {
+			event: { type: "reminder", reminderValue: 1 },
+			master: mkMaster(),
+			occ: mkOcc(),
+			recipients: [mkRecipient({ userId: "u1" })],
+			resolveUser: () => mkUser("u1"),
+			buildPushTitle: () => "T",
+			buildPushBody: () => "B",
+			sendPushNotification: () => ({ attempted: 2, sent: 0, lookupFailed: false }),
+			onResult: (userId: string, ok: boolean, reason: string) => results.push([userId, ok, reason]),
+		});
+
+		expect(result).toBe(0);
+		expect(results).toEqual([["u1", false, "failed"]]);
+	});
+
+	it("compte comme envoyé dès qu'un appareil reçoit, même si un autre échoue", () => {
+		const results: Array<[string, boolean, string]> = [];
+		const result = dispatchPushForEvent({} as any, {
+			event: { type: "reminder", reminderValue: 1 },
+			master: mkMaster(),
+			occ: mkOcc(),
+			recipients: [mkRecipient({ userId: "u1" })],
+			resolveUser: () => mkUser("u1"),
+			buildPushTitle: () => "T",
+			buildPushBody: () => "B",
+			sendPushNotification: () => ({ attempted: 2, sent: 1, lookupFailed: false }),
+			onResult: (userId: string, ok: boolean, reason: string) => results.push([userId, ok, reason]),
+		});
+
+		expect(result).toBe(1);
+		expect(results).toEqual([["u1", true, "sent"]]);
+	});
+
+	it("traite un échec de lecture des abonnements comme failed, pas no_device", () => {
+		const results: Array<[string, boolean, string]> = [];
+		dispatchPushForEvent({} as any, {
+			event: { type: "reminder", reminderValue: 1 },
+			master: mkMaster(),
+			occ: mkOcc(),
+			recipients: [mkRecipient({ userId: "u1" })],
+			resolveUser: () => mkUser("u1"),
+			buildPushTitle: () => "T",
+			buildPushBody: () => "B",
+			sendPushNotification: () => ({ attempted: 0, sent: 0, lookupFailed: true }),
+			onResult: (userId: string, ok: boolean, reason: string) => results.push([userId, ok, reason]),
+		});
+
+		expect(results).toEqual([["u1", false, "failed"]]);
 	});
 });
 

@@ -1301,7 +1301,7 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 		expect(eventsAfter.find((e) => e.id === reminder.id)!.processedAt).not.toBe("");
 	});
 
-	it("opt-out email=false avec push=true → emailWaivedAt + pushSentAt, event consommé sans email", async () => {
+	it("opt-out email=false avec push=true sans appareil → emailWaivedAt + pushWaivedAt, event consommé", async () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
@@ -1319,13 +1319,14 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 		expect(dels).toHaveLength(1);
 		expect(dels[0].emailWaivedAt).not.toBe("");
 		expect(dels[0].emailSentAt).toBe("");
-		// Le push est marqué en DB (observation possible via le ledger ; la
-		// livraison HTTP elle-même est best-effort et silencieuse en test).
-		expect(dels[0].pushSentAt).not.toBe("");
+		// Push préféré mais aucun appareil souscrit (pas de push_subscriptions) :
+		// rien n'a été livré, donc rien n'est marqué envoyé.
+		expect(dels[0].pushSentAt).toBe("");
+		expect(dels[0].pushWaivedAt).not.toBe("");
 		expect(reminder.processedAt).not.toBe("");
 	});
 
-	it("vague push indépendante : email=true push=true SMTP down → pushSentAt mais event pending", async () => {
+	it("vague push indépendante : email=true push=true SMTP down → push réglé, event pending", async () => {
 		const { master } = await seedCronScenario(adminPb, {
 			occDayOffset: 3,
 			responses: [{ response: "present" }],
@@ -1339,9 +1340,10 @@ describe("Cron notifications-daily — registre notification_deliveries", () => 
 		const reminder = events.find((e) => e.type === "reminder")!;
 		const dels = await listDeliveriesForEvent(adminPb, reminder.id);
 		expect(dels).toHaveLength(1);
-		// La vague push est partie (marquée) malgré la panne SMTP…
-		expect(dels[0].pushSentAt).not.toBe("");
-		expect(dels[0].pushWaivedAt).toBe("");
+		// La vague push a tourné sans appareil souscrit : le canal est réglé
+		// (waivé), pas « envoyé » — le ledger ne ment pas sur la livraison.
+		expect(dels[0].pushSentAt).toBe("");
+		expect(dels[0].pushWaivedAt).not.toBe("");
 		// …l'email reste dû → l'event attend le retry, jamais re-poussé.
 		expect(dels[0].emailSentAt).toBe("");
 		expect(dels[0].emailWaivedAt).toBe("");

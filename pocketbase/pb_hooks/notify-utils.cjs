@@ -83,9 +83,19 @@ module.exports = {
 	 * suit le même contrat via PUBLIC_BASE_URL (défaut : domaine public).
 	 *
 	 * Ne throw jamais : chaque itération est isolée, les erreurs sont logguées.
+	 *
+	 * Rend la main dans tous les cas, y compris sans appareil ou en échec : un
+	 * appel qui rend la main ne vaut donc PAS livraison. L'appelant lit l'objet
+	 * retourné pour savoir ce qui s'est réellement passé.
+	 *
+	 * @returns {{attempted: number, sent: number, lookupFailed: boolean}}
+	 *   `attempted` — appareils réellement sollicités ; `sent` — réponses 200 ;
+	 *   `lookupFailed` — la lecture des abonnements a échoué (ni « aucun
+	 *   appareil », ni « livré » : un échec).
 	 */
 	sendPushNotification(app, user, title, body, url) {
 		const userId = user.get('id');
+		const outcome = { attempted: 0, sent: 0, lookupFailed: false };
 
 		let rows;
 		try {
@@ -105,10 +115,11 @@ module.exports = {
 				'userId',
 				userId
 			);
-			return;
+			outcome.lookupFailed = true;
+			return outcome;
 		}
-		// Aucun appareil souscrit → envoi silencieux
-		if (!rows || rows.length === 0) return;
+		// Aucun appareil souscrit → rien à livrer, rien à retenter
+		if (!rows || rows.length === 0) return outcome;
 
 		const notifyUrl =
 			$os.getenv('NOTIFY_SERVICE_URL') || 'http://services-notifyservice-rbwdvg:3001/notify';
@@ -123,6 +134,7 @@ module.exports = {
 			};
 
 			try {
+				outcome.attempted++;
 				const res = $http.send({
 					method: 'POST',
 					url: notifyUrl,
@@ -177,6 +189,7 @@ module.exports = {
 				}
 
 				app.logger().info('[Notification] Push sent', 'userId', userId);
+				outcome.sent++;
 			} catch (err) {
 				// L'échec d'un appareil n'interrompt pas l'envoi aux autres.
 				app.logger().error(
@@ -190,6 +203,8 @@ module.exports = {
 				);
 			}
 		}
+
+		return outcome;
 	},
 
 	/**

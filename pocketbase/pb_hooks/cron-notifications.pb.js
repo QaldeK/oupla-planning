@@ -447,6 +447,7 @@ cronAdd('notifications-daily', '0 8 * * *', () => {
 	// ------------------------------------------------------------------
 	let pushMarkedSent = 0;
 	let pushMarkedWaived = 0;
+	let pushMarkedFailed = 0;
 	for (const item of eventItems) {
 		if (!item.isJx) continue;
 		const rows = deliveriesByEvent.get(item.record.get('id')) || [];
@@ -493,12 +494,13 @@ cronAdd('notifications-daily', '0 8 * * *', () => {
 				buildPushTitle,
 				buildPushBody,
 				sendPushNotification,
-				onResult: (userId, ok) => {
+				onResult: (userId, ok, reason) => {
 					const row = rowByUser.get(userId);
 					if (!row) return;
 					try {
 						if (deliveryStore.settlePush($app, row, processedAt, ok)) {
 							if (ok) pushMarkedSent++;
+							else if (reason === 'failed') pushMarkedFailed++;
 							else pushMarkedWaived++;
 						}
 					} catch (err) {
@@ -974,6 +976,8 @@ cronAdd('notifications-daily', '0 8 * * *', () => {
 			pushMarkedSent,
 			'phase2_pushMarkedWaived',
 			pushMarkedWaived,
+			'phase2_pushMarkedFailed',
+			pushMarkedFailed,
 			'phase2_optOutWaived',
 			optOutWaived,
 			'phase2_readWaived',
