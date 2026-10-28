@@ -35,7 +35,9 @@ AGENTS.md
 .agents/
 opencode.json
 # CONTEXT.md
-.scratch/
+.scratch/*
+!.scratch/tracker/
+!.scratch/tracker/**
 
 # pocketbase
 **/pb_data
