@@ -81,3 +81,21 @@ _Avoid_: IndexedDB, stockage local, base locale
 **Merge strategy** :
 Fonction de résolution de conflits appliquée lors de la synchronisation. Exemple : `mergeByKey('id')` pour les participants — fusionne par identifiant plutôt que d'écraser le tableau.
 _Avoid_: conflit, résolution, déduplication
+
+### Installation
+
+**Invite d'installation** :
+Alerte in-app, permanente, qui propose d'installer l'app sur l'appareil. Affichée tant que l'app n'est pas installée, sans bouton de fermeture — c'est une information, pas une interruption.
+_Avoid_: incitation, bannière PWA, card d'installation, popup
+
+**Prompt natif** :
+Interface d'installation fournie par le navigateur lui-même (Chromium uniquement). L'invite d'installation déclenche le prompt natif quand il existe ; sinon elle affiche les instructions manuelles.
+_Avoid_: bulle d'installation, popup navigateur
+
+**Instructions manuelles** :
+Étapes d'installation décrites à l'utilisateur quand le prompt natif n'existe pas (Safari, Firefox). Le contenu est spécifique à la plateforme.
+_Avoid_: guide iOS, tuto, modal d'aide
+
+**Invite post-installation** :
+Invitation unique à créer un Compte, au premier lancement qui suit l'installation. Distincte de l'invite d'installation : elle porte sur le Compte, pas sur l'installation.
+_Avoid_: welcome modal, écran de bienvenue, onboarding

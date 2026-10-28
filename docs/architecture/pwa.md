@@ -10,7 +10,7 @@ Configuration installable (SvelteKit + `adapter-static` en mode SPA) et détecti
 flowchart TD
   SETUP["1. Configuration<br/>svelte.config.js, app.html<br/>manifest.webmanifest, icônes"]
   SW["2. Service worker<br/>src/service-worker.ts<br/>cache-first assets, /api/* exclue"]
-  DETECT["3. Détection de mise à jour<br/>pwaStore.svelte.ts"]
+  DETECT["3. Détection de mise à jour<br/>swUpdateStore.svelte.ts"]
   UX["4. UX<br/>+layout.svelte<br/>toast persistant"]
   SETUP --> SW
   SW --> DETECT
@@ -32,6 +32,11 @@ par Dexie et pb-sync, en parallèle, sans dépendre du cache du SW.
 - `static/manifest.webmanifest` — écrit **à la main**, SvelteKit ne le génère pas ;
   `adapter-static` le copie tel quel. `display: "standalone"`, icônes 192 et 512, dont une
   en `purpose: "maskable"` — sans elle, Android écrase l'icône dans un masque rond.
+  `id` et `scope` explicites (`"/"`) : identité d'app stable, scope couvrant tout le site
+  (capture de liens desktop Chrome 139+). `launch_handler: "navigate-existing"` : un lien
+  capturé focalise la fenêtre existante au lieu d'en ouvrir une nouvelle.
+  `related_applications` (plateforme `webapp`, auto-référence du manifest) : prérequis de
+  `getInstalledRelatedApps()` — voir § 4.
 - `src/app.d.ts` — l'interface `BeforeInstallPromptEvent`. L'événement `beforeinstallprompt`
   est propre à Chromium et absent de la bibliothèque de types DOM.
 
@@ -68,7 +73,7 @@ Le même fichier gère les événements `push` (affichage de la notification) et
 
 ## 3. Détection de mise à jour
 
-`pwaStore.svelte.ts` combine deux moitiés, et chacune est nécessaire :
+`swUpdateStore.svelte.ts` combine deux moitiés, et chacune est nécessaire :
 
 | Moitié    | Rôle                                                                            | Sans elle                                                                                            |
 | --------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -111,25 +116,52 @@ suivant.
 
 ## 4. Installation et UX
 
-`pwaStore` porte aussi l'état d'installation :
+Deux stores séparés portent les deux cycles de vie : `installStore.svelte.ts` (adoption :
+détection, prompt, invite post-installation) et `swUpdateStore.svelte.ts` (maintenance :
+mise à jour, § 3). Vocabulaire : voir `CONTEXT.md` (invite d'installation, prompt natif,
+instructions manuelles, invite post-installation).
 
-| Membre                                 | Rôle                                                                                                                                     |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `isInstalled`                          | `display-mode: standalone` ou `navigator.standalone` (Safari), suivi dans le temps                                                       |
-| `canInstall` / `deferredPrompt`        | `beforeinstallprompt` intercepté — l'écouteur est posé dès la construction du store, l'événement pouvant précéder le `onMount` du layout |
-| `showNativeHint`                       | mobile non-Chromium : ni installé ni promptable, on oriente vers le menu du navigateur                                                   |
-| `hasSeenWelcome` / `markWelcomeSeen()` | accueil d'installation vu une fois                                                                                                       |
-| `install()`                            | déclenche le prompt différé                                                                                                              |
+État d'installation dans `installStore` :
+
+| Membre                          | Rôle                                                                                                                        |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `isInstalled`                   | `display-mode: standalone` ou `navigator.standalone` (Safari), suivi dans le temps                                          |
+| `canInstall` / `deferredPrompt` | `beforeinstallprompt` intercepté — l'écouteur est posé dès la construction du store, l'événement pouvant précéder le `onMount` |
+| `showNativeHint`                | ni installé ni promptable : la surface appelante décide du scope mobile                                                     |
+| `installedOnDevice` / `installCheckPending` | détection terminal via `getInstalledRelatedApps()`                                                              |
+| `promptGateClear`               | gate commun aux surfaces d'invite : check fait, app absente du terminal                                                     |
+| `hasSeenPostInstallInvite`      | invite post-installation vue une fois                                                                                       |
+| `install()`                     | déclenche le prompt différé                                                                                                 |
+
+**Gate terminal.** Le navigateur installateur peut redéclencher `beforeinstallprompt`
+dans son onglet même après installation (vérifié sur Brave Android). `getInstalledRelatedApps()`
+— présent sur Chromium Android 84+ et desktop 140+, absent d'iOS et Firefox — répond « app
+installée sur ce terminal » ; l'invite est alors masquée. Cross-navigateur (installé via
+Chrome, ouvert dans Brave) reste indétectable : trade-off documenté, iOS compris. Les
+surfaces d'invite attendent la fin du check (`installCheckPending`) avant de s'afficher :
+pas de flash d'invite sur un appareil déjà équipé.
+
+Composants : `PwaInstallBanner` (les surfaces d'invite : plein format sur l'accueil,
+compact sur les plannings ; le footer du layout porte le bouton Chromium mobile, même
+gate), `PwaManualInstructions` (étapes par plateforme — partagé), `PwaManualInstallModal`
+(instructions manuelles, ouvert depuis la variante compacte non-Chromium). L'invite est
+une alerte **permanente** : pas de fermeture, c'est une information, pas une interruption.
+Le contenu des alertes s'empile en colonne sur mobile.
+
+Règle de nommage i18n : **un nom décrit le contenu, jamais la position ni le mécanisme ;
+préfixe de plateforme seulement si le contenu est propre à la plateforme** — famille
+`pwa_install_*` (l'invitation), `pwa_howto_{ios,android}_*` (instructions, variantes
+seulement là où le texte diffère), un verbe canonique `common_install_app`.
 
 L'événement `appinstalled` marque l'installation côté PocketBase
 (`users.pwa_installed`, seulement si une session est valide) — un repère d'adoption, sans
 effet sur le comportement.
 
-Le toast de mise à jour vit dans `+layout.svelte` : `pwaStore.init()` dans `onMount`, puis
-un `$effect` sur `hasUpdate` qui affiche un toast **persistant** (durée infinie) tant que
-l'utilisateur n'a pas agi. L'identifiant fixe (`sw-update`) est le garde anti-doublon
-idiomatique de svelte-sonner : si l'effet se rejoue, le toast existant est mis à jour au
-lieu d'être dupliqué.
+Le toast de mise à jour vit dans `+layout.svelte` : `installStore.init()` et
+`swUpdateStore.init()` dans `onMount`, puis un `$effect` sur `swUpdateStore.hasUpdate` qui
+affiche un toast **persistant** (durée infinie) tant que l'utilisateur n'a pas agi.
+L'identifiant fixe (`sw-update`) est le garde anti-doublon idiomatique de svelte-sonner :
+si l'effet se rejoue, le toast existant est mis à jour au lieu d'être dupliqué.
 
 ## Pièges
 
@@ -146,6 +178,8 @@ lieu d'être dupliqué.
 | Pas de `.catch()` sur `reg.update()`          | rejet non traité si hors ligne                                                                    |
 | Toast sans identifiant fixe, ou à durée finie | doublons, ou toast qui disparaît avant l'action                                                   |
 | Manifest sans icône `maskable`                | icône écrasée sur Android                                                                         |
+| Afficher l'invite sans attendre le check terminal | flash d'invite sur un appareil où l'app est déjà installée (`installCheckPending`)            |
+| Test user-agent seul pour iOS                 | iPadOS 13+ rapporte un user-agent Macintosh → iPad sur instructions Android ; ajouter `maxTouchPoints` (`isPlatformIos`) |
 
 ## Tests manuels
 
@@ -161,13 +195,24 @@ de build.
 - Onglet Network des DevTools : aucune requête `/api/*` servie par le cache, SSE
   `/api/realtime` non intercepté.
 - Throttle respecté : au plus une vérification de `/service-worker.js` par minute.
+- Brave Android, app installée via Brave, onglet navigateur : invite d'installation
+  masquée (gate `getInstalledRelatedApps`).
+- iPad (iPadOS 13+) : instructions iOS (Partage → Écran d'accueil), pas Android.
+- DevTools onglet Application : manifest avec `id`, `scope`, `launch_handler`,
+  `related_applications`.
 
 ## Fichiers clés
 
 - `svelte.config.js` — adapter-static, fallback SPA
 - `src/app.html` — en-tête HTML (manifest, theme-color, apple-touch-icon)
-- `src/app.d.ts` — type `BeforeInstallPromptEvent`
+- `src/app.d.ts` — types `BeforeInstallPromptEvent` et `getInstalledRelatedApps`
 - `static/manifest.webmanifest`, `static/icon-{192,512}.png` — manifest et icônes
 - `src/service-worker.ts` — cache, cycle de vie, push
-- `src/lib/stores/pwaStore.svelte.ts` — détection de mise à jour et installation
-- `src/routes/+layout.svelte` — toast de mise à jour et `pwaStore.init()`
+- `src/lib/stores/installStore.svelte.ts` — installation : détection, prompt, gate
+  terminal, invite post-installation
+- `src/lib/stores/swUpdateStore.svelte.ts` — détection de mise à jour et activation
+- `src/lib/components/PwaInstallBanner.svelte` — surfaces d'invite (plein, compact)
+- `src/lib/components/PwaManualInstructions.svelte` — étapes par plateforme
+- `src/lib/components/PwaManualInstallModal.svelte` — modal d'instructions manuelles
+- `src/lib/utils/platform.ts` — détection iOS pure (user-agent + multi-touch)
+- `src/routes/+layout.svelte` — toast de mise à jour, boot des stores, bouton footer
