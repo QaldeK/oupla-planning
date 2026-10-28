@@ -503,10 +503,10 @@
 						</div>
 						{#if currentIdentity}
 							<!-- Identifié -->
-							<div class="flex flex-wrap gap-2">
+							<div class="flex flex-wrap items-center gap-2">
 								<!-- Nom = bouton crayon : rename local au planning (guest et auth) -->
 								<button
-									class="btn btn-info btn-sm gap-1 font-bold"
+									class="badge badge-info gap-1 font-bold hover:cursor-pointer"
 									type="button"
 									onclick={() => (showRenameModal = true)}
 									aria-label={m.participant_rename_aria()}
