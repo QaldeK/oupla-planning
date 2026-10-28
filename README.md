@@ -88,7 +88,7 @@ Oupla s'adresse à tout groupe ayant besoin de coordonner des présences et des 
 
 ### Prérequis
 
-- [Bun](https://bun.sh)
+- [Bun](https://bun.sh) **^1.4.4** (formatage via le formateur natif `bun fmt`)
 - Le binaire PocketBase est inclus dans le dépôt (`pocketbase/pocketbase`)
 
 ### Lancer l'app (2 terminaux)
@@ -121,10 +121,10 @@ PUBLIC_BASE_URL=http://localhost:5173 \
 ./pocketbase serve --dev
 ```
 
-| Variable              | Rôle                                        | Défaut                                          |
-| --------------------- | ------------------------------------------- | ----------------------------------------------- |
-| `NOTIFY_SERVICE_URL`  | URL d'envoi des push                       | Service Docker interne (prod)                   |
-| `PUBLIC_BASE_URL`     | Base des liens de clic des notifications   | `https://planning.oupla.net`                    |
+| Variable             | Rôle                                     | Défaut                        |
+| -------------------- | ---------------------------------------- | ----------------------------- |
+| `NOTIFY_SERVICE_URL` | URL d'envoi des push                     | Service Docker interne (prod) |
+| `PUBLIC_BASE_URL`    | Base des liens de clic des notifications | `https://planning.oupla.net`  |
 
 Côté front, `.env.local` (gitignoré) doit définir la clé publique VAPID —
 la **même paire** que le notify-service visé :
@@ -142,7 +142,8 @@ puis modifier l'horaire d'une occurrence future → push immédiat.
 bun run check             # typecheck (svelte-check)
 bun run test:unit         # tests unitaires
 bun run test:integration  # tests d'intégration (PocketBase requis sur 127.0.0.1:8090)
-bun run lint              # biome
+bun run format            # formatage (bun fmt)
+bun run format:check      # vérification du format (bun fmt)
 ```
 
 ### Tests d'intégration — instance PocketBase dédiée

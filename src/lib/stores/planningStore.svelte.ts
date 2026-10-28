@@ -156,7 +156,7 @@ class PlanningStore {
 			this.#allMastersSub = liveQuery(() => db.masters.toArray()).subscribe({
 				next: (val) => {
 					this.#allMasters = val;
-				}
+				},
 			});
 		});
 	}
@@ -184,7 +184,7 @@ class PlanningStore {
 		this.#masterSub = liveQuery(() => db.masters.get(masterId)).subscribe({
 			next: (val) => {
 				this.#master = val ?? null;
-			}
+			},
 		});
 
 		this.#occurrencesSub = liveQuery(() =>
@@ -193,11 +193,11 @@ class PlanningStore {
 				.equals(masterId)
 				.filter((o) => !o.deleted)
 				.sortBy("date")
-				.then((rows) => rows.sort(compareOccurrences))
+				.then((rows) => rows.sort(compareOccurrences)),
 		).subscribe({
 			next: (val) => {
 				this.#occurrences = val;
-			}
+			},
 		});
 
 		// Occurrences futures soft-deleted incluses : pas de filtre `!o.deleted` (le
@@ -210,11 +210,11 @@ class PlanningStore {
 				.equals(masterId)
 				.filter((o) => o.date >= today)
 				.sortBy("date")
-				.then((rows) => rows.sort(compareOccurrences))
+				.then((rows) => rows.sort(compareOccurrences)),
 		).subscribe({
 			next: (val) => {
 				this.#futureOccurrences = val;
-			}
+			},
 		});
 	}
 
@@ -245,7 +245,7 @@ class PlanningStore {
 		const occs = await db.occurrences.where("master").equals(masterId).toArray();
 		if (occs.length > 0) {
 			await db.occurrences.bulkPut(
-				occs.map((o) => ({ ...o, deleted: true }) as PlanningOccurrence)
+				occs.map((o) => ({ ...o, deleted: true }) as PlanningOccurrence),
 			);
 		}
 	}
@@ -298,7 +298,7 @@ class PlanningStore {
 	 */
 	async setActiveToken(
 		token: string | undefined,
-		_dateFilter: "future" | "past" | "all" = "future"
+		_dateFilter: "future" | "past" | "all" = "future",
 	): Promise<void> {
 		if (!token) {
 			this.#deactivate();
@@ -434,12 +434,12 @@ class PlanningStore {
 	 */
 	async #refreshMasterFromServer(
 		masterId: string,
-		token: string
+		token: string,
 	): Promise<"ok" | "deleted" | "unknown"> {
 		try {
 			const fresh = await pb.collection("planning_masters").getOne<PlanningMaster>(masterId, {
 				query: { _token: token },
-				requestKey: null
+				requestKey: null,
 			});
 			const local = await db.masters.get(masterId);
 			// Comparaison lexicographique sûre : format datetime PB fixe, tri alpha = tri chrono.
@@ -456,7 +456,7 @@ class PlanningStore {
 			// Erreur réseau → non-bloquant, on garde les données locales (potentiellement obsolètes)
 			console.warn(
 				"[PlanningStore] Could not refresh master from server:",
-				err instanceof ClientResponseError ? err.message : err
+				err instanceof ClientResponseError ? err.message : err,
 			);
 			return "unknown";
 		}
@@ -489,7 +489,7 @@ class PlanningStore {
 			mastersCollection.subscribe({ record: masterId, query: { _token: token } });
 			occurrencesCollection.subscribe({
 				filter: ["master = {:masterId}", { masterId }],
-				query: { _token: token }
+				query: { _token: token },
 			});
 		} catch (err) {
 			console.warn("pb-sync subscription failed (non-blocking):", err);
@@ -535,7 +535,7 @@ class PlanningStore {
 			if (isNetwork) {
 				console.warn(
 					"[PlanningStore] attachMasterToUser network error (degraded — no realtime until next sync):",
-					err instanceof ClientResponseError ? err.message : err
+					err instanceof ClientResponseError ? err.message : err,
 				);
 				return;
 			}
@@ -558,13 +558,13 @@ class PlanningStore {
 		if (token.length !== 64) return;
 		const record = pb.authStore.record;
 		if (!record) return;
-		// biome-ignore lint/suspicious/noExplicitAny: champ adminOf ajouté par hook serveur, absent des types RecordModel
+		// Champ adminOf ajouté par hook serveur, absent des types RecordModel
 		const adminOf = (record as any)?.adminOf || {};
 		if (adminOf[masterId]) return;
 		try {
 			await pb.send("/api/claim-admin", {
 				method: "POST",
-				body: { token }
+				body: { token },
 			});
 			await pb.collection("users").authRefresh();
 		} catch (err) {

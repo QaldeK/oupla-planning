@@ -1,0 +1,20 @@
+# Formateur natif bun fmt (bun ^1.4.4) — remplace biome.json + .prettierrc.
+# Style explicite ici plutôt que via .editorconfig : en mode --stdin-filepath
+# (format-on-save Zed), les réglages dépendant du fichier ne s'appliquent pas.
+[fmt]
+useTabs = true
+printWidth = 100
+sortTailwindcss = true
+# Générés / gérés par d'autres outils (exclusions héritées de biome.json ;
+# .gitignore couvre déjà le reste).
+ignorePatterns = [
+	".serena/",
+	"messages/",
+	"project.inlang/",
+	"pocketbase/pb_hooks/",
+	"pocketbase/pb_migrations/",
+	"src/lib/types/pocketbase-types.ts",
+	"src/lib/paraglide/",
+	"static/",
+	"dist/",
+]

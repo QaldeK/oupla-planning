@@ -4,8 +4,7 @@ import type { PlanningMaster } from "$lib/types/planning.types";
 
 // Type de retour pour getPlanningByToken avec gestion d'erreur typée
 export type GetPlanningByTokenResult =
-	| { master: PlanningMaster; isAdmin: boolean }
-	| { error: "network" | "not_found" };
+	{ master: PlanningMaster; isAdmin: boolean } | { error: "network" | "not_found" };
 
 export async function getPlanningByToken(token: string): Promise<GetPlanningByTokenResult> {
 	try {
@@ -13,7 +12,7 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 			.collection("planning_masters")
 			.getFirstListItem<PlanningMaster>(
 				`participantToken = "${token}" || adminToken = "${token}"`,
-				{ query: { _token: token } }
+				{ query: { _token: token } },
 			);
 
 		// NOTE: adminToken est masqué par onRecordEnrich, donc on se base sur la longueur du token
@@ -24,8 +23,8 @@ export async function getPlanningByToken(token: string): Promise<GetPlanningByTo
 			return { error: "not_found" };
 		}
 
-		// Annulation (auto-cancellation) → traiter comme réseau
-		// biome-ignore lint/suspicious/noExplicitAny: isAbort est une propriété non-standard d'annulation
+		// Annulation (auto-cancellation) → traiter comme réseau.
+		// isAbort est une propriété non-standard d'annulation.
 		if (error instanceof Error && "isAbort" in error && (error as any).isAbort) {
 			return { error: "network" };
 		}

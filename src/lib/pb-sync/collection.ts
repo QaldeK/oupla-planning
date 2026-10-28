@@ -43,7 +43,7 @@ import type {
 	PbSubscribeOptions,
 	SubscriptionRef,
 	SyncCollectionOptions,
-	WithMeta
+	WithMeta,
 } from "./types";
 
 /**
@@ -92,9 +92,9 @@ export class RecordDeletedError extends Error {
 export function mergeByKey<T>(key: keyof T & string): (local: T[], remote: T[]) => T[] {
 	return (local: T[], remote: T[]): T[] => {
 		const map = new Map<unknown, T>();
-		// biome-ignore lint/suspicious/noUnnecessaryConditions: bibliothèque destinée à l'extraction — garde défensive sur les appels runtime
+		// Bibliothèque destinée à l'extraction — le ?? est une garde défensive sur
+		// les appels runtime, pas une redondance.
 		for (const item of remote ?? []) map.set((item as Record<string, unknown>)[key], item);
-		// biome-ignore lint/suspicious/noUnnecessaryConditions: idem
 		for (const item of local ?? []) map.set((item as Record<string, unknown>)[key], item);
 		return Array.from(map.values());
 	};
@@ -103,7 +103,7 @@ export function mergeByKey<T>(key: keyof T & string): (local: T[], remote: T[]) 
 function applyMergeStrategies<T extends WithMeta>(
 	payload: Partial<T>,
 	serverRecord: T,
-	strategies: SyncCollectionOptions<T>["mergeStrategies"]
+	strategies: SyncCollectionOptions<T>["mergeStrategies"],
 ): Partial<T> {
 	const merged = { ...payload };
 	if (!strategies) return merged;
@@ -113,7 +113,7 @@ function applyMergeStrategies<T extends WithMeta>(
 			if (strategy) {
 				(merged as Record<string, unknown>)[field as string] = strategy(
 					payload[field] as NonNullable<T[keyof T]>,
-					serverRecord[field] as NonNullable<T[keyof T]>
+					serverRecord[field] as NonNullable<T[keyof T]>,
 				);
 			}
 		}
@@ -133,7 +133,7 @@ export function createSyncCollection<T extends WithMeta>(
 	pb: PocketBase,
 	table: Table<T>,
 	collectionName: string,
-	options?: SyncCollectionOptions<T>
+	options?: SyncCollectionOptions<T>,
 ) {
 	const mergeStrategies = options?.mergeStrategies;
 	const softDelete = options?.softDelete !== false;
@@ -173,7 +173,7 @@ export function createSyncCollection<T extends WithMeta>(
 			sort: params?.sort ?? "updated",
 			...(params?.fields ? { fields: params.fields } : {}),
 			...(params?.expand ? { expand: params.expand } : {}),
-			...(params?.query && { query: params.query })
+			...(params?.query && { query: params.query }),
 		};
 
 		const fresh = params?.limit
@@ -196,7 +196,7 @@ export function createSyncCollection<T extends WithMeta>(
 				recordId: string;
 				deletedAt: string;
 			}>({
-				filter: pb.filter(tombFilter, { collection: collectionName, since })
+				filter: pb.filter(tombFilter, { collection: collectionName, since }),
 			});
 
 			if (tombs.length > 0) {
@@ -208,7 +208,7 @@ export function createSyncCollection<T extends WithMeta>(
 								await table.put({
 									...existing,
 									deleted: true,
-									deletedAt: tomb.deletedAt
+									deletedAt: tomb.deletedAt,
 								} as T);
 							}
 						} else {
@@ -228,20 +228,21 @@ export function createSyncCollection<T extends WithMeta>(
 		const ref: SubscriptionRef = {
 			id: subId,
 			collection: collectionName,
-			filter: resolvedFilter
+			filter: resolvedFilter,
 		};
 		console.log("realtime subscribe", ref);
 		const subscribePromise = pb.collection(collectionName).subscribe<T>(
 			topic,
 
-			// biome-ignore lint/nursery/noMisusedPromises: le SDK type le callback en void ; async délibéré pour séquentialiser les écritures Dexie
+			// Le SDK type le callback en void ; async délibéré pour séquentialiser
+			// les écritures Dexie
 			async (event) => {
 				if (event.action === "delete") {
 					if (localTrash) {
 						await table.put({
 							...event.record,
 							deleted: true,
-							deletedAt: new Date().toISOString()
+							deletedAt: new Date().toISOString(),
 						} as unknown as T);
 					} else {
 						await table.delete(event.record.id);
@@ -254,8 +255,8 @@ export function createSyncCollection<T extends WithMeta>(
 			},
 			{
 				...(resolvedFilter ? { filter: resolvedFilter } : {}),
-				...(params?.query && { query: params.query })
-			}
+				...(params?.query && { query: params.query }),
+			},
 		);
 
 		subscriptions.set(subId, { ref, unsub: null, promise: subscribePromise });
@@ -295,12 +296,12 @@ export function createSyncCollection<T extends WithMeta>(
 
 	async function create(
 		data: Omit<T, "id" | "updated" | "created">,
-		params?: PbQueryOptions
+		params?: PbQueryOptions,
 	): Promise<T> {
 		const confirmed = await withRetry(() =>
 			pb.collection(collectionName).create<T>(data, {
-				...(params?.query && { query: params.query })
-			})
+				...(params?.query && { query: params.query }),
+			}),
 		);
 
 		// onRecordEnrich masque adminToken dans la réponse API — restaurer depuis le payload connu localement
@@ -331,7 +332,7 @@ export function createSyncCollection<T extends WithMeta>(
 					if (hasConflictableField) {
 						const serverRecord = await pb.collection(collectionName).getOne<T>(id, {
 							requestKey: null,
-							...(params?.query && { query: params.query })
+							...(params?.query && { query: params.query }),
 						});
 
 						payload = applyMergeStrategies(data, serverRecord, mergeStrategies);
@@ -366,8 +367,8 @@ export function createSyncCollection<T extends WithMeta>(
 
 				const confirmed = await withRetry(() =>
 					pb.collection(collectionName).update<T>(id, { deleted: true } as unknown as Partial<T>, {
-						...(params?.query && { query: params.query })
-					})
+						...(params?.query && { query: params.query }),
+					}),
 				);
 				await table.put(confirmed);
 			} else {
@@ -375,7 +376,7 @@ export function createSyncCollection<T extends WithMeta>(
 				await withRetry(() =>
 					pb
 						.collection(collectionName)
-						.delete(id, { ...(params?.query && { query: params.query }) })
+						.delete(id, { ...(params?.query && { query: params.query }) }),
 				);
 			}
 		} catch (err: unknown) {
@@ -437,7 +438,7 @@ export function createSyncCollection<T extends WithMeta>(
 				const snapshotIds = ops
 					.filter(
 						(op): op is Extract<PendingOp, { type: "update" | "delete" }> =>
-							op.type === "update" || op.type === "delete"
+							op.type === "update" || op.type === "delete",
 					)
 					.map((op) => op.id);
 				const snapshots = snapshotIds.length > 0 ? await table.bulkGet(snapshotIds) : [];
@@ -508,7 +509,7 @@ export function createSyncCollection<T extends WithMeta>(
 
 					throw err;
 				}
-			}
+			},
 		};
 
 		return builder;
@@ -516,7 +517,7 @@ export function createSyncCollection<T extends WithMeta>(
 
 	async function bulkCreate(
 		items: Omit<T, "id" | "updated" | "created">[],
-		params?: PbQueryOptions
+		params?: PbQueryOptions,
 	): Promise<T[]> {
 		const b = createBatch(params);
 		for (const item of items) b.create(item);
@@ -526,7 +527,7 @@ export function createSyncCollection<T extends WithMeta>(
 
 	async function bulkUpdate(
 		items: { id: string; data: Partial<T> }[],
-		params?: PbQueryOptions
+		params?: PbQueryOptions,
 	): Promise<T[]> {
 		const b = createBatch(params);
 		for (const item of items) b.update(item.id, item.data);
@@ -554,7 +555,7 @@ export function createSyncCollection<T extends WithMeta>(
 			...(params?.sort ? { sort: params.sort } : {}),
 			...(params?.fields ? { fields: params.fields } : {}),
 			...(params?.expand ? { expand: params.expand } : {}),
-			...(params?.query && { query: params.query })
+			...(params?.query && { query: params.query }),
 		});
 	}
 
@@ -562,7 +563,7 @@ export function createSyncCollection<T extends WithMeta>(
 		return pb.collection(collectionName).getOne<T>(id, {
 			...(params?.fields ? { fields: params.fields } : {}),
 			...(params?.expand ? { expand: params.expand } : {}),
-			...(params?.query && { query: params.query })
+			...(params?.query && { query: params.query }),
 		});
 	}
 
@@ -588,6 +589,6 @@ export function createSyncCollection<T extends WithMeta>(
 		getTable,
 		get collectionName() {
 			return collectionName;
-		}
+		},
 	};
 }

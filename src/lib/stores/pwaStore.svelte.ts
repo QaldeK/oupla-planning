@@ -43,7 +43,7 @@ class PwaStore {
 
 	async init() {
 		if (typeof window === "undefined") return;
-		// biome-ignore lint/suspicious/noUnnecessaryConditions: garde de réentrance — l'analyse ne voit pas les appels multiples d'init
+		// Garde de réentrance : init peut être appelé plusieurs fois
 		if (this.#initialized) return;
 		this.#initialized = true;
 
@@ -93,7 +93,7 @@ class PwaStore {
 		if (!record) return;
 		try {
 			await pb.collection("users").update(record.id, {
-				pwa_installed: true
+				pwa_installed: true,
 			});
 		} catch (e) {
 			console.error("Failed to record PWA installation:", e);
@@ -156,7 +156,7 @@ class PwaStore {
 				firstClaimDone = true;
 				return; // premier install : pas de reload
 			}
-			// biome-ignore lint/suspicious/noUnnecessaryConditions: garde de réentrance d'event — le reload remet le contexte à zéro, l'analyse ne voit que la même exécution
+			// Garde de réentrance d'event : le reload remet le contexte à zéro
 			if (this.#refreshing) return;
 			this.#refreshing = true;
 			window.location.reload();
