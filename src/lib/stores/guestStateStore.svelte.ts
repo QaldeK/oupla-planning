@@ -13,6 +13,8 @@
  * (même pattern que `planningStore.#allMasters`). Aucun double-write, aucun
  * bookkeeping manuel — le reset devient automatique quand l'orchestrateur
  * (runAuthTransition / userStore.#clearLocalDexie) vide `localMeta`.
+ * Seule exception : `clearGuestIdentity` anticipe la mise à jour du miroir
+ * (écriture Dexie asynchrone vs réaction synchrone au refus).
  *
  * N'utilise pas `getIdentityForPlanning` (qui mêle auth et guest) — cette
  * fonction vit dans `identityResolution.ts` (pure).
@@ -102,8 +104,16 @@ class GuestStateStore {
 	 * de claim en session auth). Efface `currentUser` de la ligne `localMeta` ;
 	 * la ligne disparaît si elle ne porte plus rien. Passe par le patch direct
 	 * (et non `upsertLocalMeta`, qui ne sait pas retirer un champ).
+	 *
+	 * Le miroir `guestStates` est mis à jour synchronement, AVANT l'écriture
+	 * Dexie : la réaction au refus rejoue l'`$effect` de la stratégie avant que
+	 * le liveQuery ne ré-émette — s'il relisait un indice déjà refusé, le modal
+	 * de suggestion se rouvrirait à l'identique.
 	 */
 	async clearGuestIdentity(masterId: string): Promise<void> {
+		this.guestStates = this.guestStates.map((row) =>
+			row.masterId === masterId ? { ...row, currentUser: undefined } : row,
+		);
 		const row = await db.localMeta.get(masterId);
 		if (!row?.currentUser) return;
 		const { currentUser: _removed, ...rest } = row;

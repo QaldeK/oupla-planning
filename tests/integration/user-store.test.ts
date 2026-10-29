@@ -563,6 +563,9 @@ describe("userStore — identity, auth transitions, logout", () => {
 			// === REFUS ULTÉRIEUR : l'indice persistant est effacé, pas re-proposé ===
 			await guestStateStore.clearGuestIdentity(first.master.id);
 			expect(await db.localMeta.get(first.master.id)).toBeUndefined();
+			// Le miroir est mis à jour synchronement (pas d'attente du liveQuery) :
+			// la réaction au refus ne peut pas relire un indice déjà refusé.
+			expect(guestStateStore.getGuestIdentity(first.master.id)).toBeNull();
 
 			// Cleanup
 			pb.authStore.clear();
