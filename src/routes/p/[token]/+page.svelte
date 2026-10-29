@@ -504,13 +504,11 @@
 				<div class="card-body gap-4">
 					<!-- Groupe « Vous » : gestion de l'identité courante -->
 					<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-						<div class="text-content-primary flex items-center gap-2 text-sm font-semibold">
-							<User size={16} class="shrink-0" />
-							{m.participant_you()}
-						</div>
 						{#if currentIdentity}
 							<!-- Identifié -->
-							<div class="flex flex-wrap items-center gap-2">
+							<div class="text-content-primary flex items-center gap-2 text-sm font-semibold">
+								<User size={16} class="shrink-0" />
+								{m.participant_you()}
 								<!-- Nom = bouton crayon : rename local au planning (guest et auth) -->
 								<button
 									class="badge badge-info gap-1 font-bold hover:cursor-pointer"
@@ -522,6 +520,8 @@
 									{currentIdentity.name}
 									<Pencil size={14} class="ms-2" />
 								</button>
+							</div>
+							<div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
 								{#if userStore.isLoggedIn}
 									<!-- Auth : revendication d'une identité existante, sinon sortie de compte -->
 									{#if claimableParticipants.length > 0 && !myParticipant?.claimedAt}
