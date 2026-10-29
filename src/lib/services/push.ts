@@ -31,18 +31,18 @@ export interface PlanningParticipantPrefs {
 }
 
 /**
- * Defaults communs (booléens), ne dépendant ni du `recurrenceType` ni du rôle.
- * `reminderDays`/`missingDays` dépendent du `recurrenceType`, `newCommentScope`
- * dépend du rôle — voir `getDefaultPlanningPrefs`.
+ * Defaults communs, ne dépendant ni du `recurrenceType` ni du rôle.
+ * `reminderDays`/`missingDays` dépendent du `recurrenceType`,
+ * `newCommentScope` et `onConfirmationNeeded` du rôle — voir
+ * `getDefaultPlanningPrefs`.
  */
 const baseDefaultPlanningPrefs: Omit<
 	PlanningParticipantPrefs,
-	"reminderDays" | "missingDays" | "newCommentScope"
+	"reminderDays" | "missingDays" | "newCommentScope" | "onConfirmationNeeded"
 > = {
 	push: false,
 	email: true,
 	onOccurrenceChange: true,
-	onConfirmationNeeded: false,
 };
 
 /**
@@ -63,10 +63,12 @@ const RECURRENCE_DEFAULTS: Record<
 /**
  * Defaults de prefs à appliquer à la création d'un `planning_participants`
  * (quand un user rejoint un planning). Les valeurs de rappel / missings
- * dépendent du `recurrenceType` du master ; `newCommentScope` dépend du rôle
- * (un admin suit toutes les conversations, un participant uniquement ce qui
- * le concerne). Ce default n'est posé qu'à la création — les transitions de
- * rôle ultérieures ne le réécrivent jamais.
+ * dépendent du `recurrenceType` du master ; `newCommentScope` et
+ * `onConfirmationNeeded` dépendent du rôle (un admin suit toutes les
+ * conversations et reçoit les alertes de confirmation, un participant
+ * uniquement ce qui le concerne). Ce default n'est posé qu'à la création —
+ * les transitions de rôle ultérieures ne le réécrivent jamais. Aligné sur
+ * `getDefaultParticipantPrefs` côté hooks (runtimes séparés, même contrat).
  */
 export function getDefaultPlanningPrefs(
 	recurrenceType: RecurrenceType,
@@ -75,6 +77,7 @@ export function getDefaultPlanningPrefs(
 	return {
 		...baseDefaultPlanningPrefs,
 		...RECURRENCE_DEFAULTS[recurrenceType],
+		onConfirmationNeeded: isAdmin,
 		newCommentScope: isAdmin ? "all" : "concerned",
 	};
 }

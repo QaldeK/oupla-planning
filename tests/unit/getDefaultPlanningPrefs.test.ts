@@ -3,7 +3,8 @@
  * création d'un `planning_participants`.
  *
  * Couvre la signature `getDefaultPlanningPrefs(recurrenceType, isAdmin)` :
- *   - `newCommentScope` dépend du rôle (admin → 'all', participant → 'concerned')
+ *   - `newCommentScope` et `onConfirmationNeeded` dépendent du rôle
+ *     (admin → 'all' / true, participant → 'concerned' / false)
  *   - les autres champs sont inchangés par l'ajout du paramètre `isAdmin`
  *   - les defaults de rappel / missings restent pilotés par `recurrenceType`
  */
@@ -44,6 +45,14 @@ describe("getDefaultPlanningPrefs", () => {
 		});
 	});
 
+	describe("onConfirmationNeeded selon le rôle", () => {
+		it("true pour un admin, false pour un participant", () => {
+			expect(getDefaultPlanningPrefs("WEEKLY", true).onConfirmationNeeded).toBe(true);
+			expect(getDefaultPlanningPrefs("WEEKLY", false).onConfirmationNeeded).toBe(false);
+			expect(getDefaultPlanningPrefs("WEEKLY").onConfirmationNeeded).toBe(false);
+		});
+	});
+
 	describe("champs non liés au rôle inchangés", () => {
 		it("garde les mêmes valeurs booléennes quelle que soit la valeur de isAdmin", () => {
 			const base = getDefaultPlanningPrefs("WEEKLY", false);
@@ -52,7 +61,6 @@ describe("getDefaultPlanningPrefs", () => {
 			expect(admin.push).toBe(base.push);
 			expect(admin.email).toBe(base.email);
 			expect(admin.onOccurrenceChange).toBe(base.onOccurrenceChange);
-			expect(admin.onConfirmationNeeded).toBe(base.onConfirmationNeeded);
 		});
 
 		it("garde les mêmes reminderDays / missingDays quelle que soit la valeur de isAdmin", () => {

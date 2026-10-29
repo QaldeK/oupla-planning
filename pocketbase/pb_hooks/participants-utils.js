@@ -36,7 +36,8 @@ const RECURRENCE_DEFAULTS = {
  * @param {string} recurrenceType — clé de `RECURRENCE_DEFAULTS`
  * @param {object} [opts]
  * @param {boolean} [opts.isAdmin=false] — si true, `onConfirmationNeeded = true`
- *   (les admins reçoivent les alertes de confirmation). Sinon false.
+ *   (les admins reçoivent les alertes de confirmation) et `newCommentScope =
+ *   'all'` (un admin suit toutes les conversations) ; sinon false / 'concerned'.
  * @returns {object} — objet de prefs à spreader dans `record.set()` ou `load()`.
  */
 function getDefaultParticipantPrefs(recurrenceType, opts) {
@@ -48,7 +49,8 @@ function getDefaultParticipantPrefs(recurrenceType, opts) {
 		onOccurrenceChange: true,
 		onConfirmationNeeded: !!isAdmin,
 		reminderDays: recDefaults.reminderDays,
-		missingDays: recDefaults.missingDays
+		missingDays: recDefaults.missingDays,
+		newCommentScope: isAdmin ? 'all' : 'concerned'
 	};
 }
 
@@ -99,6 +101,7 @@ function ensureAdminParticipant(app, userId, masterId, recurrenceType) {
 	rec.set('onConfirmationNeeded', prefs.onConfirmationNeeded);
 	rec.set('reminderDays', prefs.reminderDays);
 	rec.set('missingDays', prefs.missingDays);
+	rec.set('newCommentScope', prefs.newCommentScope);
 	app.save(rec);
 }
 
