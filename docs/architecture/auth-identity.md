@@ -35,12 +35,16 @@ userStore.isReady && !userStore.isLoggedIn`. Le gate `isReady` empêche tout fla
   de mur pendant la restauration d'une session valide au boot.
 - **Le navigateur est hors du mur** : création de planning sans compte, identification
   par planning et liens de participation restent sans friction (ADR-0002 inchangé).
-- **Migration** : login ou création depuis le mur déclenche la transition auth
-  standard, qui ne réclame que le planning actif — le portage de l'ensemble des
-  plannings locaux au login reste une décision ouverte (terminaux partagés, vol
-  d'identité : edge cases non tranchés).
+- **Migration** : la création de compte depuis le mur propose le **portage des plannings
+  locaux** (bascule « Rattacher les plannings de cet appareil », visible si des masters
+  existent en Dexie, cochée par défaut) : claim batch + clear sélectif — voir
+  « Transition guest → auth ». Le login d'un compte existant et toute transition hors mur
+  (navigateur) gardent la transition standard : claim du planning actif seul + clear total.
+  Limites acceptées : le rattachement est irréversible (aucune route de détachement), et un
+  profil partagé rattacherait les plannings d'un autre — d'où la bascule, jamais de silence.
 - **iOS** isole le stockage Home Screen : le mur y demande une reconnexion même si la
-  session vit dans Safari — friction plateforme, pas un défaut du mur.
+  session vit dans Safari — friction plateforme, pas un défaut du mur. Conséquence pour le
+  portage : aucun candidat local, la bascule ne s'affiche pas.
 
 ```mermaid
 flowchart TD
@@ -104,12 +108,15 @@ sequenceDiagram
   participant D as Dexie
   AS->>W: transitionToAuth()
   W->>W: isTransitioning = true
+  W->>W: portage = isInstalled && wallPortageConsent (consommé)
   W->>R: runAuthTransition(ctx, deps)
   R->>R: 1 initGlobalSync
   R->>R: 2 snapshot identité guest
   R->>R: 3 unsubscribe collections
-  R->>PB: 4 claimPlannings — hook /api/sync-plannings (1 planning)
-  R->>D: 5 clear masters, occurrences, commentState, localMeta
+  R->>PB: 4a portage — claimPlannings batch (tous les masters) + authRefresh
+  R->>PB: 4b défaut — claimPlannings (planning actif seul)
+  R->>D: 5a portage — clear occurrences, commentState, localMeta sauf currentUser
+  R->>D: 5b défaut — clear masters, occurrences, commentState, localMeta
   R->>PB: 6 syncAuthData — fetch masters + occurrences, puis marqueur
   R->>PB: 7 subscribe + syncCommentReadState
   R->>R: 8 invalidateActiveToken + setActiveToken
@@ -123,17 +130,31 @@ Points d'attention, tous vécus :
 - **Le snapshot se lit sur `guestStates`**, jamais via `getIdentityForPlanning` : à cet
   instant `isLoggedIn` est déjà true, donc la résolution retournerait le Compte au lieu
   de l'identité guest.
-- **L'étape 5 vide `localMeta`**, donc les identités guest et le marqueur `lastFetchAt`
-  (`src/lib/utils/authTransition.ts`, étape 5).
-- **L'étape 4 n'envoie qu'un seul planning**, celui de la page courante. Le post-login ne
-  synchronise pas les autres plannings connus localement.
-- **L'étape 4 est non bloquante** : un échec réseau n'empêche pas le clear, les données
+- **Portage (création de compte au mur uniquement)** : le consentement transite par
+  `authTransition.wallPortageConsent` — posé réactivement par `AuthWall` avant submit
+  (le callback `onChange` n'accepte pas d'argument), consommé une seule fois. La double
+  garde `installStore.isInstalled && consent` garantit que le parcours navigateur reste
+  strictement au comportement par défaut.
+- **En portage, l'étape 5 est sélective** : occurrences et `commentState` (caches
+  re-remplis), `lastFetchAt` et `hasQuit` (jetables) sont vidés ; les masters (tokens
+  d'accès, la sidebar vit dessus) et `currentUser` (seule donnée non reconstruisible)
+  survivent. `initialFetch` étant un upsert pur, un claim batch raté (hors-ligne) laisse
+  les plannings visibles et fonctionnels — réclamés à la prochaine activation/sync.
+- **En portage, l'`authRefresh` qui suit le claim batch** propage `masterId`/`adminOf`
+  au record d'auth local — sans lui, les guards UI (accès admin) resteraient obsolètes
+  jusqu'à la première activation d'un planning.
+- **Par défaut, l'étape 5 vide `localMeta` intégralement** (identités guest et marqueur
+  `lastFetchAt`) et **l'étape 4 n'envoie qu'un seul planning**, celui de la page courante.
+  Derrière le mur, aucun planning n'étant activé, ce claim est un no-op — seul le portage
+  rattache les plannings d'un invité multi-plannings.
+- **L'étape 4 est non bloquante** dans les deux branches : un échec réseau n'empêche pas
+  la suite ; en portage, rien n'est détruit (auto-réparation), par défaut les données
   guest orphelines sont jetées volontairement.
 - **L'étape 6 est le seul endroit qui pose le marqueur de fraîcheur** (`lastAuthSyncAt`,
   `userStore`) : `syncAuthData` possède la séquence fetch → marqueur. Une transition qui ne
   passe pas par lui laisse la « Dernière sync » périmée jusqu'au polling suivant.
 - `pendingGuestClaim` est **in-memory, non persisté** : une transition ne survit pas à un
-  reload, et la suggestion ne se rejoue pas.
+  reload. La suggestion peut aussi naître de l'identité persistée (voir « Claim d'identité »).
 
 ## Claim d'identité
 
@@ -146,12 +167,22 @@ La stratégie vit dans `/p/[token]/+page.svelte`, par ordre de priorité strict 
 | Priorité | Cas        | Condition                                                  | Action                                                |
 | -------- | ---------- | ---------------------------------------------------------- | ----------------------------------------------------- |
 | 1        | CAS A      | participant déjà lié (`userId`, `!hasQuit`)                | sync silencieuse, aucun modal                         |
-| 2        | Suggestion | `pendingGuestClaim.masterId === master.id` et cible valide | auto-open du modal, étape suggestion                  |
+| 2        | Suggestion | indice (mémoire ou persisté) ciblant ce planning, cible valide | auto-open du modal, étape suggestion               |
 | 3        | CAS B      | participant non lié de même nom (case-insensitive)         | auto-open du modal, étape principale                  |
-| 4        | CAS C      | aucun des cas précédents                                   | si conflit de nom → modal ; sinon auto-add silencieux |
+| 4        | CAS C      | aucun des cas précédents                                   | si conflit de nom → modal ; sinon auto-add annoncé    |
 
 La suggestion prime sur B et C parce qu'elle porte une information **exacte** (l'UUID du
-participant guest de session), là où B est une heuristique par nom.
+participant guest), là où B est une heuristique par nom. Deux sources d'indice, unifiées
+dans `resolveIdentityStrategy` :
+
+- **`pendingGuestClaim`** (slot mémoire, snapshot de la transition) : la seule possible
+  sur le parcours navigateur, puisque la transition standard vide `localMeta`.
+- **`localMeta.currentUser` persisté** (portage mur) : durable jusqu'au logout, effacé
+  **uniquement par un refus explicite** (qui annonce ensuite l'auto-add). Une invalidité
+  (participant claimé ailleurs, quitté) ne l'efface pas — la stratégie retombe simplement
+  sur B/C à chaque visite.
+
+La fenêtre de fusion exacte est la session : le logout vide tout, indices compris.
 
 | Élément                                              | Rôle                                                                                                                             |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |

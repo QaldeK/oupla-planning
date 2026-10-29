@@ -46,10 +46,13 @@ réécrit le record entier (ADR-0009).
 | `localMeta`    | `guestStateStore`                   | `currentUser`, `hasQuit`             |
 | `localMeta`    | `planningStore`                     | `lastFetchAt`                        |
 
-Les écrivains de `localMeta` passent par `upsertLocalMeta` (patch partiel). `guestStates`
+Les écrivains de `localMeta` passent par `upsertLocalMeta` (patch partiel) — le retrait de
+`currentUser` (refus de suggestion, `guestStateStore.clearGuestIdentity`) passe par patch
+direct, l'helper ne sachant pas retirer un champ. `guestStates`
 est un **miroir liveQuery** de cette table : `$state` alimenté par la subscription, aucun
 double-write ni bookkeeping manuel. Le reset devient automatique quand un orchestrateur
-vide `localMeta` (`runAuthTransition`, `userStore.#clearLocalDexie`).
+vide `localMeta` (`userStore.#clearLocalDexie`, et `runAuthTransition` hors portage — en
+portage mur, la transition ne vide que les champs jetables et les identités survivent).
 
 ## `userStore`
 

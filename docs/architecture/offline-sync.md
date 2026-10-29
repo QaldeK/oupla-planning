@@ -149,7 +149,7 @@ se déclenche qu'à l'échec final.
 | Moment                   | Chemin                                                                                    |
 | ------------------------ | ----------------------------------------------------------------------------------------- |
 | Boot d'un Compte         | `userStore.#subscribeAuth()`, via `syncAuthData`                                          |
-| Transition guest → auth  | `runAuthTransition()` étape 6, via `syncAuthData` (`auth-identity.md`)                    |
+| Transition guest → auth  | `runAuthTransition()` étape 6, via `syncAuthData` (`auth-identity.md`) ; en portage mur, l'étape 4 claim tous les masters locaux (batch) avant la sync |
 | Reconnexion réseau       | `networkStore` → `syncService.sync()` (Compte) ou `planningStore.refreshActive()` (Guest) |
 | Activation d'un planning | `planningStore.#activatePlanning()` étape 4                                               |
 | Entrée sur l'archive     | `planningStore.refreshArchiveOccurrences()`                                               |

@@ -143,9 +143,13 @@ n'affiche plus aucune surface d'app : `+layout.svelte` rend `AuthWall.svelte` à
 sans contournement. La condition est un ET de trois états réactifs — `installStore.isInstalled`,
 `userStore.isReady`, `!userStore.isLoggedIn` — dans le layout racine, aucun guard par route :
 vues participant et admin incluses, liens capturés compris. `isReady` empêche tout flash de mur
-pendant la restauration d'une session valide (rien ne s'affiche avant la fin d'init). Le login ou
-la création depuis le mur déclenche la transition auth existante (claim + fusion d'identité,
-voir `auth-identity.md`). Le navigateur reste exclu : parcours invités inchangés. Le mur est
+pendant la restauration d'une session valide (rien ne s'affiche avant la fin d'init). Le login
+depuis le mur déclenche la transition auth standard (claim du planning actif + fusion
+d'identité, voir `auth-identity.md`). La **création de compte** depuis le mur propose en plus
+le portage des plannings locaux : bascule « Rattacher les plannings de cet appareil »
+(`AuthWall`, visible si des masters existent en Dexie, cochée par défaut) — claim batch +
+clear sélectif, consentement transmis via `authTransition.wallPortageConsent` (consommé une
+fois). Le navigateur reste exclu : parcours invités inchangés. Le mur est
 l'unique moment de conversion de l'app installée. Si l'URL est un lien participant ou admin,
 le mur affiche le titre du planning (`getPlanningTitleByToken`,
 `services/planningReads.ts`) ; échec de lecture → pas de contexte affiché.

@@ -53,8 +53,12 @@ Mécanisme par lequel un participant revendique le rôle d'administrateur d'un p
 _Avoid_: takeover, récupération, appropriation
 
 **Claim de plannings** :
-Mécanisme par lequel un Compte rattache à lui-même des plannings connus localement, en présentant leurs tokens au hook idempotent `/api/sync-plannings`. Distinct du claim-admin (rôle d'administrateur sur un planning) et de l'identité revendiquée (rattachement d'une identité guest).
+Mécanisme par lequel un Compte rattache à lui-même des plannings connus localement, en présentant leurs tokens au hook idempotent `/api/sync-plannings`. Ne donne que l'accès (lecture via `masterId`, écriture via les tokens) — les participations ne suivent pas. Distinct du claim-admin (rôle d'administrateur sur un planning) et du claim d'identité (rattachement d'une participation guest).
 _Avoid_: claim de tokens, sync de tokens
+
+**Claim d'identité** :
+Mécanisme par lequel un Compte fusionne une participation guest dans son identité via `/api/claim-participant-identity` (transactionnel : réponses et commentaires ré-attribués, `userId` posé sur le participant guest). Un participant auto-ajouté peut servir de source et être supprimé à la fusion — le doublon d'auto-add est récupérable. Manuel, par planning, jamais en lot.
+_Avoid_: fusion de plannings, migration de compte
 
 **Identité revendiquée** (Claimed identity) :
 État d'un guest dont le participant a été associé à un compte authentifié sur un autre terminal (champ `participant.userId` défini alors que `isLoggedIn === false`). Le guest est « verrouillé » : ses réponses sont bloquées, un bandeau dédié s'affiche, pas d'auto-ouverture d'IdentifyModal. Résolu par `resolveCurrentIdentity` (`claimedByAuth: true`).
