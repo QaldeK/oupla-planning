@@ -47,11 +47,12 @@ class AuthTransitionWrapper {
 	/**
 	 * Consentement au portage des plannings locaux (bascule du mur
 	 * d'authentification, mode création de compte). Posé réactivement par le
-	 * mur avant submit, consommé une seule fois par la transition ci-dessous —
-	 * un login ultérieur repart du défaut (pas de portage). `null` = jamais
-	 * posé : le parcours navigateur ne le pose jamais.
+	 * mur avant submit, consommé puis réinitialisé par la transition
+	 * ci-dessous — un login ultérieur repart du défaut (pas de portage).
+	 * Jamais posé hors mur : le parcours navigateur reste au comportement
+	 * standard.
 	 */
-	wallPortageConsent: boolean | null = $state(null);
+	wallPortageConsent = $state(false);
 
 	/**
 	 * Déclenche la transition guest → auth.
@@ -65,8 +66,8 @@ class AuthTransitionWrapper {
 		// Portage mur : double garde — l'origine (app installée : le mur est la
 		// seule surface de login en contexte standalone) ET le consentement
 		// explicite. Consommé ici, atomiquement avec la lecture.
-		const portage = installStore.isInstalled && this.wallPortageConsent === true;
-		this.wallPortageConsent = null;
+		const portage = installStore.isInstalled && this.wallPortageConsent;
+		this.wallPortageConsent = false;
 
 		try {
 			const deps = {

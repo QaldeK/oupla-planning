@@ -17,6 +17,15 @@ export interface ClaimablePlanning {
 }
 
 /**
+ * Candidat au portage du mur d'authentification : master local non supprimé.
+ * Définition unique — le mur (visibilité de la bascule) et la transition
+ * (claim batch) doivent juger sur le même prédicat.
+ */
+export function isPortageCandidate(master: { deleted?: boolean }): boolean {
+	return !master.deleted;
+}
+
+/**
  * Revendique des plannings pour le compte courant.
  *
  * Lève si l'appel échoue : la politique d'erreur (statut dégradé, ou échec

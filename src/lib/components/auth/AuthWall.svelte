@@ -5,6 +5,7 @@
 	import * as m from "$lib/paraglide/messages.js";
 	import { db } from "$lib/pb-sync/db";
 	import { authTransition } from "$lib/stores/authTransition.svelte";
+	import { isPortageCandidate } from "$lib/services/claimPlannings";
 	import { getPlanningTitleByToken } from "$lib/services/planningReads";
 	import AuthPanel from "./AuthPanel.svelte";
 
@@ -24,16 +25,19 @@
 	onMount(() => {
 		void (async () => {
 			const masters = await db.masters.toArray();
-			attachableCount = masters.filter((master) => !master.deleted).length;
+			attachableCount = masters.filter(isPortageCandidate).length;
 		})();
 	});
+
+	// Même définition de candidat que la transition (isPortageCandidate) :
+	// la bascule ne doit pas s'afficher pour ce que le claim batch ignorerait.
+	const showAttachToggle = $derived(mode === "register" && attachableCount > 0);
 
 	// Consentement réactif, consommé une fois par la transition (voir
 	// authTransition.wallPortageConsent). Posé AVANT submit : onChange tire
 	// pendant authWithPassword, dans la même tâche que cet état.
 	$effect(() => {
-		authTransition.wallPortageConsent =
-			mode === "register" && attachableCount > 0 && attachPlannings;
+		authTransition.wallPortageConsent = showAttachToggle && attachPlannings;
 	});
 
 	$effect(() => {
@@ -55,7 +59,7 @@
      création) est l'unique issue ; le login déclenche la transition auth
      existante (claim du planning + fusion d'identité), complétée au mode
      création par le portage des plannings locaux (claim batch + clear
-     sélectif, voir auth-identity.md). -->
+     sélectif). -->
 <main
 	class="bg-base-200 flex min-h-dvh flex-col items-center justify-center gap-6 overflow-y-auto p-4"
 >
@@ -88,7 +92,7 @@
 
 			<AuthPanel bind:mode>
 				{#snippet children()}
-					{#if mode === "register" && attachableCount > 0}
+					{#if showAttachToggle}
 						<label class="flex cursor-pointer items-start gap-2 text-sm">
 							<input
 								type="checkbox"

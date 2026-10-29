@@ -6,6 +6,7 @@
  * instancie les deps réelles et gère les guards (`isTransitioning`).
  */
 import type { ClaimablePlanning } from "$lib/services/claimPlannings";
+import { isPortageCandidate } from "$lib/services/claimPlannings";
 import type { SavedPlanning } from "$lib/types/planning.types";
 
 // =============================================
@@ -163,11 +164,15 @@ export async function runAuthTransition(
 	//    Échec non bloquant — les tokens vivent en Dexie et la prochaine
 	//    activation/sync retentera le claim.
 	if (portage) {
-		const claimable = (await db.masters.toArray()).filter((master) => !master.deleted);
+		const claimable = (await db.masters.toArray()).filter(isPortageCandidate);
 		if (claimable.length > 0) {
 			try {
 				await claimPlannings(claimable);
-				await refreshAuthRecord();
+				try {
+					await refreshAuthRecord();
+				} catch (err) {
+					console.error("Auth record refresh failed (non-blocking):", err);
+				}
 			} catch (err) {
 				console.error("Batch claim failed (non-blocking):", err);
 			}

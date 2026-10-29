@@ -538,7 +538,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			installStore.isInstalled = false;
 
 			// Le consentement est consommé — un login ultérieur ne porte plus rien.
-			expect(authTransition.wallPortageConsent).toBeNull();
+			expect(authTransition.wallPortageConsent).toBe(false);
 
 			// === VERIFICATION POCKETBASE : claim batch des 2 masters ===
 			const adminPb = await authenticateAdmin();
