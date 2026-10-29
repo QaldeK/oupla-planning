@@ -109,8 +109,7 @@ incohérent), un simple `reload()` suffit. Deux chemins mènent à l'activation 
   consentement ne protège rien, et un toast serait imperceptible avant le reload
   (~100-500 ms). Conditionné à un contrôleur établi (`navigator.serviceWorker.controller`
   non-null) : un waiting sans contrôleur — coin premier install — n'a pas de sens, il
-  activera à la navigation suivante. Pas de `hasUpdate` dans ce chemin, donc pas de
-  toast. Limite : un waiting qui n'existe pas encore au boot (déploiement découvert par
+  activera à la navigation suivante. Limite : un waiting qui n'existe pas encore au boot (déploiement découvert par
   le check du reload, installation en cours) suit le chemin consenti ci-dessous — la
   chaîne v2 → v3 garde un second toast dans ce cas.
 - **En session** : découverte → toast persistant → `applyUpdate()` — l'utilisateur

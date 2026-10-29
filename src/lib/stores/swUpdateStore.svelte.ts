@@ -1,31 +1,23 @@
 import { on } from "svelte/events";
 
 /**
- * Cycle de vie « maintenance » : détection d'un service worker en attente et
- * activation — différée à une action utilisateur en session, immédiate et
- * silencieuse au chargement frais quand l'attente hérite d'une session
- * précédente. L'installation de l'app vit dans installStore.
+ * Cycle de vie « maintenance » du service worker : détection d'une mise à jour
+ * en attente, activation consentie en session, silencieuse au chargement frais.
+ * L'installation de l'app vit dans installStore.
  */
 class SwUpdateStore {
-	// Détection de mise à jour du Service Worker.
-	// Vrai quand un nouveau SW est installé et en attente d'activation (waiting)
-	// DÉCOUVERT EN SESSION. Le passage à true déclenche le toast de MAJ côté
-	// layout ; l'utilisateur choisit le moment du reload via applyUpdate().
-	// Le waiting déjà présent au boot n'emprunte pas ce chemin : il est activé
-	// immédiatement (document neuf, rien à perdre).
+	// Déclenche le toast de MAJ du layout : l'utilisateur choisit le moment du
+	// reload via applyUpdate(). Seules les découvertes EN SESSION passent ici ;
+	// le waiting présent au boot est activé immédiatement, sans toast.
 	hasUpdate = $state(false);
 
-	// Évite un double reload() intra-session : `controllerchange` peut se
-	// déclencher plusieurs fois pendant la fenêtre (~100-500 ms) avant que la
-	// page ne soit déchargée par le reload. Pas de risque de boucle de reloads
-	// — au reload suivant, le contrôleur est déjà établi, l'événement ne se
-	// redéclenche pas.
+	// Un seul reload : `controllerchange` peut se répéter pendant la fenêtre
+	// avant le déchargement — pas une boucle, le contrôleur est déjà établi au
+	// reload suivant.
 	#refreshing = false;
 
-	// Vrai seulement dans l'onglet qui a demandé la mise à jour. Un
-	// `controllerchange` peut venir d'un autre onglet qui a activé le nouveau
-	// SW : cet onglet ne doit pas être rechargé sans consentement (saisie en
-	// cours perdue).
+	// Consentement de reload local : un controllerchange peut venir d'un autre
+	// onglet qui a activé la MAJ — il ne doit pas recharger CET onglet.
 	#reloadRequested = false;
 
 	// Throttle partagé des checks de MAJ SW proactifs (visibilitychange, BFCache,
@@ -44,24 +36,15 @@ class SwUpdateStore {
 	}
 
 	/**
-	 * Déclenche un check de MAJ du SW, throttlé à 1/min (spec browser).
+	 * Check de MAJ throttlé à 1/min (limite de spec browser), sur les signaux de
+	 * retour d'activité — en SPA, le navigateur ne check le SW qu'aux navigations
+	 * serveur, qui n'arrivent pas pendant la session.
 	 *
-	 * Le navigateur ne check le SW QUE sur navigation serveur (reload, navigation
-	 * document). En SPA SvelteKit, ces navigations n'arrivent pas pendant la
-	 * session → il faut forcer `reg.update()` sur les signaux de retour d'activité
-	 * (`visibilitychange`, BFCache restore) et un polling léger pour les sessions
-	 * longues.
-	 *
-	 * Le check continue même si `reg.waiting` existe déjà : un second déploiement
-	 * pendant qu'une MAJ attend doit remplacer le `waiting` courant (le dernier
-	 * découvert gagne), sinon le clic « Mettre à jour » activerait une version
-	 * intermédiaire et imposerait un second cycle toast → reload.
-	 * Échec silencieux (offline transient) : loggué en `debug`, non propagé.
-	 *
-	 * Note : le curseur `#lastUpdateCheckAt` est positionné AVANT l'appel (et non
-	 * au succès comme `networkStore.lastSyncAt`). La contrainte est une spec
-	 * browser (≤ 1 `reg.update()`/min), pas de l'UX : un échec transient ne doit
-	 * pas ouvrir une fenêtre permettant de violer la spec via un tab-flicker.
+	 * Jamais court-circuité par un `waiting` présent : un second déploiement doit
+	 * remplacer l'attente courante, sinon le clic activerait une version
+	 * intermédiaire. Échec transient avalé en `debug`. Le curseur est posé AVANT
+	 * l'appel (contrainte de spec, pas d'UX) : un échec ne doit pas rouvrir la
+	 * fenêtre de throttle.
 	 */
 	#triggerUpdateCheck(reg: ServiceWorkerRegistration) {
 		if (Date.now() - this.#lastUpdateCheckAt < 60_000) return;
@@ -70,29 +53,19 @@ class SwUpdateStore {
 	}
 
 	/**
-	 * Branche la détection des mises à jour du Service Worker.
+	 * Branche la détection des mises à jour.
 	 *
-	 * Trois signaux convergent vers `hasUpdate = true` :
-	 *  - un SW déjà en `waiting` au boot (MAJ en attente d'une session précédente) ;
-	 *  - un nouveau SW passant à l'état `installed` pendant la session, à condition
-	 *    qu'un contrôleur existe déjà (sinon c'est le premier install, silencieux) ;
-	 *  - un SW en attente apparu sur un `updatefound` tardif (lui-même déclenché
-	 *    par les checks proactifs `#triggerUpdateCheck`).
-	 *
-	 * L'activation en session est différée à `applyUpdate()` (action utilisateur) :
-	 * on envoie `SKIP_WAITING` au SW en attente, puis le listener `controllerchange`
-	 * déclenche le reload. Le waiting déjà présent au boot fait exception : document
-	 * neuf, aucune saisie à perdre → activation immédiate via `#activateWaiting()`.
+	 * `hasUpdate` (toast, activation consentie via `applyUpdate()`) est posé par
+	 * une découverte EN SESSION : `installed` sur un SW contrôleur, ou
+	 * `controllerchange` venu d'un autre onglet. Le waiting déjà présent au boot
+	 * fait exception : document neuf, rien à perdre → activation immédiate et
+	 * silencieuse via `#activateWaiting()`.
 	 */
 	#initServiceWorkerUpdateDetection() {
 		if (!("serviceWorker" in navigator)) return;
 
-		// Première prise de contrôle : null au premier install, non-null dès qu'un SW
-		// contrôle déjà la page. `clients.claim()` dans l'`activate` du premier SW
-		// déclenche `controllerchange` sans qu'aucune MAJ n'ait été appliquée →
-		// il faut ignorer CE signal pour ne pas recharger au premier chargement.
-		// Le flag bascule à `true` après le premier `controllerchange`, de sorte que
-		// les suivants (issus d'un UPDATE) déclenchent correctement le reload.
+		// Le premier `controllerchange` vient du claim du premier install (aucune
+		// MAJ) : consommé silencieusement ; les suivants (vraies MAJ) rechargent.
 		let firstClaimDone = !!navigator.serviceWorker.controller;
 
 		on(navigator.serviceWorker, "controllerchange", () => {
@@ -117,14 +90,11 @@ class SwUpdateStore {
 			.then((reg) => {
 				if (!reg) return;
 
-				// MAJ en attente dès le boot (session précédente non activée) :
-				// document neuf, aucune saisie en cours — le consentement ne
-				// protège rien et un toast serait imperceptible avant le
-				// reload (~100-500 ms). Activation immédiate et silencieuse,
-				// sous réserve d'un contrôleur établi (page déjà contrôlée par
-				// l'ancien SW) ; un waiting sans contrôleur — coin premier
-				// install — n'a pas de sens, il activera à la navigation
-				// suivante.
+				// Waiting hérité d'une session précédente : document neuf, aucune
+				// saisie à perdre, le consentement ne protège rien et un toast
+				// serait imperceptible avant le reload — activation immédiate
+				// et silencieuse. Sans contrôleur (coin premier install), un
+				// waiting n'a pas de sens : il activera à la navigation suivante.
 				if (reg.waiting && navigator.serviceWorker.controller) {
 					this.#activateWaiting(reg.waiting);
 				}
@@ -164,10 +134,9 @@ class SwUpdateStore {
 	}
 
 	/**
-	 * Demande l'activation du SW en attente : pose d'abord le consentement de
-	 * reload LOCAL, puis `SKIP_WAITING`. L'ordre importe — sans le drapeau, le
-	 * `controllerchange` prendrait la branche « autre onglet » (toast au lieu
-	 * du reload). Partagé par le boot (chargement frais) et `applyUpdate()`.
+	 * Pose le consentement de reload local PUIS envoie `SKIP_WAITING` — sans le
+	 * drapeau, le `controllerchange` prendrait la branche « autre onglet ».
+	 * Emprunté par le boot et par `applyUpdate()`.
 	 */
 	#activateWaiting(waiting: ServiceWorker) {
 		this.#reloadRequested = true;
@@ -175,14 +144,9 @@ class SwUpdateStore {
 	}
 
 	/**
-	 * Active la mise à jour en attente (déclenchée par le toast « Mettre à jour »).
-	 *
-	 * Envoie `SKIP_WAITING` au SW en attente → le SW s'active → `controllerchange`
-	 * → reload (via le listener posé dans `#initServiceWorkerUpdateDetection`).
-	 *
-	 * Si `reg.waiting` est null au moment du clic, `hasUpdate` est devenu incohérent
-	 * (race ou désenregistrement entre-temps) : le reload recharge simplement la
-	 * page avec le SW actif courant (ne casse rien, mais ne fait rien de spécial).
+	 * Active la mise à jour en attente (clic « Mettre à jour ») → reload via
+	 * `controllerchange`. Si aucun `waiting` n'est plus disponible (race), le
+	 * reload recharge simplement avec le SW actif courant.
 	 */
 	async applyUpdate(): Promise<void> {
 		if (!("serviceWorker" in navigator)) return;
@@ -194,8 +158,6 @@ class SwUpdateStore {
 		if (waiting) {
 			this.#activateWaiting(waiting);
 		} else {
-			// État incohérent : hasUpdate était true mais aucun waiting n'est disponible.
-			// Le reload recharge avec le SW actif courant.
 			window.location.reload();
 		}
 	}
