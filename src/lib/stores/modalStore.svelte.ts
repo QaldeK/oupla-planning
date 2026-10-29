@@ -25,6 +25,9 @@ class ModalStore {
 	// Navigation drawer (sidebar mobile)
 	drawerNavOpen = $state(false);
 
+	// Modal « Rejoindre un planning » (sidebar + page home)
+	joinPlanningOpen = $state(false);
+
 	// Ouvre le modal de collision
 	openCollision(options: Omit<CollisionState, "open">) {
 		this.collision = { open: true, ...options };
@@ -48,6 +51,16 @@ class ModalStore {
 	// Toggle le drawer de navigation
 	toggleNavDrawer() {
 		this.drawerNavOpen = !this.drawerNavOpen;
+	}
+
+	// Ouvre le modal « Rejoindre un planning »
+	openJoinPlanning() {
+		this.joinPlanningOpen = true;
+	}
+
+	// Ferme le modal « Rejoindre un planning »
+	closeJoinPlanning() {
+		this.joinPlanningOpen = false;
 	}
 }
 

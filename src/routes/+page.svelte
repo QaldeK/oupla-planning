@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { MessageSquareWarning, Plus, Trash2 } from "@lucide/svelte";
+	import { Link, MessageSquareWarning, Plus, Trash2 } from "@lucide/svelte";
 	import { goto } from "$app/navigation";
 	import AuthSection from "$lib/components/homepage/AuthSection.svelte";
 	import BenefitsBanner from "$lib/components/homepage/BenefitsBanner.svelte";
@@ -9,6 +9,8 @@
 	import * as m from "$lib/paraglide/messages.js";
 	import { getLocale } from "$lib/paraglide/runtime.js";
 	import { commentStateStore } from "$lib/stores/commentStateStore.svelte";
+	import { installStore } from "$lib/stores/installStore.svelte";
+	import { modalStore } from "$lib/stores/modalStore.svelte";
 	import { planningStore } from "$lib/stores/planningStore.svelte";
 	import { userStore } from "$lib/stores/userStore.svelte";
 	import { version } from "../../package.json" with { type: "json" };
@@ -71,11 +73,20 @@
 	</div>
 
 	<!-- Actions rapides -->
-	<div class="mb-8 flex justify-center">
+	<div class="mb-8 flex flex-wrap justify-center gap-3">
 		<button onclick={() => goto("/new")} class="btn btn-primary btn-lg gap-3 shadow-lg">
 			<Plus size={24} />
 			{m.home_create_planning()}
 		</button>
+		{#if userStore.isLoggedIn || installStore.isInstalled}
+			<button
+				onclick={() => modalStore.openJoinPlanning()}
+				class="btn btn-soft btn-lg gap-3 shadow-lg"
+			>
+				<Link size={24} />
+				{m.nav_join_planning()}
+			</button>
+		{/if}
 	</div>
 
 	<!-- Saved Plannings List - UNIQUEMENT si connecté (en haut car concerne les user·es connecté·es) -->

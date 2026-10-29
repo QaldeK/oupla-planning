@@ -4,6 +4,7 @@
 		CalendarPlus,
 		Code,
 		Download,
+		Link,
 		LogOut,
 		MessageSquareWarning,
 		Moon,
@@ -19,6 +20,7 @@
 	import CommentSection from "$lib/components/CommentSection.svelte";
 	import AccountBenefitsSidebar from "$lib/components/homepage/AccountBenefitsSidebar.svelte";
 	import IdentifyModal from "$lib/components/IdentifyModal.svelte";
+	import JoinPlanningModal from "$lib/components/JoinPlanningModal.svelte";
 	import MobileHeader from "$lib/components/MobileHeader.svelte";
 	import NetworkIndicator from "$lib/components/NetworkIndicator.svelte";
 	import Modal from "$lib/components/ui/Modal.svelte";
@@ -368,6 +370,22 @@
 							{m.nav_clean_deleted()}
 						</button>
 					{/if}
+
+					<!-- Rejoindre un planning : saisie d'un lien collé — indispensable en
+					     PWA standalone, où il n'y a pas de barre d'URL. -->
+					{#if userStore.isLoggedIn || installStore.isInstalled}
+						<div class="divider"></div>
+						<button
+							class="btn btn-soft w-full justify-start"
+							onclick={() => {
+								modalStore.closeNavDrawer();
+								modalStore.openJoinPlanning();
+							}}
+						>
+							<Link size={18} />
+							{m.nav_join_planning()}
+						</button>
+					{/if}
 				</nav>
 
 				<!-- Footer sidebar -->
@@ -435,6 +453,9 @@
 		}}
 		defaultMode="register"
 	/>
+
+	<!-- Rejoindre un planning (sidebar + page home) -->
+	<JoinPlanningModal />
 
 	<!-- Confirmation de déconnexion : l'action est destructrice dans tous les
 	     contextes (données locales vidées) ; la ligne mur n'apparaît que dans
