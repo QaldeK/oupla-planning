@@ -121,23 +121,30 @@ migrate((app) => {
 		}
 
 		const readState = jsonField(canonical, 'commentReadState');
-		const merged =
+		const original =
 			readState && typeof readState === 'object' && !Array.isArray(readState)
-				? { ...readState }
+				? readState
 				: {};
+		const merged = { ...original };
+		let mergedKeys = 0;
 		for (const other of rest) {
 			const otherState = jsonField(other, 'commentReadState');
 			if (!otherState || typeof otherState !== 'object' || Array.isArray(otherState)) continue;
 			for (const key of Object.keys(otherState)) {
 				if (!(key in merged)) {
 					merged[key] = otherState[key];
-					mergedReadKeys++;
+					mergedKeys++;
 				} else if (String(otherState[key]) > String(merged[key])) {
 					merged[key] = otherState[key];
 				}
 			}
 		}
-		if (mergedReadKeys > 0) canonical.set('commentReadState', JSON.stringify(merged));
+		// Comparer au contenu d'origine, pas compter les clés nouvelles : un
+		// doublon qui n'apporte que des timestamps plus récents sur des clés
+		// existantes doit aussi être écrit.
+		if (JSON.stringify(merged) !== JSON.stringify(original)) {
+			canonical.set('commentReadState', JSON.stringify(merged));
+		}
 
 		if (isEmpty(canonical.get('newCommentScope'))) {
 			const role = participantIsAdmin(
@@ -154,12 +161,14 @@ migrate((app) => {
 		}
 		app.save(canonical);
 		mergedGroups++;
+		mergedReadKeys += mergedKeys;
 		console.log(
 			'[dedupe-pp] groupe fusionné planning=' + canonical.getString('planning') +
 				' user=' + canonical.getString('user') +
 				' garde=' + canonical.getString('id') +
 				' supprimes=' + rest.map((r) => r.getString('id')).join(',') +
-				' completes=' + filled.join(',')
+				' completes=' + filled.join(',') +
+				' cles_lecture=' + mergedKeys
 		);
 	}
 

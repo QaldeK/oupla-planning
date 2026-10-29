@@ -95,6 +95,15 @@ describe("ensurePlanningParticipant", () => {
 		expect(stubs.collection.create).toHaveBeenCalledTimes(1);
 	});
 
+	it("create perdu et relecture en échec → propage l'erreur d'origine", async () => {
+		stubs.collection.getFirstListItem.mockRejectedValueOnce({ status: 404 });
+		stubs.collection.create.mockRejectedValueOnce({ status: 400 });
+		stubs.collection.getFirstListItem.mockRejectedValueOnce({ status: 503 });
+		await expect(ensurePlanningParticipant("master-1", "user-1")).rejects.toMatchObject({
+			status: 400,
+		});
+	});
+
 	it("create échoué et relecture vide → propage l'erreur d'origine", async () => {
 		stubs.collection.getFirstListItem.mockRejectedValueOnce({ status: 404 });
 		stubs.collection.create.mockRejectedValueOnce({ status: 400 });

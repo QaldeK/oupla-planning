@@ -42,9 +42,9 @@ async function findParticipant(
 /**
  * Crée la ligne si absente. En cas de course perdue (contrainte d'unicité en
  * base), relit la ligne gagnante : la postcondition « une ligne existe pour ce
- * couple » tient sans que l'appelant voie l'échec. Si la relecture ne trouve
- * rien, l'erreur d'origine propage — c'était une vraie validation, pas une
- * course.
+ * couple » tient sans que l'appelant voie l'échec. Si la relecture échoue ou
+ * ne trouve rien, l'erreur d'origine propage — c'était une vraie validation,
+ * pas une course.
  */
 async function createParticipantIfAbsent(
 	planningId: string,
@@ -61,7 +61,14 @@ async function createParticipantIfAbsent(
 			...prefs,
 		});
 	} catch (error) {
-		const winner = await findParticipant(planningId, userId);
+		// La relecture peut échouer à son tour (réseau) : dans ce cas c'est
+		// quand même l'erreur de création d'origine qui reste parlante.
+		let winner: PlanningParticipantsResponse | null = null;
+		try {
+			winner = await findParticipant(planningId, userId);
+		} catch {
+			winner = null;
+		}
 		if (winner) return winner;
 		throw error;
 	}

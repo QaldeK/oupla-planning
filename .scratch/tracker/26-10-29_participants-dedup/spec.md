@@ -87,7 +87,9 @@ defaults posés à la création dépendent du rôle des deux côtés, alignés.
   - lignes canoniques : `updated` le plus récent, départage `created` décroissant, puis `id`
     décroissant ;
   - champs scalaires : la canonique gagne ; une valeur vide (null, chaîne vide, tableau vide) est
-    complétée par la valeur non vide la plus récente des autres lignes du groupe ;
+    complétée par la valeur non vide la plus récente des autres lignes du groupe — seuls le
+    périmètre de messages et les deux selects jours peuvent être vides (les booléens ont toujours
+    une valeur, les relations `planning`/`user` sont les clés de groupement) ;
   - `commentReadState` : union des clés, timestamp le plus récent gagne par clé (comparaison
     lexicographique, les timestamps sont ISO 8601) ;
   - périmètre de messages vide comblé : `all` si l'entrée participant correspondante dans le
