@@ -276,7 +276,7 @@
 			</div>
 			<button
 				type="button"
-				class="btn btn-soft btn-sm btn-block"
+				class="btn btn-soft btn-block"
 				onclick={() => {
 					claimedIdentity = null;
 					authMode = "register";

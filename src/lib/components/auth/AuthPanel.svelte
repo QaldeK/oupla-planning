@@ -29,12 +29,16 @@
 <div class="text-center text-sm">
 	{#if mode === "register"}
 		{m.auth_already_have_account()}
-		<button type="button" class="link link-primary font-medium" onclick={() => (mode = "login")}>
+		<button type="button" class="link link-primary font-semibold" onclick={() => (mode = "login")}>
 			{m.auth_login_link()}
 		</button>
 	{:else}
 		{m.auth_no_account_yet()}
-		<button type="button" class="link link-primary font-medium" onclick={() => (mode = "register")}>
+		<button
+			type="button"
+			class="link link-primary font-semibold"
+			onclick={() => (mode = "register")}
+		>
 			{m.auth_register_link()}
 		</button>
 	{/if}
