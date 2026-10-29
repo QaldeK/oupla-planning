@@ -7,15 +7,20 @@
 		mode?: "register" | "login";
 		name?: string;
 		onSuccess?: () => void;
+		/** Contenu additionnel rendu entre le formulaire et le diviseur
+		 * (bascule de portage du mur d'authentification). */
+		children?: import("svelte").Snippet;
 	}
 
-	let { mode = $bindable("login"), name = "", onSuccess }: Props = $props();
+	let { mode = $bindable("login"), name = "", onSuccess, children }: Props = $props();
 </script>
 
 <!-- Corps partagé du compte : formulaire + bascule connexion/création.
      Un seul exemplaire, consommé par AccountModal (modale) et AuthWall (mur
      d'authentification de l'app installée). -->
 <AuthForm {mode} {onSuccess} compact={false} {name} />
+
+{#if children}{@render children()}{/if}
 
 <div class="divider text-[10px] tracking-widest uppercase opacity-50">
 	{m.auth_or_divider()}

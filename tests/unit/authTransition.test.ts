@@ -6,6 +6,8 @@
  *   - L'ordre de la séquence : claim → clear → syncAuthData → subscribe → read-state
  *   - guestClaim retourné contient la bonne identité
  *   - Gestion d'erreur : une étape non bloquante qui échoue n'interrompt pas la suite
+ *   - Portage mur (portage: true) : claim batch + clear sélectif + authRefresh
+ *   - Défaut (navigateur, portage: false) : claim unique + clear total, statu quo
  */
 import { describe, expect, it, vi } from "vitest";
 import type { SavedPlanning } from "$lib/types/planning.types";
@@ -42,6 +44,7 @@ function createFakeDeps(callTracker?: { order: string[] }): AuthTransitionDeps {
 			subscribe: vi.fn().mockImplementation(() => track("occurrencesCollection.subscribe")),
 		},
 		claimPlannings: vi.fn().mockImplementation(async () => track("claimPlannings")),
+		refreshAuthRecord: vi.fn().mockImplementation(async () => track("refreshAuthRecord")),
 		syncAuthData: vi.fn().mockImplementation(async () => track("syncAuthData")),
 		commentStateService: {
 			syncCommentReadState: vi.fn().mockImplementation(async () => track("syncCommentReadState")),
@@ -52,13 +55,24 @@ function createFakeDeps(callTracker?: { order: string[] }): AuthTransitionDeps {
 					track(`db.masters.get:${id}`);
 					return { participantToken: "tok-part", adminToken: "tok-admin" };
 				}),
+				toArray: vi.fn().mockImplementation(async () => {
+					track("db.masters.toArray");
+					return [{ id: "master-1", participantToken: "tok-part", adminToken: "tok-admin" }];
+				}),
 				clear: vi.fn().mockImplementation(async () => track("db.masters.clear")),
 			},
 			occurrences: { clear: vi.fn().mockImplementation(async () => track("db.occurrences.clear")) },
 			commentState: {
 				clear: vi.fn().mockImplementation(async () => track("db.commentState.clear")),
 			},
-			localMeta: { clear: vi.fn().mockImplementation(async () => track("db.localMeta.clear")) },
+			localMeta: {
+				toArray: vi.fn().mockImplementation(async () => {
+					track("db.localMeta.toArray");
+					return [] as SavedPlanning[];
+				}),
+				bulkPut: vi.fn().mockImplementation(async () => track("db.localMeta.bulkPut")),
+				clear: vi.fn().mockImplementation(async () => track("db.localMeta.clear")),
+			},
 		},
 	};
 }
@@ -68,6 +82,7 @@ function createContext(overrides: Partial<AuthTransitionContext> = {}): AuthTran
 		currentToken: "token-123",
 		activeMasterId: "master-1",
 		savedPlannings: [],
+		portage: false,
 		...overrides,
 	};
 }
@@ -222,5 +237,111 @@ describe("runAuthTransition", () => {
 
 		expect(deps.claimPlannings).not.toHaveBeenCalled();
 		expect(deps.syncAuthData).toHaveBeenCalled();
+	});
+
+	// =============================================
+	// Portage mur (app installée, portage: true)
+	// =============================================
+
+	it("portage : claim batch de tous les masters non supprimés, puis authRefresh", async () => {
+		const callTracker = { order: [] as string[] };
+		const deps = createFakeDeps(callTracker);
+		(deps.db.masters.toArray as ReturnType<typeof vi.fn>).mockResolvedValue([
+			{ id: "master-1", participantToken: "tok-1", adminToken: "admin-1" },
+			{ id: "master-2", participantToken: "tok-2" },
+			{ id: "master-3", participantToken: "tok-3", deleted: true },
+		]);
+
+		// Derrière le mur, aucun planning n'est activé
+		await runAuthTransition(
+			createContext({ currentToken: null, activeMasterId: null, portage: true }),
+			deps,
+		);
+
+		expect(deps.claimPlannings).toHaveBeenCalledExactlyOnceWith([
+			{ id: "master-1", participantToken: "tok-1", adminToken: "admin-1" },
+			{ id: "master-2", participantToken: "tok-2" },
+		]);
+		expect(deps.refreshAuthRecord).toHaveBeenCalledOnce();
+
+		// Ordre : claim → authRefresh → clear sélectif → sync
+		expect(callTracker.order.indexOf("refreshAuthRecord")).toBeGreaterThan(
+			callTracker.order.indexOf("claimPlannings"),
+		);
+		expect(callTracker.order.indexOf("db.localMeta.toArray")).toBeGreaterThan(
+			callTracker.order.indexOf("refreshAuthRecord"),
+		);
+		expect(callTracker.order.indexOf("syncAuthData")).toBeGreaterThan(
+			callTracker.order.indexOf("db.localMeta.bulkPut"),
+		);
+	});
+
+	it("portage : clear sélectif — masters et identités guest survivent, le reste est vidé", async () => {
+		const deps = createFakeDeps();
+		(deps.db.localMeta.toArray as ReturnType<typeof vi.fn>).mockResolvedValue([
+			{ masterId: "master-1", currentUser: { id: "guest-1", name: "Alice", email: "" } },
+			{ masterId: "master-2", hasQuit: true },
+			{ masterId: "master-3", lastFetchAt: "2026-10-29T10:00:00Z" },
+		]);
+
+		await runAuthTransition(createContext({ portage: true }), deps);
+
+		// Les tokens font exister la sidebar : masters NON vidé
+		expect(deps.db.masters.clear).not.toHaveBeenCalled();
+		expect(deps.db.occurrences.clear).toHaveBeenCalled();
+		expect(deps.db.commentState.clear).toHaveBeenCalled();
+
+		// localMeta : seule l'identité (non reconstruisible) survit au clear
+		expect(deps.db.localMeta.clear).toHaveBeenCalled();
+		expect(deps.db.localMeta.bulkPut).toHaveBeenCalledExactlyOnceWith([
+			{ masterId: "master-1", currentUser: { id: "guest-1", name: "Alice", email: "" } },
+		]);
+	});
+
+	it("portage : pas de claim ni d'authRefresh si aucun master local", async () => {
+		const deps = createFakeDeps();
+		(deps.db.masters.toArray as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+		await runAuthTransition(createContext({ portage: true }), deps);
+
+		expect(deps.claimPlannings).not.toHaveBeenCalled();
+		expect(deps.refreshAuthRecord).not.toHaveBeenCalled();
+		// Le clear sélectif s'applique quand même (identités à préserver éventuelles)
+		expect(deps.db.masters.clear).not.toHaveBeenCalled();
+	});
+
+	it("portage : échec du claim batch non bloquant — clear sélectif et sync assurés", async () => {
+		const deps = createFakeDeps();
+		(deps.claimPlannings as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Offline"));
+
+		await expect(runAuthTransition(createContext({ portage: true }), deps)).resolves.toBeDefined();
+
+		expect(deps.refreshAuthRecord).not.toHaveBeenCalled();
+		expect(deps.db.masters.clear).not.toHaveBeenCalled();
+		expect(deps.syncAuthData).toHaveBeenCalled();
+	});
+
+	it("portage : échec de l'authRefresh non bloquant", async () => {
+		const deps = createFakeDeps();
+		(deps.refreshAuthRecord as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("401"));
+
+		await expect(runAuthTransition(createContext({ portage: true }), deps)).resolves.toBeDefined();
+
+		expect(deps.syncAuthData).toHaveBeenCalled();
+		expect(deps.db.masters.clear).not.toHaveBeenCalled();
+	});
+
+	it("défaut : pas d'authRefresh, claim unique du planning actif, clear total", async () => {
+		const deps = createFakeDeps();
+
+		await runAuthTransition(createContext(), deps);
+
+		expect(deps.refreshAuthRecord).not.toHaveBeenCalled();
+		expect(deps.claimPlannings).toHaveBeenCalledExactlyOnceWith([
+			{ id: "master-1", participantToken: "tok-part", adminToken: "tok-admin" },
+		]);
+		expect(deps.db.masters.clear).toHaveBeenCalled();
+		expect(deps.db.localMeta.clear).toHaveBeenCalled();
+		expect(deps.db.localMeta.bulkPut).not.toHaveBeenCalled();
 	});
 });

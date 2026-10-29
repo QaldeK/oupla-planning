@@ -28,6 +28,7 @@ import { db } from "$lib/pb-sync/db";
 import { pb } from "$lib/pocketbase/pb";
 import { authTransition } from "$lib/stores/authTransition.svelte";
 import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
+import { installStore } from "$lib/stores/installStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import type { PlanningIdentity } from "$lib/types/planning.types";
@@ -482,6 +483,86 @@ describe("userStore — identity, auth transitions, logout", () => {
 			});
 			expect(result.identity).not.toBeNull();
 			expect(result.identity!.id).toBe(user.id);
+
+			// Cleanup
+			pb.authStore.clear();
+			userStore.isLoggedIn = false;
+			planningStore.destroy();
+		});
+
+		it("portage mur : claim batch de tous les masters + clear sélectif (identités préservées)", async () => {
+			// Parcours création de compte au mur d'authentification (app installée) :
+			// un invité multi-plannings rattache TOUT ses plannings locaux au compte,
+			// les tokens et identités guest survivent au clear, le reste est vidé.
+			// Garde du périmètre : ce parcours exige origine mur (isInstalled) ET
+			// consentement (wallPortageConsent) — le défaut reste le statu quo
+			// (test « ne sync rien si pas de planning actif » ci-dessus).
+
+			// === SEED : 2 plannings (un créé ici = adminToken détenu, un rejoint) ===
+			const first = await seedPlanning({ title: "Portage Admin", occurrenceCount: 1 });
+			const second = await seedPlanning({ title: "Portage Guest", occurrenceCount: 1 });
+
+			const user = await seedUser(USER_EMAIL, USER_PWD, "Portage User");
+			trackIds("users", user.id);
+
+			// === ÉTAT DEXIE d'un invité multi-plannings derrière le mur ===
+			// Masters en cache avec leurs tokens ; identité guest sur le 1er,
+			// hasQuit seul sur le 2e, curseur lastFetchAt résiduel sur le 1er.
+			// Aucun planning actif : le mur désactive tout.
+			await db.masters.put({
+				...first.master,
+				participantToken: first.participantToken,
+				adminToken: first.adminToken,
+			});
+			await db.masters.put({
+				...second.master,
+				participantToken: second.participantToken,
+			});
+			await db.localMeta.put({
+				masterId: first.master.id,
+				currentUser: { id: "guest-1", name: "Alice", email: "" },
+				lastFetchAt: "2026-10-29T00:00:00.000Z",
+			});
+			await db.localMeta.put({ masterId: second.master.id, hasQuit: true });
+			expect(planningStore.currentToken).toBeNull();
+
+			// === AUTH : création de compte simulée au mur (consentement posé) ===
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+			userStore.isLoggedIn = true;
+			installStore.isInstalled = true;
+			authTransition.wallPortageConsent = true;
+
+			// === ACTION ===
+			await authTransition.transitionToAuth();
+			installStore.isInstalled = false;
+
+			// Le consentement est consommé — un login ultérieur ne porte plus rien.
+			expect(authTransition.wallPortageConsent).toBeNull();
+
+			// === VERIFICATION POCKETBASE : claim batch des 2 masters ===
+			const adminPb = await authenticateAdmin();
+			const pbUser = await adminPb.collection("users").getOne(user.id);
+			expect(pbUser.masterId).toContain(first.master.id);
+			expect(pbUser.masterId).toContain(second.master.id);
+			// Le planning créé ici restaure le rôle admin du compte
+			const adminOf = (pbUser.adminOf as Record<string, string>) || {};
+			expect(adminOf[first.master.id]).toBe(first.adminToken);
+
+			// === VERIFICATION DEXIE : clear sélectif ===
+			// Masters (tokens) préservés — la sidebar vit dessus.
+			expect(await db.masters.get(first.master.id)).toBeDefined();
+			expect(await db.masters.get(second.master.id)).toBeDefined();
+			// Identité guest préservée, champs jetables vidés.
+			const firstMeta = await db.localMeta.get(first.master.id);
+			expect(firstMeta?.currentUser).toEqual({ id: "guest-1", name: "Alice", email: "" });
+			expect(firstMeta?.lastFetchAt).toBeUndefined();
+			// hasQuit seul : la ligne disparaît (rien de reconstruisible à garder).
+			expect(await db.localMeta.get(second.master.id)).toBeUndefined();
+
+			// === REFUS ULTÉRIEUR : l'indice persistant est effacé, pas re-proposé ===
+			await guestStateStore.clearGuestIdentity(first.master.id);
+			expect(await db.localMeta.get(first.master.id)).toBeUndefined();
 
 			// Cleanup
 			pb.authStore.clear();

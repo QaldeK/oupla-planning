@@ -224,6 +224,94 @@ describe("resolveIdentityStrategy — suggestion pendingGuestClaim", () => {
 });
 
 // =============================================
+// Suggestion — indice persistant (portage mur)
+// =============================================
+
+describe("resolveIdentityStrategy — suggestion depuis l'identité guest persistée", () => {
+	it("identité guest locale valide → show_claim_suggestion (portage mur)", () => {
+		const target = makeParticipant({ id: "p-guest", name: "Guest Alice" });
+		const result = resolveIdentityStrategy(
+			makeInput({
+				master: makeMaster({ participants: [target] }),
+				isLoggedIn: true,
+				pbUser: PB_USER,
+				guestIdentity: { id: "p-guest", name: "Guest Alice", email: "" },
+			}),
+		);
+		expect(result.action).toEqual({
+			type: "show_claim_suggestion",
+			participant: target,
+		});
+		expect(result.expirePendingClaim).toBe(false);
+	});
+
+	it("identité guest locale invalide (participant claimé ailleurs) → CAS B/C", () => {
+		const claimed = makeParticipant({ id: "p-guest", userId: "autre-user" });
+		const result = resolveIdentityStrategy(
+			makeInput({
+				master: makeMaster({ participants: [claimed] }),
+				isLoggedIn: true,
+				pbUser: PB_USER,
+				guestIdentity: { id: "p-guest", name: "Guest Alice", email: "" },
+			}),
+		);
+		// Pas de name match (Bob ≠ Alice), pas de conflit → auto_add.
+		// L'indice persistant reste en place (seul le refus explicite l'efface) ;
+		// expirePendingClaim ne vise ici que le slot mémoire (no-op).
+		expect(result.action.type).toBe("auto_add");
+		expect(result.expirePendingClaim).toBe(true);
+	});
+
+	it("slot mémoire prioritaire sur l'indice persistant", () => {
+		const memTarget = makeParticipant({ id: "p-mem", name: "Mem" });
+		const localTarget = makeParticipant({ id: "p-local", name: "Local" });
+		const result = resolveIdentityStrategy(
+			makeInput({
+				master: makeMaster({ participants: [memTarget, localTarget] }),
+				isLoggedIn: true,
+				pbUser: PB_USER,
+				guestIdentity: { id: "p-local", name: "Local", email: "" },
+				pendingGuestClaim: { masterId: "m1", participantId: "p-mem", name: "Mem" },
+			}),
+		);
+		expect(result.action).toEqual({
+			type: "show_claim_suggestion",
+			participant: memTarget,
+		});
+	});
+
+	it("CAS A prioritaire : identité locale pointant un participant déjà lié → silent_sync", () => {
+		// Régression des flux existants : une identité locale écrite pendant une
+		// session auth (claim/modal) ne doit JAMAIS re-déclencher la suggestion.
+		const linked = makeParticipant({ id: "p-guest", userId: PB_USER.id, name: "Bob" });
+		const result = resolveIdentityStrategy(
+			makeInput({
+				master: makeMaster({ participants: [linked] }),
+				myParticipant: linked,
+				isLoggedIn: true,
+				pbUser: PB_USER,
+				guestIdentity: { id: "p-guest", name: "Bob", email: "" },
+			}),
+		);
+		expect(result.action.type).toBe("silent_sync");
+		expect(result.expirePendingClaim).toBe(true);
+	});
+
+	it("branche guest : identité locale → none, aucune suggestion (statu quo)", () => {
+		const target = makeParticipant({ id: "p-guest", name: "Guest Alice" });
+		const result = resolveIdentityStrategy(
+			makeInput({
+				master: makeMaster({ participants: [target] }),
+				isLoggedIn: false,
+				pbUser: null,
+				guestIdentity: { id: "p-guest", name: "Guest Alice", email: "" },
+			}),
+		);
+		expect(result.action).toEqual({ type: "none" });
+	});
+});
+
+// =============================================
 // CAS B — name match
 // =============================================
 

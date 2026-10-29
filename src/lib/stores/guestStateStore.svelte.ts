@@ -5,7 +5,8 @@
  *   - Exposer les accesseurs guest-prefixed (`getGuestIdentity`, `getGuestQuitState`)
  *   - Écrire `currentUser` / `hasQuit` dans Dexie `localMeta` (patch partiel via
  *     `upsertLocalMeta`) — jamais d'autre champ (coexistence avec planningStore,
- *     écrivain de `lastFetchAt` — voir ADR 0009).
+ *     écrivain de `lastFetchAt` — voir ADR 0009). Retirer `currentUser` (refus
+ *     de suggestion) reste dans ce périmètre, via patch direct.
  *
  * `guestStates` est un **miroir liveQuery** de la table Dexie `localMeta` :
  * Dexie est l'unique source of truth, le `$state` est alimenté par la subscription
@@ -94,6 +95,24 @@ class GuestStateStore {
 	 */
 	async setGuestIdentity(masterId: string, identity: PlanningIdentity): Promise<void> {
 		await upsertLocalMeta(masterId, { currentUser: identity });
+	}
+
+	/**
+	 * Retire l'identité guest persistée d'un planning (refus de la suggestion
+	 * de claim en session auth). Efface `currentUser` de la ligne `localMeta` ;
+	 * la ligne disparaît si elle ne porte plus rien. Passe par le patch direct
+	 * (et non `upsertLocalMeta`, qui ne sait pas retirer un champ).
+	 */
+	async clearGuestIdentity(masterId: string): Promise<void> {
+		const row = await db.localMeta.get(masterId);
+		if (!row?.currentUser) return;
+		const { currentUser: _removed, ...rest } = row;
+		if (Object.keys(rest).length === 1) {
+			// Ne reste que masterId : la ligne n'a plus de raison d'être.
+			await db.localMeta.delete(masterId);
+		} else {
+			await db.localMeta.put(rest as SavedPlanning);
+		}
 	}
 
 	// =============================================

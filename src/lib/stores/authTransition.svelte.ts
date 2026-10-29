@@ -16,8 +16,10 @@ import { claimPlannings } from "$lib/services/claimPlannings";
 import { commentStateService } from "$lib/services/commentStateService";
 import { syncPushSubscription } from "$lib/services/push";
 import { guestStateStore } from "$lib/stores/guestStateStore.svelte";
+import { installStore } from "$lib/stores/installStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
+import { pb } from "$lib/pocketbase/pb";
 import type { AuthTransitionResult } from "$lib/utils/authTransition";
 import { runAuthTransition } from "$lib/utils/authTransition";
 
@@ -43,6 +45,15 @@ class AuthTransitionWrapper {
 		$state(null);
 
 	/**
+	 * Consentement au portage des plannings locaux (bascule du mur
+	 * d'authentification, mode création de compte). Posé réactivement par le
+	 * mur avant submit, consommé une seule fois par la transition ci-dessous —
+	 * un login ultérieur repart du défaut (pas de portage). `null` = jamais
+	 * posé : le parcours navigateur ne le pose jamais.
+	 */
+	wallPortageConsent: boolean | null = $state(null);
+
+	/**
 	 * Déclenche la transition guest → auth.
 	 * Appelé par le callback pb.authStore.onChange de userStore.
 	 * Les erreurs sont catchées en interne — l'appelant reste protégé.
@@ -50,12 +61,23 @@ class AuthTransitionWrapper {
 	async transitionToAuth(): Promise<void> {
 		// Guard : empêche les $effect des pages de réagir à un état intermédiaire
 		this.isTransitioning = true;
+
+		// Portage mur : double garde — l'origine (app installée : le mur est la
+		// seule surface de login en contexte standalone) ET le consentement
+		// explicite. Consommé ici, atomiquement avec la lecture.
+		const portage = installStore.isInstalled && this.wallPortageConsent === true;
+		this.wallPortageConsent = null;
+
 		try {
 			const deps = {
 				planningStore,
 				mastersCollection,
 				occurrencesCollection,
 				claimPlannings,
+				// Propage masterId/adminOf du claim batch au record d'auth local.
+				refreshAuthRecord: async () => {
+					await pb.collection("users").authRefresh();
+				},
 				// Le marqueur de fraîcheur appartient à userStore (ADR 0009) ;
 				// son moment appartient à syncAuthData.
 				syncAuthData: () => syncAuthData(() => userStore.markAuthSynced()),
@@ -67,15 +89,16 @@ class AuthTransitionWrapper {
 				currentToken: planningStore.currentToken,
 				activeMasterId: planningStore.activeMasterId,
 				savedPlannings: guestStateStore.guestStates,
+				portage,
 			};
 
 			const result: AuthTransitionResult = await runAuthTransition(ctx, deps);
 			this.pendingGuestClaim = result.guestClaim;
 			// Pas de cleanup Dexie ici : runAuthTransition a déjà fait le teardown
-			// (étape 5 vide db.localMeta). Le reset de guestStates est automatique —
-			// la subscription liveQuery propage le [] vers le $state. Le marqueur
-			// lastFetchAt (ré)écrit ultérieurement par planningStore lors d'une
-			// activation ou re-sync doit pouvoir coexister sans être wipe hors
+			// (étape 5 vide db.localMeta — sauf portage, où les identités guest
+			// survivent délibérément comme indice de suggestion durable).
+			// Le marqueur lastFetchAt (ré)écrit ultérieurement par planningStore lors
+			// d'une activation ou re-sync doit pouvoir coexister sans être wipe hors
 			// du périmètre de guestStateStore (modèle de propriété ADR 0009).
 		} catch (err) {
 			console.error("transitionToAuth failed:", err);

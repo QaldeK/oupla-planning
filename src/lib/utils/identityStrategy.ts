@@ -28,7 +28,9 @@ export interface StrategyInput {
 	isLoggedIn: boolean;
 	/** Identité PocketBase si `isLoggedIn`. */
 	pbUser: { id: string; name: string; email: string } | null;
-	/** Identité guest locale (Dexie `localMeta`) pour ce planning. */
+	/** Identité guest locale (Dexie `localMeta`) pour ce planning.
+	 * Branche guest : identité courante. Branche auth : indice persistant de
+	 * suggestion (portage mur — durable jusqu'au logout ou refus). */
 	guestIdentity: PlanningIdentity | null;
 	/** true si l'utilisateur a déjà quitté ce planning (modal de retour à proposer). */
 	hasQuitThisPlanning: boolean;
@@ -64,11 +66,14 @@ export interface StrategyResult {
 	/** Action à exécuter. */
 	action: StrategyAction;
 	/**
-	 * `true` quand le `pendingGuestClaim` est obsolète et doit être expiré
-	 * via `authTransition.clearPendingGuestClaim()`. Couvre deux cas :
+	 * `true` quand l'indice de suggestion (slot mémoire `pendingGuestClaim`)
+	 * est obsolète et doit être expiré via `authTransition.clearPendingGuestClaim()`.
+	 * Couvre deux cas :
 	 * - CAS A (`silent_sync`) : l'utilisateur est déjà lié, la suggestion n'a plus de sens.
-	 * - Suggestion invalide (participant claimé ailleurs, quitté, supprimé) qui
+	 * - Indice invalide (participant claimé ailleurs, quitté, supprimé) qui
 	 *   retombe sur CAS B/C : on l'expire avant d'exécuter l'action suivante.
+	 * L'indice persistant (`localMeta`) n'est jamais effacé par ce signal —
+	 * seul un refus explicite de la suggestion le fait.
 	 */
 	expirePendingClaim: boolean;
 }
@@ -134,12 +139,21 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 			return none(false);
 		}
 
-		// Suggestion de claim : transition guest→auth sur CE planning. Prioritaire
-		// sur CAS B/C — l'utilisateur doit pouvoir réclamer son identité guest
-		// avant tout auto-add.
-		if (pendingGuestClaim?.masterId === master.id) {
+		// Suggestion de claim : indice explicite de transition (slot mémoire,
+		// parcours navigateur) OU identité guest persistée (portage mur —
+		// durable jusqu'au logout, effacée au refus). Prioritaire sur CAS B/C —
+		// l'utilisateur doit pouvoir réclamer son identité guest avant tout
+		// auto-add.
+		const claimHint =
+			pendingGuestClaim?.masterId === master.id
+				? pendingGuestClaim
+				: guestIdentity
+					? { masterId: master.id, participantId: guestIdentity.id, name: guestIdentity.name }
+					: null;
+
+		if (claimHint) {
 			const target = master.participants.find(
-				(p) => p.id === pendingGuestClaim.participantId && !p.userId && !p.hasQuit,
+				(p) => p.id === claimHint.participantId && !p.userId && !p.hasQuit,
 			);
 			if (target) {
 				return {
@@ -147,15 +161,14 @@ export function resolveIdentityStrategy(input: StrategyInput): StrategyResult {
 					expirePendingClaim: false,
 				};
 			}
-			// Sinon : snapshot invalide (claimé ailleurs, quitté, supprimé).
-			// On continue vers CAS B/C en signalant l'expiration.
+			// Sinon : indice invalide (claimé ailleurs, quitté, supprimé).
+			// On continue vers CAS B/C en signalant l'expiration du slot mémoire
+			// (l'indice persistant, lui, ne s'efface que par un refus explicite).
 		}
 
 		const isPendingClaimStale =
-			pendingGuestClaim?.masterId === master.id &&
-			!master.participants.some(
-				(p) => p.id === pendingGuestClaim.participantId && !p.userId && !p.hasQuit,
-			);
+			claimHint !== null &&
+			!master.participants.some((p) => p.id === claimHint.participantId && !p.userId && !p.hasQuit);
 
 		// CAS B : name match case-insensitive avec un participant non-lié sans hasQuit
 		const nameMatch = master.participants.find(

@@ -288,15 +288,21 @@
 	}
 
 	/** Refus de la suggestion de claim : auto-add du nom du compte si pas de conflit,
-	 * sinon on laisse l'user résoudre sur l'étape principale (conflit visible). */
+	 * sinon on laisse l'user résoudre sur l'étape principale (conflit visible).
+	 * L'annonce explicite évite le changement d'identité silencieux. */
 	function handleDeclineSuggestion() {
 		if (!master || !userStore.pbUser) return;
 		authTransition.clearPendingGuestClaim();
+		// L'indice persistant (portage mur) disparaît avec le refus — sans quoi
+		// la suggestion se re-proposerait à chaque montage du planning.
+		guestStateStore
+			.clearGuestIdentity(master.id)
+			.catch((err) => console.error("clearGuestIdentity failed:", err));
 		const pbUser = userStore.pbUser;
 		// Même garde que CAS C : pas d'auto-add si un autre participant actif porte ce nom.
 		const conflict = hasNameConflict(master.participants, pbUser.name, pbUser.id);
 		if (!conflict) {
-			// Pas de conflit → auto-add silencieux + fermer le modal
+			// Pas de conflit → auto-add + fermer le modal
 			if (!autoAddedMasterIds.has(master.id)) {
 				autoAddedMasterIds.add(master.id);
 				void handlePlanningIdentify(
@@ -306,6 +312,7 @@
 						userId: pbUser.id,
 					},
 				);
+				toast.info(m.identity_now_participating_as({ name: pbUser.name }));
 			}
 			showClaimModal = false;
 		}

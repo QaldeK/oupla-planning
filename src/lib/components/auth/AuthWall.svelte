@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { Bell, MonitorSmartphone } from "@lucide/svelte";
+	import { onMount } from "svelte";
 	import { page } from "$app/state";
 	import * as m from "$lib/paraglide/messages.js";
+	import { db } from "$lib/pb-sync/db";
+	import { authTransition } from "$lib/stores/authTransition.svelte";
 	import { getPlanningTitleByToken } from "$lib/services/planningReads";
 	import AuthPanel from "./AuthPanel.svelte";
 
@@ -11,6 +14,27 @@
 	let planningTitle = $state<string | undefined>(undefined);
 
 	let mode = $state<"register" | "login">("register");
+
+	// Portage des plannings locaux : candidats = masters non supprimés en
+	// Dexie. Lecture unique au montage — derrière le mur, aucune surface
+	// n'écrit (stockage isolé type iOS → 0 candidat, bascule absente).
+	let attachableCount = $state(0);
+	let attachPlannings = $state(true);
+
+	onMount(() => {
+		void (async () => {
+			const masters = await db.masters.toArray();
+			attachableCount = masters.filter((master) => !master.deleted).length;
+		})();
+	});
+
+	// Consentement réactif, consommé une fois par la transition (voir
+	// authTransition.wallPortageConsent). Posé AVANT submit : onChange tire
+	// pendant authWithPassword, dans la même tâche que cet état.
+	$effect(() => {
+		authTransition.wallPortageConsent =
+			mode === "register" && attachableCount > 0 && attachPlannings;
+	});
 
 	$effect(() => {
 		const token = page.params.token as string | undefined;
@@ -29,7 +53,9 @@
 <!-- Mur d'authentification : app installée (standalone) sans session. Remplace
      toute surface de l'app, sans contournement — la conversion (connexion ou
      création) est l'unique issue ; le login déclenche la transition auth
-     existante (claim du planning + fusion d'identité). -->
+     existante (claim du planning + fusion d'identité), complétée au mode
+     création par le portage des plannings locaux (claim batch + clear
+     sélectif, voir auth-identity.md). -->
 <main
 	class="bg-base-200 flex min-h-dvh flex-col items-center justify-center gap-6 overflow-y-auto p-4"
 >
@@ -60,7 +86,24 @@
 				</div>
 			{/if}
 
-			<AuthPanel bind:mode />
+			<AuthPanel bind:mode>
+				{#snippet children()}
+					{#if mode === "register" && attachableCount > 0}
+						<label class="flex cursor-pointer items-start gap-2 text-sm">
+							<input
+								type="checkbox"
+								name="attachPlannings"
+								class="checkbox checkbox-sm mt-0.5"
+								bind:checked={attachPlannings}
+							/>
+							<span>
+								{m.auth_wall_attach_label()}
+								<span class="block text-xs opacity-70">{m.auth_wall_attach_hint()}</span>
+							</span>
+						</label>
+					{/if}
+				{/snippet}
+			</AuthPanel>
 		</div>
 	</div>
 </main>
