@@ -164,12 +164,12 @@ créerait un second participant, cassant l'affichage du participant courant.
 
 La stratégie vit dans `/p/[token]/+page.svelte`, par ordre de priorité strict :
 
-| Priorité | Cas        | Condition                                                  | Action                                                |
-| -------- | ---------- | ---------------------------------------------------------- | ----------------------------------------------------- |
-| 1        | CAS A      | participant déjà lié (`userId`, `!hasQuit`)                | sync silencieuse, aucun modal                         |
+| Priorité | Cas        | Condition                                                      | Action                                             |
+| -------- | ---------- | -------------------------------------------------------------- | -------------------------------------------------- |
+| 1        | CAS A      | participant déjà lié (`userId`, `!hasQuit`)                    | sync silencieuse, aucun modal                      |
 | 2        | Suggestion | indice (mémoire ou persisté) ciblant ce planning, cible valide | auto-open du modal, étape suggestion               |
-| 3        | CAS B      | participant non lié de même nom (case-insensitive)         | auto-open du modal, étape principale                  |
-| 4        | CAS C      | aucun des cas précédents                                   | si conflit de nom → modal ; sinon auto-add annoncé    |
+| 3        | CAS B      | participant non lié de même nom (case-insensitive)             | auto-open du modal, étape principale               |
+| 4        | CAS C      | aucun des cas précédents                                       | si conflit de nom → modal ; sinon auto-add annoncé |
 
 La suggestion prime sur B et C parce qu'elle porte une information **exacte** (l'UUID du
 participant guest), là où B est une heuristique par nom. Deux sources d'indice, unifiées
