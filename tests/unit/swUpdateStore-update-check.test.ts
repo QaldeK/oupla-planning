@@ -1,56 +1,20 @@
 /**
  * Tests unitaires — swUpdateStore : throttle des checks de MAJ du Service Worker.
  *
- * Invariant : `reg.update()` est throttlé à 1/min (spec browser), mais ne doit
- * JAMAIS être court-circuité par la présence d'un `reg.waiting` — un second
- * déploiement pendant qu'une MAJ attend doit remplacer le `waiting` courant
- * (le dernier découvert gagne), sinon le clic « Mettre à jour » activerait une
- * version intermédiaire et imposerait un second cycle toast → reload.
+ * Invariant : `reg.update()` est throttlé à 1/min (spec browser) et jamais
+ * court-circuité par un `reg.waiting` présent — un second déploiement doit
+ * remplacer l'attente courante (le dernier découvert gagne), sinon le clic
+ * activerait une version intermédiaire.
  *
- * Environnement : node pur. Les APIs browser (window, document, navigator) sont
- * stubbées ; le throttle est exercé via les listeners posés par `init()`, en
- * pilotant l'horloge avec les fake timers de vitest. Le store étant un
- * singleton, `init()` n'est appelé qu'une fois et chaque test démarre à une
- * heure distincte (> 60 s du check précédent) pour neutraliser l'état partagé.
- *
- * Le boot porte un `waiting` : depuis l'auto-activation au chargement frais,
- * `init()` y répond par un `SKIP_WAITING` — mock sans `controllerchange`
- * dispatché, sans effet sur les checks comptés ici. Le consentement de reload
- * (`controllerchange`) vit dans `swUpdateStore-boot-activation.test.ts`, qui
- * boote sans `waiting`.
+ * Singleton à état : `init()` une seule fois ; chaque test démarre à une heure
+ * distante pour neutraliser le throttle hérité. Le boot porte un `waiting` :
+ * l'auto-activation y répond par un `SKIP_WAITING` mocké, sans effet sur les
+ * checks comptés ici. Consentement de reload : voir
+ * `swUpdateStore-boot-activation.test.ts` (boot sans `waiting`).
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { swUpdateStore } from "$lib/stores/swUpdateStore.svelte";
-
-function makeEventTarget() {
-	const listeners = new Map<string, Set<(event: unknown) => void>>();
-	return {
-		addEventListener(type: string, cb: (event: unknown) => void) {
-			if (!listeners.has(type)) listeners.set(type, new Set());
-			listeners.get(type)!.add(cb);
-		},
-		removeEventListener(type: string, cb: (event: unknown) => void) {
-			listeners.get(type)?.delete(cb);
-		},
-		dispatch(type: string, event: Record<string, unknown> = {}) {
-			// Le wrapper d'écoute de svelte (`create_event`) lit `event.target` et
-			// `event.type` pour simuler la propagation avant d'appeler le handler —
-			// l'event factice doit donc porter ces propriétés.
-			const e = { ...event, type, target: this };
-			for (const cb of [...(listeners.get(type) ?? [])]) cb(e);
-		},
-	};
-}
-
-function makeRegistration() {
-	return {
-		// `waiting` présent : le scénario de régression est exactement
-		// « un waiting existe, un check doit quand même partir ».
-		waiting: { postMessage: vi.fn() },
-		update: vi.fn(() => Promise.resolve()),
-		...makeEventTarget(),
-	};
-}
+import { flushMicrotasks, makeEventTarget, makeRegistration, type SwRegistrationStub } from "./helpers/sw-stubs";
 
 const fakeWindow = {
 	...makeEventTarget(),
@@ -73,17 +37,13 @@ const serviceWorker = {
 	getRegistration: vi.fn(),
 };
 
-let reg: ReturnType<typeof makeRegistration>;
+let reg: SwRegistrationStub;
 let ready: Promise<void> | null = null;
-
-async function flushMicrotasks() {
-	for (let i = 0; i < 5; i++) await Promise.resolve();
-}
 
 function ensureInit() {
 	if (!ready) {
 		ready = (async () => {
-			reg = makeRegistration();
+			reg = makeRegistration(true);
 			serviceWorker.getRegistration.mockResolvedValue(reg);
 			await swUpdateStore.init();
 			await flushMicrotasks();
