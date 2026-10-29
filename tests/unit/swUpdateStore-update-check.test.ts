@@ -12,6 +12,12 @@
  * pilotant l'horloge avec les fake timers de vitest. Le store étant un
  * singleton, `init()` n'est appelé qu'une fois et chaque test démarre à une
  * heure distincte (> 60 s du check précédent) pour neutraliser l'état partagé.
+ *
+ * Le boot porte un `waiting` : depuis l'auto-activation au chargement frais,
+ * `init()` y répond par un `SKIP_WAITING` — mock sans `controllerchange`
+ * dispatché, sans effet sur les checks comptés ici. Le consentement de reload
+ * (`controllerchange`) vit dans `swUpdateStore-boot-activation.test.ts`, qui
+ * boote sans `waiting`.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { swUpdateStore } from "$lib/stores/swUpdateStore.svelte";
@@ -168,36 +174,5 @@ describe("swUpdateStore — throttle des checks de MAJ SW", () => {
 		fakeDocument.visibilityState = "visible";
 		fakeDocument.dispatch("visibilitychange");
 		expect(reg.update.mock.calls.length).toBe(before + 1);
-	});
-});
-
-/**
- * Le singleton est partagé dans ce fichier : ces deux cas sont ordonnés —
- * le premier constate l'absence de demande locale, le second en pose une.
- */
-describe("swUpdateStore — reload au controllerchange", () => {
-	it("controllerchange venu d'un autre onglet : pas de reload, MAJ signalée", async () => {
-		await ensureInit();
-		swUpdateStore.hasUpdate = false;
-		const reload = fakeWindow.location.reload as ReturnType<typeof vi.fn>;
-		const before = reload.mock.calls.length;
-
-		serviceWorker.dispatch("controllerchange");
-
-		expect(reload.mock.calls.length).toBe(before);
-		expect(swUpdateStore.hasUpdate).toBe(true);
-	});
-
-	it("après applyUpdate, controllerchange recharge l'onglet demandeur", async () => {
-		await ensureInit();
-		await swUpdateStore.applyUpdate();
-		expect(reg.waiting.postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING" });
-
-		const reload = fakeWindow.location.reload as ReturnType<typeof vi.fn>;
-		const before = reload.mock.calls.length;
-
-		serviceWorker.dispatch("controllerchange");
-
-		expect(reload.mock.calls.length).toBe(before + 1);
 	});
 });

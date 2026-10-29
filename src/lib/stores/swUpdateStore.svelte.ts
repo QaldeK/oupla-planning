@@ -2,14 +2,17 @@ import { on } from "svelte/events";
 
 /**
  * Cycle de vie « maintenance » : détection d'un service worker en attente et
- * activation différée à une action utilisateur. L'installation de l'app vit
- * dans installStore.
+ * activation — différée à une action utilisateur en session, immédiate et
+ * silencieuse au chargement frais quand l'attente hérite d'une session
+ * précédente. L'installation de l'app vit dans installStore.
  */
 class SwUpdateStore {
 	// Détection de mise à jour du Service Worker.
-	// Vrai quand un nouveau SW est installé et en attente d'activation (waiting).
-	// Le passage à true déclenche le toast de MAJ côté layout ; l'utilisateur
-	// choisit le moment du reload via applyUpdate().
+	// Vrai quand un nouveau SW est installé et en attente d'activation (waiting)
+	// DÉCOUVERT EN SESSION. Le passage à true déclenche le toast de MAJ côté
+	// layout ; l'utilisateur choisit le moment du reload via applyUpdate().
+	// Le waiting déjà présent au boot n'emprunte pas ce chemin : il est activé
+	// immédiatement (document neuf, rien à perdre).
 	hasUpdate = $state(false);
 
 	// Évite un double reload() intra-session : `controllerchange` peut se
@@ -76,9 +79,10 @@ class SwUpdateStore {
 	 *  - un SW en attente apparu sur un `updatefound` tardif (lui-même déclenché
 	 *    par les checks proactifs `#triggerUpdateCheck`).
 	 *
-	 * L'activation effective est différée à `applyUpdate()` (action utilisateur) :
+	 * L'activation en session est différée à `applyUpdate()` (action utilisateur) :
 	 * on envoie `SKIP_WAITING` au SW en attente, puis le listener `controllerchange`
-	 * déclenche le reload.
+	 * déclenche le reload. Le waiting déjà présent au boot fait exception : document
+	 * neuf, aucune saisie à perdre → activation immédiate via `#activateWaiting()`.
 	 */
 	#initServiceWorkerUpdateDetection() {
 		if (!("serviceWorker" in navigator)) return;
@@ -113,8 +117,17 @@ class SwUpdateStore {
 			.then((reg) => {
 				if (!reg) return;
 
-				// MAJ en attente dès le boot (session précédente non activée).
-				if (reg.waiting) this.hasUpdate = true;
+				// MAJ en attente dès le boot (session précédente non activée) :
+				// document neuf, aucune saisie en cours — le consentement ne
+				// protège rien et un toast serait imperceptible avant le
+				// reload (~100-500 ms). Activation immédiate et silencieuse,
+				// sous réserve d'un contrôleur établi (page déjà contrôlée par
+				// l'ancien SW) ; un waiting sans contrôleur — coin premier
+				// install — n'a pas de sens, il activera à la navigation
+				// suivante.
+				if (reg.waiting && navigator.serviceWorker.controller) {
+					this.#activateWaiting(reg.waiting);
+				}
 
 				// Nouveau SW détecté pendant la session.
 				on(reg, "updatefound", () => {
@@ -151,6 +164,17 @@ class SwUpdateStore {
 	}
 
 	/**
+	 * Demande l'activation du SW en attente : pose d'abord le consentement de
+	 * reload LOCAL, puis `SKIP_WAITING`. L'ordre importe — sans le drapeau, le
+	 * `controllerchange` prendrait la branche « autre onglet » (toast au lieu
+	 * du reload). Partagé par le boot (chargement frais) et `applyUpdate()`.
+	 */
+	#activateWaiting(waiting: ServiceWorker) {
+		this.#reloadRequested = true;
+		waiting.postMessage({ type: "SKIP_WAITING" });
+	}
+
+	/**
 	 * Active la mise à jour en attente (déclenchée par le toast « Mettre à jour »).
 	 *
 	 * Envoie `SKIP_WAITING` au SW en attente → le SW s'active → `controllerchange`
@@ -168,9 +192,7 @@ class SwUpdateStore {
 		});
 		const waiting = reg?.waiting;
 		if (waiting) {
-			// Autorise le reload de CET onglet au prochain `controllerchange`.
-			this.#reloadRequested = true;
-			waiting.postMessage({ type: "SKIP_WAITING" });
+			this.#activateWaiting(waiting);
 		} else {
 			// État incohérent : hasUpdate était true mais aucun waiting n'est disponible.
 			// Le reload recharge avec le SW actif courant.

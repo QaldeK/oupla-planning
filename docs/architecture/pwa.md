@@ -75,9 +75,9 @@ Le même fichier gère les événements `push` (affichage de la notification) et
 
 `swUpdateStore.svelte.ts` combine deux moitiés, et chacune est nécessaire :
 
-| Moitié    | Rôle                                                                            | Sans elle                                                                                            |
-| --------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Réactive  | `updatefound` puis `statechange` sur l'installation, `reg.waiting` au démarrage | le toast ignore qu'une mise à jour existe                                                            |
+| Moitié    | Rôle                                                                            | Sans elle                                          |
+| --------- | ------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Réactive  | `updatefound`/`statechange` en session (toast), `reg.waiting` au boot (activation immédiate) | aucune mise à jour n'est détectée                   |
 | Proactive | `reg.update()` sur les signaux de retour d'activité                             | en SPA, `updatefound` ne se déclenche jamais — aucune navigation serveur n'a lieu pendant la session |
 
 **Le problème de la moitié proactive** : SvelteKit navigue côté client, donc le navigateur ne
@@ -100,9 +100,25 @@ Pas de vérification au démarrage : le navigateur la fait au chargement, et le 
 déploiement pendant qu'une mise à jour attend doit remplacer l'attente courante : sans
 cela, le clic activerait une version intermédiaire et imposerait un second cycle.
 
-L'activation (`applyUpdate()`) envoie `SKIP_WAITING` au service worker en attente ; le
-rechargement est déclenché par l'écouteur `controllerchange`, posé au démarrage. À défaut
-d'attente (état incohérent), un simple `reload()` suffit.
+L'activation envoie `SKIP_WAITING` au service worker en attente ; le rechargement est
+déclenché par l'écouteur `controllerchange`, posé au démarrage. À défaut d'attente (état
+incohérent), un simple `reload()` suffit. Deux chemins mènent à l'activation :
+
+- **Chargement frais** (`init()`) : un `waiting` hérité d'une session précédente est
+  activé immédiatement et silencieusement — document neuf, aucune saisie à perdre, le
+  consentement ne protège rien, et un toast serait imperceptible avant le reload
+  (~100-500 ms). Conditionné à un contrôleur établi (`navigator.serviceWorker.controller`
+  non-null) : un waiting sans contrôleur — coin premier install — n'a pas de sens, il
+  activera à la navigation suivante. Pas de `hasUpdate` dans ce chemin, donc pas de
+  toast. Limite : un waiting qui n'existe pas encore au boot (déploiement découvert par
+  le check du reload, installation en cours) suit le chemin consenti ci-dessous — la
+  chaîne v2 → v3 garde un second toast dans ce cas.
+- **En session** : découverte → toast persistant → `applyUpdate()` — l'utilisateur
+  choisit le moment, sa saisie est protégée.
+
+Les deux empruntent `#activateWaiting()`, qui pose le consentement de reload local AVANT
+le `SKIP_WAITING` : sans ce drapeau, le `controllerchange` prendrait la branche « autre
+onglet » (toast au lieu du reload).
 
 **Le rechargement reste local à l'onglet demandeur.** Un `controllerchange` peut venir d'un
 autre onglet qui a activé la mise à jour ; sans drapeau de consentement, tous les onglets
@@ -192,6 +208,7 @@ si l'effet se rejoue, le toast existant est mis à jour au lieu d'être dupliqu�
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Cacher `/api/*` (REST ou SSE) dans le SW          | 200 périmé sans erreur réseau → données désynchronisées en silence                                                       |
 | `skipWaiting()` automatique à l'`install`         | rechargement en pleine saisie                                                                                            |
+| `SKIP_WAITING` sans drapeau de consentement local | le `controllerchange` prend la branche « autre onglet » : toast au lieu du reload                                        |
 | Pas de `clients.claim()` à l'`activate`           | le premier service worker n'est actif qu'au rechargement suivant                                                         |
 | Pas de drapeau de première prise de contrôle      | rechargement intempestif au premier install, ou absence de rechargement sur une vraie mise à jour                        |
 | `reg.update()` au démarrage                       | requête redondante                                                                                                       |
