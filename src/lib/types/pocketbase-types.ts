@@ -240,7 +240,7 @@ export type PlanningParticipantsRecord<TcommentReadState = unknown> = {
 	push?: boolean
 	reminderDays?: PlanningParticipantsReminderDaysOptions[]
 	updated: IsoAutoDateString
-	user?: RecordIdString
+	user: RecordIdString
 }
 
 export type PushSubscriptionsRecord = {
