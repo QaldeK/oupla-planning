@@ -61,7 +61,7 @@ Compte authentifié, préférences et orchestration du boot.
 | Membre                                            | Rôle                                                                                                                                                        |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `isLoggedIn`                                      | reflet de `pb.authStore.isValid`, maintenu par `authStore.onChange`                                                                                         |
-| `pbUser`                                          | getter `{ id, name, email }` dérivé de `pb.authStore.record`, `null` sinon                                                                                  |
+| `pbUser`                                          | getter `PbUserSnapshot` (`id`, `name`, `email`, `masterId`, `adminOf`) dérivé de `pb.authStore.record`, `null` sinon                                        |
 | `appPreferences`                                  | `{ theme, occurrenceView }` — persisté sous `app_preferences`                                                                                               |
 | `authModal`                                       | état du modal d'identification (ouvert, contexte du planning)                                                                                               |
 | `isReady`                                         | true après `init()`                                                                                                                                         |

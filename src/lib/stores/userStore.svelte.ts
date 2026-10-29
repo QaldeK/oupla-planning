@@ -32,6 +32,20 @@ interface AuthModalState {
 	currentIdentity?: PlanningIdentity | null; // Identité actuelle pour éviter de créer un nouveau participant
 }
 
+/** Champ JSON users.adminOf : masterId → adminToken (écrit par les hooks PB). */
+export type AdminOfMap = Record<string, string>;
+
+/** Instantané en lecture du record d'auth PocketBase. */
+export interface PbUserSnapshot {
+	id: string;
+	name: string;
+	email: string;
+	/** Masters administrés (relation users.masterId). */
+	masterId: string[];
+	/** Map masterId → adminToken — source serveur du rôle admin d'un user auth. */
+	adminOf: AdminOfMap;
+}
+
 export class UserStore {
 	authModal = $state<AuthModalState>({ open: false });
 	appPreferences = $state<AppPreferences>({
@@ -294,13 +308,21 @@ export class UserStore {
 		}
 	}
 
-	get pbUser(): { id: string; name: string; email: string } | null {
+	get pbUser(): PbUserSnapshot | null {
 		if (!pb.authStore.isValid || !pb.authStore.record) return null;
 		const record = pb.authStore.record;
+		// Champs JSON/relation : défaut PocketBase = null, normalisés en valeurs sûres.
+		const adminOf = record.adminOf;
+		const masterId = record.masterId;
 		return {
 			id: record.id,
 			name: (record.name as string | undefined) ?? "",
 			email: (record.email as string | undefined) ?? "",
+			masterId: Array.isArray(masterId) ? (masterId as string[]) : [],
+			adminOf:
+				adminOf && typeof adminOf === "object" && !Array.isArray(adminOf)
+					? (adminOf as AdminOfMap)
+					: {},
 		};
 	}
 }

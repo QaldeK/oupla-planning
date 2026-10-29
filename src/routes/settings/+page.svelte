@@ -99,7 +99,7 @@
 				expand: "planning",
 			})
 			.then((rows) => {
-				const adminOf = userStore.pbUser?.adminOf ?? [];
+				const adminOf = userStore.pbUser?.adminOf ?? {};
 				entries = rows
 					.filter((row) => row.expand?.planning && !row.expand.planning.deleted)
 					.map((row) => {
@@ -117,7 +117,7 @@
 									? row.newCommentScope
 									: "off",
 							recurrenceType: (planning?.recurrence?.type ?? "WEEKLY") as RecurrenceType,
-							isAdmin: adminOf.includes(row.planning ?? ""),
+							isAdmin: (row.planning ?? "") in adminOf,
 						};
 					});
 			});
