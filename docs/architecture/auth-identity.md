@@ -108,7 +108,7 @@ sequenceDiagram
   participant D as Dexie
   AS->>W: transitionToAuth()
   W->>W: isTransitioning = true
-  W->>W: portage = isInstalled && wallPortageConsent (consommé)
+  W->>W: mode = fanion login local ?<br/>(portage si mur+consent, sinon défaut) : adopt
   W->>R: runAuthTransition(ctx, deps)
   R->>R: 1 initGlobalSync
   R->>R: 2 snapshot identité guest
@@ -117,6 +117,7 @@ sequenceDiagram
   R->>PB: 4b défaut — claimPlannings (planning actif seul)
   R->>D: 5a portage — clear occurrences, commentState, localMeta sauf currentUser
   R->>D: 5b défaut — clear masters, occurrences, commentState, localMeta
+  R->>R: 4c/5c adoption — ni claim ni clear
   R->>PB: 6 syncAuthData — fetch masters + occurrences, puis marqueur
   R->>PB: 7 subscribe + syncCommentReadState
   R->>R: 8 invalidateActiveToken + setActiveToken
@@ -130,6 +131,16 @@ Points d'attention, tous vécus :
 - **Le snapshot se lit sur `guestStates`**, jamais via `getIdentityForPlanning` : à cet
   instant `isLoggedIn` est déjà true, donc la résolution retournerait le Compte au lieu
   de l'identité guest.
+- **Trois modes, selon l'origine du login** (`AuthTransitionMode`) : le fanion
+  « login local » est posé par les surfaces de connexion avant `authWithPassword` et
+  consommé par le wrapper — sans lui, la session est arrivée par l'événement `storage`
+  du SDK (une **autre fenêtre du même profil** s'est connectée, l'onglet ouvert l'entend
+  aussi) et la transition passe en **adoption** : sync + réabonnements, sans claim ni
+  clear. Sans ce mode, l'onglet resté ouvert rejouait la transition destructive sur le
+  même IndexedDB et détruisait le portage de l'app (plannings perdus de la sidebar,
+  suggestion apparue dans le navigateur au lieu de l'app). La fenêtre adoptante ne
+  propose jamais la fusion (`guestClaim` forcé à null) — c'est à l'origine de la
+  transition.
 - **Portage (création de compte au mur uniquement)** : le consentement transite par
   `authTransition.wallPortageConsent` — posé réactivement par `AuthWall` avant submit
   (le callback `onChange` n'accepte pas d'argument), consommé une seule fois. La double

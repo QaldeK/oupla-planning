@@ -6,8 +6,9 @@
  *   - L'ordre de la séquence : claim → clear → syncAuthData → subscribe → read-state
  *   - guestClaim retourné contient la bonne identité
  *   - Gestion d'erreur : une étape non bloquante qui échoue n'interrompt pas la suite
- *   - Portage mur (portage: true) : claim batch + clear sélectif + authRefresh
- *   - Défaut (navigateur, portage: false) : claim unique + clear total, statu quo
+ *   - Portage mur (mode: "portage") : claim batch + clear sélectif + authRefresh
+ *   - Défaut (navigateur, mode: "default") : claim unique + clear total, statu quo
+ *   - Adoption (mode: "adopt") : login venu d'une autre fenêtre — ni claim ni clear
  */
 import { describe, expect, it, vi } from "vitest";
 import type { SavedPlanning } from "$lib/types/planning.types";
@@ -82,7 +83,7 @@ function createContext(overrides: Partial<AuthTransitionContext> = {}): AuthTran
 		currentToken: "token-123",
 		activeMasterId: "master-1",
 		savedPlannings: [],
-		portage: false,
+		mode: "default",
 		...overrides,
 	};
 }
@@ -240,7 +241,7 @@ describe("runAuthTransition", () => {
 	});
 
 	// =============================================
-	// Portage mur (app installée, portage: true)
+	// Portage mur (app installée, mode: "portage")
 	// =============================================
 
 	it("portage : claim batch de tous les masters non supprimés, puis authRefresh", async () => {
@@ -254,7 +255,7 @@ describe("runAuthTransition", () => {
 
 		// Derrière le mur, aucun planning n'est activé
 		await runAuthTransition(
-			createContext({ currentToken: null, activeMasterId: null, portage: true }),
+			createContext({ currentToken: null, activeMasterId: null, mode: "portage" }),
 			deps,
 		);
 
@@ -284,7 +285,7 @@ describe("runAuthTransition", () => {
 			{ masterId: "master-3", lastFetchAt: "2026-10-29T10:00:00Z" },
 		]);
 
-		await runAuthTransition(createContext({ portage: true }), deps);
+		await runAuthTransition(createContext({ mode: "portage" }), deps);
 
 		// Les tokens font exister la sidebar : masters NON vidé
 		expect(deps.db.masters.clear).not.toHaveBeenCalled();
@@ -302,7 +303,7 @@ describe("runAuthTransition", () => {
 		const deps = createFakeDeps();
 		(deps.db.masters.toArray as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
-		await runAuthTransition(createContext({ portage: true }), deps);
+		await runAuthTransition(createContext({ mode: "portage" }), deps);
 
 		expect(deps.claimPlannings).not.toHaveBeenCalled();
 		expect(deps.refreshAuthRecord).not.toHaveBeenCalled();
@@ -314,7 +315,7 @@ describe("runAuthTransition", () => {
 		const deps = createFakeDeps();
 		(deps.claimPlannings as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Offline"));
 
-		await expect(runAuthTransition(createContext({ portage: true }), deps)).resolves.toBeDefined();
+		await expect(runAuthTransition(createContext({ mode: "portage" }), deps)).resolves.toBeDefined();
 
 		expect(deps.refreshAuthRecord).not.toHaveBeenCalled();
 		expect(deps.db.masters.clear).not.toHaveBeenCalled();
@@ -325,7 +326,7 @@ describe("runAuthTransition", () => {
 		const deps = createFakeDeps();
 		(deps.refreshAuthRecord as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("401"));
 
-		await expect(runAuthTransition(createContext({ portage: true }), deps)).resolves.toBeDefined();
+		await expect(runAuthTransition(createContext({ mode: "portage" }), deps)).resolves.toBeDefined();
 
 		expect(deps.syncAuthData).toHaveBeenCalled();
 		expect(deps.db.masters.clear).not.toHaveBeenCalled();
@@ -343,5 +344,42 @@ describe("runAuthTransition", () => {
 		expect(deps.db.masters.clear).toHaveBeenCalled();
 		expect(deps.db.localMeta.clear).toHaveBeenCalled();
 		expect(deps.db.localMeta.bulkPut).not.toHaveBeenCalled();
+	});
+
+	// =============================================
+	// Adoption cross-fenêtre (mode: "adopt")
+	// =============================================
+
+	it("adopt : ni claim ni clear, sync et re-activation assurées, guestClaim null", async () => {
+		const deps = createFakeDeps();
+		(deps.db.localMeta.toArray as ReturnType<typeof vi.fn>).mockResolvedValue([
+			{ masterId: "master-1", currentUser: { id: "guest-1", name: "Alice", email: "" } },
+		]);
+
+		// L'onglet adopteur était sur un planning en mode guest
+		const result = await runAuthTransition(createContext({ mode: "adopt" }), deps);
+
+		expect(deps.claimPlannings).not.toHaveBeenCalled();
+		expect(deps.refreshAuthRecord).not.toHaveBeenCalled();
+		expect(deps.db.masters.clear).not.toHaveBeenCalled();
+		expect(deps.db.occurrences.clear).not.toHaveBeenCalled();
+		expect(deps.db.localMeta.clear).not.toHaveBeenCalled();
+		expect(deps.db.localMeta.bulkPut).not.toHaveBeenCalled();
+		// L'état local appartient désormais au compte : pas de snapshot
+		// de suggestion depuis la fenêtre adoptante.
+		expect(result.guestClaim).toBeNull();
+		// Le reste de la séquence s'applique : sync + subscribe + re-activation
+		expect(deps.syncAuthData).toHaveBeenCalled();
+		expect(deps.mastersCollection.subscribe).toHaveBeenCalled();
+		expect(deps.planningStore.setActiveToken).toHaveBeenCalledWith("token-123");
+	});
+
+	it("adopt : échec de syncAuthData non bloquant", async () => {
+		const deps = createFakeDeps();
+		(deps.syncAuthData as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Offline"));
+
+		await expect(runAuthTransition(createContext({ mode: "adopt" }), deps)).resolves.toBeDefined();
+
+		expect(deps.mastersCollection.subscribe).toHaveBeenCalled();
 	});
 });

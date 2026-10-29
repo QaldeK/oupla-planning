@@ -13,6 +13,14 @@ import type { SavedPlanning } from "$lib/types/planning.types";
 // Types
 // =============================================
 
+/** Modes de transition, selon l'origine du login :
+ *   - `default` : login local hors mur (navigateur) — statu quo
+ *   - `portage` : création de compte au mur, bascule acceptée
+ *   - `adopt`   : session détectée via événement `storage` (une autre fenêtre
+ *     du profil s'est connectée) — on synchronise sans toucher à l'état local,
+ *     dont la transition appartient à la fenêtre d'origine. */
+export type AuthTransitionMode = "default" | "portage" | "adopt";
+
 /** Contexte figé au moment de l'appel (snapshot de l'état courant). */
 export interface AuthTransitionContext {
 	/** Token actif (participant ou admin) — null si aucune page */
@@ -25,11 +33,9 @@ export interface AuthTransitionContext {
 	 */
 	savedPlannings: SavedPlanning[];
 	/**
-	 * Portage des plannings locaux (création de compte au mur d'authentification,
-	 * app installée, bascule acceptée). Résolu par le wrapper : origine mur +
-	 * consentement explicite. Le parcours navigateur reste toujours à `false`.
+	 * Mode résolu par le wrapper : origine du login + consentement du mur.
 	 */
-	portage: boolean;
+	mode: AuthTransitionMode;
 }
 
 /** Dépendances injectées pour la transition. */
@@ -111,10 +117,10 @@ export interface AuthTransitionResult {
  * 1. Réactiver le liveQuery global (sidebar/homepage)
  * 2. Snapshot de l'identité guest AVANT tout clear
  * 3. Unsubscribe des collections guest realtime
- * 4. Claim : tous les masters locaux si portage mur, sinon le planning courant
- *    seul (non bloquant — les tokens vivent en Dexie)
- * 5. Clear des données locales Dexie : sélectif si portage (tokens et identités
- *    guest préservés), total sinon
+ * 4. Claim : tous les masters locaux si portage mur, le planning courant seul
+ *    si défaut, rien si adoption (non bloquant — les tokens vivent en Dexie)
+ * 5. Clear des données locales : sélectif si portage (tokens et identités
+ *    guest préservés), total si défaut, aucun si adoption
  * 6. Re-sync des données du compte + marqueur de fraîcheur (non bloquant)
  * 7. Subscribe realtime global + comment state
  * 8. Re-charger le planning courant dans le bon mode (auth)
@@ -127,7 +133,7 @@ export async function runAuthTransition(
 	ctx: AuthTransitionContext,
 	deps: AuthTransitionDeps,
 ): Promise<AuthTransitionResult> {
-	const { currentToken, activeMasterId, savedPlannings, portage } = ctx;
+	const { currentToken, activeMasterId, savedPlannings, mode } = ctx;
 	const {
 		planningStore,
 		mastersCollection,
@@ -159,11 +165,12 @@ export async function runAuthTransition(
 	//      suivi d'un authRefresh pour propager `masterId`/`adminOf` au record
 	//      local — sinon les guards UI (accès admin) restent obsolètes jusqu'à
 	//      la première activation d'un planning.
-	//    - sinon : UNIQUEMENT le planning courant (si sur /p ou /admin) —
+	//    - défaut : UNIQUEMENT le planning courant (si sur /p ou /admin) —
 	//      statu quo du parcours navigateur.
+	//    - adoption : aucun claim — la fenêtre d'origine possède la transition.
 	//    Échec non bloquant — les tokens vivent en Dexie et la prochaine
 	//    activation/sync retentera le claim.
-	if (portage) {
+	if (mode === "portage") {
 		const claimable = (await db.masters.toArray()).filter(isPortageCandidate);
 		if (claimable.length > 0) {
 			try {
@@ -177,7 +184,7 @@ export async function runAuthTransition(
 				console.error("Batch claim failed (non-blocking):", err);
 			}
 		}
-	} else if (currentToken && activeMasterId) {
+	} else if (mode === "default" && currentToken && activeMasterId) {
 		// Résoudre le master depuis Dexie (pas encore clearée à ce stade)
 		// pour extraire participantToken et adminToken nécessaires au endpoint.
 		const activeMaster = await db.masters.get(activeMasterId);
@@ -198,11 +205,13 @@ export async function runAuthTransition(
 
 	// 5. Clear local :
 	//    - portage mur : sélectif — occurrences et commentState sont des caches
-	//      re-remplis par la sync, mais les masters (tokens d'accès) et les
-	//      identités guest (`currentUser`, seule donnée non reconstruisible)
-	//      survivent. `lastFetchAt`/`hasQuit` sont jetables ou re-dérivables.
-	//    - sinon : total (statu quo).
-	if (portage) {
+	//      re-remplis par la sync, mais les masters (tokens d'accès, la sidebar
+	//      vit dessus) et les identités guest (`currentUser`, seule donnée non
+	//      reconstruisible) survivent. `lastFetchAt`/`hasQuit` sont jetables ou
+	//      re-dérivables.
+	//    - défaut : total (statu quo).
+	//    - adoption : aucun — l'état local appartient désormais au compte.
+	if (mode === "portage") {
 		await Promise.all([db.occurrences.clear(), db.commentState.clear()]);
 		const identities = (await db.localMeta.toArray())
 			.filter((row) => row.currentUser)
@@ -211,20 +220,23 @@ export async function runAuthTransition(
 		if (identities.length > 0) {
 			await db.localMeta.bulkPut(identities);
 		}
-	} else {
+	} else if (mode === "default") {
 		await Promise.all([db.masters.clear(), db.occurrences.clear(), db.commentState.clear()]);
 		await db.localMeta.clear();
 	}
 
 	// Construction du guestClaim APRÈS le clear de savedPlannings,
 	// consommable par la page /p/[token] pour ouvrir le modal de suggestion.
-	const guestClaim = guestIdentity
-		? {
-				masterId: activeMasterId,
-				participantId: guestIdentity.id,
-				name: guestIdentity.name,
-			}
-		: null;
+	// Jamais en adoption : la fenêtre adoptante ne doit pas proposer la fusion —
+	// c'est à la fenêtre d'origine de la transition.
+	const guestClaim =
+		mode !== "adopt" && guestIdentity
+			? {
+					masterId: activeMasterId,
+					participantId: guestIdentity.id,
+					name: guestIdentity.name,
+				}
+			: null;
 
 	// 6. Re-sync complète des données du compte (ADR 0017) + marqueur de fraîcheur
 	// — le post-login doit converger vers le serveur même après un trou SSE.

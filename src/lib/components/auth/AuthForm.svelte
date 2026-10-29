@@ -3,6 +3,7 @@
 	import { ClientResponseError } from "pocketbase";
 	import { toast } from "svelte-sonner";
 	import * as m from "$lib/paraglide/messages.js";
+	import { authTransition } from "$lib/stores/authTransition.svelte";
 	import { pb } from "$lib/pocketbase/pb";
 
 	interface Props {
@@ -135,6 +136,11 @@
 		errorMsg = "";
 
 		try {
+			// Fanion login local : consommé par la transition via authStore.onChange.
+			// Sans lui, un login détecté via l'événement storage du SDK (une autre
+			// fenêtre du profil) déclencherait une transition destructive ici.
+			authTransition.markLocalAuth();
+
 			if (mode === "register") {
 				// Si le nom n'est pas renseigné, extraire la partie avant '@' de l'email
 				const userName = localName.trim() || email.split("@")[0];
@@ -164,6 +170,9 @@
 
 			if (onSuccess) onSuccess();
 		} catch (error: unknown) {
+			// Le login local n'a pas eu lieu : ne pas laisser le fanion armé
+			// déclencher un portage sur un futur login adopté d'une autre fenêtre.
+			authTransition.clearLocalAuth();
 			if (error instanceof ClientResponseError) {
 				console.error("Auth error", error);
 				errorMsg = error.response?.message || m.auth_unexpected_error();

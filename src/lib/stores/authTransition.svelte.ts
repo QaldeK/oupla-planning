@@ -20,7 +20,7 @@ import { installStore } from "$lib/stores/installStore.svelte";
 import { planningStore } from "$lib/stores/planningStore.svelte";
 import { userStore } from "$lib/stores/userStore.svelte";
 import { pb } from "$lib/pocketbase/pb";
-import type { AuthTransitionResult } from "$lib/utils/authTransition";
+import type { AuthTransitionMode, AuthTransitionResult } from "$lib/utils/authTransition";
 import { runAuthTransition } from "$lib/utils/authTransition";
 
 class AuthTransitionWrapper {
@@ -55,6 +55,26 @@ class AuthTransitionWrapper {
 	wallPortageConsent = $state(false);
 
 	/**
+	 * Fanion « login initié dans CETTE fenêtre » — posé par les surfaces de
+	 * connexion (AuthForm) juste avant `authWithPassword`, consommé par la
+	 * transition. Sans lui, la session est arrivée par l'événement `storage`
+	 * du SDK (une autre fenêtre du profil s'est connectée) : la transition
+	 * passe en mode adoption — sync sans destruction, l'état local appartient
+	 * désormais au compte.
+	 */
+	localAuthPending = $state(false);
+
+	/** Pose le fanion login local. À appeler avant `authWithPassword`. */
+	markLocalAuth(): void {
+		this.localAuthPending = true;
+	}
+
+	/** Retire le fanion si le login local a échoué. */
+	clearLocalAuth(): void {
+		this.localAuthPending = false;
+	}
+
+	/**
 	 * Déclenche la transition guest → auth.
 	 * Appelé par le callback pb.authStore.onChange de userStore.
 	 * Les erreurs sont catchées en interne — l'appelant reste protégé.
@@ -63,10 +83,15 @@ class AuthTransitionWrapper {
 		// Guard : empêche les $effect des pages de réagir à un état intermédiaire
 		this.isTransitioning = true;
 
-		// Portage mur : double garde — l'origine (app installée : le mur est la
-		// seule surface de login en contexte standalone) ET le consentement
-		// explicite. Consommé ici, atomiquement avec la lecture.
-		const portage = installStore.isInstalled && this.wallPortageConsent;
+		// Résolution du mode : fanion login local consommé ici, atomiquement
+		// avec la lecture ; sans lui, la session arrive d'une autre fenêtre.
+		const local = this.localAuthPending;
+		this.localAuthPending = false;
+		const mode: AuthTransitionMode = !local
+			? "adopt"
+			: installStore.isInstalled && this.wallPortageConsent
+				? "portage"
+				: "default";
 		this.wallPortageConsent = false;
 
 		try {
@@ -90,17 +115,18 @@ class AuthTransitionWrapper {
 				currentToken: planningStore.currentToken,
 				activeMasterId: planningStore.activeMasterId,
 				savedPlannings: guestStateStore.guestStates,
-				portage,
+				mode,
 			};
 
 			const result: AuthTransitionResult = await runAuthTransition(ctx, deps);
 			this.pendingGuestClaim = result.guestClaim;
 			// Pas de cleanup Dexie ici : runAuthTransition a déjà fait le teardown
-			// (étape 5 vide db.localMeta — sauf portage, où les identités guest
-			// survivent délibérément comme indice de suggestion durable).
-			// Le marqueur lastFetchAt (ré)écrit ultérieurement par planningStore lors
-			// d'une activation ou re-sync doit pouvoir coexister sans être wipe hors
-			// du périmètre de guestStateStore (modèle de propriété ADR 0009).
+			// (étape 5 : clear total en défaut, sélectif en portage — les identités
+			// guest survivent comme indice de suggestion durable —, rien en
+			// adoption). Le marqueur lastFetchAt (ré)écrit ultérieurement par
+			// planningStore lors d'une activation ou re-sync doit pouvoir
+			// coexister sans être wipe hors du périmètre de guestStateStore
+			// (modèle de propriété ADR 0009).
 		} catch (err) {
 			console.error("transitionToAuth failed:", err);
 		} finally {

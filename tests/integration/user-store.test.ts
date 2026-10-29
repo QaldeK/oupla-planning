@@ -312,6 +312,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			userStore.isLoggedIn = true;
 
 			// === ACTION ===
+			authTransition.markLocalAuth();
 			await authTransition.transitionToAuth();
 
 			// Attendre que la sync complète : Dexie clearé puis re-rempli via initialFetch
@@ -365,6 +366,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			userStore.lastAuthSyncAt = null;
 
 			// === ACTION ===
+			authTransition.markLocalAuth();
 			await authTransition.transitionToAuth();
 
 			// === VERIFICATION ===
@@ -402,6 +404,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			userStore.isLoggedIn = true;
 
 			// === ACTION ===
+			authTransition.markLocalAuth();
 			await authTransition.transitionToAuth();
 
 			// === VERIFICATION POCKETBASE ===
@@ -453,6 +456,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			userStore.isLoggedIn = true;
 
 			// === ACTION ===
+			authTransition.markLocalAuth();
 			await authTransition.transitionToAuth();
 
 			await vi.waitFor(
@@ -531,6 +535,9 @@ describe("userStore — identity, auth transitions, logout", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 			userStore.isLoggedIn = true;
 			installStore.isInstalled = true;
+			// Le fanion simule le submit du mur : sans lui, la transition
+			// passerait en mode adoption (sync sans destruction).
+			authTransition.markLocalAuth();
 			authTransition.wallPortageConsent = true;
 
 			// === ACTION ===
@@ -573,6 +580,52 @@ describe("userStore — identity, auth transitions, logout", () => {
 			planningStore.destroy();
 		});
 
+		it("adoption cross-fenêtre : sync sans claim ni destruction", async () => {
+			// Une autre fenêtre du profil s'est connectée : l'événement storage
+			// du SDK fait passer CETTE fenêtre par authStore.onChange. Sans fanion
+			// login local, la transition adopte la session sans toucher à l'état
+			// local — le claim et le clear appartiennent à la fenêtre d'origine.
+
+			// === SEED ===
+			const { master, participantToken } = await seedPlanning({ title: "Adopt Session" });
+			const user = await seedUser(USER_EMAIL, USER_PWD, "Adopt User"); // sans masterIds
+			trackIds("users", user.id);
+
+			// État local d'un invité : master en Dexie + identité + curseur
+			await db.masters.put({ ...master, participantToken });
+			await db.localMeta.put({
+				masterId: master.id,
+				currentUser: { id: "guest-1", name: "Alice", email: "" },
+				lastFetchAt: "2026-10-29T00:00:00.000Z",
+			});
+
+			// === AUTH : session détectée SANS fanion (storage event simulé) ===
+			const userPb = await authenticateUser(USER_EMAIL, USER_PWD);
+			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
+			userStore.isLoggedIn = true;
+
+			await authTransition.transitionToAuth();
+
+			// === VERIFICATION DEXIE : rien n'a été détruit ===
+			expect(await db.masters.get(master.id)).toBeDefined();
+			const meta = await db.localMeta.get(master.id);
+			expect(meta?.currentUser).toEqual({ id: "guest-1", name: "Alice", email: "" });
+			expect(meta?.lastFetchAt).toBe("2026-10-29T00:00:00.000Z");
+
+			// === VERIFICATION POCKETBASE : aucun claim (l'origine le possède) ===
+			const adminPb = await authenticateAdmin();
+			const pbUser = await adminPb.collection("users").getOne(user.id);
+			expect(pbUser.masterId).toEqual([]);
+
+			// === VERIFICATION : la session est bien adoptée ===
+			expect(userStore.isLoggedIn).toBe(true);
+
+			// Cleanup
+			pb.authStore.clear();
+			userStore.isLoggedIn = false;
+			planningStore.destroy();
+		});
+
 		it("préserve un curseur lastFetchAt coexistant après la transition guest→auth", async () => {
 			// Garde-fou du contrat de coexistence multi-écrivains sur localMeta
 			// (ADR 0009) : guestStateStore (currentUser/hasQuit) et planningStore
@@ -599,6 +652,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			pb.authStore.save(userPb.authStore.token, userPb.authStore.record);
 			userStore.isLoggedIn = true;
 
+			authTransition.markLocalAuth();
 			await authTransition.transitionToAuth();
 			await vi.waitFor(
 				async () => {
@@ -676,6 +730,7 @@ describe("userStore — identity, auth transitions, logout", () => {
 			userStore.isLoggedIn = true;
 
 			// === ACTION ===
+			authTransition.markLocalAuth();
 			await authTransition.transitionToAuth();
 
 			// === VERIFICATION DEXIE ===
