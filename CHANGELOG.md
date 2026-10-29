@@ -7,6 +7,68 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-10-29
+
+### Fonctionnalités
+
+- **Application installée — compte obligatoire** — l'app installée (PWA) affiche
+  désormais un écran d'authentification plein écran quand aucune session n'est
+  active, avec les bénéfices du compte et le titre du planning invité. Sans
+  compte, les notifications seraient de toute façon muettes. L'usage dans le
+  navigateur reste possible sans compte.
+- **Reprise des plannings locaux** — les plannings créés en invité sont
+  rattachés au compte au moment de sa création depuis ce même écran.
+- **Session entre fenêtres** — une seconde fenêtre du navigateur retrouve la
+  session existante au lieu de rejouer la transition d'identité.
+- **Rejoindre un planning** — nouveau bouton et fenêtre de saisie pour ouvrir un
+  lien de partage (URL complète, chemin relatif ou jeton seul), accessible aussi
+  depuis l'app installée qui n'a pas de barre d'adresse.
+- **Identité du participant** — l'identité s'affiche comme un badge au lieu d'un
+  bouton.
+- **Notifications — suivi par destinataire** — e-mail et notification push sont
+  suivis séparément pour chaque destinataire : un seul e-mail par événement,
+  même si une adresse rejette le message, et les rappels push du jour J partent
+  dès le premier passage indépendamment de l'état du serveur mail.
+- **Installation PWA** — l'invitation à installer est masquée quand l'app est
+  déjà présente sur l'appareil, avec une expérience d'installation remaniée et
+  des instructions iOS / Android corrigées (dont Firefox Android et iPadOS).
+
+### Corrections
+
+- **Déconnexion** — confirmation demandée avant d'effacer la session locale, avec
+  un avertissement spécifique dans l'app installée.
+- **Écran d'authentification** — le contexte de planning y est neutre et l'écran
+  redevient prioritaire sur le contenu quand aucune session n'existe.
+- **Mises à jour PWA** — le rechargement après mise à jour survient dans la
+  fenêtre concernée et ne fait plus échouer l'écran d'authentification.
+- **Notifications** — l'issue réelle d'une remise (succès comme échec) est
+  enregistrée au lieu d'un état supposé ; le rappel quotidien est fixé à 08 h
+  UTC.
+- **Revendication d'identité** — refuser une revendication ne rejoue plus la
+  même suggestion en boucle.
+- **Paramètres** — les informations de compte (planning administré, planning
+  actif) sont de nouveau exposées et le bouton de connexion est corrigé.
+- **Enregistrement des modifications** — les écritures utilisent le jeton
+  administrateur détenu par la session, et non le jeton de la page.
+- **Annulation d'occurrence** — les boutons d'annulation et de réactivation ne
+  déclenchent plus l'envoi implicite du formulaire.
+- **Archive** — la page archive occupe de nouveau toute la largeur disponible.
+
+### Maintenance
+
+- **Refactoring** — propriétaire unique de la séquence post-authentification et
+  suppression du cache mémoire de jetons ; producteur unique pour l'événement de
+  notification ; actions planning découpées en `occurrenceDiff`, `mutations` et
+  `reads` ; workflow de réponse aux occurrences regroupé.
+- **Synchronisation** — écritures multi-collections atomiques avec réconciliation
+  Dexie, protégées par un garde de graphe d'imports.
+- **Outillage** — Biome et Prettier remplacés par le formateur natif `bun fmt` ;
+  génération des types PocketBase derrière une option explicite.
+- **Tests** — couverture d'intégration étendue (notifications, identités,
+  synchronisation).
+- **Documentation** — documentation d'architecture versionnée dans
+  `docs/architecture/`, ADR, glossaire et vocabulaire d'identité mis à jour.
+
 ## [0.7.0] — 2026-10-15
 
 ### Fonctionnalités
